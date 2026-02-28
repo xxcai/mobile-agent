@@ -117,6 +117,22 @@ public class MainPresenter implements MainContract.Presenter {
             return;
         }
 
+        // 创建用户消息
+        Message userMessage = new Message();
+        userMessage.setRole("user");
+        userMessage.setContent(content);
+        userMessage.setTimestamp(System.currentTimeMillis());
+
+        // 先通知 View 显示用户消息
+        if (view != null) {
+            mainHandler.post(() -> view.onUserMessageSent(userMessage));
+        }
+
+        // 显示思考中提示
+        if (view != null) {
+            mainHandler.post(() -> view.showThinking());
+        }
+
         if (view != null) {
             mainHandler.post(() -> view.showLoading());
         }
@@ -128,6 +144,7 @@ public class MainPresenter implements MainContract.Presenter {
 
                 if (view != null) {
                     mainHandler.post(() -> {
+                        view.hideThinking();
                         view.hideLoading();
                         view.onMessageReceived(response);
                     });
@@ -135,6 +152,7 @@ public class MainPresenter implements MainContract.Presenter {
             } catch (Exception e) {
                 if (view != null) {
                     mainHandler.post(() -> {
+                        view.hideThinking();
                         view.hideLoading();
                         view.onError("发送消息失败: " + e.getMessage());
                     });

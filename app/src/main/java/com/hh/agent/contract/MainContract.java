@@ -23,6 +23,11 @@ public interface MainContract {
         void onMessageReceived(Message message);
 
         /**
+         * 用户消息已发送
+         */
+        void onUserMessageSent(Message message);
+
+        /**
          * 显示错误
          */
         void onError(String error);
@@ -36,6 +41,16 @@ public interface MainContract {
          * 隐藏加载状态
          */
         void hideLoading();
+
+        /**
+         * 显示思考中提示
+         */
+        void showThinking();
+
+        /**
+         * 隐藏思考中提示
+         */
+        void hideThinking();
     }
 
     /**

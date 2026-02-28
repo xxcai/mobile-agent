@@ -3,6 +3,7 @@ package com.hh.agent.ui;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -18,23 +19,50 @@ import java.util.Locale;
 /**
  * 消息列表的 RecyclerView 适配器
  */
-public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
+public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+
+    public static final int VIEW_TYPE_USER = 0;
+    public static final int VIEW_TYPE_ASSISTANT = 1;
+    public static final int VIEW_TYPE_THINKING = 2;
 
     private List<Message> messages = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
     @NonNull
     @Override
-    public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_message, parent, false);
-        return new MessageViewHolder(view, timeFormat);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+
+        if (viewType == VIEW_TYPE_USER) {
+            View view = inflater.inflate(R.layout.item_message_user, parent, false);
+            return new MessageViewHolder(view, timeFormat);
+        } else if (viewType == VIEW_TYPE_THINKING) {
+            View view = inflater.inflate(R.layout.item_thinking, parent, false);
+            return new ThinkingViewHolder(view);
+        } else {
+            View view = inflater.inflate(R.layout.item_message, parent, false);
+            return new MessageViewHolder(view, timeFormat);
+        }
     }
 
     @Override
-    public void onBindViewHolder(@NonNull MessageViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
-        holder.bind(message);
+        if (holder instanceof MessageViewHolder) {
+            ((MessageViewHolder) holder).bind(message);
+        }
+    }
+
+    @Override
+    public int getItemViewType(int position) {
+        Message message = messages.get(position);
+        if ("thinking".equals(message.getRole())) {
+            return VIEW_TYPE_THINKING;
+        } else if ("user".equals(message.getRole())) {
+            return VIEW_TYPE_USER;
+        } else {
+            return VIEW_TYPE_ASSISTANT;
+        }
     }
 
     @Override
@@ -59,6 +87,20 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     /**
+     * 移除思考中的提示消息
+     */
+    public void removeThinkingMessage() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("thinking".equals(msg.getRole())) {
+                messages.remove(i);
+                notifyItemRemoved(i);
+                return;
+            }
+        }
+    }
+
+    /**
      * 清空消息列表
      */
     public void clear() {
@@ -67,7 +109,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     /**
-     * ViewHolder 类
+     * 普通消息 ViewHolder
      */
     static class MessageViewHolder extends RecyclerView.ViewHolder {
 
@@ -88,10 +130,9 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             tvContent.setText(message.getContent());
             tvTimestamp.setText(timeFormat.format(new Date(message.getTimestamp())));
 
-            // 设置角色标签
             String role = message.getRole();
             if ("user".equals(role)) {
-                tvRole.setText("用户");
+                tvRole.setText("我");
             } else if ("assistant".equals(role)) {
                 tvRole.setText("助手");
             } else if ("system".equals(role)) {
@@ -99,6 +140,16 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             } else {
                 tvRole.setText(role);
             }
+        }
+    }
+
+    /**
+     * 思考中 ViewHolder
+     */
+    static class ThinkingViewHolder extends RecyclerView.ViewHolder {
+
+        ThinkingViewHolder(@NonNull View itemView) {
+            super(itemView);
         }
     }
 }

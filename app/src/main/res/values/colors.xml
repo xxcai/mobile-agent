@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色调 -->
+    <color name="primary">#6200EE</color>
+    <color name="primary_dark">#3700B3</color>
+
+    <!-- 消息气泡颜色 -->
+    <color name="user_message_bg">#DCF8C6</color>
+    <color name="user_message_text">#000000</color>
+
+    <color name="assistant_message_bg">#FFFFFF</color>
+    <color name="assistant_message_text">#333333</color>
+
+    <color name="system_message_bg">#FFF3E0</color>
+
+    <!-- 背景色 -->
+    <color name="background">#ECE5DD</color>
+    <color name="input_background">#FFFFFF</color>
+</resources>

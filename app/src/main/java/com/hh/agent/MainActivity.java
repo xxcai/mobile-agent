@@ -1,11 +1,11 @@
 package com.hh.agent;
 
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.contract.MainContract;
@@ -22,7 +22,8 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
 
     private RecyclerView rvMessages;
     private EditText etMessage;
-    private Button btnSend;
+    private ImageButton btnSend;
+    private Toolbar toolbar;
     private MessageAdapter adapter;
     private MainPresenter presenter;
 
@@ -43,9 +44,13 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
     }
 
     private void initViews() {
+        toolbar = findViewById(R.id.toolbar);
         rvMessages = findViewById(R.id.rvMessages);
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
+
+        // 设置 Toolbar
+        setSupportActionBar(toolbar);
 
         // 设置 RecyclerView
         adapter = new MessageAdapter();
@@ -77,6 +82,13 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
     }
 
     @Override
+    public void onUserMessageSent(Message message) {
+        adapter.addMessage(message);
+        // 滚动到底部
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
     public void onError(String error) {
         Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
     }
@@ -89,6 +101,21 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
     @Override
     public void hideLoading() {
         btnSend.setEnabled(true);
+    }
+
+    @Override
+    public void showThinking() {
+        Message thinkingMsg = new Message();
+        thinkingMsg.setRole("thinking");
+        thinkingMsg.setContent("Nanobot 正在思考...");
+        thinkingMsg.setTimestamp(System.currentTimeMillis());
+        adapter.addMessage(thinkingMsg);
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
+    public void hideThinking() {
+        adapter.removeThinkingMessage();
     }
 
     @Override
