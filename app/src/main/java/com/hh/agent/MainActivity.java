@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
         setSupportActionBar(toolbar);
 
         // 设置 RecyclerView
-        adapter = new MessageAdapter();
+        adapter = new MessageAdapter(this);
         rvMessages.setLayoutManager(new LinearLayoutManager(this));
         rvMessages.setAdapter(adapter);
 
