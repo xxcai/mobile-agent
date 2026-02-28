@@ -1,33 +1,100 @@
 package com.hh.agent;
 
 import android.os.Bundle;
-import android.widget.TextView;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.hh.agent.lib.NativeLib;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import com.hh.agent.contract.MainContract;
+import com.hh.agent.lib.model.Message;
+import com.hh.agent.presenter.MainPresenter;
+import com.hh.agent.ui.MessageAdapter;
 
-public class MainActivity extends AppCompatActivity {
+import java.util.List;
+
+/**
+ * 主界面 Activity
+ */
+public class MainActivity extends AppCompatActivity implements MainContract.View {
+
+    private RecyclerView rvMessages;
+    private EditText etMessage;
+    private Button btnSend;
+    private MessageAdapter adapter;
+    private MainPresenter presenter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        NativeLib nativeLib = new NativeLib();
+        // 初始化视图
+        initViews();
 
-        String helloFromCpp = nativeLib.stringFromJNI();
-        int sum = nativeLib.add(5, 3);
-        String message = nativeLib.getMessage();
+        // 初始化 Presenter
+        presenter = new MainPresenter();
+        presenter.attachView(this);
 
-        String result = "Hello World\n\n" +
-                "C++ Test:\n" +
-                "stringFromJNI: " + helloFromCpp + "\n" +
-                "add(5, 3): " + sum + "\n" +
-                "getMessage: " + message;
+        // 加载历史消息
+        presenter.loadMessages();
+    }
 
-        TextView textView = new TextView(this);
-        textView.setTextSize(18);
-        textView.setText(result);
-        textView.setPadding(50, 50, 50, 50);
+    private void initViews() {
+        rvMessages = findViewById(R.id.rvMessages);
+        etMessage = findViewById(R.id.etMessage);
+        btnSend = findViewById(R.id.btnSend);
 
-        setContentView(textView);
+        // 设置 RecyclerView
+        adapter = new MessageAdapter();
+        rvMessages.setLayoutManager(new LinearLayoutManager(this));
+        rvMessages.setAdapter(adapter);
+
+        // 设置发送按钮点击事件
+        btnSend.setOnClickListener(v -> {
+            String content = etMessage.getText().toString().trim();
+            if (!content.isEmpty()) {
+                presenter.sendMessage(content);
+                etMessage.setText(""); // 清空输入框
+            }
+        });
+    }
+
+    @Override
+    public void onMessagesLoaded(List<Message> messages) {
+        adapter.setMessages(messages);
+        // 滚动到底部
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
+    public void onMessageReceived(Message message) {
+        adapter.addMessage(message);
+        // 滚动到底部
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
+    public void onError(String error) {
+        Toast.makeText(this, error, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void showLoading() {
+        btnSend.setEnabled(false);
+    }
+
+    @Override
+    public void hideLoading() {
+        btnSend.setEnabled(true);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        presenter.detachView();
+        presenter.destroy();
     }
 }
