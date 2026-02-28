@@ -4,6 +4,8 @@ import android.os.Handler;
 import android.os.Looper;
 import com.hh.agent.contract.MainContract;
 import com.hh.agent.lib.api.NanobotApi;
+import com.hh.agent.lib.config.NanobotConfig;
+import com.hh.agent.lib.http.HttpNanobotApi;
 import com.hh.agent.lib.impl.MockNanobotApi;
 import com.hh.agent.lib.model.Message;
 
@@ -16,24 +18,64 @@ import java.util.concurrent.Executors;
  */
 public class MainPresenter implements MainContract.Presenter {
 
+    /**
+     * API 类型枚举
+     */
+    public enum ApiType {
+        MOCK,   // Mock 实现
+        HTTP    // HTTP 调用 nanobot
+    }
+
     private MainContract.View view;
     private final NanobotApi nanobotApi;
     private final ExecutorService executor;
     private final Handler mainHandler;
     private final String sessionKey;
 
+    /**
+     * 默认构造函数，使用 Mock API
+     */
     public MainPresenter() {
-        this.nanobotApi = new MockNanobotApi();
-        this.executor = Executors.newSingleThreadExecutor();
-        this.mainHandler = new Handler(Looper.getMainLooper());
-        this.sessionKey = "cli:default";
+        this(ApiType.HTTP, "http:default");
     }
 
+    /**
+     * 指定 API 类型
+     *
+     * @param apiType   API 类型 (MOCK 或 HTTP)
+     * @param sessionKey 会话 key
+     */
+    public MainPresenter(ApiType apiType, String sessionKey) {
+        this.nanobotApi = createApi(apiType);
+        this.executor = Executors.newSingleThreadExecutor();
+        this.mainHandler = new Handler(Looper.getMainLooper());
+        this.sessionKey = sessionKey;
+    }
+
+    /**
+     * 指定自定义 NanobotApi
+     *
+     * @param nanobotApi 自定义 API 实现
+     * @param sessionKey 会话 key
+     */
     public MainPresenter(NanobotApi nanobotApi, String sessionKey) {
         this.nanobotApi = nanobotApi;
         this.executor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.sessionKey = sessionKey;
+    }
+
+    /**
+     * 创建 API 实例
+     */
+    private NanobotApi createApi(ApiType apiType) {
+        switch (apiType) {
+            case HTTP:
+                return new HttpNanobotApi();
+            case MOCK:
+            default:
+                return new MockNanobotApi();
+        }
     }
 
     @Override
