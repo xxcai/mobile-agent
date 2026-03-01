@@ -98,3 +98,7 @@ cmake-build-*/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Vue node_modules
+vue/node_modules/
+vue/dist/
