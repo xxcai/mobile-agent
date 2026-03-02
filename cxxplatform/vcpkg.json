@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "icraw",
+  "version": "1.0.0",
+  "description": "Mobile AI Agent library for cross-platform use",
+  "dependencies": [
+    "nlohmann-json",
+    {
+      "name": "sqlite3",
+      "features": ["fts5", "json1"]
+    },
+    "catch2",
+    "curl",
+    "zlib",
+    "spdlog"
+  ]
+}
