@@ -17,6 +17,7 @@ class AgentConan(ConanFile):
 
     def configure(self):
         self.options["spdlog"].header_only = True
+        self.options["spdlog"].fmt = "bundled"
         self.options["libcurl"].shared = True
         self.options["zlib"].shared = True
         self.options["sqlite3"].shared = True
