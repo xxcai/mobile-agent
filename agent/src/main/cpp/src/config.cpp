@@ -383,19 +383,27 @@ std::string IcrawConfig::expand_home(const std::string& path) {
 
 std::filesystem::path IcrawConfig::default_workspace_path() {
     std::string home;
-    
+
 #ifdef _WIN32
     char buffer[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_PROFILE, NULL, 0, buffer))) {
         home = buffer;
     }
+#elif defined(__ANDROID__)
+    // On Android, use the app's internal storage directory
+    return std::filesystem::path("/data/data/com.hh.agent/files") / ".icraw" / "workspace";
 #else
     const char* home_env = std::getenv("HOME");
     if (home_env) {
         home = home_env;
     }
 #endif
-    
+
+    if (home.empty()) {
+        // Fallback if no home directory found
+        return std::filesystem::path("/tmp") / ".icraw" / "workspace";
+    }
+
     return std::filesystem::path(home) / ".icraw" / "workspace";
 }
 

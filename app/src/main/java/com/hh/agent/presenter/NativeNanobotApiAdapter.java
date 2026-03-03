@@ -24,7 +24,14 @@ public class NativeNanobotApiAdapter implements NanobotApi {
      * 初始化 Native Agent
      */
     public void initialize(String configPath) {
-        nativeApi.initialize(configPath);
+        try {
+            // 先尝试加载 native 库
+            System.loadLibrary("icraw");
+            // 初始化 Native Agent
+            nativeApi.initialize(configPath);
+        } catch (UnsatisfiedLinkError e) {
+            throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
+        }
     }
 
     @Override

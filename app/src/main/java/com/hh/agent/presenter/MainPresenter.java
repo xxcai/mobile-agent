@@ -74,10 +74,16 @@ public class MainPresenter implements MainContract.Presenter {
             case HTTP:
                 return new HttpNanobotApi();
             case NATIVE:
-                NativeNanobotApiAdapter adapter = new NativeNanobotApiAdapter();
-                // 初始化 Native Agent（使用空配置路径）
-                adapter.initialize("");
-                return adapter;
+                try {
+                    NativeNanobotApiAdapter adapter = new NativeNanobotApiAdapter();
+                    // 初始化 Native Agent（使用空配置路径）
+                    adapter.initialize("");
+                    return adapter;
+                } catch (Exception e) {
+                    // 如果初始化失败，回退到 Mock API
+                    android.util.Log.e("MainPresenter", "Failed to initialize Native API: " + e.getMessage(), e);
+                    return new MockNanobotApi();
+                }
             case MOCK:
             default:
                 return new MockNanobotApi();
