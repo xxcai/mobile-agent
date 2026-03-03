@@ -1,0 +1,9 @@
+{
+  "provider": {
+    "apiKey": "YOUR_API_KEY_HERE",
+    "baseUrl": "https://api.minimaxi.com/anthropic"
+  },
+  "agent": {
+    "model": "MiniMax-Text-01"
+  }
+}

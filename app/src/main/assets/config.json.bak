@@ -1,0 +1,9 @@
+{
+  "provider": {
+    "apiKey": "sk-cp-a_SwtJHrc29kCYn2FPoK-AcuWOxr05sfd0pu_oBOISsq7orwnVDrCdzYRi_8_zCO3ydY_yW-h-JsxL6SGSKe7nItY18jlV_Rp856_ptjou7DlO8yLSgk13o",
+    "baseUrl": "https://api.minimaxi.com/anthropic"
+  },
+  "agent": {
+    "model": "MiniMax-Text-01"
+  }
+}
