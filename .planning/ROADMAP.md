@@ -12,7 +12,7 @@
 ## Phases
 
 - [x] **Phase 1: Build System & Agent Core** - C++ NDK 编译环境和 Agent 引擎基础 (completed 2026-03-03)
-- [ ] **Phase 2: JNI Bridge** - Java ↔ C++ 双向通信层
+- [x] **Phase 2: JNI Bridge** - Java ↔ C++ 双向通信层 (completed 2026-03-03)
 - [ ] **Phase 3: API Integration** - NativeNanobotApi 实现替换 HTTP
 
 ---
@@ -52,7 +52,7 @@
   3. C++ 层的日志 (LOGD/LOGE) 输出到 Android logcat
   4. JNI 层正确处理字符串和对象引用生命周期
 
-**Plans:** TBD
+**Plans:** 1/1 complete ✓
 
 ---
 
@@ -90,8 +90,8 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build System & Agent Core | 1/2 | Wave 2a complete | SYS-01, SYS-02, SYS-03 |
-| 2. JNI Bridge | 0/1 | Not started | - |
+| 1. Build System & Agent Core | 3/3 | Complete | SYS-01, SYS-02, SYS-03 |
+| 2. JNI Bridge | 1/1 | Complete | JNI-01, JNI-02, JNI-03 |
 | 3. API Integration | 0/1 | Not started | - |
 
 ---
