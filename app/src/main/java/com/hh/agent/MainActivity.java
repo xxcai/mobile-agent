@@ -35,8 +35,8 @@ public class MainActivity extends AppCompatActivity implements MainContract.View
         // 初始化视图
         initViews();
 
-        // 初始化 Presenter
-        presenter = new MainPresenter();
+        // 初始化 Presenter，使用 Native C++ Agent
+        presenter = new MainPresenter(MainPresenter.ApiType.NATIVE, "native:default");
         presenter.attachView(this);
 
         // 加载历史消息

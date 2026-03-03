@@ -23,7 +23,8 @@ public class MainPresenter implements MainContract.Presenter {
      */
     public enum ApiType {
         MOCK,   // Mock 实现
-        HTTP    // HTTP 调用 nanobot
+        HTTP,   // HTTP 调用 nanobot
+        NATIVE  // Native C++ Agent
     }
 
     private MainContract.View view;
@@ -72,6 +73,11 @@ public class MainPresenter implements MainContract.Presenter {
         switch (apiType) {
             case HTTP:
                 return new HttpNanobotApi();
+            case NATIVE:
+                NativeNanobotApiAdapter adapter = new NativeNanobotApiAdapter();
+                // 初始化 Native Agent（使用空配置路径）
+                adapter.initialize("");
+                return adapter;
             case MOCK:
             default:
                 return new MockNanobotApi();
