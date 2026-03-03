@@ -9,6 +9,12 @@
 
 This phase focuses on setting up the C++ build environment for Android NDK and ensuring the cxxplatform code compiles into a usable `.so` library. The key requirements are AGEN-01, AGEN-02, AGEN-03, SYS-01, SYS-02, and SYS-03.
 
+**USER-EXPLICIT PRIORITY (2026-03-03):**
+1. **First Priority**: Complete Conan dependency installation and compilation, verify build passes
+2. **Second Priority**: Perform cxxplatform porting, verify compilation after porting
+
+This priority order must be followed for all implementation activities.
+
 ---
 
 ## 1. Requirements Analysis
@@ -27,7 +33,13 @@ This phase focuses on setting up the C++ build environment for Android NDK and e
 ### Dependencies Between Requirements
 
 ```
+Priority 1: CONAN SETUP (DO FIRST)
+    |
+    v
 SYS-01, SYS-02 (Build System)
+    |
+    v
+Priority 2: PORTING (DO SECOND)
     |
     v
 AGEN-01 (Compile in NDK)
@@ -36,8 +48,13 @@ AGEN-01 (Compile in NDK)
 AGEN-02 (Basic conversation loop)
     |
     v
-AGEN-03 (JNI communication)
+AGEN-03 (JNI communication - Phase 2)
 ```
+
+**Implementation Order Enforcement:**
+1. Complete all Conan dependency setup (Phase 1a) before touching cxxplatform code
+2. Verify Conan install/build works before porting
+3. Only then proceed to cxxplatform porting (Phase 1b)
 
 **Note:** AGEN-03 (JNI) is listed in Phase 1 context but the requirements trace shows it in Phase 2. For Phase 1, focus on building the C++ library that can be called via JNI.
 
@@ -176,7 +193,149 @@ Based on cxxplatform requirements:
 
 ## 3. Implementation Approach
 
-### 3.1 Build System Setup
+**IMPORTANT:** Per user instruction, implementation MUST follow this two-phase approach:
+
+1. **Phase 1a (CONAN FIRST)**: Complete all Conan dependency setup, installation, and verification
+2. **Phase 1b (PORTING SECOND)**: After Conan works, perform cxxplatform porting
+
+### 3.1 Phase 1a: Conan Dependency Setup (FIRST PRIORITY)
+
+This section covers all tasks required to get Conan dependencies working for Android NDK.
+
+#### Step 1a.1: Create conanfile.py for agent module
+
+```python
+from conan import ConanFile
+from conan.tools.cmake import cmake_layout
+
+class AgentConan(ConanFile):
+    settings = "os", "compiler", "build_type", "arch"
+    generators = ["CMakeDeps", "CMakeToolchain"]
+    options = {"shared": [True, False]}
+    default_options = {"shared": True}
+    requires = [
+        "libcurl/8.1.2",
+        "nlohmann_json/3.11.3",
+        "spdlog/1.15.1",
+    ]
+
+    def configure(self):
+        self.options["spdlog"].header_only = True
+
+    def layout(self):
+        cmake_layout(self)
+```
+
+#### Step 1a.2: Create android.profile for agent
+
+```ini
+[settings]
+os=Android
+os.api_level=26
+arch=armv8
+compiler=clang
+compiler.version=17
+compiler.libcxx=c++_shared
+compiler.cppstd=17
+build_type=Release
+
+[conf]
+tools.android:ndk_path=/Users/caixiao/Library/Android/sdk/ndk/26.3.11579264
+```
+
+#### Step 1a.3: Run Conan Install
+
+```bash
+cd agent
+conan install . --profile=android.profile --build=missing
+```
+
+**Verification Criterion:** Conan successfully installs all dependencies for arm64-v8a target.
+
+#### Step 1a.4: Prefab Integration Options
+
+Option A: Use custom prefab plugin from android-cxx-thirdpartylib
+- Plugin location: `/Users/caixiao/Workspace/projects/android-cxx-thirdpartylib/prefab-plugin/`
+- Plugin ID: `com.thirdlib.prefab`
+
+Option B: Use CMake toolchain directly (reference: android-cxx-thirdpartylib lib/build.gradle)
+```gradle
+arguments("-DCMAKE_TOOLCHAIN_FILE=${rootProject.projectDir}/lib/conan_android_toolchain.cmake")
+```
+
+### 3.2 Phase 1b: cxxplatform Porting (SECOND PRIORITY - AFTER CONAN WORKS)
+
+Only after Conan dependencies are verified working, proceed to port cxxplatform code.
+
+#### Step 1b.1: Copy cxxplatform source files
+
+Copy from:
+- `cxxplatform/include/*` -> `agent/src/main/cpp/include/`
+- `cxxplatform/src/*` -> `agent/src/main/cpp/src/`
+
+**Key principle:** Do not modify original cxxplatform directory - copy for porting
+
+#### Step 1b.2: Create CMakeLists.txt for agent
+
+```cmake
+cmake_minimum_required(VERSION 3.22.1)
+
+project(icraw VERSION 1.0.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find dependencies (via Conan)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(unofficial-sqlite3 CONFIG REQUIRED)
+find_package(CURL CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+
+# Source files (copied from cxxplatform)
+set(ICRAW_SOURCES
+    # ... list all source files
+)
+
+# Create shared library
+add_library(icraw SHARED ${ICRAW_SOURCES})
+
+target_include_directories(icraw PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(icraw PUBLIC
+    nlohmann_json::nlohmann_json
+    unofficial::sqlite3::sqlite3
+    CURL::libcurl
+    spdlog::spdlog
+    ZLIB::ZLIB
+    log  # Android logcat
+)
+
+# Android-specific definitions
+target_compile_definitions(icraw PRIVATE ICRAW_ANDROID)
+```
+
+#### Step 1b.3: Android Log Adaptation
+
+Create Android-specific log sink to replace spdlog file-based logging:
+
+```cpp
+// android_log_sink.hpp
+#include <android/log.h>
+#include <spdlog/sinks/base_sink.h>
+
+class android_log_sink : public spdlog::sinks::base_sink<std::mutex> {
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override {
+        __android_log_print(ANDROID_LOG_DEBUG, "icraw", "%s", msg.payload.c_str());
+    }
+    void flush_() override {}
+};
+```
+
+### 3.3 Build System Setup
 
 #### Step 1: Configure Agent Module (agent/build.gradle)
 
@@ -396,15 +555,62 @@ Java_com_hh_agent_library_NativeAgent_nativeGetVersion(JNIEnv* env, jobject /* t
 
 ---
 
-## 7. Next Steps
+## 7. Next Steps (Priority Ordered)
 
-1. **Clarify ABI requirements** (all four vs arm64-v8a only)
-2. **Create agent module CMakeLists.txt** based on cxxplatform
-3. **Add NDK configuration to agent/build.gradle**
-4. **Set up Conan for agent dependencies**
-5. **Create Android log sink for spdlog** (if needed)
-6. **Test compilation for single ABI** (arm64-v8a)
-7. **Verify basic conversation loop** works in native code
+### Phase 1a: Conan Setup (DO FIRST)
+1. **Create agent/conanfile.py** - Copy from android-cxx-thirdpartylib, align versions
+2. **Create agent/android.profile** - Based on reference profile
+3. **Integrate prefab plugin or CMake toolchain** - For dependency resolution
+4. **Run conan install** - Verify dependencies install successfully
+5. **Verify Conan build** - Confirm arm64-v8a libraries compile
+
+### Phase 1b: cxxplatform Porting (DO SECOND - ONLY AFTER CONAN WORKS)
+6. **Copy cxxplatform sources** - Include and src files to agent module
+7. **Create agent CMakeLists.txt** - Based on cxxplatform with Android adaptations
+8. **Add NDK configuration to agent/build.gradle** - CMake and abiFilters
+9. **Create Android log sink** - Replace spdlog file logging with logcat
+10. **Test compilation** - Run assembleDebug, verify libicraw.so generated
+
+### Post-Build Verification
+11. **Verify .so output** - Check agent/build for libicraw.so
+12. **Test on device/emulator** - Basic load test
+
+---
+
+## 8. Action Items Summary (Priority Ordered)
+
+### Phase 1a: Conan Dependency Setup (FIRST - DO NOT SKIP)
+
+| # | Task | Status |
+|---|------|--------|
+| 1a-1 | Create agent/conanfile.py with aligned dependencies | Pending |
+| 1a-2 | Create agent/android.profile | Pending |
+| 1a-3 | Integrate prefab plugin or configure CMake toolchain | Pending |
+| 1a-4 | Run conan install for arm64-v8a | Pending |
+| 1a-5 | **VERIFY: Conan dependencies install successfully** | Pending |
+
+### Phase 1b: cxxplatform Porting (SECOND - ONLY AFTER 1a COMPLETE)
+
+| # | Task | Status |
+|---|------|--------|
+| 1b-1 | Copy cxxplatform/include to agent/src/main/cpp/ | Pending |
+| 1b-2 | Copy cxxplatform/src to agent/src/main/cpp/ | Pending |
+| 1b-3 | Create agent/src/main/cpp/CMakeLists.txt | Pending |
+| 1b-4 | Update agent/build.gradle with CMake + NDK config | Pending |
+| 1b-5 | Implement Android log sink | Pending |
+| 1b-6 | Run assembleDebug | Pending |
+| 1b-7 | **VERIFY: libicraw.so generated** | Pending |
+
+### Critical Path
+
+```
+[1a-1] -> [1a-2] -> [1a-3] -> [1a-4] -> [1a-5 VERIFY]
+                                              |
+                                              v
+                      [1b-1] -> [1b-2] -> [1b-3] -> [1b-4] -> [1b-5] -> [1b-6] -> [1b-7 VERIFY]
+```
+
+**BLOCKER CONDITION:** Do not proceed to Phase 1b tasks until Phase 1a verification passes.
 
 ---
 
@@ -420,3 +626,4 @@ Java_com_hh_agent_library_NativeAgent_nativeGetVersion(JNIEnv* env, jobject /* t
 ---
 
 *Research completed for Phase 1: Build System & Agent Core*
+*Updated: 2026-03-03 with user-prioritized implementation order*

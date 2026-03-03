@@ -19,16 +19,35 @@ C++ NDK 编译环境和 Agent 引擎基础。确保 cxxplatform 代码可以在 
 <decisions>
 ## Implementation Decisions
 
+### 移植策略
+- 先进行最小范围移植，通过编译
+  - cxxplatform/include 头文件
+  - cxxplatform/src 实现文件
+- 复制必要的文件到目标模块进行构建，不改变原有cxxplatform目录中的代码
+
+### agent模块结构
+- 规划成一个标准的android native library
+- 是cxxplatform移植的目标模块
+
+### 任务执行顺序
+- 优先完成conan依赖的安装和编译并且确认可以编译通过
+- 然后再进行移植任务，移植后进行编译测试
+
 ### Dependencies
-- 使用 NDK 兼容库替换 vcpkg 依赖
+- 使用 Conan 安装c++依赖库
   - nlohmann-json: header-only，直接包含源码
-  - sqlite3: 使用 Android NDK 内置或 ndkports
-  - curl: 使用 ndkports 或删除（简化版）
-  - spdlog: 使用 ndkports 或替换为 Android log
+  - spdlog: header-only，直接包含源码
+  - sqlite3: 使用conan引入配方，编译成android可用的so
+  - curl: 使用conan引入配方，编译成android可用的so
+- Conan配置
+  - 依赖的版本，对齐/Users/caixiao/Workspace/projects/android-cxx-thirdpartylib/lib/conanfile.py
+  - conan install使用的profile，对齐/Users/caixiao/Workspace/projects/android-cxx-thirdpartylib/lib/android.profile
+  - Android的Library集成Conan，参考https://docs.conan.io/2/examples/cross_build/android/android_studio.html
 
 ### Build
 - 编译为共享库 (.so)，命名为 libicraw.so
-- ABI 支持: armeabi-v7a, arm64-v8a, x86, x86_64
+- 其他库也使用共享库的形式比如curl和sqlite3
+- ABI 支持: arm64-v8a
 
 ### Logging
 - 使用 Android logcat (__android_log_print)
@@ -68,7 +87,9 @@ No specific requirements yet — discussing implementation options.
 <deferred>
 ## Deferred Ideas
 
-None yet — discussion stayed within phase scope.
+- Phase 1 需要分为两个阶段执行：
+  1. 首先完成 Conan 依赖的安装和编译
+  2. 然后进行 cxxplatform 移植工作
 
 </deferred>
 
