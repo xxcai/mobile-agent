@@ -11,7 +11,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Build System & Agent Core** - C++ NDK 编译环境和 Agent 引擎基础
+- [x] **Phase 1: Build System & Agent Core** - C++ NDK 编译环境和 Agent 引擎基础 (completed 2026-03-03)
 - [ ] **Phase 2: JNI Bridge** - Java ↔ C++ 双向通信层
 - [ ] **Phase 3: API Integration** - NativeNanobotApi 实现替换 HTTP
 
@@ -34,7 +34,7 @@
   4. Java 层可以通过 JNI 调用 C++ Agent 方法
   5. CMake 构建配置正确集成到 Gradle
 
-**Plans:** TBD
+**Plans:** 3/3 plans complete
 
 ---
 
@@ -79,8 +79,7 @@
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 1 - Build System & Agent Core | C++ NDK 编译环境 + Agent 引擎基础 | AGEN-01, AGEN-02, AGEN-03, SYS-01, SYS-02, SYS-03 |
-| 2 - JNI Bridge | Java ↔ C++ 双向通信 | JNI-01, JNI-02, JNI-03 |
+| 1 - Build System & Agent Core | C++ NDK 编译环境 + Agent 引擎基础 | Complete    | 2026-03-03 | 2 - JNI Bridge | Java ↔ C++ 双向通信 | JNI-01, JNI-02, JNI-03 |
 | 3 - API Integration | NativeNanobotApi 实现 | API-01, API-02, API-03 |
 
 **Coverage:** 12/12 requirements mapped ✓

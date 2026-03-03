@@ -7,9 +7,9 @@
 
 ### Agent 核心
 
-- [ ] **AGEN-01**: C++ Agent 引擎可以在 Android NDK 环境中编译运行
-- [ ] **AGEN-02**: Agent 引擎支持基本的对话循环 (接收输入 → 处理 → 输出响应)
-- [ ] **AGEN-03**: Agent 引擎可以通过 JNI 与 Java 层双向通信
+- [x] **AGEN-01**: C++ Agent 引擎可以在 Android NDK 环境中编译运行
+- [x] **AGEN-02**: Agent 引擎支持基本的对话循环 (接收输入 → 处理 → 输出响应)
+- [x] **AGEN-03**: Agent 引擎可以通过 JNI 与 Java 层双向通信
 
 ### JNI 桥接
 
@@ -25,9 +25,9 @@
 
 ### 系统集成
 
-- [ ] **SYS-01**: Gradle 构建脚本包含 C++ 编译任务
-- [ ] **SYS-02**: C++ 代码使用 CMake 构建
-- [ ] **SYS-03**: 支持 armeabi-v7a, arm64-v8a, x86, x86_64 架构
+- [x] **SYS-01**: Gradle 构建脚本包含 C++ 编译任务
+- [x] **SYS-02**: C++ 代码使用 CMake 构建
+- [x] **SYS-03**: 支持 armeabi-v7a, arm64-v8a, x86, x86_64 架构
 
 ## v2 Requirements
 
@@ -55,18 +55,18 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AGEN-01 | Phase 1 | Pending |
-| AGEN-02 | Phase 1 | Pending |
-| AGEN-03 | Phase 1 | Pending |
+| AGEN-01 | Phase 1 | Complete |
+| AGEN-02 | Phase 1 | Complete |
+| AGEN-03 | Phase 1 | Complete |
 | JNI-01 | Phase 2 | Pending |
 | JNI-02 | Phase 2 | Pending |
 | JNI-03 | Phase 2 | Pending |
 | API-01 | Phase 3 | Pending |
 | API-02 | Phase 3 | Pending |
 | API-03 | Phase 3 | Pending |
-| SYS-01 | Phase 1 | Pending |
-| SYS-02 | Phase 1 | Pending |
-| SYS-03 | Phase 1 | Pending |
+| SYS-01 | Phase 1 | Complete |
+| SYS-02 | Phase 1 | Complete |
+| SYS-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
