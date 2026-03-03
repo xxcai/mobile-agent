@@ -1,0 +1,58 @@
+---
+wave: 2
+depends_on: [01-SUMMARY]
+files_modified:
+  - agent/src/main/cpp/native_agent.cpp
+  - agent/src/main/java/com/hh/agent/library/NativeAgent.java
+autonomous: true
+---
+
+<task>
+<id>W2-1</id>
+<subject>Add MobileAgent global state management</subject>
+<description>Create global pointer to store MobileAgent instance in native_agent.cpp. Add static/global variable to hold icraw::MobileAgent* pointer. Initialize in JNI_OnLoad or first native call.</description>
+<type>feature</type>
+<requirements>JNI-01</requirements>
+<verification>Compiles without errors, global pointer declared</verification>
+<must_have>true</must_have>
+</task>
+
+<task>
+<id>W2-2</id>
+<subject>Implement nativeInitialize with MobileAgent creation</subject>
+<description>Parse config path from Java parameter. Call MobileAgent::create(workspace_path) to instantiate agent. Store agent pointer in global state. Log initialization success/failure.</description>
+<type>feature</type>
+<requirements>JNI-01</requirements>
+<verification>Agent created and logged to logcat</verification>
+<must_have>true</must_have>
+</task>
+
+<task>
+<id>W2-3</id>
+<subject>Replace nativeSendMessage with MobileAgent::chat() call</subject>
+<description>Get MobileAgent pointer from global state. Call agent->chat(message) instead of echo. Return response string to Java. Handle null agent case gracefully.</description>
+<type>feature</type>
+<requirements>JNI-02</requirements>
+<verification>Non-echo response returned from agent</verification>
+<must_have>true</must_have>
+</task>
+
+<task>
+<id>W2-4</id>
+<subject>Add error handling and nativeShutdown cleanup</subject>
+<description>Implement nativeShutdown to delete MobileAgent pointer. Add null checks in all JNI methods. Ensure proper cleanup on errors and during shutdown.</description>
+<type>feature</type>
+<requirements>JNI-01, JNI-02</requirements>
+<verification>Clean shutdown without memory leaks</verification>
+<must_have>true</must_have>
+</task>
+
+<task>
+<id>W2-5</id>
+<subject>Build and verify</subject>
+<description>Run ./gradlew assembleDebug to build the project. Verify libicraw.so is generated. Review build logs for any errors.</description>
+<type>verification</type>
+<requirements>JNI-01, JNI-02, JNI-03</requirements>
+<verification>Build succeeds, .so file generated</verification>
+<must_have>true</must_have>
+</task>

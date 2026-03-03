@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: C++ 移植
 status: unknown
-last_updated: "2026-03-03T06:46:07.225Z"
+last_updated: "2026-03-03T07:20:00.561Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 5
+  total_plans: 6
   completed_plans: 5
 ---
 
