@@ -19,11 +19,11 @@
 
 ### Active
 
-- [ ] App 集成 - 使用 NativeNanobotApi 替换 HttpNanobotApi
+- [ ] API Key 配置 - 通过配置文件为 Agent 提供 API Key
 
-## Current Milestone: v1.1 App 集成
+## Current Milestone: v1.1 API Key 配置
 
-**Goal:** 将本地 agent 模块集成到 app 中，替换 HTTP 调用
+**Goal:** 提供配置文件方式设置 LLM API Key
 
 ### Out of Scope
 
@@ -54,9 +54,10 @@
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 本地运行优先 | 减少网络延迟，保护隐私 | — Pending |
-| 保持 UI 不变 | 减少回归风险 | — Pending |
-| JNI 通信 | 标准 Java/C++ 互操作方式 | — Pending |
+| 本地运行优先 | 减少网络延迟，保护隐私 | ✓ 已实现 Mock 模式 |
+| 保持 UI 不变 | 减少回归风险 | ✓ 已完成 |
+| JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ 已完成 |
+| 配置文件方式 | 简单直接，无需额外 UI | — Pending |
 
 ---
-*Last updated: 2026-03-03 after initialization*
+*Last updated: 2026-03-03 after v1.0 milestone*
