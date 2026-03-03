@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 在 Android 设备上运行本地 AI Agent，提供实时对话和设备控制能力，无需依赖远程服务器。
 
-**Current Focus:** Phase 1 - Build System & Agent Core
+**Current Focus:** Phase 6 - 清理 agent 模块
 
 ---
 
