@@ -346,18 +346,38 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
     ICRAW_LOG_DEBUG("=== ChatCompletion Request (non-stream) ===");
     ICRAW_LOG_DEBUG("URL: {}/chat/completions", base_url_);
     ICRAW_LOG_DEBUG("Body: {}", request_body_str);
-    
+
+    // If API key is empty, return a mock response for local testing
+    if (api_key_.empty()) {
+        ICRAW_LOG_DEBUG("API key is empty, returning mock response");
+        ChatCompletionResponse response;
+        response.finish_reason = "stop";
+
+        // Extract the last user message for echo
+        std::string user_message;
+        for (auto it = request.messages.rbegin(); it != request.messages.rend(); ++it) {
+            if (it->role == "user") {
+                user_message = it->content.empty() ? "" : it->content[0].text;
+                break;
+            }
+        }
+
+        // Return a simple mock response
+        response.content = "Mock Agent: I received your message: \"" + user_message + "\". (Configure API key for real responses)";
+        return response;
+    }
+
     std::string url = base_url_ + "/chat/completions";
-    
+
     HttpHeaders headers;
     if (!api_key_.empty()) {
         headers["Authorization"] = "Bearer " + api_key_;
     }
-    
+
     std::string response_body;
     std::map<std::string, std::string> response_headers;
     HttpError error;
-    
+
     if (!http_client_->perform_request(url, "POST", request_body_str, response_body, response_headers, error, headers)) {
         ChatCompletionResponse response;
         response.finish_reason = "http_error";
