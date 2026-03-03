@@ -17,9 +17,9 @@
 | Field | Value |
 |-------|-------|
 | Phase | 1 - Build System & Agent Core |
-| Plan | 01 - completed |
-| Status | In Progress (Phase 1b next) |
-| Progress | 25% |
+| Plan | 01a - completed |
+| Status | In Progress (01b next) |
+| Progress | 33% |
 
 ---
 
@@ -45,6 +45,7 @@
 | JNI 通信 | Pending |
 | Conan 依赖配置 | Completed - 使用 sqlite3 替代 unofficial-sqlite3 |
 | arm64-v8a 架构 | Completed - 仅支持 arm64-v8a |
+| Gradle NDK/CMake | Completed - 配置 agent/build.gradle 和 CMakeLists.txt |
 
 ### Technical Notes
 
@@ -62,6 +63,7 @@
 - 2026-03-03: Project initialized - Mobile Agent C++ 移植版
 - 2026-03-03: Phase 1 context gathered - Build System & Agent Core
 - 2026-03-03: Phase 1 Plan 1 completed - Conan dependencies installed for arm64-v8a
+- 2026-03-03: Phase 1 Plan 01a completed - Gradle NDK/CMake configured, cxxplatform sources copied
 
 ### Blockers
 
