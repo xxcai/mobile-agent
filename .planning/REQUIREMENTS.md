@@ -15,7 +15,7 @@
 
 - [ ] **JNI-01**: Java 代码可以调用 C++ Agent 引擎的初始化方法
 - [ ] **JNI-02**: Java 代码可以向 C++ Agent 发送消息并接收响应
-- [ ] **JNI-03**: C++ 层的日志可以输出到 Android logcat
+- [x] **JNI-03**: C++ 层的日志可以输出到 Android logcat
 
 ### API 集成
 

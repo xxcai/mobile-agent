@@ -52,7 +52,7 @@
   3. C++ 层的日志 (LOGD/LOGE) 输出到 Android logcat
   4. JNI 层正确处理字符串和对象引用生命周期
 
-**Plans:** 1/1 complete ✓
+**Plans:** 1/1 plans complete
 
 ---
 
@@ -79,8 +79,7 @@
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 1 - Build System & Agent Core | C++ NDK 编译环境 + Agent 引擎基础 | Complete    | 2026-03-03 | 2 - JNI Bridge | Java ↔ C++ 双向通信 | JNI-01, JNI-02, JNI-03 |
-| 3 - API Integration | NativeNanobotApi 实现 | API-01, API-02, API-03 |
+| 1 - Build System & Agent Core | C++ NDK 编译环境 + Agent 引擎基础 | Complete    | 2026-03-03 | 2 - JNI Bridge | Java ↔ C++ 双向通信 | Complete    | 2026-03-03 | 3 - API Integration | NativeNanobotApi 实现 | API-01, API-02, API-03 |
 
 **Coverage:** 12/12 requirements mapped ✓
 
