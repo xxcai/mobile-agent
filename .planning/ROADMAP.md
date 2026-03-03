@@ -91,7 +91,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Build System & Agent Core | 0/1 | Not started | - |
+| 1. Build System & Agent Core | 1/1 | Wave 1 complete | SYS-01, SYS-02, SYS-03 |
 | 2. JNI Bridge | 0/1 | Not started | - |
 | 3. API Integration | 0/1 | Not started | - |
 
