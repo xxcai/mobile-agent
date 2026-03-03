@@ -29,8 +29,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
         // Cannot use logger yet, but continue anyway
     }
 
-    // Initialize the logger
-    icraw::Logger::get_instance().init("/sdcard/logs", "debug");
+    // Initialize the logger (Android uses logcat, directory is ignored)
+    icraw::Logger::get_instance().init("", "debug");
 
     return JNI_VERSION_1_6;
 }

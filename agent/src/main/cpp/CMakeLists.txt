@@ -43,6 +43,9 @@ target_include_directories(icraw PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+# Define ICRAW_ANDROID for Android-specific code paths
+add_compile_definitions(ICRAW_ANDROID)
+
 # Conan dependencies via find_package (from agent/build/armv8/Release/generators)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(SQLite3 CONFIG REQUIRED)
@@ -58,4 +61,5 @@ target_link_libraries(icraw PUBLIC
         spdlog::spdlog_header_only
         ZLIB::ZLIB
         SQLite::SQLite3
+        log
 )
