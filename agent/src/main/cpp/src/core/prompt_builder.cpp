@@ -23,7 +23,7 @@ std::string PromptBuilder::build_full() const {
     if (!soul.empty()) {
         ss << "# Identity\n\n" << soul << "\n\n";
     }
-    
+
     // 2. USER - User information
     std::string user = memory_manager_->read_identity_file("USER.md");
     if (!user.empty()) {
@@ -90,7 +90,7 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
     if (!soul.empty()) {
         ss << "# Identity\n\n" << soul << "\n\n";
     }
-    
+
     // 2. USER - User information
     std::string user = memory_manager_->read_identity_file("USER.md");
     if (!user.empty()) {

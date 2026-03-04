@@ -20,21 +20,13 @@
 - ✓ JNI 通信 — v1.0
 - ✓ API Key 配置 — v1.1
 - ✓ 清理 agent 模块 — v1.2
-- ⏳ 预置 workspace — v1.3
+- ✓ 预置 workspace — v1.3 (shipped 2026-03-04)
 
 ### Active
 
-- [ ] v1.3: 预置 workspace 内容到 App
+- [ ] v1.4: 待定义
 
-## Current Milestone: v1.3 预置 workspace
-
-**Goal:** 将 cxxplatform/workspace 目录下的内容预置到 App 中
-
-**Target features:**
-- 预置 USER.md 到 App
-- 预置 SOUL.md (Agent 身份) 到 App
-- 预置 skills/ 到 App (可选)
-- C++ Agent 启动时加载这些配置
+## Current Milestone: v1.4 待定义
 
 ## Context
 
@@ -63,7 +55,7 @@
 | 保持 UI 不变 | 减少回归风险 | ✓ |
 | JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ |
 | local.properties | 管理本地 apiKey 配置 | ✓ |
-| workspace 预置 | 让 Agent 有初始身份和能力 | ⏳ 进行中 |
+| workspace 预置 | 让 Agent 有初始身份和能力 | ✓ v1.3 shipped |
 
 ---
-*Last updated: 2026-03-04 start v1.3*
+*Last updated: 2026-03-04 complete v1.3*
