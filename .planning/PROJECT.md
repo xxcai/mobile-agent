@@ -20,38 +20,33 @@
 - ✓ JNI 通信 — v1.0
 - ✓ API Key 配置 — v1.1
 - ✓ 清理 agent 模块 — v1.2
+- ⏳ 预置 workspace — v1.3
 
 ### Active
 
-- [ ] 完善 JNI 桥接实现
-- [ ] 实现 NativeNanobotApi
-- [ ] 实现流式输出
+- [ ] v1.3: 预置 workspace 内容到 App
 
-## Current State
+## Current Milestone: v1.3 预置 workspace
 
-**v1.2 已完成:**
+**Goal:** 将 cxxplatform/workspace 目录下的内容预置到 App 中
 
-- CMakeLists.txt 简化配置
-- 修复日志初始化崩溃问题 (添加 ICRAW_ANDROID 定义)
-- 添加 apiKey 注入功能 (从 local.properties)
-
-### Out of Scope
-
-- Windows 平台支持 — cxxplatform 原生
-- iOS 移植 — 独立工作
-- 远程服务器部署 — 本地运行优先
+**Target features:**
+- 预置 USER.md 到 App
+- 预置 SOUL.md (Agent 身份) 到 App
+- 预置 skills/ 到 App (可选)
+- C++ Agent 启动时加载这些配置
 
 ## Context
 
 **现有代码库:**
 - `mobile-agent` - Android 应用
-- `cxxplatform` - Windows C++ Agent 原型 (待移植)
+- `cxxplatform` - Windows C++ Agent 原型
 - `agent` - Android C++ Agent 模块
 
-**技术栈:**
-- C++ (原生) + Java (Android UI)
-- Android NDK
-- Gradle + CMake
+**cxxplatform workspace 内容:**
+- `USER.md` - 用户信息占位符
+- `SOUL.md` - Agent 身份定义
+- `skills/` - 技能配置
 
 ## Constraints
 
@@ -68,6 +63,7 @@
 | 保持 UI 不变 | 减少回归风险 | ✓ |
 | JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ |
 | local.properties | 管理本地 apiKey 配置 | ✓ |
+| workspace 预置 | 让 Agent 有初始身份和能力 | ⏳ 进行中 |
 
 ---
-*Last updated: 2026-03-04 after v1.2 milestone*
+*Last updated: 2026-03-04 start v1.3*
