@@ -390,8 +390,9 @@ std::filesystem::path IcrawConfig::default_workspace_path() {
         home = buffer;
     }
 #elif defined(__ANDROID__)
-    // On Android, use the app's internal storage directory
-    return std::filesystem::path("/data/data/com.hh.agent/files") / ".icraw" / "workspace";
+    // On Android, the workspace path should be provided by Java via JSON config
+    // This default is a fallback - Java should pass the actual path from Context.getExternalFilesDir()
+    return std::filesystem::path();
 #else
     const char* home_env = std::getenv("HOME");
     if (home_env) {

@@ -590,11 +590,22 @@ bool ToolRegistry::is_path_allowed(const std::string& path) const {
         // Unix-like: direct path handling
         std::filesystem::path input_path(path);
         std::filesystem::path abs_path;
-        
-        if (input_path.is_absolute()) {
+
+        // On Android, paths starting with "/" should be treated as relative to workspace
+        // This is because the AI may pass "/skills/xxx" meaning "skills/xxx" relative to workspace
+        std::string path_to_use = path;
+        bool starts_with_slash = !path.empty() && path[0] == '/';
+
+        if (starts_with_slash) {
+            // Remove leading slash - treat as relative to workspace
+            // "/skills/xxx" -> "skills/xxx"
+            path_to_use = path.substr(1);
+        }
+
+        if (input_path.is_absolute() && !starts_with_slash) {
             abs_path = input_path;
         } else {
-            abs_path = std::filesystem::path(base_path_) / input_path;
+            abs_path = std::filesystem::path(base_path_) / path_to_use;
         }
         
         std::filesystem::path abs_base = std::filesystem::canonical(base_path_);

@@ -1,4 +1,5 @@
 #include "icraw/core/skill_loader.hpp"
+#include "icraw/core/logger.hpp"
 #include <fstream>
 #include <sstream>
 #include <regex>
@@ -15,10 +16,10 @@ namespace icraw {
 
 std::vector<SkillMetadata> SkillLoader::load_skills_from_directory(
     const std::filesystem::path& skills_dir) const {
-    
+
     std::vector<SkillMetadata> skills;
-    
-    if (!std::filesystem::exists(skills_dir) || 
+
+    if (!std::filesystem::exists(skills_dir) ||
         !std::filesystem::is_directory(skills_dir)) {
         return skills;
     }
@@ -45,26 +46,10 @@ std::vector<SkillMetadata> SkillLoader::load_skills_from_directory(
 std::vector<SkillMetadata> SkillLoader::load_skills(
     const SkillsConfig& skills_config,
     const std::filesystem::path& workspace_path) const {
-    
+
     std::vector<SkillMetadata> all_skills;
     std::unordered_set<std::string> seen_names;
-    
-    // Load from primary skills path
-    if (!skills_config.path.empty()) {
-        auto primary_path = std::filesystem::path(skills_config.path);
-        if (!primary_path.is_absolute()) {
-            primary_path = workspace_path / primary_path;
-        }
-        
-        auto skills = load_skills_from_directory(primary_path);
-        for (auto& skill : skills) {
-            if (seen_names.find(skill.name) == seen_names.end()) {
-                seen_names.insert(skill.name);
-                all_skills.push_back(std::move(skill));
-            }
-        }
-    }
-    
+
     // Load from workspace skills directory
     auto workspace_skills = workspace_path / "skills";
     if (std::filesystem::exists(workspace_skills)) {
@@ -76,14 +61,14 @@ std::vector<SkillMetadata> SkillLoader::load_skills(
             }
         }
     }
-    
+
     // Load from extra directories
     for (const auto& extra_dir : skills_config.extra_dirs) {
         auto extra_path = std::filesystem::path(extra_dir);
         if (!extra_path.is_absolute()) {
             extra_path = workspace_path / extra_path;
         }
-        
+
         if (std::filesystem::exists(extra_path)) {
             auto skills = load_skills_from_directory(extra_path);
             for (auto& skill : skills) {
@@ -94,7 +79,10 @@ std::vector<SkillMetadata> SkillLoader::load_skills(
             }
         }
     }
-    
+
+    // Log loaded skills
+    ICRAW_LOG_INFO("SkillLoader: Total loaded {} skills", all_skills.size());
+
     return all_skills;
 }
 

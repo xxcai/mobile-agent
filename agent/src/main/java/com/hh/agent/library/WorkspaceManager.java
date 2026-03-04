@@ -49,13 +49,16 @@ public class WorkspaceManager {
 
     /**
      * Get the workspace directory path
+     * Uses external files directory from Context.getExternalFilesDir()
      *
      * @return Workspace directory
      */
     public File getWorkspaceDirectory() {
+        // Use Context.getExternalFilesDir() to get SD card path
+        // This returns: /storage/emulated/0/Android/data/{package}/files/
         File filesDir = context.getExternalFilesDir(null);
         if (filesDir == null) {
-            // Fallback to internal storage
+            // Fallback to internal storage if external storage is not available
             filesDir = context.getFilesDir();
         }
         return new File(filesDir, WORKSPACE_DIR);

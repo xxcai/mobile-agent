@@ -81,6 +81,10 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_library_NativeAgent_nativeInitialize(
                 if (json.contains("agent") && json["agent"].contains("model")) {
                     config.agent.model = json["agent"]["model"].get<std::string>();
                 }
+                // Parse workspace path from JSON
+                if (json.contains("workspacePath")) {
+                    config.workspace_path = json["workspacePath"].get<std::string>();
+                }
                 // Ensure workspace path is set (load_default sets the default path)
         icraw::IcrawConfig default_config = icraw::IcrawConfig::load_default();
         if (config.workspace_path.empty()) {
