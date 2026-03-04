@@ -34,6 +34,7 @@ set(ICRAW_SOURCES
     src/core/agent_loop.cpp
     src/core/llm_provider.cpp
     src/core/curl_http_client.cpp
+    src/core/mcp_client.cpp
     src/core/token_utils.cpp
     src/tools/tool_registry.cpp
     src/mobile_agent.cpp
@@ -48,6 +49,7 @@ set(ICRAW_HEADERS
     include/icraw/core/agent_loop.hpp
     include/icraw/core/llm_provider.hpp
     include/icraw/core/http_client.hpp
+    include/icraw/core/mcp_client.hpp
     include/icraw/core/token_utils.hpp
     include/icraw/tools/tool_registry.hpp
     include/icraw/config.hpp
