@@ -15,15 +15,25 @@
 - ✓ Android 聊天界面 (Java) — 现有代码库
 - ✓ MVP 架构模式 — 现有代码库
 - ✓ OkHttp HTTP 客户端 — 现有代码库
-- ✓ C++ NDK 集成基础 — 现有代码库
+- ✓ C++ NDK 集成基础 — v1.0
+- ✓ C++ Agent 引擎 — v1.0
+- ✓ JNI 通信 — v1.0
+- ✓ API Key 配置 — v1.1
+- ✓ 清理 agent 模块 — v1.2
 
 ### Active
 
-- [ ] v1.2: 清理 agent 模块 - 移除不需要的代码和文件
+- [ ] 完善 JNI 桥接实现
+- [ ] 实现 NativeNanobotApi
+- [ ] 实现流式输出
 
-## Current Milestone: v1.2 清理 agent 模块
+## Current State
 
-**Goal:** 清理 agent 模块中不需要的代码和文件
+**v1.2 已完成:**
+
+- CMakeLists.txt 简化配置
+- 修复日志初始化崩溃问题 (添加 ICRAW_ANDROID 定义)
+- 添加 apiKey 注入功能 (从 local.properties)
 
 ### Out of Scope
 
@@ -34,30 +44,30 @@
 ## Context
 
 **现有代码库:**
-- `mobile-agent` - Android 应用，通过 HTTP 连接 Nanobot
+- `mobile-agent` - Android 应用
 - `cxxplatform` - Windows C++ Agent 原型 (待移植)
-- 当前依赖外部 Nanobot 服务 (localhost:18791)
+- `agent` - Android C++ Agent 模块
 
-**移植目标:**
-- 将 cxxplatform 的 C++ Agent 核心移植到 Android
-- 通过 JNI 与现有 Java Android UI 通信
-- 保持向后兼容，可选择使用本地 Agent 或远程服务
+**技术栈:**
+- C++ (原生) + Java (Android UI)
+- Android NDK
+- Gradle + CMake
 
 ## Constraints
 
 - **技术栈**: C++ (原生) + Java (Android UI) — 必须
-- **兼容性**: minSdk 24 (Android 7.0) — 现有项目约束
-- **NDK**: NDK 26.3.11579264 — 现有项目配置
-- **构建**: Gradle 8.12.1, AGP 8.3.2 — 现有项目配置
+- **兼容性**: minSdk 24 (Android 7.0)
+- **NDK**: NDK 26.3.11579264
+- **构建**: Gradle 8.12.1, AGP 8.3.2
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 本地运行优先 | 减少网络延迟，保护隐私 | ✓ 已实现 Mock 模式 |
-| 保持 UI 不变 | 减少回归风险 | ✓ 已完成 |
-| JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ 已完成 |
-| 配置文件方式 | 简单直接，无需额外 UI | — Pending |
+| 本地运行优先 | 减少网络延迟，保护隐私 | ✓ |
+| 保持 UI 不变 | 减少回归风险 | ✓ |
+| JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ |
+| local.properties | 管理本地 apiKey 配置 | ✓ |
 
 ---
-*Last updated: 2026-03-03 after v1.0 milestone*
+*Last updated: 2026-03-04 after v1.2 milestone*
