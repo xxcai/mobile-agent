@@ -6,6 +6,7 @@
 #include "icraw/mobile_agent.hpp"
 #include "icraw/config.hpp"
 #include "icraw/android_tools.hpp"
+#include "icraw/tools/tool_registry.hpp"
 #include <nlohmann/json.hpp>
 
 // ICRAW_ANDROID is already defined by CMake, no need to redefine
@@ -359,7 +360,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSetToolsSchem
 
     try {
         auto schema = nlohmann::json::parse(schema_json);
-        auto& registry = g_agent->get_tool_registry();
+        auto registry = g_agent->get_tool_registry();
 
         // Call the new method to register tools from external schema
         registry->register_tools_from_schema(schema);
