@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Roadmap
 status: unknown
-last_updated: "2026-03-05T08:57:16.651Z"
+last_updated: "2026-03-05T10:53:46.223Z"
 progress:
   total_phases: 9
   completed_phases: 7
@@ -60,7 +60,12 @@ progress:
 
 - **PIPE-01**: 通用的 LLM → Android 调用管道（JSON 结构化参数）
 - **PIPE-02**: 内置工具框架（支持扩展注册）
-- **PIPE-03**: Skills 编排多步骤工作流
+- **PIPE-03**: Android 端注册表实现 (function → Executor 映射) ✓
+- **ANDROID-01**: show_toast 功能 (已存在) ✓
+- **ANDROID-02**: display_notification 功能 ✓
+- **ANDROID-03**: read_clipboard 功能 ✓
+- **SKILL-01**: Skills 加载机制
+- **SKILL-02**: Skill 编排
 - **PIPE-04**: 完全自主调用模式
 
 ---
@@ -109,7 +114,7 @@ None
 |-------|------|--------|
 | 1 | tools.json 迁移到 inputSchema | ● In discussion |
 | 2 | 通用 call_android_tool | ✓ Complete |
-| 3 | Android 注册表实现 | ✓ Planned |
+| 3 | Android 注册表实现 | ✓ Complete |
 | 4 | Skills 加载机制 | ○ Not started |
 | 5 | Skill 编排示例 | ○ Not started |
 
