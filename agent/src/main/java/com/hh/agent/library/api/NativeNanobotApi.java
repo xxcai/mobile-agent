@@ -56,6 +56,9 @@ public class NativeNanobotApi implements NanobotApi {
                         String toolsJson = loadToolsFromAssets(context);
                         if (toolsJson != null && !toolsJson.isEmpty()) {
                             NativeAgent.nativeSetToolsSchema(toolsJson);
+                            android.util.Log.i("NativeNanobotApi", "Successfully loaded and passed tools.json to native layer");
+                        } else {
+                            android.util.Log.w("NativeNanobotApi", "tools.json is empty, skipping native registration");
                         }
                     } catch (Exception e) {
                         // Log but don't fail initialization
