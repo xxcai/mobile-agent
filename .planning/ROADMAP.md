@@ -35,17 +35,17 @@
 
 ---
 
-## Phase 3: show_toast Tool
+## Phase 3: show_toast Tool ✓
 
 **Goal:** 实现第一个 Android Tool 示例
 
 **Requirements:**
-- TOOL-04
+- TOOL-04 ✓
 
 **Success criteria:**
-1. 配置文件中注册 show_toast 工具
-2. Agent 可通过 call_android_tool 调用
-3. 显示 Toast 消息到屏幕
+1. 配置文件中注册 show_toast 工具 ✓
+2. Agent 可通过 call_android_tool 调用 ✓
+3. 显示 Toast 消息到屏幕 ✓
 
 ---
 
@@ -56,7 +56,7 @@
 | TOOL-01: C++ call_android_tool 接口 | Phase 1 | ✓ Complete |
 | TOOL-02: Java Tools 注册机制 | Phase 2 | ✓ Complete |
 | TOOL-03: tools.json 配置 | Phase 2 | ✓ Complete |
-| TOOL-04: show_toast 实现 | Phase 3 | Pending |
+| TOOL-04: show_toast 实现 | Phase 3 | ✓ Complete |
 
 **Coverage:**
 - v1.4 requirements: 4 total

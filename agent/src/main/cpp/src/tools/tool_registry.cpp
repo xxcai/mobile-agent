@@ -8,6 +8,7 @@
 #include "icraw/tools/tool_registry.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/android_tools.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -218,6 +219,35 @@ void ToolRegistry::register_builtin_tools() {
         
         tools_[schema.name] = [this](const nlohmann::json& params) {
             return this->grep_files_tool(params);
+        };
+        tool_schemas_.push_back(std::move(schema));
+    }
+
+    // Register show_toast Android tool
+    {
+        ToolSchema schema;
+        schema.name = "show_toast";
+        schema.description = "Display a toast message on the Android device screen";
+        schema.parameters = nlohmann::json{
+            {"type", "object"},
+            {"properties", {
+                {"message", {
+                    {"type", "string"},
+                    {"description", "The message content to display in the toast"}
+                }},
+                {"duration", {
+                    {"type", "integer"},
+                    {"description", "Display duration in milliseconds (default: 2000)"},
+                    {"default", 2000}
+                }}
+            }},
+            {"required", {"message"}}
+        };
+
+        tools_[schema.name] = [](const nlohmann::json& params) {
+            // Call Android tool via global AndroidTools instance
+            std::string result = g_android_tools.call_tool("show_toast", params);
+            return result;
         };
         tool_schemas_.push_back(std::move(schema));
     }

@@ -73,4 +73,14 @@ None
 
 ---
 
+## v1.4 进度
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | JNI 回调通道 | ✓ Complete |
+| 2 | Java Tools 注册机制 | ✓ Complete |
+| 3 | show_toast Tool | ✓ Complete |
+
+---
+
 *State managed by GSD workflow*

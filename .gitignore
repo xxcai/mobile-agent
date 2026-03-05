@@ -257,3 +257,7 @@ memory.db
 
 # Backup files
 *.orig
+
+# App config files (contains sensitive API keys)
+app/src/main/assets/config.json
+app/src/main/assets/config.json.bak

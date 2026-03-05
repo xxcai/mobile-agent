@@ -57,7 +57,14 @@ public class NativeAgent {
      */
     public static void registerAndroidToolCallback(AndroidToolCallback callback) {
         sCallback = callback;
+        // Call native method to register callback in C++ layer
+        nativeRegisterAndroidToolCallback(callback);
     }
+
+    /**
+     * Native method to register Android tool callback in C++ layer
+     */
+    private static native void nativeRegisterAndroidToolCallback(AndroidToolCallback callback);
 
     /**
      * Get the registered Android tool callback

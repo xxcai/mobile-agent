@@ -1,6 +1,7 @@
 package com.hh.agent.library;
 
 import android.content.Context;
+import android.util.Log;
 import com.hh.agent.library.tools.ShowToastTool;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -28,14 +29,19 @@ public class AndroidToolManager implements AndroidToolCallback {
      * Initialize and load tools from configuration.
      */
     public void initialize() {
+        Log.i("AndroidToolManager", "Initializing AndroidToolManager");
+
         // Register built-in tools
         tools.put("show_toast", new ShowToastTool(getActivity()));
+        Log.i("AndroidToolManager", "Registered show_toast tool");
 
         // Load tools.json from assets
         loadToolsConfig();
+        Log.i("AndroidToolManager", "Loaded tools config, version: " + configVersion);
 
         // Register callback with NativeAgent
         NativeAgent.registerAndroidToolCallback(this);
+        Log.i("AndroidToolManager", "Registered AndroidToolCallback with NativeAgent");
     }
 
     private android.app.Activity getActivity() {

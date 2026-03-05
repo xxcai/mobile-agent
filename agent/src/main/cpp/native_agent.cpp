@@ -245,15 +245,21 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndro
     // Create global reference to keep the callback object alive
     g_callback_object = env->NewGlobalRef(callback);
 
+    // Get JavaVM pointer for multi-threaded access
+    JavaVM* java_vm = nullptr;
+    env->GetJavaVM(&java_vm);
+
+    // Get method ID (can be cached, it's static)
+    jclass cls = env->GetObjectClass(callback);
+    jmethodID method_id = env->GetMethodID(cls, "callTool",
+        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    env->DeleteLocalRef(cls);
+
     // Create a C++ callback that delegates to Java
     class JniCallback : public icraw::AndroidToolCallback {
     public:
-        JniCallback(JNIEnv* e, jobject o) : env_(e), callback_(o) {
-            // Get the method ID
-            jclass cls = env_->GetObjectClass(callback_);
-            method_id_ = env_->GetMethodID(cls, "callTool",
-                "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
-        }
+        JniCallback(JavaVM* jvm, jobject o, jmethodID mid)
+            : java_vm_(jvm), callback_(o), method_id_(mid) {}
 
         std::string call_tool(const std::string& tool_name, const nlohmann::json& args) override {
             if (!callback_ || !method_id_) {
@@ -263,16 +269,36 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndro
                 return error.dump();
             }
 
-            jstring j_tool_name = env_->NewStringUTF(tool_name.c_str());
-            jstring j_args = env_->NewStringUTF(args.dump().c_str());
+            // Attach current thread to JVM if needed
+            JNIEnv* env = nullptr;
+            bool attached = false;
+            int getEnvResult = java_vm_->GetEnv((void**)&env, JNI_VERSION_1_6);
+            if (getEnvResult == JNI_EDETACHED) {
+                if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
+                    attached = true;
+                } else {
+                    nlohmann::json error;
+                    error["success"] = false;
+                    error["error"] = "failed_to_attach_thread";
+                    return error.dump();
+                }
+            } else if (getEnvResult != JNI_OK) {
+                nlohmann::json error;
+                error["success"] = false;
+                error["error"] = "failed_to_get_env";
+                return error.dump();
+            }
 
-            jstring j_result = (jstring)env_->CallObjectMethod(callback_, method_id_, j_tool_name, j_args);
+            jstring j_tool_name = env->NewStringUTF(tool_name.c_str());
+            jstring j_args = env->NewStringUTF(args.dump().c_str());
+
+            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args);
 
             std::string result;
             if (j_result) {
-                const char* result_str = env_->GetStringUTFChars(j_result, nullptr);
+                const char* result_str = env->GetStringUTFChars(j_result, nullptr);
                 result = result_str;
-                env_->ReleaseStringUTFChars(j_result, result_str);
+                env->ReleaseStringUTFChars(j_result, result_str);
             } else {
                 nlohmann::json error;
                 error["success"] = false;
@@ -280,21 +306,26 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndro
                 result = error.dump();
             }
 
-            env_->DeleteLocalRef(j_tool_name);
-            env_->DeleteLocalRef(j_args);
-            if (j_result) env_->DeleteLocalRef(j_result);
+            env->DeleteLocalRef(j_tool_name);
+            env->DeleteLocalRef(j_args);
+            if (j_result) env->DeleteLocalRef(j_result);
+
+            // Detach thread if we attached it
+            if (attached) {
+                java_vm_->DetachCurrentThread();
+            }
 
             return result;
         }
 
     private:
-        JNIEnv* env_;
+        JavaVM* java_vm_;
         jobject callback_;
         jmethodID method_id_;
     };
 
     // Register the JNI callback
-    icraw::g_android_tools.register_callback(std::make_unique<JniCallback>(env, g_callback_object));
+    icraw::g_android_tools.register_callback(std::make_unique<JniCallback>(java_vm, g_callback_object, method_id));
 
     icraw::Logger::get_instance().logger()->info("AndroidToolCallback registered via JNI");
 }
