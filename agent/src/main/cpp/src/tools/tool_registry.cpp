@@ -292,6 +292,59 @@ void ToolRegistry::set_base_path(const std::string& path) {
     }
 }
 
+void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
+    if (!schema.contains("tools") || !schema["tools"].is_array()) {
+        ICRAW_LOG_WARN("register_tools_from_schema: No 'tools' array in schema");
+        return;
+    }
+
+    const auto& tools = schema["tools"];
+    for (const auto& tool : tools) {
+        if (!tool.contains("type") || !tool.contains("function")) {
+            ICRAW_LOG_WARN("register_tools_from_schema: Skipping invalid tool entry");
+            continue;
+        }
+
+        const auto& function = tool["function"];
+        if (!function.is_object()) {
+            continue;
+        }
+
+        ToolSchema tool_schema;
+        tool_schema.name = function.value("name", "");
+        tool_schema.description = function.value("description", "");
+
+        // Extract parameters from the function's parameters object
+        if (function.contains("parameters") && function["parameters"].is_object()) {
+            tool_schema.parameters = function["parameters"];
+        } else {
+            // Default empty parameters
+            tool_schema.parameters = nlohmann::json{
+                {"type", "object"},
+                {"properties", nlohmann::json::object()}
+            };
+        }
+
+        if (tool_schema.name.empty()) {
+            ICRAW_LOG_WARN("register_tools_from_schema: Skipping tool with empty name");
+            continue;
+        }
+
+        // Register tool with empty function - actual execution goes through Android callback mechanism
+        // The tool schema is stored so LLM can see the tool definition
+        tools_[tool_schema.name] = [](const nlohmann::json& params) -> std::string {
+            // This should not be called - actual tool execution goes through Android callback
+            nlohmann::json result;
+            result["success"] = false;
+            result["error"] = "Tool execution should go through Android callback";
+            return result.dump();
+        };
+
+        tool_schemas_.push_back(std::move(tool_schema));
+        ICRAW_LOG_INFO("register_tools_from_schema: Registered tool '{}'", tool_schema.name);
+    }
+}
+
 std::string ToolRegistry::read_file_tool(const nlohmann::json& params) {
     // Handle both JSON object and string formats
     std::string path;

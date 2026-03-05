@@ -35,6 +35,9 @@ public:
     // Set allowed base path for file operations
     void set_base_path(const std::string& path);
 
+    // Register tools from external JSON schema (e.g., tools.json from assets)
+    void register_tools_from_schema(const nlohmann::json& schema);
+
 private:
     // Built-in tool implementations
     std::string read_file_tool(const nlohmann::json& params);
