@@ -13,7 +13,7 @@ progress:
 
 # STATE: Mobile Agent - C++ 移植版
 
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-05
 
 ---
 
@@ -70,6 +70,15 @@ None
 ### Todos
 
 None
+
+---
+
+## Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | 清理 lib 中未使用的 gradle 依赖 | 2026-03-05 | 020f92a | [1-lib-gradle](./quick/1-lib-gradle/) |
+| 2 | 清理 agent 中用不到的 gradle 依赖 | 2026-03-05 | | [2-agent-gradle](./quick/2-agent-gradle/) |
 
 ---
 
