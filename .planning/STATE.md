@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.5
-milestone_name: LLM → Android 调用管道
-status: in_progress
-last_updated: "2026-03-05T03:59:31.195Z"
+milestone_name: Roadmap
+status: unknown
+last_updated: "2026-03-05T08:57:16.651Z"
 progress:
-  total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 9
+  completed_phases: 7
+  total_plans: 11
+  completed_plans: 9
 ---
 
 # STATE: Mobile Agent - C++ 移植版
