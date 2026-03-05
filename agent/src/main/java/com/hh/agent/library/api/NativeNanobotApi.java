@@ -38,7 +38,7 @@ public class NativeNanobotApi implements NanobotApi {
     /**
      * 初始化 Native Agent
      *
-     * @param context Android Context (required for Android tools)
+     * @param context Android Context (required for Android tools and assets)
      * @param configPath 配置文件路径
      */
     public synchronized void initialize(Context context, String configPath) {
@@ -49,6 +49,19 @@ public class NativeNanobotApi implements NanobotApi {
                     throw new RuntimeException("Native agent initialization failed with code: " + result);
                 }
                 initialized = true;
+
+                // Load tools.json from assets and pass to native layer
+                if (context != null) {
+                    try {
+                        String toolsJson = loadToolsFromAssets(context);
+                        if (toolsJson != null && !toolsJson.isEmpty()) {
+                            NativeAgent.nativeSetToolsSchema(toolsJson);
+                        }
+                    } catch (Exception e) {
+                        // Log but don't fail initialization
+                        android.util.Log.w("NativeNanobotApi", "Failed to load tools.json: " + e.getMessage());
+                    }
+                }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to initialize native agent: " + e.getMessage(), e);
             }
@@ -58,6 +71,26 @@ public class NativeNanobotApi implements NanobotApi {
         if (toolManager == null && context != null) {
             toolManager = new AndroidToolManager(context);
             toolManager.initialize();
+        }
+    }
+
+    /**
+     * Load tools.json from assets
+     */
+    private String loadToolsFromAssets(Context context) {
+        try {
+            java.io.InputStream is = context.getAssets().open("tools.json");
+            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            reader.close();
+            return sb.toString();
+        } catch (java.io.IOException e) {
+            android.util.Log.e("NativeNanobotApi", "Error reading tools.json: " + e.getMessage());
+            return null;
         }
     }
 
