@@ -109,7 +109,7 @@ None
 |-------|------|--------|
 | 1 | tools.json 迁移到 inputSchema | ● In discussion |
 | 2 | 通用 call_android_tool | ✓ Complete |
-| 3 | Android 注册表实现 | ● In discussion |
+| 3 | Android 注册表实现 | ✓ Planned |
 | 4 | Skills 加载机制 | ○ Not started |
 | 5 | Skill 编排示例 | ○ Not started |
 
