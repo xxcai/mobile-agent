@@ -614,7 +614,7 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
         }
         
         if (!history_entry.empty()) {
-            // Save to daily_memory (like nanobot's HISTORY.md)
+            // Save to daily_memory (like mobile-agent's HISTORY.md)
             memory_manager_->save_daily_memory(history_entry);
             ICRAW_LOG_DEBUG("Saved history entry: {}", history_entry.substr(0, 50));
         }
