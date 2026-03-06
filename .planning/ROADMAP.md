@@ -24,6 +24,9 @@
 2. C++ 层能够加载 Skills
 3. Skills 依赖关系被正确处理
 
+**Plans:**
+- [ ] v16-01-01-PLAN.md — 添加 dependencies 字段和依赖解析
+
 ---
 
 ### Phase v16-02: Agent 调用 Tools
