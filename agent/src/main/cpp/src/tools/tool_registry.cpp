@@ -8,6 +8,7 @@
 #include "icraw/tools/tool_registry.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/android_tools.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -259,6 +260,75 @@ void ToolRegistry::set_base_path(const std::string& path) {
         base_path_ = std::filesystem::absolute(p).string();
     } else {
         base_path_ = path;
+    }
+}
+
+void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
+    if (!schema.contains("tools") || !schema["tools"].is_array()) {
+        ICRAW_LOG_WARN("register_tools_from_schema: No 'tools' array in schema");
+        return;
+    }
+
+    const auto& tools = schema["tools"];
+    for (const auto& tool : tools) {
+        if (!tool.contains("type") || !tool.contains("function")) {
+            ICRAW_LOG_WARN("register_tools_from_schema: Skipping invalid tool entry");
+            continue;
+        }
+
+        const auto& function = tool["function"];
+        if (!function.is_object()) {
+            continue;
+        }
+
+        ToolSchema tool_schema;
+        tool_schema.name = function.value("name", "");
+        tool_schema.description = function.value("description", "");
+
+        // Extract parameters from the function's parameters object
+        if (function.contains("parameters") && function["parameters"].is_object()) {
+            tool_schema.parameters = function["parameters"];
+        } else {
+            // Default empty parameters
+            tool_schema.parameters = nlohmann::json{
+                {"type", "object"},
+                {"properties", nlohmann::json::object()}
+            };
+        }
+
+        if (tool_schema.name.empty()) {
+            ICRAW_LOG_WARN("register_tools_from_schema: Skipping tool with empty name");
+            continue;
+        }
+
+        // Register tool with Android callback execution
+        // For call_android_tool: extract function name and args from parameters
+        tools_[tool_schema.name] = [tool_schema_name = tool_schema.name](const nlohmann::json& params) -> std::string {
+            // For call_android_tool, params contains {"function": "tool_name", "args": {...}}
+            // Extract function name and arguments
+            std::string function_name;
+            nlohmann::json tool_args;
+
+            if (params.is_object()) {
+                function_name = params.value("function", "");
+                if (params.contains("args") && params["args"].is_object()) {
+                    tool_args = params["args"];
+                }
+            }
+
+            if (function_name.empty()) {
+                nlohmann::json result;
+                result["success"] = false;
+                result["error"] = "function parameter is required";
+                return result.dump();
+            }
+
+            // Call Android tool via global callback
+            return icraw::g_android_tools.call_tool(function_name, tool_args);
+        };
+
+        tool_schemas_.push_back(std::move(tool_schema));
+        ICRAW_LOG_INFO("register_tools_from_schema: Registered tool '{}'", tool_schema.name);
     }
 }
 

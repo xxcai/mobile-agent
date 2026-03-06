@@ -2,14 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-// Read apiKey from local.properties
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withInputStream { localProperties.load(it) }
-}
-def apiKey = localProperties.getProperty('apiKey', '')
-
 android {
     namespace 'com.hh.agent'
     compileSdk 34
@@ -48,22 +40,4 @@ dependencies {
     implementation 'io.noties.markwon:ext-tasklist:4.6.2'
 
     testImplementation 'junit:junit:4.13.2'
-}
-
-// Task to inject apiKey into config.json before build
-task injectApiKey {
-    doLast {
-        def configFile = file('src/main/assets/config.json')
-        if (configFile.exists() && apiKey && apiKey != 'YOUR_API_KEY_HERE') {
-            def configContent = configFile.text
-            configContent = configContent.replace('"apiKey": "YOUR_API_KEY_HERE"', "\"apiKey\": \"${apiKey}\"")
-            configFile.text = configContent
-            println "Injected apiKey into config.json"
-        }
-    }
-}
-
-// Use afterEvaluate to add dependency after project is configured
-afterEvaluate {
-    project.tasks.getByName('processDebugResources').dependsOn injectApiKey
 }

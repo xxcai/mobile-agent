@@ -257,3 +257,6 @@ memory.db
 
 # Backup files
 *.orig
+
+# Agent config template (contains sensitive API keys - DO NOT COMMIT)
+config.json.template

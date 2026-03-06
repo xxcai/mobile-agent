@@ -21,12 +21,23 @@
 - ✓ API Key 配置 — v1.1
 - ✓ 清理 agent 模块 — v1.2
 - ✓ 预置 workspace — v1.3 (shipped 2026-03-04)
+- ✓ Android Tools 通道 — v1.4 (shipped 2026-03-05)
+- ✓ LLM → Android 调用管道 — v1.5 (shipped 2026-03-05)
 
 ### Active
 
-- [ ] v1.4: 待定义
+- [ ] v1.6: (待规划)
 
-## Current Milestone: v1.4 待定义
+## Current Milestone: v1.5 LLM → Android 调用管道
+
+**Goal:** 将 show_toast 泛化为通用的 LLM 调用 Android 平台功能的管道，支持 Skills 编排工作流
+
+**Completed features (v1.5):**
+- ✓ 通用的 LLM → Android 调用管道（JSON 结构化参数）
+- ✓ 内置工具清单：show_toast, display_notification, read_clipboard, take_screenshot
+- ✓ C++ tool_registry 从 tools.json 加载
+- ✓ AndroidToolManager 注册表实现
+- ✓ 完全自主调用模式
 
 ## Context
 
@@ -56,6 +67,9 @@
 | JNI 通信 | 标准 Java/C++ 互操作方式 | ✓ |
 | local.properties | 管理本地 apiKey 配置 | ✓ |
 | workspace 预置 | 让 Agent 有初始身份和能力 | ✓ v1.3 shipped |
+| Android Tools 通道 | 统一的 JNI 回调 + 工具注册机制 | ✓ v1.4 shipped |
+| 通用 Android 调用管道 | LLM 通过 JSON 参数调用 Android 功能 | — v1.5 进行中 |
+| 完全自主调用 | LLM 直接执行，无需用户确认 | — v1.5 进行中 |
 
 ---
-*Last updated: 2026-03-04 complete v1.3*
+*Last updated: 2026-03-05 start v1.5*

@@ -15,6 +15,7 @@ set(ICRAW_SOURCES
         src/core/token_utils.cpp
         src/tools/tool_registry.cpp
         src/mobile_agent.cpp
+        android_tools.cpp
         native_agent.cpp
 )
 

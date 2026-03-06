@@ -53,9 +53,27 @@ android {
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.core:core:1.12.0'
+}
 
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+// Task to copy config.json.template to library_assets
+// For library modules, assets go to library_assets/debug/packageDebugAssets/out/
+afterEvaluate {
+    android.libraryVariants.all { variant ->
+        def variantName = variant.name
+        def capitalizeVariant = variantName.capitalize()
+        def destDir = "${project.buildDir}/intermediates/library_assets/${variantName}/package${capitalizeVariant}Assets/out"
+
+        def copyTask = project.tasks.create(name: "copyConfigTemplate${capitalizeVariant}", type: Copy) {
+            from "${rootProject.projectDir}/config.json.template"
+            into destDir
+            rename 'config.json.template', 'config.json'
+        }
+
+        // Make copy run before packageAssets task
+        def packageAssetsTask = project.tasks.findByName("package${capitalizeVariant}Assets")
+        if (packageAssetsTask) {
+            packageAssetsTask.dependsOn copyTask
+        }
+    }
 }

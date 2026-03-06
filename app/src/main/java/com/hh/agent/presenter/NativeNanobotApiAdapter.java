@@ -45,7 +45,7 @@ public class NativeNanobotApiAdapter implements NanobotApi {
      * 设置 Context（需要在 initialize 之前调用）
      */
     public void setContext(Context context) {
-        this.context = context.getApplicationContext();
+        this.context = context;
     }
 
     /**
@@ -72,8 +72,8 @@ public class NativeNanobotApiAdapter implements NanobotApi {
                 }
             }
 
-            // 初始化 Native Agent，传入配置 JSON
-            nativeApi.initialize(configJson);
+            // 初始化 Native Agent，传入 Context 和配置 JSON
+            nativeApi.initialize(context, configJson);
         } catch (UnsatisfiedLinkError e) {
             throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
         }

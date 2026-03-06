@@ -5,12 +5,18 @@
 #include "icraw/core/logger.hpp"
 #include "icraw/mobile_agent.hpp"
 #include "icraw/config.hpp"
+#include "icraw/android_tools.hpp"
+#include "icraw/tools/tool_registry.hpp"
 #include <nlohmann/json.hpp>
 
 // ICRAW_ANDROID is already defined by CMake, no need to redefine
 
 // Global MobileAgent instance
 static std::unique_ptr<icraw::MobileAgent> g_agent;
+
+// Global JNI environment for callback invocations
+static JavaVM* g_jvm = nullptr;
+static jobject g_callback_object = nullptr;
 
 extern "C" {
 
@@ -22,6 +28,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
     }
+
+    // Store JavaVM reference for callback invocations
+    g_jvm = vm;
 
     // Initialize curl globally (required before using curl_easy_init)
     CURLcode curl_res = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -174,6 +183,194 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeShutdown(
         g_agent.reset();
         icraw::Logger::get_instance().logger()->info("MobileAgent destroyed");
     }
+}
+
+/**
+ * Call an Android tool
+ * Returns JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
+ */
+JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeCallAndroidTool(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring toolName,
+        jstring argsJson) {
+    const char* tool_name = env->GetStringUTFChars(toolName, nullptr);
+    const char* args_json = env->GetStringUTFChars(argsJson, nullptr);
+
+    std::string result;
+
+    if (!tool_name || !args_json) {
+        nlohmann::json error_result;
+        error_result["success"] = false;
+        error_result["error"] = "invalid_arguments";
+        result = error_result.dump();
+    } else {
+        try {
+            auto args = nlohmann::json::parse(args_json);
+            result = icraw::g_android_tools.call_tool(tool_name, args);
+        } catch (const std::exception& e) {
+            nlohmann::json error_result;
+            error_result["success"] = false;
+            error_result["error"] = "invalid_args";
+            error_result["message"] = e.what();
+            result = error_result.dump();
+        }
+    }
+
+    env->ReleaseStringUTFChars(toolName, tool_name);
+    env->ReleaseStringUTFChars(argsJson, args_json);
+
+    return env->NewStringUTF(result.c_str());
+}
+
+/**
+ * Register Android tool callback from Java
+ * This creates a JNI callback that delegates to the Java AndroidToolCallback interface
+ */
+JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndroidToolCallback(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jobject callback) {
+
+    // Delete previous global reference if exists
+    if (g_callback_object) {
+        env->DeleteGlobalRef(g_callback_object);
+        g_callback_object = nullptr;
+    }
+
+    if (!callback) {
+        icraw::Logger::get_instance().logger()->info("AndroidToolCallback unregistered");
+        return;
+    }
+
+    // Create global reference to keep the callback object alive
+    g_callback_object = env->NewGlobalRef(callback);
+
+    // Get JavaVM pointer for multi-threaded access
+    JavaVM* java_vm = nullptr;
+    env->GetJavaVM(&java_vm);
+
+    // Get method ID (can be cached, it's static)
+    jclass cls = env->GetObjectClass(callback);
+    jmethodID method_id = env->GetMethodID(cls, "callTool",
+        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    env->DeleteLocalRef(cls);
+
+    // Create a C++ callback that delegates to Java
+    class JniCallback : public icraw::AndroidToolCallback {
+    public:
+        JniCallback(JavaVM* jvm, jobject o, jmethodID mid)
+            : java_vm_(jvm), callback_(o), method_id_(mid) {}
+
+        std::string call_tool(const std::string& tool_name, const nlohmann::json& args) override {
+            if (!callback_ || !method_id_) {
+                nlohmann::json error;
+                error["success"] = false;
+                error["error"] = "callback_not_available";
+                return error.dump();
+            }
+
+            // Attach current thread to JVM if needed
+            JNIEnv* env = nullptr;
+            bool attached = false;
+            int getEnvResult = java_vm_->GetEnv((void**)&env, JNI_VERSION_1_6);
+            if (getEnvResult == JNI_EDETACHED) {
+                if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
+                    attached = true;
+                } else {
+                    nlohmann::json error;
+                    error["success"] = false;
+                    error["error"] = "failed_to_attach_thread";
+                    return error.dump();
+                }
+            } else if (getEnvResult != JNI_OK) {
+                nlohmann::json error;
+                error["success"] = false;
+                error["error"] = "failed_to_get_env";
+                return error.dump();
+            }
+
+            jstring j_tool_name = env->NewStringUTF(tool_name.c_str());
+            jstring j_args = env->NewStringUTF(args.dump().c_str());
+
+            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args);
+
+            std::string result;
+            if (j_result) {
+                const char* result_str = env->GetStringUTFChars(j_result, nullptr);
+                result = result_str;
+                env->ReleaseStringUTFChars(j_result, result_str);
+            } else {
+                nlohmann::json error;
+                error["success"] = false;
+                error["error"] = "callback_failed";
+                result = error.dump();
+            }
+
+            env->DeleteLocalRef(j_tool_name);
+            env->DeleteLocalRef(j_args);
+            if (j_result) env->DeleteLocalRef(j_result);
+
+            // Detach thread if we attached it
+            if (attached) {
+                java_vm_->DetachCurrentThread();
+            }
+
+            return result;
+        }
+
+    private:
+        JavaVM* java_vm_;
+        jobject callback_;
+        jmethodID method_id_;
+    };
+
+    // Register the JNI callback
+    icraw::g_android_tools.register_callback(std::make_unique<JniCallback>(java_vm, g_callback_object, method_id));
+
+    icraw::Logger::get_instance().logger()->info("AndroidToolCallback registered via JNI");
+}
+
+/**
+ * Set tools schema from Java (JSON format)
+ * This allows Java to pass tools.json content to C++ for tool registration
+ */
+JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSetToolsSchema(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring schemaJson) {
+
+    if (!g_agent) {
+        icraw::Logger::get_instance().logger()->warn("nativeSetToolsSchema: Agent not initialized");
+        return;
+    }
+
+    const char* schema_json = nullptr;
+    if (schemaJson) {
+        schema_json = env->GetStringUTFChars(schemaJson, nullptr);
+    }
+
+    if (!schema_json || strlen(schema_json) == 0) {
+        icraw::Logger::get_instance().logger()->warn("nativeSetToolsSchema: Empty schema JSON");
+        if (schema_json) {
+            env->ReleaseStringUTFChars(schemaJson, schema_json);
+        }
+        return;
+    }
+
+    try {
+        auto schema = nlohmann::json::parse(schema_json);
+        auto registry = g_agent->get_tool_registry();
+
+        // Call the new method to register tools from external schema
+        registry->register_tools_from_schema(schema);
+
+        icraw::Logger::get_instance().logger()->info("nativeSetToolsSchema: Successfully registered tools from schema");
+    } catch (const std::exception& e) {
+        icraw::Logger::get_instance().logger()->error("nativeSetToolsSchema: Failed to parse schema: {}", e.what());
+    }
+
+    env->ReleaseStringUTFChars(schemaJson, schema_json);
 }
 
 } // extern "C"

@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "call_android_tool",
+        "description": "调用 Android 设备功能。可用功能:\n- display_notification: 显示通知, 参数: title, content\n- show_toast: 显示Toast, 参数: message, duration\n- read_clipboard: 读取剪贴板\n- take_screenshot: 截屏",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "function": {
+              "type": "string",
+              "description": "要调用的功能名称",
+              "enum": ["display_notification", "show_toast", "read_clipboard", "take_screenshot"]
+            },
+            "args": {
+              "type": "object",
+              "description": "功能参数，JSON 对象格式"
+            }
+          },
+          "required": ["function", "args"]
+        }
+      }
+    }
+  ]
+}
