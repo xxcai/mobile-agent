@@ -35,19 +35,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SKILL-01: Skill 配置文件格式 | - | Pending |
-| SKILL-02: Skills 加载机制 | - | Pending |
-| SKILL-03: Skills 依赖处理 | - | Pending |
-| CALL-01: Skill 解析调用 | - | Pending |
-| CALL-02: 多步骤 Tool 调用链 | - | Pending |
-| CALL-03: Tool 结果处理 | - | Pending |
-| TEST-01: 示例 Skill | - | Pending |
-| TEST-02: 端到端验证 | - | Pending |
-| TEST-03: 错误处理测试 | - | Pending |
+| SKILL-01: Skill 配置文件格式 | Phase v16-01 | Pending |
+| SKILL-02: Skills 加载机制 | Phase v16-01 | Pending |
+| SKILL-03: Skills 依赖处理 | Phase v16-01 | Pending |
+| CALL-01: Skill 解析调用 | Phase v16-02 | Pending |
+| CALL-02: 多步骤 Tool 调用链 | Phase v16-02 | Pending |
+| CALL-03: Tool 结果处理 | Phase v16-02 | Pending |
+| TEST-01: 示例 Skill | Phase v16-03 | Pending |
+| TEST-02: 端到端验证 | Phase v16-03 | Pending |
+| TEST-03: 错误处理测试 | Phase v16-03 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 9 total
-- Mapped to phases: 0 (roadmap pending)
+- Mapped to phases: 9
 - Unmapped: 0 ✓
 
 ---
