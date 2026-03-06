@@ -1,55 +1,46 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-03
+**Analysis Date:** 2026-03-06
 
 ## APIs & External Services
 
-**Nanobot Chat Service:**
-- Primary external API for chat functionality
-- SDK/Client: Custom `HttpNanobotApi` implementation using OkHttp 4.12.0
-- Base URL: `http://localhost:18791` (configurable via `NanobotConfig`)
-- Endpoints:
-  - `POST /api/chat` - Send message and receive response
-  - `GET /health` - Health check
-- Connection: Configurable via `NanobotConfig.java`
-  - Default: `http://localhost:18791`
-  - Connect timeout: 30 seconds
-  - Read timeout: 60 seconds
+**LLM API:**
+- Primary external API for AI chat functionality
+- 调用方式: C++ 引擎直接调用 LLM 提供商的 HTTP API
+- 配置: 通过 local.properties 或代码配置 API Key
+- 支持提供商: 可扩展（当前支持 minimax 等）
 
-**API Request/Response Format:**
+**API Request Format:**
 ```json
-// Request (ChatRequest)
+// HTTP 请求到 LLM 提供商
+POST https://api.minimaxi.com/v1/chat/completions
+Headers:
+  - Authorization: Bearer {api_key}
+  - Content-Type: application/json
+Body:
 {
-  "message": "user message",
-  "session_key": "channel:chatId"
-}
-
-// Response (ChatResponse)
-{
-  "success": true,
-  "response": "assistant reply",
-  "session_key": "channel:chatId",
-  "error": null
+  "model": "...",
+  "messages": [...],
+  "tools": [...]
 }
 ```
 
 ## Data Storage
 
 **In-Memory:**
-- Session and message storage: In-memory `ConcurrentHashMap` in `HttpNanobotApi`
+- Session and message storage: In-memory in C++ Agent 引擎
 - No persistent database
-- Session key format: `channel:chatId` (e.g., `http:default`)
+- Session 数据在 App 生命周期内保留
 
 **No External Database:**
-- All data is ephemeral and lost on app restart
-- Session history maintained per session key in memory
+- 所有数据存储在手机本地
+- 无需远程服务器
 
 ## Authentication & Identity
 
-**None:**
-- No authentication or identity provider integrated
-- No user management system
-- Session key used as lightweight session identifier
+**API Key 认证:**
+- LLM API Key 配置在 local.properties 或代码中
+- 无用户身份管理系统
 
 ## Monitoring & Observability
 
@@ -76,36 +67,37 @@
 ## Environment Configuration
 
 **Required Configuration:**
-- Nanobot service must be running at configured base URL
-- For emulator: `adb reverse tcp:18791 tcp:18791` to forward requests
-- Network security config allows localhost cleartext traffic
+- LLM API Key: 在 local.properties 中配置 `apiKey=your-key`
+- 网络权限: INTERNET permission in AndroidManifest.xml
 
-**Optional Configuration:**
-- Custom base URL via `NanobotConfig` constructor
-- Custom timeouts via `NanobotConfig` constructor
-- API type switching (MOCK vs HTTP) in `MainPresenter.ApiType`
+**可选配置:**
+- LLM 提供商选择
+- API 端点自定义
 
-## Webhooks & Callbacks
+## Architecture Evolution
 
-**Incoming:**
-- None - App is the client, not a server
+**旧架构 (已废弃):**
+- App 通过 HTTP 连接到 PC 上的 Nanobot 服务
+- 需要 adb reverse 端口转发
+- 依赖 PC 端服务运行
 
-**Outgoing:**
-- HTTP POST to Nanobot service for chat messages
-- HTTP GET to Nanobot health endpoint
+**新架构 (当前):**
+- Agent 引擎编译进 APK，直接运行在手机本地
+- C++ 层直接调用 LLM API
+- 无需 PC 端服务，无需 adb
+- 保护隐私，离线可用
 
 ## Key Integration Points
 
-**NanobotApi Interface:**
-- `lib/src/main/java/com/hh/agent/lib/api/NanobotApi.java`
-- Two implementations:
-  - `HttpNanobotApi` - Real HTTP calls to Nanobot service
-  - `MockNanobotApi` - Mock responses for testing/development
+**C++ Agent 引擎:**
+- `agent/src/main/cpp/` - C++ 源代码
+- JNI 层: `agent/src/main/java/`
 
-**Configuration:**
-- `lib/src/main/java/com/hh/agent/lib/config/NanobotConfig.java`
-- HTTP client: `lib/src/main/java/com/hh/agent/lib/http/HttpNanobotApi.java`
+**配置:**
+- `local.properties` - API Key 配置
+- `lib/src/main/java/com/hh/agent/lib/config/` - 运行时配置
 
 ---
 
-*Integration audit: 2026-03-03*
+*Integration audit: 2026-03-06*
+*Updated: 架构从 PC 端服务改为本地运行*

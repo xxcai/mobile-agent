@@ -72,21 +72,22 @@ mobile-agent/
 
 ## 网络配置
 
-### 连接 Nanobot
+### Agent 运行模式
 
-应用通过 HTTP 连接到本地运行的 Nanobot 服务：
+Agent 直接运行在手机本地，通过 C++ 引擎处理 LLM 调用：
 
-1. **Nanobot HTTP 端口**: 18791 (可在 NanobotConfig 中修改)
-2. **adb reverse**: `adb reverse tcp:18791 tcp:18791`
-3. **网络安全配置**: 允许 localhost 明文 HTTP 请求
+1. **本地运行**: Agent 引擎编译进 APK，不需要 PC 端服务
+2. **LLM 调用**: 通过 JNI 直接在手机本地调用 LLM API
+3. **无需 adb**: 不再需要 adb reverse 端口转发
 
-### NanobotConfig
+### LLM 配置
 
 ```java
-// 默认配置
-baseUrl: "http://localhost:18791"
-connectTimeout: 30秒
-readTimeout: 60秒
+// 在 local.properties 中配置 API Key
+apiKey=your-api-key-here
+
+// LLM 提供商配置（在代码或配置文件中）
+llmProvider=minimax  // 或其他支持的提供商
 ```
 
 ## 构建命令

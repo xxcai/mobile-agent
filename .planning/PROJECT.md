@@ -41,14 +41,18 @@
 ## Context
 
 **现有代码库:**
-- `mobile-agent` - Android 应用
-- `cxxplatform` - Windows C++ Agent 原型
+- `mobile-agent` - Android 应用（含 C++ Agent 引擎）
+- `cxxplatform` - Windows C++ Agent 原型（参考）
 - `agent` - Android C++ Agent 模块
 
-**cxxplatform workspace 内容:**
-- `USER.md` - 用户信息占位符
-- `SOUL.md` - Agent 身份定义
-- `skills/` - 技能配置
+**架构演进:**
+- ~~旧架构：App 通过 HTTP 连接 PC 上的 Nanobot 服务（需要 adb reverse）~~
+- **新架构：Agent 直接运行在手机本地**，不依赖 PC
+
+**Agent 运行时:**
+- LLM 调用在手机本地执行
+- 不需要网络代理或 adb 端口转发
+- 保护隐私，离线可用（需要 LLM API key）
 
 ## Constraints
 

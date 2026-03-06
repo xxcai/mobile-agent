@@ -19,7 +19,7 @@ progress:
 
 ## Project Reference
 
-**Core Value:** 在 Android 设备上运行本地 AI Agent，提供实时对话和设备控制能力，无需依赖远程服务器。
+**Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
 **Current Focus:** v1.6 自定义 Skills 验证
 
