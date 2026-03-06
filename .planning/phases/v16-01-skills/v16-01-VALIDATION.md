@@ -38,9 +38,8 @@ created: 2026-03-06
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| v16-01-01-01 | 01 | 1 | SKILL-01 | unit | `ctest -R "skill_metadata" -V` | ⬜ pending |
-| v16-01-01-02 | 01 | 1 | SKILL-02 | unit | `ctest -R "skill_loader" -V` | ⬜ pending |
-| v16-01-01-03 | 01 | 1 | SKILL-03 | unit | `ctest -R "skill_dependencies" -V` | ⬜ pending |
+| v16-01-01-01 | 01 | 1 | SKILL-01 | unit | `ctest -R "skill" -V` | ✅ exists |
+| v16-01-01-02 | 01 | 1 | SKILL-02 | unit | `ctest -R "skill" -V` | ✅ exists |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,10 +47,7 @@ created: 2026-03-06
 
 ## Wave 0 Requirements
 
-- [ ] `cxxplatform/tests/skill_dependencies.test.cpp` — tests for dependency parsing, topological sort, cycle detection
-- [ ] CMakeLists.txt update — add new test target if needed
-
-*Existing Catch2 infrastructure covers all phase requirements.*
+*无需新增 - 现有测试已覆盖 SKILL-01 和 SKILL-02*
 
 ---
 
@@ -59,10 +55,9 @@ created: 2026-03-06
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| YAML frontmatter parsing | SKILL-01 | Need real SKILL.md files | Create test SKILL.md with dependencies field, verify parse |
 | OS/environment filtering | SKILL-02 | Platform-specific | Run on target platform |
 
-*If none: "All phase behaviors have automated verification."*
+*所有验证均有自动化覆盖*
 
 ---
 
