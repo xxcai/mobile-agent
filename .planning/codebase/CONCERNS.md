@@ -51,13 +51,6 @@
 - Impact: Poor user experience on transient network failures
 - Fix approach: Add OkHttp interceptor with retry logic or use Retrofit with retry mechanism
 
-### Vue Sessions Not Shared with Native
-- Issue: Vue frontend maintains separate in-memory sessions from Android native code
-- Files:
-  - `/Users/caixiao/Workspace/projects/mobile-agent/vue/src/api/nanobot.ts` (line 5)
-  - `/Users/caixiao/Workspace/projects/mobile-agent/lib/src/main/java/com/hh/agent/lib/http/HttpNanobotApi.java`
-- Impact: Different frontends show different chat histories; no continuity between platforms
-- Fix approach: Share session storage via platform channel or shared database
 
 ## Known Bugs
 
@@ -211,14 +204,6 @@
 - What's not tested: Network timeouts; malformed responses; service unavailable
 - Files: `/Users/caixiao/Workspace/projects/mobile-agent/lib/src/main/java/com/hh/agent/lib/http/HttpNanobotApi.java`
 - Risk: Unhandled edge cases cause crashes
-- Priority: Medium
-
-### Vue State Management Tests
-- What's not tested: Pinia store mutations; error state handling
-- Files:
-  - `/Users/caixiao/Workspace/projects/mobile-agent/vue/src/stores/chat.ts`
-  - `/Users/caixiao/Workspace/projects/mobile-agent/vue/src/api/nanobot.ts`
-- Risk: State inconsistency between components
 - Priority: Medium
 
 ---

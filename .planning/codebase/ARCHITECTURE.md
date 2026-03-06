@@ -4,16 +4,15 @@
 
 ## Pattern Overview
 
-**Overall:** Hybrid MVP + Component-based Architecture
+**Overall:** MVP (Model-View-Presenter) Architecture
 
-This codebase uses a dual architecture pattern:
+This codebase uses MVP pattern for Android:
 - **Android (Java):** MVP (Model-View-Presenter) pattern
-- **Frontend (Vue):** Component-based architecture with Pinia state management
 
 **Key Characteristics:**
 - Clean separation between UI and business logic via MVP Contract interfaces
 - API abstraction allowing pluggable implementations (HTTP/Mock)
-- Dual frontend: Native Android UI and WebView-hosted Vue frontend
+- Native Android UI only (Vue frontend removed)
 - Session-based chat model with in-memory message storage
 
 ## Layers
@@ -22,7 +21,7 @@ This codebase uses a dual architecture pattern:
 
 **View Layer:**
 - Location: `app/src/main/java/com/hh/agent/`
-- Contains: `MainActivity.java`, `VueActivity.java`, `MessageAdapter.java`
+- Contains: `MainActivity.java`, `MessageAdapter.java`
 - Responsibilities: UI rendering, user input handling, lifecycle management
 - Depends on: Presenter, Models
 - Used by: Android framework
@@ -82,38 +81,11 @@ This codebase uses a dual architecture pattern:
 - Responsibilities: HTTP endpoint and timeout configuration
 - Used by: HTTP implementation
 
-### Vue Frontend Layer
-
-**Store Layer (Pinia):**
-- Location: `vue/src/stores/`
-- Contains: `chat.ts`
-- Responsibilities: State management, business logic coordination
-- Depends on: API layer
-- Used by: Vue components
-
-**API Layer:**
-- Location: `vue/src/api/`
-- Contains: `nanobot.ts`, `http.ts`
-- Responsibilities: HTTP communication with Nanobot service
-- Used by: Store
-
-**Component Layer:**
-- Location: `vue/src/components/`
-- Contains: `MessageBubble.vue`, `InputBar.vue`, `ThinkingIndicator.vue`
-- Responsibilities: Reusable UI components
-- Depends on: Types, Stores
-
-**View Layer:**
-- Location: `vue/src/views/`
-- Contains: `ChatView.vue`
-- Responsibilities: Page-level component composition
-- Depends on: Components, Stores
-
 ## Data Flow
 
 **Message Send Flow:**
 
-1. User enters message in UI (MainActivity/ChatView)
+1. User enters message in UI (MainActivity)
 2. View calls Presenter.store method (sendMessage)
 3. Presenter creates user message and notifies View
 4. Presenter shows "thinking" indicator
@@ -121,11 +93,10 @@ This codebase uses a dual architecture pattern:
 6. API implementation (HttpNanobotApi) sends HTTP POST to Nanobot
 7. Response converted to Message model
 8. Presenter updates View with assistant response
-9. View renders message in RecyclerView/List
+9. View renders message in RecyclerView
 
 **State Management:**
 - Android: Presenter holds reference to View, uses Handler for UI thread updates
-- Vue: Pinia store manages reactive state, components subscribe via composables
 
 ## Key Abstractions
 
@@ -151,21 +122,6 @@ This codebase uses a dual architecture pattern:
 - Triggers: App launch from launcher
 - Responsibilities: Initialize MVP, load messages, handle user input
 
-**Android Vue Entry:**
-- Location: `app/src/main/java/com/hh/agent/VueActivity.java`
-- Triggers: Navigate from MainActivity or direct launch
-- Responsibilities: Initialize WebView, load Vue assets
-
-**Vue Entry:**
-- Location: `vue/src/main.ts`
-- Triggers: WebView loads index.html
-- Responsibilities: Bootstrap Vue app, mount to DOM
-
-**Android Application:**
-- Location: `app/src/main/java/com/hh/agent/LauncherActivity.java`
-- Triggers: Splash screen / app start
-- Responsibilities: Route to MainActivity or VueActivity
-
 ## Error Handling
 
 **Strategy:** Try-catch with fallback messaging
@@ -173,12 +129,11 @@ This codebase uses a dual architecture pattern:
 **Patterns:**
 - Presenter catches exceptions and displays error via View.onError()
 - HTTP implementation catches IOException and returns error Message
-- Vue store catches errors and displays in UI
 - Network errors show as user-friendly messages
 
 ## Cross-Cutting Concerns
 
-**Logging:** Android Log.d/e for debugging WebView and HTTP operations
+**Logging:** Android Log.d/e for debugging HTTP operations
 
 **Validation:** Input validation in Presenter (empty message check)
 

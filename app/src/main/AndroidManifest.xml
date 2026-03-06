@@ -12,25 +12,15 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
 
-        <!-- 启动界面 -->
+        <!-- 原生 Java 界面 -->
         <activity
-            android:name=".LauncherActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- 原生 Java 界面 -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="true" />
-
-        <!-- Vue WebView 界面 -->
-        <activity
-            android:name=".VueActivity"
-            android:exported="false" />
 
     </application>
 

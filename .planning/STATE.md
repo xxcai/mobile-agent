@@ -32,7 +32,7 @@ progress:
 | Milestone | v1.5 LLM → Android 调用管道 |
 | Phase | Not started |
 | Status | Ready for Phase 1 discussion |
-| Last activity: | 2026-03-05 — v1.4 shipped, v1.5 ready |
+| Last activity: | 2026-03-06 — Completed quick task 4: 删除Vue前端实现 |
 
 ---
 
@@ -95,6 +95,7 @@ None
 | 1 | 检查SOUL.md和USER.md有没有加载 | 2026-03-04 | - | [1-soul-md-user-md](./quick/1-soul-md-user-md/) |
 | 2 | 清理 agent 中未使用的 gradle 依赖 | 2026-03-05 | f9c095c | [2-agent-gradle](./quick/2-agent-gradle/) |
 | 3 | 整理 .planning 目录结构 | 2026-03-06 | 069b6e0 | [3-planning](./quick/3-planning/) |
+| 4 | 删除Vue前端实现 | 2026-03-06 | d0ccbaa | [4-vue](./quick/4-vue/) |
 
 ---
 
