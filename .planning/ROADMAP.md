@@ -29,6 +29,9 @@
 2. lib 模块中无 Nanobot 相关 HTTP 代码
 3. 相关测试文件已清理
 
+**Plans:**
+- [x] v20-01-01-PLAN.md — 删除 Vue 相关代码，清理 HTTP 连接
+
 ---
 
 ### Phase v20-02: 重命名
@@ -47,6 +50,9 @@
 1. Java 层所有 Nanobot 相关类已重命名
 2. C++ 层相关命名已更新
 3. 项目可编译通过
+
+**Plans:**
+- [ ] v20-02-01-PLAN.md — Nanobot → MobileAgent 重命名
 
 ---
 
