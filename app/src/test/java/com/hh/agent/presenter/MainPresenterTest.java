@@ -1,9 +1,9 @@
 package com.hh.agent.presenter;
 
 import com.hh.agent.contract.MainContract;
-import com.hh.agent.lib.api.NanobotApi;
-import com.hh.agent.lib.impl.MockNanobotApi;
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.api.NanobotApi;
+import com.hh.agent.library.impl.MockNanobotApi;
+import com.hh.agent.library.model.Message;
 import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;

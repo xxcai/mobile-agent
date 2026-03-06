@@ -4,8 +4,8 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import com.hh.agent.contract.MainContract;
-import com.hh.agent.lib.api.NanobotApi;
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.api.NanobotApi;
+import com.hh.agent.library.model.Message;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

@@ -9,7 +9,7 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.contract.MainContract;
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.model.Message;
 import com.hh.agent.presenter.MainPresenter;
 import com.hh.agent.presenter.NativeNanobotApiAdapter;
 import com.hh.agent.ui.MessageAdapter;

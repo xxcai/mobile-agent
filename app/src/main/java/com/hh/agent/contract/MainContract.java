@@ -1,6 +1,6 @@
 package com.hh.agent.contract;
 
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.model.Message;
 import java.util.List;
 
 /**

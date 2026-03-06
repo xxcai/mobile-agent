@@ -9,7 +9,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.R;
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.model.Message;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

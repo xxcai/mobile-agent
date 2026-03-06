@@ -1,9 +1,9 @@
 package com.hh.agent.presenter;
 
 import android.content.Context;
-import com.hh.agent.lib.api.NanobotApi;
-import com.hh.agent.lib.model.Message;
-import com.hh.agent.lib.model.Session;
+import com.hh.agent.library.api.NanobotApi;
+import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.Session;
 import com.hh.agent.library.WorkspaceManager;
 import com.hh.agent.library.api.NativeNanobotApi;
 
