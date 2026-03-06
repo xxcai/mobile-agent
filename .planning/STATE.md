@@ -135,7 +135,7 @@ None
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | 自定义 Skills 机制 | ○ Not started |
+| 1 | 自定义 Skills 机制 | ● In discussion |
 | 2 | Agent 通过 Skill 调用 Android Tools | ○ Not started |
 | 3 | 端到端任务验证 | ○ Not started |
 
