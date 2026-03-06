@@ -6,6 +6,8 @@ import com.hh.agent.library.tools.ShowToastTool;
 import com.hh.agent.library.tools.DisplayNotificationTool;
 import com.hh.agent.library.tools.ReadClipboardTool;
 import com.hh.agent.library.tools.TakeScreenshotTool;
+import com.hh.agent.library.tools.SearchContactsTool;
+import com.hh.agent.library.tools.SendImMessageTool;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -39,7 +41,9 @@ public class AndroidToolManager implements AndroidToolCallback {
         tools.put("display_notification", new DisplayNotificationTool(getActivity()));
         tools.put("read_clipboard", new ReadClipboardTool(getActivity()));
         tools.put("take_screenshot", new TakeScreenshotTool(getActivity()));
-        Log.i("AndroidToolManager", "Registered 4 tools: show_toast, display_notification, read_clipboard, take_screenshot");
+        tools.put("search_contacts", new SearchContactsTool());
+        tools.put("send_im_message", new SendImMessageTool());
+        Log.i("AndroidToolManager", "Registered 6 tools: show_toast, display_notification, read_clipboard, take_screenshot, search_contacts, send_im_message");
 
         // Load tools.json from assets
         loadToolsConfig();
