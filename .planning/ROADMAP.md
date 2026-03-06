@@ -41,6 +41,9 @@
 2. 多步骤 Tool 调用链正常工作
 3. Tool 结果正确返回给 Agent
 
+**Plans:**
+- [ ] v16-02-01-PLAN.md — 添加新工具到 tools.json，创建 SearchContactsTool 和 SendImMessageTool，注册到 AndroidToolManager，创建 im_sender Skill
+
 ---
 
 ### Phase v16-03: 端到端验证
@@ -68,4 +71,4 @@
 
 ---
 
-*Roadmap updated: 2026-03-06 (SKILL-03 移除)*
+*Roadmap updated: 2026-03-06*
