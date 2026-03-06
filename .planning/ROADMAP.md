@@ -23,7 +23,7 @@
 2. C++ 层能够加载 Skills
 
 **Plans:**
-- [x] v16-01-01-PLAN.md — Skill 加载机制验证 (verified 2026-03-06)
+1/1 plans complete
 
 ---
 
@@ -63,8 +63,7 @@
 
 | Milestone | Phase Range | Status |
 |-----------|-------------|--------|
-| v1.6 | v16-01 to v16-03 | ● In Progress |
-| v1.5 | v15-01 to v15-03 | ✓ Complete |
+| v1.6 | v16-01 to v16-03 | ● In Progress | Complete    | 2026-03-06 | v15-01 to v15-03 | ✓ Complete |
 | v1.4 | 1-4 | ✓ Complete |
 
 ---
