@@ -23,18 +23,20 @@
 - ✓ 预置 workspace — v1.3 (shipped 2026-03-04)
 - ✓ Android Tools 通道 — v1.4 (shipped 2026-03-05)
 - ✓ LLM → Android 调用管道 — v1.5 (shipped 2026-03-05)
-- ✓ 自定义 Skills 验证 — v1.6 (shipped 2026-03-06)
 
 ### Active
 
+- [ ] v1.6: 通过自定义 Skills 验证 Agent 调用内置 Tools 的能力
 - [ ] v1.7: (待规划)
 
-## Current Milestone: v1.7 待规划
-- ✓ 通用的 LLM → Android 调用管道（JSON 结构化参数）
-- ✓ 内置工具清单：show_toast, display_notification, read_clipboard, take_screenshot
-- ✓ C++ tool_registry 从 tools.json 加载
-- ✓ AndroidToolManager 注册表实现
-- ✓ 完全自主调用模式
+## Current Milestone: v1.6 自定义 Skills 验证
+
+**Goal:** 通过添加自定义 Skills，验证 Agent 通过 Skill 调用内置 Tools 完成任务的能力
+
+**Target features:**
+- 自定义 Skills 机制
+- Agent 通过 Skill 调用 Android 内置 Tools
+- 端到端的任务验证
 
 ## Context
 
@@ -67,7 +69,7 @@
 | Android Tools 通道 | 统一的 JNI 回调 + 工具注册机制 | ✓ v1.4 shipped |
 | 通用 Android 调用管道 | LLM 通过 JSON 参数调用 Android 功能 | ✓ v1.5 shipped |
 | 完全自主调用 | LLM 直接执行，无需用户确认 | ✓ v1.5 shipped |
-| 自定义 Skills | Agent 通过 Skill 调用 Android Tools | ✓ v1.6 shipped |
+| 自定义 Skills | Agent 通过 Skill 调用 Android Tools | — v1.6 进行中 |
 
 ---
 *Last updated: 2026-03-06 — updated vision to "手机上的 AI Agent"*
