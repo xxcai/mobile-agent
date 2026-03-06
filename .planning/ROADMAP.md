@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ✅ **v1.6 自定义 Skills 验证** — Phases v16-01 to v16-03 (in progress)
+- ✅ **v1.6 自定义 Skills 验证** — Phases v16-01 to v16-02 (shipped 2026-03-06)
 - ✅ **v1.5 LLM → Android 调用管道** — Phases v15-01 to v15-03 (shipped 2026-03-05)
 - ✅ **v1.4 Android Tools 通道** — Phases 1-4 (shipped 2026-03-05)
 
@@ -46,27 +46,12 @@
 
 ---
 
-### Phase v16-03: 端到端验证
-
-**Goal:** 创建示例 Skill 并验证完整流程
-
-**Requirements:**
-- TEST-01: 创建示例 Skill 验证完整流程
-- TEST-02: Agent 通过 Skill 完成实际任务的验证
-- TEST-03: 错误处理和边界情况测试
-
-**Success criteria:**
-1. 示例 Skill 成功运行
-2. Agent 能通过 Skill 完成实际任务
-3. 错误情况被正确处理
-
----
-
 ## Progress
 
 | Milestone | Phase Range | Status |
 |-----------|-------------|--------|
-| v1.6 | v16-01 to v16-03 | ● In Progress | Complete    | 2026-03-06 | v15-01 to v15-03 | ✓ Complete |
+| v1.6 | v16-01 to v16-02 | ✓ Complete | 2026-03-06 |
+| v1.5 | v15-01 to v15-03 | ✓ Complete | 2026-03-05 |
 | v1.4 | 1-4 | ✓ Complete |
 
 ---
