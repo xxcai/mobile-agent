@@ -9,9 +9,7 @@
 - **Skill 定义字段 (已有实现)**: description, emoji, requiredBins, requiredEnvs, anyBins, os, always
 
 ### Claude's Discretion
-- 具体依赖关系的数据结构设计
-- 循环依赖的检测和处理策略
-- 依赖解析的技术实现细节
+- 无需实现技能依赖关系（现代 Skills 设计遵循独立自包含原则）
 
 ### Deferred Ideas (OUT OF SCOPE)
 - Agent 如何根据用户意图选择合适的 Skill — Phase v16-02
@@ -27,7 +25,6 @@
 |----|-------------|-----------------|
 | SKILL-01 | 定义自定义 Skill 的配置文件格式 (JSON/YAML) | YAML frontmatter 格式已确定，SKILL.md 格式已有实现 |
 | SKILL-02 | C++ 层加载自定义 Skills 的机制 | skill_loader.cpp 已完整实现，load_skills() 方法可用 |
-| SKILL-03 | Skills 之间的依赖关系处理 | 需要新增 dependencies 字段和拓扑排序实现 |
 </phase_requirements>
 
 # Phase v16-01: 自定义 Skills 机制 - Research
@@ -38,9 +35,9 @@
 
 ## Summary
 
-Phase v16-01 focuses on implementing custom Skills definition and loading mechanism. The existing `skill_loader.cpp` already provides complete skill loading functionality, including YAML frontmatter parsing, OS/binary/environment checks. The main task is to add dependency handling between Skills.
+Phase v16-01 focuses on verifying custom Skills definition and loading mechanism. The existing `skill_loader.cpp` already provides complete skill loading functionality, including YAML frontmatter parsing, OS/binary/environment checks.
 
-**Primary recommendation:** Add `dependencies` field to SkillMetadata and implement topological sort for dependency resolution. Use Kahn's algorithm for ordering and detect cycles using DFS.
+**Primary recommendation:** Verify existing implementation works correctly. No new code needed - confirm SKILL-01 and SKILL-02 are satisfied.
 
 ## Standard Stack
 
@@ -294,9 +291,8 @@ bool has_cycle(
 ### Phase Requirements -> Test Map
 | Req ID | Behavior | Test Type | Automated Command | File Exists? |
 |--------|----------|-----------|-------------------|-------------|
-| SKILL-01 | YAML frontmatter parsing | unit | `ctest -R "skill_loader.*dependencies" -V` | Yes - skill_loader.test.cpp |
+| SKILL-01 | YAML frontmatter parsing | unit | `ctest -R "skill_loader" -V` | Yes - skill_loader.test.cpp |
 | SKILL-02 | Load skills from directory | unit | `ctest -R "skill_loader" -V` | Yes - skill_loader.test.cpp |
-| SKILL-03 | Dependency resolution | unit | Need to add - see Wave 0 gaps |
 
 ### Sampling Rate
 - **Per task commit:** `ctest -R "skill_loader" -V` (quick run)
@@ -304,11 +300,7 @@ bool has_cycle(
 - **Phase gate:** Full suite green before `/gsd:verify-work`
 
 ### Wave 0 Gaps
-- [ ] `cxxplatform/tests/skill_dependencies.test.cpp` — covers SKILL-03 (dependency resolution)
-- [ ] Add test case: parse dependencies from SKILL.md
-- [ ] Add test case: topological sort ordering
-- [ ] Add test case: circular dependency detection
-- [ ] Add test case: missing dependency warning
+- 无需新增测试 - 现有测试覆盖 SKILL-01 和 SKILL-02
 
 ## Sources
 

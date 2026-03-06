@@ -33,10 +33,10 @@
 - `os`: OS 限制
 - `always`: 是否总是加载
 
-### 依赖处理 (需要实现)
-- Skills 之间可能存在依赖关系
-- 需要在配置中声明依赖
-- 加载时需要按依赖顺序处理
+### 依赖处理
+- Skills 之间不需要代码级别的依赖关系
+- 现代 Skills 设计遵循独立自包含原则
+- 如需共享功能，应抽取为底层共享能力
 
 ### Claude's Discretion
 - 具体依赖关系的数据结构设计
@@ -84,7 +84,6 @@
 
 - Agent 如何根据用户意图选择合适的 Skill — Phase v16-02
 - Skill 如何触发 Android Tool 调用 — Phase v16-02
-- 多步骤 Skill 工作流 — Phase v16-02
 
 </deferred>
 
