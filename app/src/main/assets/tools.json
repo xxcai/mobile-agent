@@ -5,14 +5,14 @@
       "type": "function",
       "function": {
         "name": "call_android_tool",
-        "description": "调用 Android 设备功能。可用功能:\n- display_notification: 显示通知, 参数: title, content\n- show_toast: 显示Toast, 参数: message, duration\n- read_clipboard: 读取剪贴板\n- take_screenshot: 截屏",
+        "description": "调用 Android 设备功能。可用功能:\n- display_notification: 显示通知, 参数: title, content\n- show_toast: 显示Toast, 参数: message, duration\n- read_clipboard: 读取剪贴板\n- take_screenshot: 截屏\n- search_contacts: 搜索联系人, 参数: query\n- send_im_message: 发送即时消息, 参数: contact_id, message",
         "parameters": {
           "type": "object",
           "properties": {
             "function": {
               "type": "string",
               "description": "要调用的功能名称",
-              "enum": ["display_notification", "show_toast", "read_clipboard", "take_screenshot"]
+              "enum": ["display_notification", "show_toast", "read_clipboard", "take_screenshot", "search_contacts", "send_im_message"]
             },
             "args": {
               "type": "object",
