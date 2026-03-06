@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Roadmap
+milestone: v1.6
+milestone_name: 自定义 Skills 验证
 status: unknown
-last_updated: "2026-03-05T12:33:56.458Z"
+last_updated: "2026-03-06T00:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # STATE: Mobile Agent - C++ 移植版
 
-**Last Updated:** 2026-03-05
+**Last Updated:** 2026-03-06
 
 ---
 
@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 在 Android 设备上运行本地 AI Agent，提供实时对话和设备控制能力，无需依赖远程服务器。
 
-**Current Focus:** v1.5 LLM → Android 调用管道
+**Current Focus:** v1.6 自定义 Skills 验证
 
 ---
 
@@ -29,10 +29,10 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v1.5 LLM → Android 调用管道 |
-| Phase | Not started |
-| Status | Ready for Phase 1 discussion |
-| Last activity: | 2026-03-05 — v1.4 shipped, v1.5 ready |
+| Milestone | v1.6 自定义 Skills 验证 |
+| Phase | Not started (defining requirements) |
+| Status | Defining requirements |
+| Last activity: | 2026-03-06 — Milestone v1.6 started |
 
 ---
 
@@ -41,9 +41,10 @@ progress:
 | Metric | Value |
 |--------|-------|
 | v1.4 Phases | 4 (shipped) |
-| v1.5 Phases | 5 (in progress) |
+| v1.5 Phases | 5 (shipped) |
 | v1.4 Requirements | 4 ✓ |
-| v1.5 Requirements | 5 |
+| v1.5 Requirements | 9 ✓ |
+| v1.6 Phases | 0 (not started) |
 
 ---
 
@@ -56,17 +57,25 @@ progress:
 
 ---
 
-## v1.5 Requirements
+## v1.5 Requirements (SHIPPED 2026-03-06)
 
-- **PIPE-01**: 通用的 LLM → Android 调用管道（JSON 结构化参数）
-- **PIPE-02**: 内置工具框架（支持扩展注册）
+- **PIPE-01**: 通用的 LLM → Android 调用管道（JSON 结构化参数） ✓
+- **PIPE-02**: 内置工具框架（支持扩展注册） ✓
 - **PIPE-03**: Android 端注册表实现 (function → Executor 映射) ✓
-- **ANDROID-01**: show_toast 功能 (已存在) ✓
+- **ANDROID-01**: show_toast 功能 ✓
 - **ANDROID-02**: display_notification 功能 ✓
 - **ANDROID-03**: read_clipboard 功能 ✓
-- **SKILL-01**: Skills 加载机制
-- **SKILL-02**: Skill 编排
-- **PIPE-04**: 完全自主调用模式
+- **SKILL-01**: Skills 加载机制 ✓
+- **SKILL-02**: Skill 编排 ✓
+- **PIPE-04**: 完全自主调用模式 ✓
+
+---
+
+## v1.6 Requirements
+
+- **SKILL-01**: 自定义 Skills 机制
+- **SKILL-02**: Agent 通过 Skill 调用 Android Tools
+- **SKILL-03**: 端到端任务验证
 
 ---
 
@@ -74,9 +83,10 @@ progress:
 
 ### Recent Changes
 
+- 2026-03-06: v1.5 shipped - LLM → Android 调用管道
+- 2026-03-06: v1.6 started - 自定义 Skills 验证
 - 2026-03-05: v1.4 shipped - Android Tools 通道
 - 2026-03-05: v1.5 started - LLM → Android 调用管道
-- 2026-03-04: v1.3 shipped - 预置 workspace
 
 ### Blockers
 
@@ -113,19 +123,30 @@ None
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | tools.json 迁移到 inputSchema | ● In discussion |
+| 1 | tools.json 迁移到 inputSchema | ✓ Complete |
 | 2 | 通用 call_android_tool | ✓ Complete |
 | 3 | Android 注册表实现 | ✓ Complete |
-| 4 | Skills 加载机制 | ○ Not started |
-| 5 | Skill 编排示例 | ○ Not started |
+| 4 | Skills 加载机制 | ✓ Complete |
+| 5 | Skill 编排示例 | ✓ Complete |
+
+---
+
+## v1.6 进度
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | 自定义 Skills 机制 | ○ Not started |
+| 2 | Agent 通过 Skill 调用 Android Tools | ○ Not started |
+| 3 | 端到端任务验证 | ○ Not started |
 
 ---
 
 ## Roadmap Evolution
 
 - v1.4 shipped: Android Tools 通道 (4 phases)
-- v1.5 started: LLM → Android 调用管道 (5 phases)
-- Phase 编号调整: 每个 milestone 独立编号 (v1.4 Phase 1-4, v1.5 Phase 1-5)
+- v1.5 shipped: LLM → Android 调用管道 (5 phases)
+- v1.6 started: 自定义 Skills 验证 (3 phases)
+- Phase 编号调整: 每个 milestone 独立编号
 
 ---
 

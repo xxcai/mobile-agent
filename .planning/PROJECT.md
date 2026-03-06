@@ -26,9 +26,16 @@
 
 ### Active
 
-- [ ] v1.6: (待规划)
+- [ ] v1.6: 通过自定义 Skills 验证 Agent 调用内置 Tools 的能力
 
-## Current Milestone: v1.5 LLM → Android 调用管道
+## Current Milestone: v1.6 自定义 Skills 验证
+
+**Goal:** 通过添加自定义 Skills，验证 Agent 通过 Skill 调用内置 Tools 完成任务的能力
+
+**Target features:**
+- 自定义 Skills 机制
+- Agent 通过 Skill 调用 Android 内置 Tools
+- 端到端的任务验证
 
 **Goal:** 将 show_toast 泛化为通用的 LLM 调用 Android 平台功能的管道，支持 Skills 编排工作流
 
@@ -72,4 +79,4 @@
 | 完全自主调用 | LLM 直接执行，无需用户确认 | — v1.5 进行中 |
 
 ---
-*Last updated: 2026-03-05 start v1.5*
+*Last updated: 2026-03-06 start v1.6*
