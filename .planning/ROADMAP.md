@@ -42,7 +42,7 @@
 3. Tool 结果正确返回给 Agent
 
 **Plans:**
-- [ ] v16-02-01-PLAN.md — 添加新工具到 tools.json，创建 SearchContactsTool 和 SendImMessageTool，注册到 AndroidToolManager，创建 im_sender Skill
+1/1 plans complete
 
 ---
 
