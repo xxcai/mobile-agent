@@ -141,6 +141,18 @@ None
 
 ---
 
+## Current Position (v16-01-01)
+
+| Field | Value |
+|-------|-------|
+| Milestone | v1.6 自定义 Skills 验证 |
+| Phase | v16-01 (自定义 Skills 机制) |
+| Plan | v16-01-01 |
+| Status | Complete (verified) |
+| Last activity: | 2026-03-06 — Plan v16-01-01 verified |
+
+---
+
 ## Roadmap Evolution
 
 - v1.4 shipped: Android Tools 通道 (4 phases)

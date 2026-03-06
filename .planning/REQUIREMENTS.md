@@ -7,8 +7,8 @@
 
 ### 自定义 Skills 机制
 
-- [ ] **SKILL-01**: 定义自定义 Skill 的配置文件格式 (JSON/YAML)
-- [ ] **SKILL-02**: C++ 层加载自定义 Skills 的机制
+- [x] **SKILL-01**: 定义自定义 Skill 的配置文件格式 (JSON/YAML)
+- [x] **SKILL-02**: C++ 层加载自定义 Skills 的机制
 - [ ] **SKILL-03**: Skills 之间的依赖关系处理
 
 ### Agent 调用 Tools
@@ -35,8 +35,8 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SKILL-01: Skill 配置文件格式 | Phase v16-01 | Pending |
-| SKILL-02: Skills 加载机制 | Phase v16-01 | Pending |
+| SKILL-01: Skill 配置文件格式 | Phase v16-01 | Verified |
+| SKILL-02: Skills 加载机制 | Phase v16-01 | Verified |
 | SKILL-03: Skills 依赖处理 | Phase v16-01 | Pending |
 | CALL-01: Skill 解析调用 | Phase v16-02 | Pending |
 | CALL-02: 多步骤 Tool 调用链 | Phase v16-02 | Pending |

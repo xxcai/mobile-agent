@@ -17,15 +17,13 @@
 **Requirements:**
 - SKILL-01: 定义自定义 Skill 的配置文件格式 (JSON/YAML)
 - SKILL-02: C++ 层加载自定义 Skills 的机制
-- SKILL-03: Skills 之间的依赖关系处理
 
 **Success criteria:**
 1. 可以在配置文件中定义 Skill
 2. C++ 层能够加载 Skills
-3. Skills 依赖关系被正确处理
 
 **Plans:**
-- [ ] v16-01-01-PLAN.md — 添加 dependencies 字段和依赖解析
+- [x] v16-01-01-PLAN.md — Skill 加载机制验证 (verified 2026-03-06)
 
 ---
 
@@ -71,4 +69,4 @@
 
 ---
 
-*Roadmap updated: 2026-03-06*
+*Roadmap updated: 2026-03-06 (SKILL-03 移除)*
