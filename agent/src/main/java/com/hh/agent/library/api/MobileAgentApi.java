@@ -6,9 +6,9 @@ import com.hh.agent.library.model.Session;
 import java.util.List;
 
 /**
- * Nanobot API 接口
+ * MobileAgent API 接口
  */
-public interface NanobotApi {
+public interface MobileAgentApi {
 
     /**
      * 创建新会话

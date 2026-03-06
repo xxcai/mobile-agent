@@ -12,25 +12,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * NativeNanobotApi 实现
+ * NativeMobileAgentApi 实现
  * 使用 NativeAgent JNI 调用本地 C++ Agent 引擎
  */
-public class NativeNanobotApi implements NanobotApi {
+public class NativeMobileAgentApi implements MobileAgentApi {
 
-    private static NativeNanobotApi instance;
+    private static NativeMobileAgentApi instance;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
     private AndroidToolManager toolManager;
 
-    private NativeNanobotApi() {
+    private NativeMobileAgentApi() {
     }
 
     /**
      * 获取单例实例
      */
-    public static synchronized NativeNanobotApi getInstance() {
+    public static synchronized NativeMobileAgentApi getInstance() {
         if (instance == null) {
-            instance = new NativeNanobotApi();
+            instance = new NativeMobileAgentApi();
         }
         return instance;
     }
@@ -56,13 +56,13 @@ public class NativeNanobotApi implements NanobotApi {
                         String toolsJson = loadToolsFromAssets(context);
                         if (toolsJson != null && !toolsJson.isEmpty()) {
                             NativeAgent.nativeSetToolsSchema(toolsJson);
-                            android.util.Log.i("NativeNanobotApi", "Successfully loaded and passed tools.json to native layer");
+                            android.util.Log.i("NativeMobileAgentApi", "Successfully loaded and passed tools.json to native layer");
                         } else {
-                            android.util.Log.w("NativeNanobotApi", "tools.json is empty, skipping native registration");
+                            android.util.Log.w("NativeMobileAgentApi", "tools.json is empty, skipping native registration");
                         }
                     } catch (Exception e) {
                         // Log but don't fail initialization
-                        android.util.Log.w("NativeNanobotApi", "Failed to load tools.json: " + e.getMessage());
+                        android.util.Log.w("NativeMobileAgentApi", "Failed to load tools.json: " + e.getMessage());
                     }
                 }
             } catch (Exception e) {
@@ -92,7 +92,7 @@ public class NativeNanobotApi implements NanobotApi {
             reader.close();
             return sb.toString();
         } catch (java.io.IOException e) {
-            android.util.Log.e("NativeNanobotApi", "Error reading tools.json: " + e.getMessage());
+            android.util.Log.e("NativeMobileAgentApi", "Error reading tools.json: " + e.getMessage());
             return null;
         }
     }
