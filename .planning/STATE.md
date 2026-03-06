@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Roadmap
+milestone: v2.0
+milestone_name: 接入真实项目
 status: unknown
-last_updated: "2026-03-06T06:23:56.589Z"
+last_updated: "2026-03-06T08:30:00.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # STATE: Mobile Agent - C++ 移植版
@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v1.6 自定义 Skills 验证
+**Current Focus:** v2.0 接入真实项目
 
 ---
 
@@ -29,10 +29,10 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v1.6 自定义 Skills 验证 |
+| Milestone | v2.0 接入真实项目 |
 | Phase | Not started (defining requirements) |
 | Status | Defining requirements |
-| Last activity: | 2026-03-06 — Milestone v1.6 started |
+| Last activity: | 2026-03-06 — Milestone v2.0 started |
 
 ---
 
@@ -42,9 +42,11 @@ progress:
 |--------|-------|
 | v1.4 Phases | 4 (shipped) |
 | v1.5 Phases | 5 (shipped) |
+| v1.6 Phases | 3 (shipped) |
 | v1.4 Requirements | 4 ✓ |
 | v1.5 Requirements | 9 ✓ |
-| v1.6 Phases | 0 (not started) |
+| v1.6 Requirements | 3 ✓ |
+| v2.0 Phases | 0 (not started) |
 
 ---
 
@@ -84,7 +86,8 @@ progress:
 ### Recent Changes
 
 - 2026-03-06: v1.5 shipped - LLM → Android 调用管道
-- 2026-03-06: v1.6 started - 自定义 Skills 验证
+- 2026-03-06: v1.6 shipped - 自定义 Skills 验证
+- 2026-03-06: v2.0 started - 接入真实项目
 - 2026-03-05: v1.4 shipped - Android Tools 通道
 - 2026-03-05: v1.5 started - LLM → Android 调用管道
 
@@ -157,7 +160,8 @@ None
 
 - v1.4 shipped: Android Tools 通道 (4 phases)
 - v1.5 shipped: LLM → Android 调用管道 (5 phases)
-- v1.6 started: 自定义 Skills 验证 (3 phases)
+- v1.6 shipped: 自定义 Skills 验证 (3 phases)
+- v2.0 started: 接入真实项目 (TBD)
 - Phase 编号调整: 每个 milestone 独立编号
 
 ---

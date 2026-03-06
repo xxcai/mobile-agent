@@ -28,7 +28,7 @@
 
 ### Active
 
-- [ ] v2.0: (待规划)
+- [ ] v2.0: 接入真实项目 - AAR 打包 + 重构 (本里程碑)
 
 ## Current Milestone: v1.6 自定义 Skills 验证
 
@@ -40,17 +40,20 @@
 - search_contacts / send_im_message Android Tools
 - im_sender 测试 Skill 通过 UAT (6/6)
 
-## Next Milestone Goals
+## Current Milestone: v2.0 接入真实项目
 
-v1.6 完成后，项目已具备：
-- Agent 基础架构
-- Skills 定义和加载
-- Tool 注册和调用
+**Goal:** 重构代码架构，打包 AAR，清理旧代码，统一命名
 
-待探索方向：
-- 更多 Android Tools (如相机、文件处理)
-- 语音交互
-- MCP 集成
+**Target features:**
+- 打包 agent 模块为 AAR（C++ 核心 + Android 管道 + JNI 适配）
+- 打包 app 模块为 AAR（Android 平台逻辑）
+- 清理 Vue 相关代码
+- 清理 nanobot 连接相关代码，统一重命名
+- 平台相关逻辑从 agent 上移到 app 模块
+
+---
+
+## v1.6 自定义 Skills 验证 (Shipped: 2026-03-06)
 
 ## Context
 
@@ -92,4 +95,4 @@ v1.6 完成后，项目已具备：
 | Skill 调用 Tool | 多步骤工具链，Tool 结果返回给 LLM | ✓ v1.6 shipped |
 
 ---
-*Last updated: 2026-03-06 — v1.6 shipped*
+*Last updated: 2026-03-06 — v2.0 started*
