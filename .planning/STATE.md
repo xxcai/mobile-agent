@@ -51,6 +51,7 @@ progress:
 ---
 | Phase v20-03 P03 | 1 | 3 tasks | 2 files |
 | Phase 01 P01 | 3 | 4 tasks | 8 files |
+| Phase 05 P02 | 1 | 1 task | 6 files |
 
 ## v1.4 Requirements (SHIPPED 2026-03-05)
 
@@ -168,7 +169,7 @@ None
 | 2 | agent → agent-core 重命名 | ○ Pending |
 | 3 | 代码下沉到 agent-android | ○ Pending |
 | 4 | 启动流程梳理 | ○ Pending |
-| 5 | API Key 管理 | ✓ Complete (P01) |
+| 5 | API Key 管理 | ✓ Complete (P01, P02) |
 
 ---
 
