@@ -31,6 +31,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation project(':agent')
+    implementation project(':agent-android')
 
     // Markwon Markdown 渲染库
     implementation 'io.noties.markwon:core:4.6.2'
