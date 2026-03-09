@@ -19,6 +19,9 @@ public class WorkspaceManager {
     private static final String WORKSPACE_DIR = ".icraw/workspace";
     private static final String ASSETS_WORKSPACE = "workspace";
 
+    // Built-in skills that will be copied on first launch
+    private static final String[] BUILT_IN_SKILLS = {"im_sender", "chinese_writer"};
+
     private final Context context;
 
     public WorkspaceManager(Context context) {
@@ -85,8 +88,17 @@ public class WorkspaceManager {
             // Copy USER.md
             copyAssetFile(ASSETS_WORKSPACE + "/USER.md", new File(workspaceDir, "USER.md"));
 
-            // Copy skills directory
-            copyAssetDirectory(ASSETS_WORKSPACE + "/skills", new File(workspaceDir, "skills"));
+            // Copy skills directory - only copy built-in skills if they don't exist
+            File skillsDir = new File(workspaceDir, "skills");
+            for (String skillName : BUILT_IN_SKILLS) {
+                File targetSkillDir = new File(skillsDir, skillName);
+                if (!targetSkillDir.exists()) {
+                    Log.i(TAG, "Copying built-in skill: " + skillName);
+                    copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
+                } else {
+                    Log.i(TAG, "Skipping built-in skill (user version exists): " + skillName);
+                }
+            }
 
             return true;
         } catch (IOException e) {
