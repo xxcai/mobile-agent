@@ -72,8 +72,16 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
                 }
             }
 
-            // 初始化 Native Agent，传入 Context 和配置 JSON
-            nativeApi.initialize(context, configJson);
+            // Open tools.json from assets and pass InputStream to agent
+            InputStream toolsStream = null;
+            if (context != null) {
+                try {
+                    toolsStream = context.getAssets().open("tools.json");
+                } catch (Exception e) {
+                    System.out.println("[NativeMobileAgentApiAdapter] Failed to open tools.json: " + e.getMessage());
+                }
+            }
+            nativeApi.initialize(toolsStream, configJson);
         } catch (UnsatisfiedLinkError e) {
             throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
         }

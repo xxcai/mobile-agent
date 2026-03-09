@@ -1,12 +1,13 @@
 package com.hh.agent.library.api;
 
-import android.content.Context;
+import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.util.ArrayList;
 import com.hh.agent.library.AndroidToolCallback;
 import com.hh.agent.library.NativeAgent;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.Session;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,10 +51,10 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     /**
      * 初始化 Native Agent
      *
-     * @param context Android Context (required for Android tools and assets)
+     * @param toolsStream InputStream for tools.json (required for tool definitions)
      * @param configPath 配置文件路径
      */
-    public synchronized void initialize(Context context, String configPath) {
+    public synchronized void initialize(InputStream toolsStream, String configPath) {
         if (!initialized) {
             try {
                 int result = NativeAgent.nativeInitialize(configPath);
@@ -62,19 +63,19 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 }
                 initialized = true;
 
-                // Load tools.json from assets and pass to native layer
-                if (context != null) {
+                // Load tools.json from InputStream and pass to native layer
+                if (toolsStream != null) {
                     try {
-                        String toolsJson = loadToolsFromAssets(context);
+                        String toolsJson = loadToolsFromAssets(toolsStream);
                         if (toolsJson != null && !toolsJson.isEmpty()) {
                             NativeAgent.nativeSetToolsSchema(toolsJson);
-                            android.util.Log.i("NativeMobileAgentApi", "Successfully loaded and passed tools.json to native layer");
+                            System.out.println("[NativeMobileAgentApi] Successfully loaded and passed tools.json to native layer");
                         } else {
-                            android.util.Log.w("NativeMobileAgentApi", "tools.json is empty, skipping native registration");
+                            System.out.println("[NativeMobileAgentApi] tools.json is empty, skipping native registration");
                         }
                     } catch (Exception e) {
                         // Log but don't fail initialization
-                        android.util.Log.w("NativeMobileAgentApi", "Failed to load tools.json: " + e.getMessage());
+                        System.out.println("[NativeMobileAgentApi] Failed to load tools.json: " + e.getMessage());
                     }
                 }
             } catch (Exception e) {
@@ -84,12 +85,11 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
-     * Load tools.json from assets
+     * Load tools.json from InputStream
      */
-    private String loadToolsFromAssets(Context context) {
+    private String loadToolsFromAssets(InputStream toolsStream) {
         try {
-            java.io.InputStream is = context.getAssets().open("tools.json");
-            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is));
+            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(toolsStream));
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
@@ -97,8 +97,8 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             }
             reader.close();
             return sb.toString();
-        } catch (java.io.IOException e) {
-            android.util.Log.e("NativeMobileAgentApi", "Error reading tools.json: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("[NativeMobileAgentApi] Error reading tools.json: " + e.getMessage());
             return null;
         }
     }
