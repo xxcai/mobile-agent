@@ -71,7 +71,8 @@
 3. 编译通过
 
 **Plans:**
-- [ ] v20-03-01-PLAN.md — 将 Android Tools 和平台相关逻辑从 agent 移至 app
+- [x] v20-03-01-PLAN.md — 迁移 tools/ 和 managers 到 app 模块
+- [ ] v20-03-02-PLAN.md — 修复 Android 依赖 (gap closure)
 
 ---
 
