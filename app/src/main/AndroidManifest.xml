@@ -22,16 +22,6 @@
             </intent-filter>
         </activity>
 
-        <!-- 原生 Java 界面 -->
-        <activity
-            android:name=".MainActivity"
-            android:exported="true" />
-
-        <!-- Vue WebView 界面 -->
-        <activity
-            android:name=".VueActivity"
-            android:exported="false" />
-
     </application>
 
 </manifest>

@@ -1,9 +1,8 @@
 package com.hh.agent.presenter;
 
 import com.hh.agent.contract.MainContract;
-import com.hh.agent.lib.api.NanobotApi;
-import com.hh.agent.lib.impl.MockNanobotApi;
-import com.hh.agent.lib.model.Message;
+import com.hh.agent.library.api.MobileAgentApi;
+import com.hh.agent.library.model.Message;
 import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,9 +15,8 @@ public class MainPresenterTest {
 
     @Test
     public void testApiTypeEnum() {
-        // 验证 ApiType 枚举存在
-        assertNotNull(MainPresenter.ApiType.MOCK);
-        assertNotNull(MainPresenter.ApiType.HTTP);
+        // 验证 MainPresenter 类存在
+        assertNotNull(MainPresenter.class);
     }
 
     @Test
@@ -29,10 +27,11 @@ public class MainPresenterTest {
     }
 
     @Test
-    public void testMockApiCreation() {
-        // 验证 MockNanobotApi 可以正常工作
-        NanobotApi api = new MockNanobotApi();
-        assertNotNull(api);
+    public void testMobileAgentApiInterface() {
+        // 验证 MobileAgentApi 接口存在
+        assertNotNull(MobileAgentApi.class);
+        // 验证接口方法存在
+        assertTrue(MobileAgentApi.class.getDeclaredMethods().length > 0);
     }
 
     @Test

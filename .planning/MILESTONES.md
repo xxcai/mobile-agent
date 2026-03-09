@@ -1,5 +1,14 @@
 # Milestones
 
+## v2.0 接入真实项目 (Shipped: 2026-03-09)
+
+**Phases completed:** 7 phases, 7 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.6 自定义 Skills 验证 (Shipped: 2026-03-06)
 
 **Phases completed:** 2 phases, 2 plans, 0 tasks

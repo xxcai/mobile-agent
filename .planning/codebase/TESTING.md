@@ -1,86 +1,87 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-03
+**Analysis Date:** 2026-03-09
 
 ## Test Framework
 
 **Runner:**
-- JUnit 4.13.2 - configured in `app/build.gradle`
-- Android unit tests (local JVM tests)
+- JUnit 4.13.2
+- Config: Defined in `app/build.gradle` with `testImplementation 'junit:junit:4.13.2'`
 
 **Assertion Library:**
-- JUnit built-in assertions: `assertEquals()`, `assertNotNull()`, `assertTrue()`
+- Standard JUnit assertions: `org.junit.Assert.*`
 
 **Run Commands:**
 ```bash
-./gradlew test                  # Run all unit tests
-./gradlew testDebugUnitTest    # Run debug variant unit tests
-./gradlew testReleaseUnitTest  # Run release variant unit tests
+./gradlew test                    # Run all unit tests
+./gradlew testDebugUnitTest       # Run debug variant tests
 ```
 
 ## Test File Organization
 
 **Location:**
-- Co-located with source in `app/src/test/java/` directory
-- Mirrors source package structure
+- Tests co-located in `app/src/test/java/` directory
+- Mirror source package structure: `com/hh/agent/ui/MessageAdapterTest.java` tests `com/hh/agent/ui/MessageAdapter.java`
 
 **Naming:**
-- Source file: `MessageAdapter.java`
-- Test file: `MessageAdapterTest.java`
-- Pattern: `<ClassName>Test.java`
+- Test class uses suffix `Test`: `MessageAdapterTest`, `MainContractTest`, `MainPresenterTest`
+- Test methods use prefix `test` or descriptive names: `testSetMessages()`, `testMessageRoles()`
 
 **Structure:**
 ```
 app/src/test/java/com/hh/agent/
+├── ui/
+│   └── MessageAdapterTest.java
 ├── contract/
 │   └── MainContractTest.java
-├── presenter/
-│   └── MainPresenterTest.java
-└── ui/
-    └── MessageAdapterTest.java
+└── presenter/
+    └── MainPresenterTest.java
 ```
 
 ## Test Structure
 
 **Suite Organization:**
 ```java
-package com.hh.agent.ui;
-
-import com.hh.agent.lib.model.Message;
-import org.junit.Test;
-import java.util.ArrayList;
-import java.util.List;
-import static org.junit.Assert.*;
-
-/**
- * MessageAdapter 的单元测试
- */
+// From MessageAdapterTest.java
 public class MessageAdapterTest {
 
     @Test
     public void testSetMessages() {
         // Test implementation
+        assertEquals(2, messages.size());
     }
 
     @Test
     public void testMessageRoles() {
         // Test implementation
+        assertEquals("user", userMsg.getRole());
     }
 }
 ```
 
 **Patterns:**
-- `@Test` annotation for each test method
-- Descriptive test method names: `test<WhatIsBeingTested>`
-- No explicit setup/teardown methods used
-- Chinese comments for test descriptions
+- Each `@Test` method tests a single behavior
+- Setup in test method (no `@Before` setup methods found)
+- Teardown not needed for simple unit tests
+
+**Assertion Pattern:**
+```java
+// Direct assertions using JUnit
+assertEquals(expected, actual);
+assertNotNull(object);
+assertTrue(condition);
+assertFalse(condition);
+```
 
 ## Mocking
 
-**Framework:** Manual mocking (no mocking library)
+**Framework:** No mocking framework (Mockito, etc.) detected
 
 **Patterns:**
-- Anonymous inner class for View interface:
+- Manual anonymous class implementations for interface mocking
+- Simple inline mock objects created in test methods
+
+**Example from `MainContractTest.java`:**
 ```java
 MainContract.View mockView = new MainContract.View() {
     @Override
@@ -95,6 +96,7 @@ MainContract.View mockView = new MainContract.View() {
 
     @Override
     public void onError(String error) {
+        // empty implementation
     }
 
     @Override
@@ -105,35 +107,45 @@ MainContract.View mockView = new MainContract.View() {
     public void hideLoading() {
     }
 };
+
+// Verify Mock View works
+Message testMsg = new Message();
+testMsg.setContent("Test");
+mockView.onMessageReceived(testMsg);
+assertEquals(1, receivedMessages.size());
 ```
 
 **What to Mock:**
-- View interfaces (MVP pattern)
-- API interfaces (`NanobotApi`)
-- External dependencies
+- View interfaces in MVP pattern tests
+- API interfaces for presenter tests
 
 **What NOT to Mock:**
-- Model objects (Message, Session) - tested directly
-- DTOs - tested with real data
+- Model classes (Message, Session) - tested directly
+- Simple data objects without dependencies
 
 ## Fixtures and Factories
 
 **Test Data:**
 ```java
+// Inline fixture creation from MessageAdapterTest.java
 List<Message> messages = new ArrayList<>();
 Message msg1 = new Message();
 msg1.setId("1");
 msg1.setRole("user");
 msg1.setContent("Hello");
+
+Message msg2 = new Message();
+msg2.setId("2");
+msg2.setRole("assistant");
+msg2.setContent("Hi there");
+
 messages.add(msg1);
+messages.add(msg2);
 ```
 
 **Location:**
-- Inline fixtures within test methods
-- No separate fixture files
-
-**Helper Methods:**
-- None currently - tests create data inline
+- Fixtures created inline in test methods
+- No separate fixture files found in codebase
 
 ## Coverage
 
@@ -141,68 +153,39 @@ messages.add(msg1);
 
 **View Coverage:**
 ```bash
-./gradlew testDebugUnitTest --info 2>&1 | grep "tests completed"
+./gradlew testDebugUnitTestCoverage  # If configured
+# Or manually via Android Studio
 ```
-
-**Note:** No JaCoCo or code coverage plugin configured.
 
 ## Test Types
 
 **Unit Tests:**
-- Test model objects: Message, Session
-- Test MVP contract interfaces
-- Test presenter creation and API switching
-- Test adapter data manipulation (setMessages, addMessage)
+- Test individual classes in isolation
+- Use manual mocks for dependencies
+- Focus on model classes and MVP contracts
 
 **Integration Tests:**
-- Not present in current codebase
+- Not detected in this codebase
+- Android instrumentation tests not present
 
 **E2E Tests:**
-- Not present - would require Android instrumentation
-
-## Test Limitations
-
-**Android-Specific Challenges:**
-- Presenter tests limited because `Handler` and `Looper` require Android environment
-- From `MainPresenterTest.java`:
-  ```java
-  @Test
-  public void testPresenterCreation() {
-      // 注意：在非 Android 环境下，Handler/Looper 不可用，所以这里只验证类结构
-      assertNotNull(MainPresenter.class);
-  }
-  ```
-- RecyclerView adapter tests limited - cannot test full ViewHolder binding
-
-**Current Test Coverage:**
-- `MessageAdapterTest.java`: 3 tests (setMessages, messageRoles, messageContent)
-- `MainContractTest.java`: 3 tests (viewInterface, presenterInterface, mockView)
-- `MainPresenterTest.java`: 4 tests (apiTypeEnum, presenterCreation, mockApiCreation, mockView)
+- Not used in this project
 
 ## Common Patterns
 
 **Async Testing:**
-- Not tested - async operations in Presenter use Handler to post to main thread
-- Tests verify synchronous aspects only
+- Not commonly used in current tests
+- Presenters use `Handler` and `ExecutorService` for threading
+- Tests verify class structure rather than runtime behavior
 
 **Error Testing:**
-- Tests verify error handling in mock implementations
-- Example: Network errors caught and converted to error messages in `HttpNanobotApi`
+- Not extensively tested
+- Error handling tested via View callback verification
 
-## Test Best Practices Observed
-
-**Good Practices:**
-- Tests use JUnit 4 standard annotations
-- Assertions are clear and descriptive
-- Test method names describe expected behavior
-
-**Areas for Improvement:**
-- No mocking library (Mockito) - manual mocking verbose
-- No parameterized tests
-- No test coverage enforcement
-- Limited to unit tests only
-- Tests in `app/src/androidTest/` (instrumented tests) not present
+**View Interface Testing:**
+- Tests verify View interface methods can be called
+- Uses anonymous class implementation to simulate View
 
 ---
 
-*Testing analysis: 2026-03-03*
+*Testing analysis: 2026-03-09*

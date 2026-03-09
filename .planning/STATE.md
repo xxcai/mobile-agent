@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.6
-milestone_name: Roadmap
+milestone: v2.1
+milestone_name: milestone
 status: unknown
-last_updated: "2026-03-06T06:23:56.589Z"
+last_updated: "2026-03-09T09:31:09.479Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_phases: 5
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # STATE: Mobile Agent - C++ 移植版
 
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-03-09
 
 ---
 
@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v1.6 自定义 Skills 验证
+**Current Focus:** v2.0 接入真实项目
 
 ---
 
@@ -29,10 +29,10 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v1.6 自定义 Skills 验证 |
-| Phase | Not started (defining requirements) |
-| Status | Defining requirements |
-| Last activity: | 2026-03-06 — Milestone v1.6 started |
+| Milestone | v2.1 架构重构 |
+| Phase | 5 (API Key 管理) |
+| Status | In progress |
+| Last activity: | 2026-03-09 — Milestone v2.1 started |
 
 ---
 
@@ -42,11 +42,16 @@ progress:
 |--------|-------|
 | v1.4 Phases | 4 (shipped) |
 | v1.5 Phases | 5 (shipped) |
+| v1.6 Phases | 3 (shipped) |
 | v1.4 Requirements | 4 ✓ |
 | v1.5 Requirements | 9 ✓ |
-| v1.6 Phases | 0 (not started) |
+| v1.6 Requirements | 3 ✓ |
+| v2.0 Phases | 4 (shipped) |
 
 ---
+| Phase v20-03 P03 | 1 | 3 tasks | 2 files |
+| Phase 01 P01 | 3 | 4 tasks | 8 files |
+| Phase 05 P02 | 1 | 1 task | 6 files |
 
 ## v1.4 Requirements (SHIPPED 2026-03-05)
 
@@ -84,7 +89,8 @@ progress:
 ### Recent Changes
 
 - 2026-03-06: v1.5 shipped - LLM → Android 调用管道
-- 2026-03-06: v1.6 started - 自定义 Skills 验证
+- 2026-03-06: v1.6 shipped - 自定义 Skills 验证
+- 2026-03-06: v2.0 started - 接入真实项目
 - 2026-03-05: v1.4 shipped - Android Tools 通道
 - 2026-03-05: v1.5 started - LLM → Android 调用管道
 
@@ -105,6 +111,9 @@ None
 | 1 | 检查SOUL.md和USER.md有没有加载 | 2026-03-04 | - | [1-soul-md-user-md](./quick/1-soul-md-user-md/) |
 | 2 | 清理 agent 中未使用的 gradle 依赖 | 2026-03-05 | f9c095c | [2-agent-gradle](./quick/2-agent-gradle/) |
 | 3 | 整理 .planning 目录结构 | 2026-03-06 | 069b6e0 | [3-planning](./quick/3-planning/) |
+| 4 | 把拷贝config.json.template的工作，从agent模块的build.gradle中，抽到根目录单独gradle文件中。 | 2026-03-09 | 36e6ad8 | [4-config-json-template-agent-build-gradle-](./quick/4-config-json-template-agent-build-gradle-/) |
+| 5 | 扩展 config-template.gradle 支持 app 模块，并在 app/build.gradle 中引用 | 2026-03-09 | 26eaeeb | [5-quick-task-4-gradle-app](./quick/5-quick-task-4-gradle-app/) |
+| 6 | 移除 agent 模块中显式的 config-template.gradle 引用，改由 root 自动应用 | 2026-03-09 | 67996c2 | [6-quicktask-agent-gradle](./quick/6-quicktask-agent-gradle/) |
 
 ---
 
@@ -135,21 +144,36 @@ None
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | 自定义 Skills 机制 | ● In discussion |
-| 2 | Agent 通过 Skill 调用 Android Tools | ○ Not started |
-| 3 | 端到端任务验证 | ○ Not started |
+| 1 | 自定义 Skills 机制 | ✓ Complete |
+| 2 | Agent 通过 Skill 调用 Android Tools | ✓ Complete |
+| 3 | 端到端任务验证 | ✓ Complete |
 
 ---
 
-## Current Position (v16-01-01)
+## v2.0 进度
 
-| Field | Value |
-|-------|-------|
-| Milestone | v1.6 自定义 Skills 验证 |
-| Phase | v16-01 (自定义 Skills 机制) |
-| Plan | v16-01-01 |
-| Status | Complete (verified) |
-| Last activity: | 2026-03-06 — Plan v16-01-01 verified |
+| Phase | Name | Status |
+|-------|------|--------|
+| v20-01 | 代码清理 | ✓ Complete |
+| v20-02 | 重命名 | ✓ Complete |
+| v20-03 | 代码迁移 | ✓ Complete |
+| v20-04 | 验证 | ✓ Complete |
+
+---
+
+## v2.1 进度
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | 新增 agent-android 模块 | ✓ Complete |
+| 2 | agent → agent-core 重命名 | ✓ Complete |
+| 3 | 代码下沉到 agent-android | ✓ Complete |
+| 4 | 启动流程梳理 | ✓ Complete |
+| 5 | API Key 管理 | ✓ Complete (P01-P05) |
+
+---
+
+## Current Position (v2.1)
 
 ---
 
@@ -157,7 +181,9 @@ None
 
 - v1.4 shipped: Android Tools 通道 (4 phases)
 - v1.5 shipped: LLM → Android 调用管道 (5 phases)
-- v1.6 started: 自定义 Skills 验证 (3 phases)
+- v1.6 shipped: 自定义 Skills 验证 (3 phases)
+- v2.0 shipped: 接入真实项目 (4 phases)
+- v2.1 started: 架构重构 - 三层模块化 (5 phases)
 - Phase 编号调整: 每个 milestone 独立编号
 
 ---

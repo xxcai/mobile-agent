@@ -3,3 +3,6 @@ plugins {
     id 'com.android.application' version '8.3.2' apply false
     id 'com.android.library' version '8.3.2' apply false
 }
+
+// Apply config-template.gradle to all subprojects
+apply from: 'config-template.gradle'

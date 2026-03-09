@@ -25,32 +25,24 @@
 - ✓ LLM → Android 调用管道 — v1.5 (shipped 2026-03-05)
 - ✓ 自定义 Skills 机制 — v1.6 (shipped 2026-03-06)
 - ✓ Agent 调用 Tools — v1.6 (shipped 2026-03-06)
+- ✓ Nanobot → MobileAgent 重命名 — v2.0 (shipped 2026-03-09)
+- ✓ 代码迁移 (平台逻辑从 agent 到 app) — v2.0 (shipped 2026-03-09)
+- ✓ 纯 Java AAR (无 Android 依赖) — v2.0 (shipped 2026-03-09)
+- ✓ JSON String API 接口 — v2.0 (shipped 2026-03-09)
+- ✓ agent-android 模块 — v2.1 (shipped 2026-03-09)
+- ✓ agent → agent-core 重命名 — v2.1 (shipped 2026-03-09)
+- ✓ app 简化为壳 — v2.1 (shipped 2026-03-09)
+- ✓ 代码下沉 (Tools/Manager → agent-android) — v2.1 (shipped 2026-03-09)
+- ✓ 启动流程优化 (clearContext 内存泄漏修复) — v2.1 (shipped 2026-03-09)
+- ✓ 接入文档 (README + API) — v2.1 (shipped 2026-03-09)
 
 ### Active
 
-- [ ] v2.0: (待规划)
+暂无
 
-## Current Milestone: v1.6 自定义 Skills 验证
+## Current Milestone
 
-**Status:** ✓ SHIPPED 2026-03-06
-
-**Delivered:**
-- SKILL.md 格式定义和 YAML frontmatter 解析
-- C++ 层 SkillLoader 加载机制
-- search_contacts / send_im_message Android Tools
-- im_sender 测试 Skill 通过 UAT (6/6)
-
-## Next Milestone Goals
-
-v1.6 完成后，项目已具备：
-- Agent 基础架构
-- Skills 定义和加载
-- Tool 注册和调用
-
-待探索方向：
-- 更多 Android Tools (如相机、文件处理)
-- 语音交互
-- MCP 集成
+v2.1 已完成，等待归档
 
 ## Context
 
@@ -70,7 +62,6 @@ v1.6 完成后，项目已具备：
 
 ## Constraints
 
-- **版本规则**: v1.6 之后使用整数版本号 (v2.0, v3.0)，不使用小数点 (v1.7, v1.8)
 - **技术栈**: C++ (原生) + Java (Android UI) — 必须
 - **兼容性**: minSdk 24 (Android 7.0)
 - **NDK**: NDK 26.3.11579264
@@ -90,6 +81,10 @@ v1.6 完成后，项目已具备：
 | 完全自主调用 | LLM 直接执行，无需用户确认 | ✓ v1.5 shipped |
 | 自定义 Skills | Agent 通过 Skill 调用 Android Tools | ✓ v1.6 shipped |
 | Skill 调用 Tool | 多步骤工具链，Tool 结果返回给 LLM | ✓ v1.6 shipped |
+| Nanobot → MobileAgent | 统一品牌命名 | ✓ v2.0 shipped |
+| 平台分离 | Tools/Manager 在 app，agent 纯 Java | ✓ v2.0 shipped |
+| Callback 接口 | AndroidToolCallback 解耦 agent/app | ✓ v2.0 shipped |
+| JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
 
 ---
-*Last updated: 2026-03-06 — v1.6 shipped*
+*Last updated: 2026-03-09 — v2.1 shipped*

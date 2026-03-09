@@ -15,5 +15,5 @@ dependencyResolutionManagement {
 }
 
 include ':app'
-include ':lib'
-include ':agent'
+include ':agent-core'
+include ':agent-android'

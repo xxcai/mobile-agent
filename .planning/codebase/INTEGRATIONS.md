@@ -1,103 +1,114 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-06
+**Analysis Date:** 2026-03-09
 
 ## APIs & External Services
 
-**LLM API:**
-- Primary external API for AI chat functionality
-- 调用方式: C++ 引擎直接调用 LLM 提供商的 HTTP API
-- 配置: 通过 local.properties 或代码配置 API Key
-- 支持提供商: 可扩展（当前支持 minimax 等）
+**LLM Provider:**
+- **MiniMax** - Primary LLM provider (default)
+  - API Client: Custom implementation using libcurl (see `agent/src/main/cpp/src/core/curl_http_client.cpp`)
+  - Endpoint: Configurable via `provider.baseUrl` (default: `https://api.minimaxi.com/v1`)
+  - Auth: Bearer token in `provider.apiKey` (config.json)
+  - Model: Configurable via `agent.model` (default: `MiniMax-M2.5-highspeed`)
+  - Implementation: OpenAI-compatible API format (see `agent/src/main/cpp/src/core/llm_provider.cpp`)
 
-**API Request Format:**
-```json
-// HTTP 请求到 LLM 提供商
-POST https://api.minimaxi.com/v1/chat/completions
-Headers:
-  - Authorization: Bearer {api_key}
-  - Content-Type: application/json
-Body:
-{
-  "model": "...",
-  "messages": [...],
-  "tools": [...]
-}
-```
+**Supported LLM Integrations:**
+- OpenAI-compatible APIs (configurable base URL)
+- MiniMax (tested and working)
+- Any OpenAI-compatible endpoint
 
 ## Data Storage
 
-**In-Memory:**
-- Session and message storage: In-memory in C++ Agent 引擎
-- No persistent database
-- Session 数据在 App 生命周期内保留
+**Databases:**
+- **SQLite 3.45.3** - Local memory/conversation storage
+  - Used by: `agent/src/main/cpp/src/core/memory_manager.cpp`
+  - Purpose: Persistent conversation history and context
 
-**No External Database:**
-- 所有数据存储在手机本地
-- 无需远程服务器
+**File Storage:**
+- **App Internal Storage** - Android app private directory
+  - Path: `/data/data/com.hh.agent/files/`
+  - Workspace: `.icraw/workspace/` for agent files
+
+**Configuration Files:**
+- `config.json` - Runtime configuration (bundled in assets)
+- Template: `config.json.template` (copied during build)
 
 ## Authentication & Identity
 
-**API Key 认证:**
-- LLM API Key 配置在 local.properties 或代码中
-- 无用户身份管理系统
+**LLM API Authentication:**
+- API Key-based (Bearer token)
+- Stored in `config.json` (provider.apiKey)
+- Injected from `local.properties` during development
+- Template file contains actual API key
 
 ## Monitoring & Observability
 
-**None:**
-- No error tracking service (e.g., Crashlytics, Sentry)
-- No analytics or monitoring
-- Native Android logging only (Logcat)
+**Error Tracking:**
+- None detected - No external error tracking service integrated
 
-**Logging Approach:**
-- Android `Log` class for debug logging
-- Native C++ logging via Android log library
+**Logs:**
+- **spdlog** - C++ logging framework
+  - Output: Android logcat via custom sink (`agent/src/main/cpp/android_log_sink.hpp`)
+  - File sink: Rotating file sink for persistent logs
+  - Log levels: debug, info, warn, error
+- **Android Log** - Java layer logging
+  - Uses `android.util.Log`
 
 ## CI/CD & Deployment
 
 **Build System:**
-- Gradle 8.12.1 with AGP 8.3.2
+- Gradle (local builds)
+- No CI/CD detected (.github/workflows not present)
 
-**Hosting:**
-- Not applicable (Android app distributed via APK)
-
-**CI Pipeline:**
-- None detected
+**Deployment:**
+- Manual APK installation via `adb install`
+- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
 
 ## Environment Configuration
 
-**Required Configuration:**
-- LLM API Key: 在 local.properties 中配置 `apiKey=your-key`
-- 网络权限: INTERNET permission in AndroidManifest.xml
+**Required config.json fields:**
+```json
+{
+  "provider": {
+    "apiKey": "<LLM_API_KEY>",
+    "baseUrl": "https://api.minimaxi.com/v1"
+  },
+  "agent": {
+    "model": "MiniMax-M2.5-highspeed"
+  }
+}
+```
 
-**可选配置:**
-- LLM 提供商选择
-- API 端点自定义
+**Local development (local.properties):**
+- SDK path configuration
+- API key injection (optional)
 
-## Architecture Evolution
+**Secrets location:**
+- `config.json.template` - Contains embedded API key
+- `local.properties` - Local override (git-ignored)
 
-**旧架构 (已废弃):**
-- App 通过 HTTP 连接到 PC 上的 Nanobot 服务
-- 需要 adb reverse 端口转发
-- 依赖 PC 端服务运行
+## Webhooks & Callbacks
 
-**新架构 (当前):**
-- Agent 引擎编译进 APK，直接运行在手机本地
-- C++ 层直接调用 LLM API
-- 无需 PC 端服务，无需 adb
-- 保护隐私，离线可用
+**Incoming:**
+- None - This is a standalone mobile app, not a server
 
-## Key Integration Points
+**Outgoing:**
+- LLM API calls - HTTP POST to configured baseUrl
+- Streaming responses - HTTP chunked transfer for real-time LLM output
 
-**C++ Agent 引擎:**
-- `agent/src/main/cpp/` - C++ 源代码
-- JNI 层: `agent/src/main/java/`
+## Native Bridge (JNI)
 
-**配置:**
-- `local.properties` - API Key 配置
-- `lib/src/main/java/com/hh/agent/lib/config/` - 运行时配置
+**Purpose:** Java/Kotlin to C++ communication
+
+**Key JNI Functions:**
+- `native_init` - Initialize native agent
+- `native_chat` - Send chat message
+- `native_run` - Run agent with task
+
+**Implementation:**
+- `agent/src/main/cpp/native_agent.cpp` - JNI entry points
+- `agent/src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java` - Java interface
 
 ---
 
-*Integration audit: 2026-03-06*
-*Updated: 架构从 PC 端服务改为本地运行*
+*Integration audit: 2026-03-09*

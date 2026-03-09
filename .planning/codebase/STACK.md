@@ -1,103 +1,95 @@
 # Technology Stack
 
-**Analysis Date:** 2026-03-03
+**Analysis Date:** 2026-03-09
 
 ## Languages
 
 **Primary:**
-- Java 21 - Android application development (app, lib modules)
-- C++ - Native library for NDK integration
+- Java 21 - Android application code (app module), targetSdk 31
+- C++ (NDK) - Native agent library (agent module)
 
 **Secondary:**
-- XML - Android resource files (layouts, values, configurations)
-- Gradle - Build configuration (Groovy-based DSL)
+- CMake 3.22.1 - C++ build configuration
 
 ## Runtime
 
 **Environment:**
-- Android SDK - API level 24 (minSdk) to 34 (compileSdk)
-- Java 21 - Source and target compatibility
-- NDK 26.3.11579264 - Native development
+- Android SDK 34 (compileSdk), minSdk 24, targetSdk 31
+- NDK 26.3.11579264
+- Android Runtime
 
-**Package Manager:**
-- Gradle 8.12.1 - Build automation
-- Android Gradle Plugin 8.3.2 - Android-specific build tasks
-- Lockfile: `gradle/wrapper/gradle-wrapper.properties`
+**Build System:**
+- Gradle 8.12.1
+- Android Gradle Plugin (AGP) 8.3.2
+- CMake for native code
 
 ## Frameworks
 
 **Core:**
-- AndroidX AppCompat 1.6.1 - Backward-compatible UI components
-- Material Components 1.11.0 - Material Design UI
+- AndroidX AppCompat 1.6.1 - Backward compatibility
 - AndroidX RecyclerView - Message list display
-- AndroidX ConstraintLayout - Layout management
+- Material Design 1.11.0 - UI components
+- Markwon 4.6.2 - Markdown rendering for assistant messages
 
-**Markdown Rendering:**
-- Markwon Core 4.6.2 - Markdown to Spannable conversion
-- Markwon Ext Strikethrough 4.6.2 - Strikethrough support
-- Markwon Ext Tables 4.6.2 - Table rendering
-- Markwon Ext Tasklist 4.6.2 - Task list (checkbox) support
-
-**HTTP:**
-- OkHttp 4.12.0 - HTTP client for Nanobot API communication
-
-**JSON:**
-- Gson 2.10.1 - JSON serialization/deserialization
-
-**Native:**
-- CMake 3.22.1 - C++ build system
-- Android Log library - Native logging
+**Architecture:**
+- MVP Pattern (Model-View-Presenter) - As documented in CLAUDE.md
+- JNI/Native Bridge - Java to C++ communication
 
 **Testing:**
-- JUnit 4.13.2 - Unit testing framework
-- OkHttp MockWebServer 4.12.0 - HTTP mocking for tests
-- AndroidX Test Runner - Android instrumentation testing
-- Espresso 3.5.1 - UI testing framework
+- JUnit 4.13.2 - Unit testing
+- AndroidJUnitRunner - Android instrumentation tests
 
 ## Key Dependencies
 
-**Critical:**
-- OkHttp 4.12.0 - HTTP client for Nanobot API calls
-- Gson 2.10.1 - JSON serialization for request/response DTOs
-- Markwon 4.6.2 - Markdown rendering for assistant messages
-- Material 1.11.0 - UI components for chat interface
+**Android App (app/build.gradle):**
+- `androidx.appcompat:appcompat:1.6.1`
+- `com.google.android.material:material:1.11.0`
+- `io.noties.markwon:core:4.6.2` - Markdown rendering
+- `io.noties.markwon:ext-strikethrough:4.6.2`
+- `io.noties.markwon:ext-tables:4.6.2`
+- `io.noties.markwon:ext-tasklist:4.6.2`
 
-**Infrastructure:**
-- AndroidX AppCompat 1.6.1 - Core Android compatibility
-- AndroidX RecyclerView - Efficient message list rendering
+**Native Agent (agent/conanfile.py):**
+- `libcurl/8.1.2` - HTTP client for LLM API calls
+- `nlohmann_json/3.11.3` - JSON serialization/deserialization
+- `spdlog/1.15.1` - Logging framework (header-only)
+- `sqlite3/3.45.3` - Local database for memory management
+- `zlib/1.3.1` - Compression
+
+**NDK Configuration:**
+- ABI Filters: arm64-v8a
+- C++ Standard: C++_shared
 
 ## Configuration
 
 **Environment:**
-- Gradle properties: `gradle.properties`
-  - JVM args: `-Xmx2048m -Dfile.encoding=UTF-8`
-  - AndroidX enabled: `android.useAndroidX=true`
-  - Non-transitive R class: `android.nonTransitiveRClass=true`
-- Local properties: `local.properties` (SDK path)
-- Network security config: `app/src/main/res/xml/network_security_config.xml`
-  - Allows cleartext to localhost and 10.0.2.2 (Android emulator host)
+- `local.properties` - Local development configuration (API key, SDK paths)
+- `config.json.template` - Runtime configuration template
+- `config-template.gradle` - Gradle task to copy template to assets
 
-**Build:**
-- Root `build.gradle` - Plugin definitions
-- `app/build.gradle` - App module configuration
-- `lib/build.gradle` - Library module with NDK/CMake config
-- `agent/build.gradle` - Agent library module
-- `settings.gradle` - Multi-module project setup
+**Key config.json fields:**
+- `provider.apiKey` - LLM API authentication key
+- `provider.baseUrl` - LLM API endpoint (default: https://api.minimaxi.com/v1)
+- `agent.model` - LLM model name
+
+**Build Configuration:**
+- `gradle.properties` - Gradle settings
+- `settings.gradle` - Multi-module project setup (app, agent modules)
 
 ## Platform Requirements
 
 **Development:**
-- Android Studio or Gradle-compatible IDE
-- Java 21 JDK
-- Android SDK API 34
+- Java 21
+- Android SDK 34
 - NDK 26.3.11579264
-- CMake 3.22.1
+- CMake 3.22.1+
+- Android device/emulator with API 24+
 
 **Production:**
-- Android device or emulator (minSdk 24, targetSdk 31)
-- Nanobot HTTP service running on localhost:18791
-- ADB reverse for emulator: `adb reverse tcp:18791 tcp:18791`
+- Android APK deployment
+- Config.json bundled in assets
+- Native libraries (.so) bundled in APK
 
 ---
 
-*Stack analysis: 2026-03-03*
+*Stack analysis: 2026-03-09*
