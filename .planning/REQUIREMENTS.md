@@ -10,8 +10,8 @@
 ### 模块结构
 
 - [x] **ARCH-01**: 新增 agent-android 模块（Android 适配层）
-- [ ] **ARCH-02**: agent 模块重命名为 agent-core
-- [ ] **ARCH-03**: app 模块重构为仅包含 Activity 和简单绑定（壳）
+- [x] **ARCH-02**: agent 模块重命名为 agent-core
+- [x] **ARCH-03**: app 模块重构为仅包含 Activity 和简单绑定（壳）
 
 ### 代码下沉
 
@@ -54,8 +54,8 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ARCH-01 | Phase 1 | Complete |
-| ARCH-02 | Phase 2 | Pending |
-| ARCH-03 | Phase 2 | Pending |
+| ARCH-02 | Phase 2 | Complete |
+| ARCH-03 | Phase 2 | Complete |
 | ARCH-04 | Phase 3 | Pending |
 | ARCH-05 | Phase 3 | Pending |
 | ARCH-06 | Phase 3 | Pending |
