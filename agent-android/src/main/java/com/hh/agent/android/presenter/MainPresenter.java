@@ -1,10 +1,10 @@
-package com.hh.agent.presenter;
+package com.hh.agent.android.presenter;
 
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import com.hh.agent.AndroidToolManager;
-import com.hh.agent.contract.MainContract;
+import com.hh.agent.android.AndroidToolManager;
+import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
 

@@ -1,4 +1,4 @@
-package com.hh.agent.contract;
+package com.hh.agent.android.contract;
 
 import com.hh.agent.library.model.Message;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.hh.agent.ui;
+package com.hh.agent.android.ui;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,7 +8,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.hh.agent.R;
+import com.hh.agent.android.R;
 import com.hh.agent.library.model.Message;
 
 import java.text.SimpleDateFormat;

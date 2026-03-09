@@ -1,4 +1,4 @@
-package com.hh.agent;
+package com.hh.agent.android;
 
 import android.os.Bundle;
 import android.widget.EditText;
@@ -8,18 +8,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import com.hh.agent.contract.MainContract;
+import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.library.model.Message;
-import com.hh.agent.presenter.MainPresenter;
-import com.hh.agent.presenter.NativeMobileAgentApiAdapter;
-import com.hh.agent.ui.MessageAdapter;
+import com.hh.agent.android.presenter.MainPresenter;
+import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
+import com.hh.agent.android.ui.MessageAdapter;
 
 import java.util.List;
 
 /**
  * 主界面 Activity - 原生 Java 实现
  */
-public class MainActivity extends AppCompatActivity implements MainContract.View {
+public class AgentActivity extends AppCompatActivity implements MainContract.View {
 
     private RecyclerView rvMessages;
     private EditText etMessage;

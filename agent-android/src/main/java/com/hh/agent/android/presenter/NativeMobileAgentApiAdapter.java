@@ -1,10 +1,10 @@
-package com.hh.agent.presenter;
+package com.hh.agent.android.presenter;
 
 import android.content.Context;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.Session;
-import com.hh.agent.WorkspaceManager;
+import com.hh.agent.android.WorkspaceManager;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 
 import java.io.BufferedReader;

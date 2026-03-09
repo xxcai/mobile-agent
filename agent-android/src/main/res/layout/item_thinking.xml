@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:gravity="center_vertical">
+
+    <!-- 思考中动画 -->
+    <ProgressBar
+        android:id="@+id/progressThinking"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="8dp"
+        android:indeterminate="true" />
+
+    <!-- 思考中文本 -->
+    <TextView
+        android:id="@+id/tvThinking"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nanobot 正在思考..."
+        android:textSize="14sp"
+        android:textColor="#888888"
+        android:textStyle="italic" />
+
+</LinearLayout>
