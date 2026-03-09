@@ -29,21 +29,20 @@
 - ✓ 代码迁移 (平台逻辑从 agent 到 app) — v2.0 (shipped 2026-03-09)
 - ✓ 纯 Java AAR (无 Android 依赖) — v2.0 (shipped 2026-03-09)
 - ✓ JSON String API 接口 — v2.0 (shipped 2026-03-09)
+- ✓ agent-android 模块 — v2.1 (shipped 2026-03-09)
+- ✓ agent → agent-core 重命名 — v2.1 (shipped 2026-03-09)
+- ✓ app 简化为壳 — v2.1 (shipped 2026-03-09)
+- ✓ 代码下沉 (Tools/Manager → agent-android) — v2.1 (shipped 2026-03-09)
+- ✓ 启动流程优化 (clearContext 内存泄漏修复) — v2.1 (shipped 2026-03-09)
+- ✓ 接入文档 (README + API) — v2.1 (shipped 2026-03-09)
 
 ### Active
 
-- [ ] v2.1: 架构重构 - 三层模块化
+暂无
 
-## Current Milestone: v2.1 架构重构
+## Current Milestone
 
-**Goal:** 将 app 模块拆分为 app + agent-android，实现三层架构：app(接入演示) → agent-android(Android适配) → agent-core(纯Java核心)
-
-**Target features:**
-- 新增 agent-android 模块（Android 适配层）
-- agent 模块重命名为 agent-core
-- 代码下沉：AndroidToolManager、WorkspaceManager、Tools → agent-android
-- 启动流程梳理：检查内存泄漏、主线程阻塞
-- 接入文档：README + 示例项目结构
+v2.1 已完成，等待归档
 
 ## Context
 
@@ -88,4 +87,4 @@
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
 
 ---
-*Last updated: 2026-03-09 — v2.1 started*
+*Last updated: 2026-03-09 — v2.1 shipped*
