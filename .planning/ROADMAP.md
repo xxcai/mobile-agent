@@ -20,9 +20,9 @@
 **Phases:**
 - [x] Phase 1: 新增 agent-android 模块 (1/1 plans)
 - [x] Phase 2: 重命名模块 (agent → agent-core, app 简化为壳) (1/1 plans) (completed 2026-03-09)
-- [ ] Phase 3: 代码下沉 (AndroidToolManager, WorkspaceManager, Tools → agent-android)
+- [x] Phase 3: 代码下沉 (AndroidToolManager, WorkspaceManager, Tools → agent-android) (completed 2026-03-09)
 - [x] Phase 4: 启动流程梳理 (内存泄漏、主线程阻塞) (completed 2026-03-09)
-- [ ] Phase 5: 接入文档
+- [ ] Phase 5: 接入文档 (0/5 plans)
 
 **Key Deliverables:**
 - agent-android 模块（Android 适配层）
@@ -33,7 +33,12 @@
 
 **Plans:**
 - [x] 01-agent-android-module/01-PLAN.md — 新增 agent-android 模块
-- [ ] 02-rename-modules/02-PLAN.md — 重命名模块 (agent → agent-core, app 简化为壳)
+- [x] 02-rename-modules/02-PLAN.md — 重命名模块 (agent → agent-core, app 简化为壳)
+- [ ] 05-api-key/05-01-PLAN.md — 扩展 ToolExecutor 接口
+- [ ] 05-api-key/05-02-PLAN.md — 6 个 Tool 实现新方法
+- [ ] 05-api-key/05-03-PLAN.md — AndroidToolManager 动态生成 tools.json
+- [ ] 05-api-key/05-04-PLAN.md — WorkspaceManager Skills 初始化修改
+- [ ] 05-api-key/05-05-PLAN.md — 接入文档（README、API）
 
 </details>
 
@@ -85,7 +90,8 @@
 
 | Milestone | Phase Range | Status | Completed |
 |-----------|-------------|--------|-----------|
-| v2.1 | 1 to 5 | 1/2 | In Progress | 2026-03-09 | v2.0 | v20-01 to v20-04 | ✓ Complete | 2026-03-09 |
+| v2.1 | 1 to 5 | 3/5 | In Progress | 2026-03-09 |
+| v2.0 | v20-01 to v20-04 | ✓ Complete | 2026-03-09 |
 | v1.6 | v16-01 to v16-02 | ✓ Complete | 2026-03-06 |
 | v1.5 | v15-01 to v15-03 | ✓ Complete | 2026-03-05 |
 | v1.4 | 1-4 | ✓ Complete | 2026-03-05 |
