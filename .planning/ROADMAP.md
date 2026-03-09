@@ -70,6 +70,9 @@
 2. 平台相关逻辑已在 app 模块实现
 3. 编译通过
 
+**Plans:**
+- [ ] v20-03-01-PLAN.md — 将 Android Tools 和平台相关逻辑从 agent 移至 app
+
 ---
 
 ### Phase v20-04: 验证
@@ -118,4 +121,4 @@
 
 ---
 
-*Roadmap updated: 2026-03-06*
+*Roadmap updated: 2026-03-09*
