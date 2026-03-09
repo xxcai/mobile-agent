@@ -7,7 +7,9 @@ import com.hh.agent.library.model.Session;
 import com.hh.agent.WorkspaceManager;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 
+import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,16 +74,23 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
                 }
             }
 
-            // Open tools.json from assets and pass InputStream to agent
-            InputStream toolsStream = null;
+            // Read tools.json from assets as JSON string and pass to agent
+            String toolsJson = null;
             if (context != null) {
                 try {
-                    toolsStream = context.getAssets().open("tools.json");
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(context.getAssets().open("tools.json")));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+                    toolsJson = sb.toString();
                 } catch (Exception e) {
-                    System.out.println("[NativeMobileAgentApiAdapter] Failed to open tools.json: " + e.getMessage());
+                    System.out.println("[NativeMobileAgentApiAdapter] Failed to read tools.json: " + e.getMessage());
                 }
             }
-            nativeApi.initialize(toolsStream, configJson);
+            nativeApi.initialize(toolsJson, configJson);
         } catch (UnsatisfiedLinkError e) {
             throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
         }
