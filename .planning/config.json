@@ -8,9 +8,5 @@
     "plan_check": true,
     "verifier": true
   },
-  "granularity": "coarse",
-  "milestone_versioning": {
-    "after": "v1.6",
-    "format": "integer"
-  }
+  "granularity": "coarse"
 }
