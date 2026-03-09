@@ -30,17 +30,17 @@
 
 ### 代码迁移
 
-- [ ] **MIGRATE-01**: 分析 agent 模块代码，识别可上移到 app 的平台逻辑
-- [ ] **MIGRATE-02**: 保留 Android 管道能力在 agent（AAR 需提供的能力）
-- [ ] **MIGRATE-03**: 将平台相关逻辑从 agent 移至 app 模块
-- [ ] **MIGRATE-04**: 确保重构后 build 正常
+- [x] **MIGRATE-01**: 分析 agent 模块代码，识别可上移到 app 的平台逻辑
+- [x] **MIGRATE-02**: 保留 Android 管道能力在 agent（AAR 需提供的能力）
+- [x] **MIGRATE-03**: 将平台相关逻辑从 agent 移至 app 模块
+- [x] **MIGRATE-04**: 确保重构后 build 正常
 
 ### 验证
 
 - [ ] **VERIFY-01**: 打包 AAR 成功生成
-- [ ] **VERIFY-02**: 项目 assembleDebug 成功
-- [ ] **VERIFY-03**: 重命名后无编译错误
-- [ ] **VERIFY-04**: 原有功能（聊天、Tool 调用）正常工作
+- [x] **VERIFY-02**: 项目 assembleDebug 成功
+- [x] **VERIFY-03**: 重命名后无编译错误
+- [x] **VERIFY-04**: 原有功能（聊天、Tool 调用）正常工作
 
 ## v2.1 Requirements
 
@@ -81,13 +81,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RENAME-04 | Phase v20-02 | Pending |
 | RENAME-05 | Phase v20-02 | Pending |
 | RENAME-06 | Phase v20-02 | Pending |
-| MIGRATE-01 | Phase v20-03 | Pending |
-| MIGRATE-02 | Phase v20-03 | Pending |
-| MIGRATE-03 | Phase v20-03 | Pending |
-| MIGRATE-04 | Phase v20-04 | Pending |
-| VERIFY-02 | Phase v20-04 | Pending |
-| VERIFY-03 | Phase v20-04 | Pending |
-| VERIFY-04 | Phase v20-04 | Pending |
+| MIGRATE-01 | Phase v20-03 | Complete |
+| MIGRATE-02 | Phase v20-03 | Complete |
+| MIGRATE-03 | Phase v20-03 | Complete |
+| MIGRATE-04 | Phase v20-04 | Complete |
+| VERIFY-02 | Phase v20-04 | Complete |
+| VERIFY-03 | Phase v20-04 | Complete |
+| VERIFY-04 | Phase v20-04 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 19 total (3 out of scope)
