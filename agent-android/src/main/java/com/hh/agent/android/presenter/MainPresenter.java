@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
 
@@ -166,5 +167,9 @@ public class MainPresenter implements MainContract.Presenter {
      */
     public void destroy() {
         executor.shutdown();
+        // 清理 Context 引用，避免内存泄漏
+        if (mobileAgentApi instanceof NativeMobileAgentApiAdapter) {
+            ((NativeMobileAgentApiAdapter) mobileAgentApi).clearContext();
+        }
     }
 }

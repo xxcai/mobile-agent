@@ -51,6 +51,13 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
     }
 
     /**
+     * 清理 Context 引用，避免内存泄漏
+     */
+    public void clearContext() {
+        this.context = null;
+    }
+
+    /**
      * 初始化 Native Agent
      */
     public void initialize(String configPath) {

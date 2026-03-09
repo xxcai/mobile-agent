@@ -26,7 +26,7 @@ import java.util.Map;
  */
 public class AndroidToolManager implements AndroidToolCallback {
 
-    private final Context context;
+    private Context context;
     private final Map<String, ToolExecutor> tools = new HashMap<>();
     private int configVersion = 0;
 
@@ -63,6 +63,13 @@ public class AndroidToolManager implements AndroidToolCallback {
             return (android.app.Activity) context;
         }
         throw new IllegalStateException("Context must be an Activity");
+    }
+
+    /**
+     * 清理 Context 引用，避免内存泄漏
+     */
+    public void clearContext() {
+        this.context = null;
     }
 
     private void loadToolsConfig() {
