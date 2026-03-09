@@ -1,187 +1,193 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-03-03
+**Analysis Date:** 2026-03-09
 
 ## Naming Patterns
 
 **Files:**
-- Java source files: PascalCase - `MainActivity.java`, `MessageAdapter.java`, `NanobotApi.java`
-- Layout XML files: snake_case - `activity_main.xml`, `item_message.xml`
-- Drawable files: snake_case - `bg_send_button.xml`, `ic_launcher.xml`
+- Java classes use PascalCase: `MainActivity.java`, `MessageAdapter.java`, `MainPresenter.java`
+- Interface files use PascalCase with suffix `Interface` when needed, or just the interface name: `MainContract.java` (contract pattern)
+- Test files use suffix `Test.java`: `MessageAdapterTest.java`, `MainPresenterTest.java`
 
 **Functions:**
-- Methods: camelCase - `initViews()`, `loadMessages()`, `sendMessage()`, `onCreate()`
-- Boolean getters: `is` prefix - `isAvailable()`, `isSuccess()`
-- Private methods: camelCase with descriptive names
+- Methods use camelCase: `loadMessages()`, `sendMessage()`, `onMessagesLoaded()`
+- Private methods follow same convention: `initViews()`, `createApi()`, `loadToolsConfig()`
+- Interface method names describe action: `onMessagesLoaded()`, `onError()`, `showThinking()`
 
 **Variables:**
-- Fields: camelCase - `rvMessages`, `etMessage`, `btnSend`
-- Local variables: camelCase - `content`, `messages`, `sessionKey`
-- Constants: UPPER_SNAKE_CASE - `VIEW_TYPE_USER`, `VIEW_TYPE_ASSISTANT`
+- Instance variables use camelCase with optional prefix `m` (not consistently used):
+  - With prefix: `rvMessages`, `etMessage`, `btnSend`, `toolbar`
+  - Without prefix: `view`, `mobileAgentApi`, `executor`, `sessionKey`
+- Local variables use camelCase: `content`, `messages`, `userMessage`
+- Constants use UPPER_SNAKE_CASE: `VIEW_TYPE_USER = 0`, `VIEW_TYPE_ASSISTANT = 1`
 
 **Types:**
-- Classes: PascalCase - `MainPresenter`, `MessageAdapter`, `NanobotConfig`
-- Interfaces: PascalCase - `NanobotApi`, `MainContract.View`
-- Enums: PascalCase - `ApiType.MOCK`, `ApiType.HTTP`
-- Packages: lowercase - `com.hh.agent.lib.api`, `com.hh.agent.contract`
+- Classes use PascalCase: `Message`, `Session`, `MainPresenter`, `AndroidToolManager`
+- Interfaces use PascalCase: `MainContract`, `MobileAgentApi`, `ToolExecutor`
+- Packages use lowercase: `com.hh.agent.ui`, `com.hh.agent.presenter`, `com.hh.agent.tools`
 
 ## Code Style
 
 **Formatting:**
-- Standard Java code conventions
-- 4-space indentation
-- Opening brace on same line: `public class MainActivity {`
-- Line length: Not strictly enforced, but reasonable (< 120 chars)
+- No explicit formatting tool configured (no Checkstyle, Spotless, or Google Java Format)
+- Uses standard Android Studio/Java conventions
+- 4-space indentation for Java code
+- Line length typically under 120 characters
 
 **Linting:**
-- No explicit linting tool configured
-- Relies on Android Studio/Gradle built-in checks
+- Android Lint enabled by default in Android Gradle Plugin
+- No explicit .editorconfig or lint rules file found
+- No FindBugs/ErrorProne configured
 
-**Java Version:**
-- Java 21 - specified in `app/build.gradle`
-- `sourceCompatibility` and `targetCompatibility` set to `JavaVersion.VERSION_21`
+**Braces:**
+- Opening brace on same line: `public class MainPresenter {`
+- Control statements use braces even for single statements
 
 ## Import Organization
 
 **Order:**
-1. Android framework imports - `android.os.*`, `android.widget.*`
-2. AndroidX imports - `androidx.appcompat.*`, `androidx.recyclerview.*`
-3. Project internal imports - `com.hh.agent.*`
-4. Third-party imports - `com.google.gson.*`, `io.noties.markwon.*`
-5. Java standard library - `java.util.*`, `java.io.*`
+1. Android framework imports: `android.os.*`, `android.widget.*`, `androidx.*`
+2. Java standard library: `java.util.*`, `java.io.*`
+3. Third-party libraries: `com.hh.agent.*`, `io.noties.markwon.*`
+4. Project-local imports: `com.hh.agent.*`
 
-**Example:**
+**Example from `MainActivity.java`:**
 ```java
 import android.os.Bundle;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.contract.MainContract;
-import com.hh.agent.lib.model.Message;
-import com.google.gson.Gson;
+import com.hh.agent.library.model.Message;
+import com.hh.agent.presenter.MainPresenter;
+import com.hh.agent.presenter.NativeMobileAgentApiAdapter;
+import com.hh.agent.ui.MessageAdapter;
 import java.util.List;
 ```
 
 ## Error Handling
 
 **Patterns:**
-- Try-catch blocks for network operations in `HttpNanobotApi.sendMessage()`
-- Catch blocks return error messages instead of throwing:
-  ```java
-  } catch (IOException e) {
-      Message errorMsg = new Message();
-      errorMsg.setRole("assistant");
-      errorMsg.setContent("Error: " + e.getMessage());
-      return errorMsg;
-  }
-  ```
-- Presenter uses callbacks to notify View of errors:
-  ```java
-  mainHandler.post(() -> view.onError("加载消息失败: " + e.getMessage()));
-  ```
+- Try-catch blocks with generic `Exception` handling
+- Errors returned as JSON strings from tool executors
+- UI errors shown via `view.onError()` callback
+- Presenter catches exceptions and propagates via View callbacks
+
+**Tool Executor Error Pattern:**
+```java
+// From ShowToastTool.java
+try {
+    // implementation
+    return "{\"success\": true, \"result\": \"toast_shown\"}";
+} catch (Exception e) {
+    return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+}
+```
+
+**Presenter Error Pattern:**
+```java
+// From MainPresenter.java
+try {
+    List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
+    if (view != null) {
+        mainHandler.post(() -> {
+            view.hideLoading();
+            view.onMessagesLoaded(messages);
+        });
+    }
+} catch (Exception e) {
+    if (view != null) {
+        mainHandler.post(() -> {
+            view.hideLoading();
+            view.onError("加载消息失败: " + e.getMessage());
+        });
+    }
+}
+```
 
 ## Logging
 
-**Framework:** Android Log (android.util.Log)
-- Not heavily used in current codebase
-- Console output via Toast for UI feedback
+**Framework:** Android `Log` class
 
 **Patterns:**
-- UI errors: `Toast.makeText(this, error, Toast.LENGTH_SHORT).show()`
-- No systematic logging throughout business logic
+- Use `Log.i()` for info, `Log.e()` for errors
+- Tag is class name: `Log.i("AndroidToolManager", "Initializing AndroidToolManager")`
+- Log messages in Chinese or English (Chinese preferred in this codebase)
+
+**Example from `AndroidToolManager.java`:**
+```java
+Log.i("AndroidToolManager", "Initializing AndroidToolManager");
+Log.i("AndroidToolManager", "Registered 6 tools: show_toast, display_notification, read_clipboard, take_screenshot, search_contacts, send_im_message");
+```
 
 ## Comments
 
 **When to Comment:**
-- Javadoc for public APIs and interfaces:
-  ```java
-  /**
-   * 发送消息（同步）
-   *
-   * @param content    消息内容
-   * @param sessionKey 会话密钥
-   * @return 机器人回复消息
-   */
-  Message sendMessage(String content, String sessionKey);
-  ```
-- Chinese comments for business logic explanations
-- Inline comments for complex logic
+- Public API methods always have Javadoc: `@param`, `@return`
+- Class-level documentation for public classes
+- Inline comments for complex logic or workarounds
+- No comments for trivial getter/setter code
 
-**JSDoc/TSDoc:**
-- Javadoc style (`/** ... */`) for public methods
-- Parameter descriptions with `@param`
-- Return value descriptions with `@return`
+**Javadoc Example from `MainContract.java`:**
+```java
+/**
+ * 加载历史消息
+ */
+void loadMessages();
+```
+
+**Class Javadoc Example from `MessageAdapter.java`:**
+```java
+/**
+ * 消息列表的 RecyclerView 适配器
+ */
+public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+```
 
 ## Function Design
 
-**Size:** Generally small, single-responsibility methods
-- Example: `initViews()` (~20 lines), `sendMessage()` (~50 lines)
+**Size:** Functions are typically 10-50 lines. Complex functions are broken down into smaller private methods.
 
 **Parameters:**
-- Clear, descriptive parameter names
-- Type-specific: `String content`, `String sessionKey`, `int maxMessages`
-- Maximum 3-4 parameters in most cases
+- Context parameters when Android context is needed
+- Single responsibility: each method does one thing
+- Input validation at method start
 
 **Return Values:**
-- Specific return types: `Message`, `List<Message>`, `Session`, `void`
-- Collections return empty instead of null: `Collections.emptyList()`
+- Void for View callbacks
+- Return values for API methods
+- JSON strings for tool executor results
+- Collections for list data
 
 ## Module Design
 
-**Exports:**
-- Public classes: Activities, Presenters, Adapters, API interfaces
-- Package-private classes: ViewHolders (nested in adapters)
-
-**Barrel Files:**
-- Not used - imports use full package paths
-
-**MVP Pattern Implementation:**
-- Contract interface in separate package: `com.hh.agent.contract.MainContract`
-- View interface: UI update callbacks
-- Presenter interface: Business logic methods
-- Concrete implementations: `MainPresenter`, Activity implements View
-
-## Model/Entity Patterns
-
-**POJO Structure:**
-- Private fields
-- Getters and setters for all fields
-- Constructors (default + parameterized)
-- Timestamps: `System.currentTimeMillis()`
-
-**Example from `Message.java`:**
-```java
-public class Message {
-    private String id;
-    private String role;
-    private String content;
-    private long timestamp;
-
-    public Message() {
-        this.timestamp = System.currentTimeMillis();
-    }
-
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
-    // ... other getters/setters
-}
+**MVP Pattern Structure:**
+```
+app/src/main/java/com/hh/agent/
+├── contract/
+│   └── MainContract.java    # View and Presenter interfaces
+├── presenter/
+│   └── MainPresenter.java   # Business logic implementation
+├── ui/
+│   └── MessageAdapter.java  # RecyclerView adapter
+├── tools/                   # Tool implementations
+└── MainActivity.java        # View implementation
 ```
 
-## DTO Patterns
+**Exports:**
+- Public classes: MainActivity, MainPresenter, MessageAdapter, AndroidToolManager
+- Package-private: Contract interfaces, tool classes
+- No explicit visibility modifiers default to package-private
 
-**DTOs (Data Transfer Objects):**
-- Use `@SerializedName` for Gson JSON mapping
-- Default constructor required for Gson
-- Example from `ChatRequest.java`:
-  ```java
-  public class ChatRequest {
-      @SerializedName("message")
-      private String message;
-
-      @SerializedName("session_key")
-      private String sessionKey;
-  }
-  ```
+**Tool Pattern:**
+Each tool implements `ToolExecutor` interface:
+- `getName()` - returns tool identifier string
+- `execute(JSONObject args)` - executes with JSON parameters, returns JSON result string
 
 ---
 
-*Convention analysis: 2026-03-03*
+*Convention analysis: 2026-03-09*
