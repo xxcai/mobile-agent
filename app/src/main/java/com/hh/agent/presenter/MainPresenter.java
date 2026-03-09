@@ -3,6 +3,7 @@ package com.hh.agent.presenter;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import com.hh.agent.AndroidToolManager;
 import com.hh.agent.contract.MainContract;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
@@ -53,6 +54,13 @@ public class MainPresenter implements MainContract.Presenter {
                 adapter.setContext(context);
             }
             adapter.initialize("");
+
+            // Initialize AndroidToolManager to register Android tools callback
+            if (context != null) {
+                AndroidToolManager toolManager = new AndroidToolManager(context);
+                toolManager.initialize();
+            }
+
             return adapter;
         } catch (Exception e) {
             // 如果初始化失败，抛出异常
