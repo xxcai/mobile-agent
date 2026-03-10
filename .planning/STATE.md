@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: milestone
-status: unknown
-last_updated: "2026-03-09T09:31:09.479Z"
+milestone: v2.2
+milestone_name: App 层动态注入 Android 工具
+status: defining_roadmap
+last_updated: "2026-03-10T00:00:00.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 8
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
-# STATE: Mobile Agent - C++ 移植版
+# STATE: Mobile Agent - v2.2 App 层动态注入 Android 工具
 
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-10
 
 ---
 
@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.0 接入真实项目
+**Current Focus:** v2.2 App 层动态注入 Android 工具
 
 ---
 
@@ -29,58 +29,37 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.1 架构重构 |
-| Phase | 5 (API Key 管理) |
+| Milestone | v2.2 App 层动态注入 Android 工具 |
+| Phase | Defining roadmap (phase 6-8) |
 | Status | In progress |
-| Last activity: | 2026-03-09 — Completed quick task 8: 分析最近3笔提交并制定合入agent-core的策略 |
+| Last activity: | 2026-03-10 — Creating roadmap |
 
 ---
 
-## Performance Metrics
+## v2.2 Requirements
 
-| Metric | Value |
-|--------|-------|
-| v1.4 Phases | 4 (shipped) |
-| v1.5 Phases | 5 (shipped) |
-| v1.6 Phases | 3 (shipped) |
-| v1.4 Requirements | 4 ✓ |
-| v1.5 Requirements | 9 ✓ |
-| v1.6 Requirements | 3 ✓ |
-| v2.0 Phases | 4 (shipped) |
+### Tool 注册接口
 
----
-| Phase v20-03 P03 | 1 | 3 tasks | 2 files |
-| Phase 01 P01 | 3 | 4 tasks | 8 files |
-| Phase 05 P02 | 1 | 1 task | 6 files |
+- **INJT-01**: App 层可以通过接口注册自定义 Tool 到 AndroidToolManager
+- **INJT-02**: Tool 注册支持运行时动态添加（应用运行期间）
+- **INJT-03**: 注册时需要提供 Tool 名称、描述和执行器
 
-## v1.4 Requirements (SHIPPED 2026-03-05)
+### Tool 生命周期管理
 
-- **TOOL-01**: C++ 提供 call_android_tool(tool_name, args) 同步调用接口 ✓
-- **TOOL-02**: Java 层注册和执行 Android Tools 的机制 ✓
-- **TOOL-03**: 可配置的 tools.json 定义可用工具列表 ✓
-- **TOOL-04**: show_toast Tool 实现 ✓
+- **INJT-04**: 支持查询已注册的 Tool 列表
+- **INJT-05**: 支持注销已注册的 Tool
+- **INJT-06**: Tool 注册信息可以在 tools.json 中声明（静态）
 
----
+### 动态 Tool 调用
 
-## v1.5 Requirements (SHIPPED 2026-03-06)
+- **INJT-07**: Agent 可以调用通过 App 层注册的 Tool
+- **INJT-08**: Tool 执行结果可以返回给 Agent (LLM)
+- **INJT-09**: 自定义 Tool 与内置 Tool 使用相同的调用通道
 
-- **PIPE-01**: 通用的 LLM → Android 调用管道（JSON 结构化参数） ✓
-- **PIPE-02**: 内置工具框架（支持扩展注册） ✓
-- **PIPE-03**: Android 端注册表实现 (function → Executor 映射) ✓
-- **ANDROID-01**: show_toast 功能 ✓
-- **ANDROID-02**: display_notification 功能 ✓
-- **ANDROID-03**: read_clipboard 功能 ✓
-- **SKILL-01**: Skills 加载机制 ✓
-- **SKILL-02**: Skill 编排 ✓
-- **PIPE-04**: 完全自主调用模式 ✓
+### 示例验证
 
----
-
-## v1.6 Requirements
-
-- **SKILL-01**: 自定义 Skills 机制
-- **SKILL-02**: Agent 通过 Skill 调用 Android Tools
-- **SKILL-03**: 端到端任务验证
+- **INJT-10**: 提供 CustomToastTool 示例（App 层注册）
+- **INJT-11**: 验证 CustomToastTool 可以被 Agent 正常调用
 
 ---
 
@@ -88,11 +67,8 @@ progress:
 
 ### Recent Changes
 
-- 2026-03-06: v1.5 shipped - LLM → Android 调用管道
-- 2026-03-06: v1.6 shipped - 自定义 Skills 验证
-- 2026-03-06: v2.0 started - 接入真实项目
-- 2026-03-05: v1.4 shipped - Android Tools 通道
-- 2026-03-05: v1.5 started - LLM → Android 调用管道
+- 2026-03-10: v2.2 started - Creating roadmap
+- 2026-03-09: v2.1 shipped - 架构重构完成
 
 ### Blockers
 
@@ -104,77 +80,25 @@ None
 
 ---
 
-## Quick Tasks Completed
+## v2.2 进度
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 1 | 检查SOUL.md和USER.md有没有加载 | 2026-03-04 | - | [1-soul-md-user-md](./quick/1-soul-md-user-md/) |
-| 2 | 清理 agent 中未使用的 gradle 依赖 | 2026-03-05 | f9c095c | [2-agent-gradle](./quick/2-agent-gradle/) |
-| 3 | 整理 .planning 目录结构 | 2026-03-06 | 069b6e0 | [3-planning](./quick/3-planning/) |
-| 4 | 把拷贝config.json.template的工作，从agent模块的build.gradle中，抽到根目录单独gradle文件中。 | 2026-03-09 | 36e6ad8 | [4-config-json-template-agent-build-gradle-](./quick/4-config-json-template-agent-build-gradle-/) |
-| 5 | 扩展 config-template.gradle 支持 app 模块，并在 app/build.gradle 中引用 | 2026-03-09 | 26eaeeb | [5-quick-task-4-gradle-app](./quick/5-quick-task-4-gradle-app/) |
-| 6 | 移除 agent 模块中显式的 config-template.gradle 引用，改由 root 自动应用 | 2026-03-09 | 67996c2 | [6-quicktask-agent-gradle](./quick/6-quicktask-agent-gradle/) |
-| 8 | 分析最近3笔提交并制定合入agent-core的策略 | 2026-03-09 | 150eb10 | [8-3-agent-core](./quick/8-3-agent-core/) |
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 6 | Tool 注册接口 | INJT-01, INJT-02, INJT-03 | Not started |
+| 7 | Tool 生命周期管理 | INJT-04, INJT-05, INJT-06 | Not started |
+| 8 | 动态 Tool 调用与验证 | INJT-07, INJT-08, INJT-09, INJT-10, INJT-11 | Not started |
 
 ---
 
-## v1.4 进度
+## Performance Metrics
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | JNI 回调通道 | ✓ Complete |
-| 2 | Java Tools 注册机制 | ✓ Complete |
-| 3 | show_toast Tool | ✓ Complete |
-| 4 | 修复config.json安全问题 | ✓ Complete |
-
----
-
-## v1.5 进度
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | tools.json 迁移到 inputSchema | ✓ Complete |
-| 2 | 通用 call_android_tool | ✓ Complete |
-| 3 | Android 注册表实现 | ✓ Complete |
-| 4 | Skills 加载机制 | ✓ Complete |
-| 5 | Skill 编排示例 | ✓ Complete |
-
----
-
-## v1.6 进度
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | 自定义 Skills 机制 | ✓ Complete |
-| 2 | Agent 通过 Skill 调用 Android Tools | ✓ Complete |
-| 3 | 端到端任务验证 | ✓ Complete |
-
----
-
-## v2.0 进度
-
-| Phase | Name | Status |
-|-------|------|--------|
-| v20-01 | 代码清理 | ✓ Complete |
-| v20-02 | 重命名 | ✓ Complete |
-| v20-03 | 代码迁移 | ✓ Complete |
-| v20-04 | 验证 | ✓ Complete |
-
----
-
-## v2.1 进度
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | 新增 agent-android 模块 | ✓ Complete |
-| 2 | agent → agent-core 重命名 | ✓ Complete |
-| 3 | 代码下沉到 agent-android | ✓ Complete |
-| 4 | 启动流程梳理 | ✓ Complete |
-| 5 | API Key 管理 | ✓ Complete (P01-P05) |
-
----
-
-## Current Position (v2.1)
+| Metric | Value |
+|--------|-------|
+| v2.2 Phases | 3 (in progress) |
+| v2.2 Requirements | 11 |
+| v2.1 Phases | 5 (shipped) |
+| v2.0 Phases | 4 (shipped) |
+| v1.6 Phases | 2 (shipped) |
 
 ---
 
@@ -184,8 +108,8 @@ None
 - v1.5 shipped: LLM → Android 调用管道 (5 phases)
 - v1.6 shipped: 自定义 Skills 验证 (3 phases)
 - v2.0 shipped: 接入真实项目 (4 phases)
-- v2.1 started: 架构重构 - 三层模块化 (5 phases)
-- Phase 编号调整: 每个 milestone 独立编号
+- v2.1 shipped: 架构重构 - 三层模块化 (5 phases)
+- v2.2 in progress: App 层动态注入 Android 工具 (3 phases)
 
 ---
 

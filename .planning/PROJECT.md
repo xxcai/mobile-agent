@@ -40,9 +40,14 @@
 
 暂无
 
-## Current Milestone
+## Current Milestone: v2.2 App 层动态注入 Android 工具
 
-v2.1 已完成，等待归档
+**Goal:** 实现 app 层可动态注册自定义 Tool 到 AndroidToolManager，使 app 层能够扩展 Android 能力。
+
+**Target features:**
+- App 层自定义 Tool 注册接口
+- Tool 生命周期管理（注册、注销、查询）
+- 动态 Tool 调用机制
 
 ## Context
 

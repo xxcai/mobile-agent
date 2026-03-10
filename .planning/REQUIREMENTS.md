@@ -1,36 +1,35 @@
 # Requirements: Mobile Agent
 
-**Defined:** 2026-03-09
+**Defined:** 2026-03-10
+
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
 ## v1 Requirements
 
-架构重构 - 三层模块化
+App 层动态注入 Android 工具
 
-### 模块结构
+### Tool 注册接口
 
-- [x] **ARCH-01**: 新增 agent-android 模块（Android 适配层）
-- [x] **ARCH-02**: agent 模块重命名为 agent-core
-- [x] **ARCH-03**: app 模块重构为仅包含 Activity 和简单绑定（壳）
+- [ ] **INJT-01**: App 层可以通过接口注册自定义 Tool 到 AndroidToolManager
+- [ ] **INJT-02**: Tool 注册支持运行时动态添加（应用运行期间）
+- [ ] **INJT-03**: 注册时需要提供 Tool 名称、描述和执行器
 
-### 代码下沉
+### Tool 生命周期管理
 
-- [x] **ARCH-04**: AndroidToolManager 下沉到 agent-android
-- [x] **ARCH-05**: WorkspaceManager 下沉到 agent-android
-- [x] **ARCH-06**: 所有 Android Tools 下沉到 agent-android (ShowToast, DisplayNotification, ReadClipboard, TakeScreenshot, SearchContacts, SendImMessage)
-- [x] **ARCH-07**: NativeMobileAgentApiAdapter 下沉到 agent-android（转为接口）
+- [ ] **INJT-04**: 支持查询已注册的 Tool 列表
+- [ ] **INJT-05**: 支持注销已注册的 Tool
+- [ ] **INJT-06**: Tool 注册信息可以在 tools.json 中声明（静态）
 
-### 启动流程
+### 动态 Tool 调用
 
-- [x] **ARCH-08**: 梳理应用启动流程
-- [x] **ARCH-09**: 检查并修复 Context 内存泄漏
-- [x] **ARCH-10**: 检查并修复主线程阻塞问题
+- [ ] **INJT-07**: Agent 可以调用通过 App 层注册的 Tool
+- [ ] **INJT-08**: Tool 执行结果可以返回给 Agent (LLM)
+- [ ] **INJT-09**: 自定义 Tool 与内置 Tool 使用相同的调用通道
 
-### 接入文档
+### 示例验证
 
-- [x] **ARCH-11**: README 文档（模块说明、依赖关系、快速开始）
-- [x] **ARCH-12**: 接入示例（标准项目结构、config.json.template 示例）
-- [x] **ARCH-13**: API 说明文档
+- [ ] **INJT-10**: 提供 CustomToastTool 示例（App 层注册）
+- [ ] **INJT-11**: 验证 CustomToastTool 可以被 Agent 正常调用
 
 ---
 
@@ -44,8 +43,9 @@
 
 | Feature | Reason |
 |---------|--------|
-| UI 大改 | app 层作为演示壳，保持现有 UI 不变 |
-| 新功能 | 专注于架构重构 |
+| Tool 版本管理 | 首次发布不需要版本控制 |
+| Tool 权限控制 | 信任 App 层注册的所有 Tool |
+| 远程 Tool 注册 | 仅支持本地注册 |
 
 ---
 
@@ -53,25 +53,24 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 1 | Complete |
-| ARCH-02 | Phase 2 | Complete |
-| ARCH-03 | Phase 2 | Complete |
-| ARCH-04 | Phase 3 | Complete |
-| ARCH-05 | Phase 3 | Complete |
-| ARCH-06 | Phase 3 | Complete |
-| ARCH-07 | Phase 3 | Complete |
-| ARCH-08 | Phase 4 | Complete |
-| ARCH-09 | Phase 4 | Complete |
-| ARCH-10 | Phase 4 | Complete |
-| ARCH-11 | Phase 5 | Complete |
-| ARCH-12 | Phase 5 | Complete |
-| ARCH-13 | Phase 5 | Complete |
+| INJT-01 | Phase 6 | Pending |
+| INJT-02 | Phase 6 | Pending |
+| INJT-03 | Phase 6 | Pending |
+| INJT-04 | Phase 7 | Pending |
+| INJT-05 | Phase 7 | Pending |
+| INJT-06 | Phase 7 | Pending |
+| INJT-07 | Phase 8 | Pending |
+| INJT-08 | Phase 8 | Pending |
+| INJT-09 | Phase 8 | Pending |
+| INJT-10 | Phase 8 | Pending |
+| INJT-11 | Phase 8 | Pending |
 
 **Coverage:**
-- v1 requirements: 13 total
-- Mapped to phases: 13
-- Unmapped: 0 ✓
+- v1 requirements: 11 total
+- Mapped to phases: 11 ✓
+- Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after v2.1 milestone started*
+
+*Requirements defined: 2026-03-10*
+*Last updated: 2026-03-10 after v2.2 roadmap created*
