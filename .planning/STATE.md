@@ -32,7 +32,7 @@ progress:
 | Milestone | v2.2 App 层动态注入 Android 工具 |
 | Phase | 03-tool-call |
 | Status | Completed |
-| Last activity: | 2026-03-10 — 运行时验证已通过 |
+| Last activity: | 2026-03-10 — Completed quick task 9: 删除tools.json |
 
 ---
 
@@ -79,6 +79,12 @@ None
 ### Todos
 
 None
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 9 | 删除tools.json | 2026-03-10 | 292853f | [9-tools-json](./quick/9-tools-json/) |
 
 ---
 
