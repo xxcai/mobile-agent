@@ -6,6 +6,7 @@ import android.os.Looper;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
 import com.hh.agent.library.api.MobileAgentApi;
+import com.hh.agent.library.api.NativeMobileAgentApi;
 import com.hh.agent.library.model.Message;
 
 import java.util.List;
@@ -51,6 +52,17 @@ public class MainPresenter implements MainContract.Presenter {
     private MobileAgentApi createApi(Context context) {
         try {
             NativeMobileAgentApiAdapter adapter = new NativeMobileAgentApiAdapter();
+
+            // 检查是否已经在 LauncherActivity 中预初始化过
+            if (NativeMobileAgentApi.getInstance().isInitialized()) {
+                // 已预初始化，只需设置 context
+                if (context != null) {
+                    adapter.setContext(context);
+                }
+                return adapter;
+            }
+
+            // 未预初始化，执行完整初始化
             if (context != null) {
                 adapter.setContext(context);
             }

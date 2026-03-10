@@ -126,7 +126,7 @@ public class AndroidToolManager implements AndroidToolCallback {
      * @return true if all tools were registered successfully
      * @throws IllegalArgumentException if validation fails (null tool, empty name, duplicate, or conflict with existing)
      */
-    public boolean registerTools(HashMap<String, ToolExecutor> toolsToRegister) {
+    public boolean registerTools(Map<String, ToolExecutor> toolsToRegister) {
         if (toolsToRegister == null) {
             throw new IllegalArgumentException("Tools map cannot be null");
         }
@@ -212,6 +212,10 @@ public class AndroidToolManager implements AndroidToolCallback {
      * 动态生成 tools.json
      * 遍历已注册的工具，收集每个 Tool 的信息拼接为 call_android_tool 格式的 JSON
      */
+    public String generateToolsJsonString() {
+        return generateToolsJson();
+    }
+
     private String generateToolsJson() {
         try {
             JSONObject root = new JSONObject();

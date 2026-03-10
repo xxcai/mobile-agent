@@ -58,6 +58,38 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
     }
 
     /**
+     * 初始化 Native Agent（带 toolsJson）
+     * @param toolsJson 工具定义 JSON 字符串
+     * @param context Android Context
+     */
+    public void initialize(String toolsJson, Context context) {
+        this.context = context;
+        try {
+            // 先尝试加载 native 库
+            System.loadLibrary("icraw");
+
+            // 初始化 workspace
+            if (context != null) {
+                WorkspaceManager workspaceManager = new WorkspaceManager(context);
+                String workspacePath = workspaceManager.initialize();
+                // 将 workspace 路径添加到配置中
+                if (!workspacePath.isEmpty()) {
+                    int lastBrace = configJson.lastIndexOf('}');
+                    if (lastBrace > 0) {
+                        String newField = ",\"workspacePath\":\"" + workspacePath + "\"";
+                        configJson = configJson.substring(0, lastBrace) + newField + configJson.substring(lastBrace);
+                    }
+                }
+            }
+
+            // 初始化 native agent，传入 toolsJson
+            nativeApi.initialize(toolsJson, configJson);
+        } catch (UnsatisfiedLinkError e) {
+            throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 初始化 Native Agent
      */
     public void initialize(String configPath) {
