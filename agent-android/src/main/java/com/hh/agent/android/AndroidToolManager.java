@@ -10,6 +10,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -78,6 +79,133 @@ public class AndroidToolManager implements AndroidToolCallback {
         String toolsJson = generateToolsJson();
         NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
         Log.i("AndroidToolManager", "Generated and pushed tools.json after registering: " + toolName);
+    }
+
+    /**
+     * Get all registered tools.
+     * Returns a copy of the internal tools map to prevent external modification.
+     *
+     * @return Map of tool name to ToolExecutor (never null, may be empty)
+     */
+    public Map<String, ToolExecutor> getRegisteredTools() {
+        return new HashMap<>(tools);
+    }
+
+    /**
+     * Unregister a tool by name.
+     *
+     * @param toolName The name of the tool to unregister
+     * @return true if the tool was found and removed, false if tool did not exist
+     */
+    public boolean unregisterTool(String toolName) {
+        if (toolName == null || toolName.trim().isEmpty()) {
+            return false;
+        }
+
+        if (!tools.containsKey(toolName)) {
+            Log.i("AndroidToolManager", "Tool not found for unregister: " + toolName);
+            return false;
+        }
+
+        tools.remove(toolName);
+        Log.i("AndroidToolManager", "Unregistered tool: " + toolName);
+
+        // Generate and push updated tools.json to native layer
+        String toolsJson = generateToolsJson();
+        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
+        Log.i("AndroidToolManager", "Generated and pushed tools.json after unregistering: " + toolName);
+
+        return true;
+    }
+
+    /**
+     * Register multiple tools at once with atomicity.
+     * Validates all tools first, then applies changes only if all validations pass.
+     *
+     * @param toolsToRegister Map of tool name to ToolExecutor to register
+     * @return true if all tools were registered successfully
+     * @throws IllegalArgumentException if validation fails (null tool, empty name, duplicate, or conflict with existing)
+     */
+    public boolean registerTools(HashMap<String, ToolExecutor> toolsToRegister) {
+        if (toolsToRegister == null) {
+            throw new IllegalArgumentException("Tools map cannot be null");
+        }
+
+        if (toolsToRegister.isEmpty()) {
+            return true;
+        }
+
+        // Validate all tools first (atomic check)
+        for (Map.Entry<String, ToolExecutor> entry : toolsToRegister.entrySet()) {
+            String toolName = entry.getKey();
+            ToolExecutor executor = entry.getValue();
+
+            if (executor == null) {
+                throw new IllegalArgumentException("ToolExecutor cannot be null");
+            }
+            if (toolName == null || toolName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Tool name cannot be null or empty");
+            }
+            if (tools.containsKey(toolName)) {
+                throw new IllegalArgumentException("Tool with name '" + toolName + "' already exists");
+            }
+        }
+
+        // All validations passed, now register all tools
+        for (Map.Entry<String, ToolExecutor> entry : toolsToRegister.entrySet()) {
+            String toolName = entry.getKey();
+            ToolExecutor executor = entry.getValue();
+            tools.put(toolName, executor);
+            Log.i("AndroidToolManager", "Registered tool (batch): " + toolName);
+        }
+
+        // Generate and push updated tools.json to native layer (single push)
+        String toolsJson = generateToolsJson();
+        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
+        Log.i("AndroidToolManager", "Generated and pushed tools.json after batch registering " + toolsToRegister.size() + " tools");
+
+        return true;
+    }
+
+    /**
+     * Unregister multiple tools at once with atomicity.
+     * Validates all tool names exist first, then applies changes only if all validations pass.
+     *
+     * @param toolNames List of tool names to unregister
+     * @return true if all tools were unregistered successfully
+     * @throws IllegalArgumentException if any tool does not exist
+     */
+    public boolean unregisterTools(ArrayList<String> toolNames) {
+        if (toolNames == null) {
+            throw new IllegalArgumentException("Tool names list cannot be null");
+        }
+
+        if (toolNames.isEmpty()) {
+            return true;
+        }
+
+        // Validate all tools exist first (atomic check)
+        for (String toolName : toolNames) {
+            if (toolName == null || toolName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Tool name cannot be null or empty");
+            }
+            if (!tools.containsKey(toolName)) {
+                throw new IllegalArgumentException("Tool with name '" + toolName + "' does not exist");
+            }
+        }
+
+        // All validations passed, now unregister all tools
+        for (String toolName : toolNames) {
+            tools.remove(toolName);
+            Log.i("AndroidToolManager", "Unregistered tool (batch): " + toolName);
+        }
+
+        // Generate and push updated tools.json to native layer (single push)
+        String toolsJson = generateToolsJson();
+        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
+        Log.i("AndroidToolManager", "Generated and pushed tools.json after batch unregistering " + toolNames.size() + " tools");
+
+        return true;
     }
 
     /**
