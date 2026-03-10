@@ -1,6 +1,8 @@
 # Android 工具扩展指南
 
-只需 4 步添加新的 Android 工具和 Skills。
+只需 3 步添加新的 Android 工具。
+
+> **提示：** 如果需要添加 Skill（复杂工作流程），请参考 [Android Skill 扩展指南](./android-skill-extension.md)
 
 ## 步骤 1: 创建 Tool 类
 
@@ -85,78 +87,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 如果你想让 Agent 执行更复杂的工作流程，可以添加 Skill。
 
-### Skill 放置路径
-
-Skill 放在 `app/src/main/assets/workspace/skills/{skill_name}/` 目录下。
-
-### SKILL.md 格式
-
-每个 Skill 目录需要包含一个 `SKILL.md` 文件，格式如下：
-
-```yaml
----
-description: Skill 描述
-emoji: "💬"
-always: false
----
-
-# Skill 名称
-
-当用户请求xxx时，使用此 Skill 完成工作流程。
-
-## 触发条件
-
-- 用户要求"xxx"
-- 用户要求"xxx"
-
-## 工作流程
-
-### 步骤 1: xxx
-
-使用 `tool_name` 工具执行操作。
-
-**输入参数：**
-```json
-{
-  "param": "参数值"
-}
-```
-
-### 步骤 2: 处理结果
-
-根据结果进行相应处理。
-
-### 步骤 3: 返回结果
-
-向用户确认操作完成。
-
-## 决策规则
-
-- 情况A：处理方式
-- 情况B：处理方式
-
-## 示例对话
-
-**用户：** "xxx"
-
-**Agent：**
-1. 执行第一步
-2. 处理结果
-3. 返回结果
-```
-
-### Skill 示例
-
-参考 `app/src/main/assets/workspace/skills/im_sender/SKILL.md`，这是一个完整的 Skill 示例，包含：
-- 前置元数据（description, emoji, always）
-- 触发条件定义
-- 工作流程步骤
-- 决策规则
-- 示例对话
-
-### 自动加载
-
-放置在 `workspace/skills/` 目录下的 Skill 会自动被 Agent 加载，无需额外配置。
+详细说明请参考 [Android Skill 扩展指南](./android-skill-extension.md)
 
 ## 现有工具参考
 
