@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-10T02:40:42.794Z"
+last_updated: "2026-03-10T02:56:23.481Z"
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # STATE: Mobile Agent - v2.2 App 层动态注入 Android 工具
@@ -30,9 +30,9 @@ progress:
 | Field | Value |
 |-------|-------|
 | Milestone | v2.2 App 层动态注入 Android 工具 |
-| Phase | Defining roadmap (phase 1-3) |
-| Status | In progress |
-| Last activity: | 2026-03-10 — Creating roadmap |
+| Phase | 03-tool-call |
+| Status | In progress (runtime verification pending) |
+| Last activity: | 2026-03-10 — Tool 迁移完成，等待运行时验证 |
 
 ---
 
@@ -67,6 +67,7 @@ progress:
 
 ### Recent Changes
 
+- 2026-03-10: 03-01 Plan complete - Tool 迁移到 app 层
 - 2026-03-10: v2.2 started - Creating roadmap
 - 2026-03-10: Phase 1 context captured - Tool registration interface decisions
 - 2026-03-09: v2.1 shipped - 架构重构完成
@@ -81,13 +82,19 @@ None
 
 ---
 
+## Decisions
+
+- 2026-03-10: 使用 app 层 package 路径 com.hh.agent.tool 进行 Tool 注册
+
+---
+
 ## v2.2 进度
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | Tool 注册接口 | INJT-01, INJT-02, INJT-03 | Planned |
-| 2 | Tool 生命周期管理 | INJT-04, INJT-05, INJT-06 | Planned |
-| 3 | 动态 Tool 调用与验证 | INJT-07, INJT-08, INJT-09, INJT-10, INJT-11 | Planned |
+| 1 | Tool 注册接口 | INJT-01, INJT-02, INJT-03 | Completed |
+| 2 | Tool 生命周期管理 | INJT-04, INJT-05, INJT-06 | Completed |
+| 3 | 动态 Tool 调用与验证 | INJT-07, INJT-08, INJT-09, INJT-10, INJT-11 | In Progress |
 
 ---
 

@@ -80,7 +80,9 @@
   4. SearchContactsTool 和 SendImMessageTool 从 agent-android 迁移到 app 层注册
   5. 验证 SearchContactsTool 和 SendImMessageTool 可以被 Agent 正常调用并返回结果
 
-**Plans**: TBD
+**Plans: 1 plan
+
+- [x] 03-tool-call/03-01-PLAN.md — 迁移 SearchContactsTool 和 SendImMessageTool 到 app 层 (编译通过，等待运行时验证)
 
 </details>
 
@@ -177,8 +179,8 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Tool 注册接口 | 1/1 | Complete | 2026-03-10 |
-| 2. Tool 生命周期管理 | 1/1 | Complete    | 2026-03-10 |
-| 3. 动态 Tool 调用与验证 | 0/TBD | Not started | - |
+| 2. Tool 生命周期管理 | 1/1 | Complete | 2026-03-10 |
+| 3. 动态 Tool 调用与验证 | 1/1 | In Progress (runtime verify pending) | 2026-03-10 |
 
 ---
 
