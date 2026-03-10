@@ -1,76 +1,59 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-09
+**Analysis Date:** 2026-03-10
 
 ## APIs & External Services
 
-**LLM Provider:**
-- **MiniMax** - Primary LLM provider (default)
-  - API Client: Custom implementation using libcurl (see `agent/src/main/cpp/src/core/curl_http_client.cpp`)
-  - Endpoint: Configurable via `provider.baseUrl` (default: `https://api.minimaxi.com/v1`)
-  - Auth: Bearer token in `provider.apiKey` (config.json)
-  - Model: Configurable via `agent.model` (default: `MiniMax-M2.5-highspeed`)
-  - Implementation: OpenAI-compatible API format (see `agent/src/main/cpp/src/core/llm_provider.cpp`)
-
-**Supported LLM Integrations:**
-- OpenAI-compatible APIs (configurable base URL)
-- MiniMax (tested and working)
-- Any OpenAI-compatible endpoint
+**AI/LLM Provider:**
+- MiniMax API - Primary AI model provider
+  - SDK: Direct HTTP via libcurl (C++ native layer)
+  - Endpoint: `https://api.minimaxi.com/v1`
+  - Model: `MiniMax-M2.5-highspeed`
+  - Auth: API key via `config.json` (provider.apiKey)
 
 ## Data Storage
 
-**Databases:**
-- **SQLite 3.45.3** - Local memory/conversation storage
-  - Used by: `agent/src/main/cpp/src/core/memory_manager.cpp`
-  - Purpose: Persistent conversation history and context
+**Local Database:**
+- SQLite3 - Embedded database (native layer)
+  - Used for memory management and session storage
+  - Library: `SQLite::SQLite3` (Conan package)
+  - Location: App-specific internal storage
 
 **File Storage:**
-- **App Internal Storage** - Android app private directory
-  - Path: `/data/data/com.hh.agent/files/`
-  - Workspace: `.icraw/workspace/` for agent files
-
-**Configuration Files:**
-- `config.json` - Runtime configuration (bundled in assets)
-- Template: `config.json.template` (copied during build)
+- Android internal storage - Config files, assets
+- MediaStore API - Screenshots (TakeScreenshotTool)
 
 ## Authentication & Identity
 
-**LLM API Authentication:**
-- API Key-based (Bearer token)
-- Stored in `config.json` (provider.apiKey)
-- Injected from `local.properties` during development
-- Template file contains actual API key
+**API Authentication:**
+- API Key based (provider.apiKey in config.json)
+- Bearer token in HTTP Authorization header
 
 ## Monitoring & Observability
 
-**Error Tracking:**
-- None detected - No external error tracking service integrated
+**Logging:**
+- Android Log API (android.util.Log)
+- Native logging: spdlog with Android log sink
+- Log tag: Configurable per component
 
-**Logs:**
-- **spdlog** - C++ logging framework
-  - Output: Android logcat via custom sink (`agent/src/main/cpp/android_log_sink.hpp`)
-  - File sink: Rotating file sink for persistent logs
-  - Log levels: debug, info, warn, error
-- **Android Log** - Java layer logging
-  - Uses `android.util.Log`
+**Error Handling:**
+- Java: try-catch with Toast/Notification user feedback
+- C++: Exception handling with native crash logging
 
-## CI/CD & Deployment
+## Build & Dependencies
 
-**Build System:**
-- Gradle (local builds)
-- No CI/CD detected (.github/workflows not present)
+**Dependency Management:**
+- Maven Central - Android/Java dependencies
+- Conan - Native C++ dependencies
+- Gradle - Build orchestration
 
-**Deployment:**
-- Manual APK installation via `adb install`
-- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
-
-## Environment Configuration
+## Configuration
 
 **Required config.json fields:**
 ```json
 {
   "provider": {
-    "apiKey": "<LLM_API_KEY>",
+    "apiKey": "<MiniMax API key>",
     "baseUrl": "https://api.minimaxi.com/v1"
   },
   "agent": {
@@ -79,36 +62,29 @@
 }
 ```
 
-**Local development (local.properties):**
-- SDK path configuration
-- API key injection (optional)
-
-**Secrets location:**
-- `config.json.template` - Contains embedded API key
-- `local.properties` - Local override (git-ignored)
+**Config location:**
+- Template: `/config.json.template`
+- Runtime: App assets `config.json`
+- Copied at build time via `config-template.gradle`
 
 ## Webhooks & Callbacks
 
-**Incoming:**
-- None - This is a standalone mobile app, not a server
+**Tool Callbacks:**
+- AndroidToolCallback interface - Native to Java callback
+- ToolExecutor - Executes tools and returns results
+- Implemented tools:
+  - DisplayNotificationTool - System notifications
+  - TakeScreenshotTool - Screen capture
+  - ReadClipboardTool - Clipboard access
+  - ShowToastTool - Toast messages
+  - SearchContactsTool - Contact search (app module)
+  - SendImMessageTool - IM messaging (app module)
 
-**Outgoing:**
-- LLM API calls - HTTP POST to configured baseUrl
-- Streaming responses - HTTP chunked transfer for real-time LLM output
-
-## Native Bridge (JNI)
-
-**Purpose:** Java/Kotlin to C++ communication
-
-**Key JNI Functions:**
-- `native_init` - Initialize native agent
-- `native_chat` - Send chat message
-- `native_run` - Run agent with task
-
-**Implementation:**
-- `agent/src/main/cpp/native_agent.cpp` - JNI entry points
-- `agent/src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java` - Java interface
+**Android Integration:**
+- AgentActivity - Main UI activity
+- NativeMobileAgentApi - Bridge between Java and native
+- AndroidToolManager - Tool registration and execution
 
 ---
 
-*Integration audit: 2026-03-09*
+*Integration audit: 2026-03-10*

@@ -1,4 +1,4 @@
-package com.hh.agent.android.tool;
+package com.hh.agent.tool;
 
 import com.hh.agent.library.ToolExecutor;
 

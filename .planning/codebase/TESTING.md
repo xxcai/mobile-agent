@@ -1,40 +1,49 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-09
+**Analysis Date:** 2026-03-10
 
 ## Test Framework
 
 **Runner:**
 - JUnit 4.13.2
-- Config: Defined in `app/build.gradle` with `testImplementation 'junit:junit:4.13.2'`
+- Config: Declared in `app/build.gradle`
 
 **Assertion Library:**
-- Standard JUnit assertions: `org.junit.Assert.*`
+- JUnit assert methods (`org.junit.Assert`)
+
+**Dependencies (from `app/build.gradle`):**
+```gradle
+testImplementation 'junit:junit:4.13.2'
+```
 
 **Run Commands:**
 ```bash
-./gradlew test                    # Run all unit tests
-./gradlew testDebugUnitTest       # Run debug variant tests
+./gradlew test                  # Run all unit tests
+./gradlew testDebugUnitTest    # Run debug variant tests
 ```
 
 ## Test File Organization
 
 **Location:**
-- Tests co-located in `app/src/test/java/` directory
-- Mirror source package structure: `com/hh/agent/ui/MessageAdapterTest.java` tests `com/hh/agent/ui/MessageAdapter.java`
+- Co-located with source in `app/src/test/java/` directory
+- Mirrors source package structure
 
 **Naming:**
-- Test class uses suffix `Test`: `MessageAdapterTest`, `MainContractTest`, `MainPresenterTest`
-- Test methods use prefix `test` or descriptive names: `testSetMessages()`, `testMessageRoles()`
+- `*Test.java` suffix
+- Examples: `MainPresenterTest.java`, `MainContractTest.java`, `MessageAdapterTest.java`
 
 **Structure:**
 ```
-app/src/test/java/com/hh/agent/
-├── ui/
-│   └── MessageAdapterTest.java
-├── contract/
-│   └── MainContractTest.java
-└── presenter/
+app/src/
+├── main/java/com/hh/agent/
+│   └── LauncherActivity.java
+└── test/java/com/hh/agent/
+    └── LauncherActivityTest.java    # No test yet, but pattern shown
+
+app/src/
+├── main/java/com/hh/agent/presenter/
+│   └── MainPresenter.java
+└── test/java/com/hh/agent/presenter/
     └── MainPresenterTest.java
 ```
 
@@ -42,47 +51,48 @@ app/src/test/java/com/hh/agent/
 
 **Suite Organization:**
 ```java
-// From MessageAdapterTest.java
-public class MessageAdapterTest {
+package com.hh.agent.presenter;
+
+import com.hh.agent.contract.MainContract;
+import com.hh.agent.library.api.MobileAgentApi;
+import com.hh.agent.library.model.Message;
+import org.junit.Test;
+import java.util.ArrayList;
+import java.util.List;
+import static org.junit.Assert.*;
+
+/**
+ * MainPresenter 的单元测试
+ */
+public class MainPresenterTest {
 
     @Test
-    public void testSetMessages() {
-        // Test implementation
-        assertEquals(2, messages.size());
+    public void testApiTypeEnum() {
+        // 验证 MainPresenter 类存在
+        assertNotNull(MainPresenter.class);
     }
 
     @Test
-    public void testMessageRoles() {
-        // Test implementation
-        assertEquals("user", userMsg.getRole());
+    public void testPresenterCreation() {
+        assertNotNull(MainPresenter.class);
     }
 }
 ```
 
 **Patterns:**
-- Each `@Test` method tests a single behavior
-- Setup in test method (no `@Before` setup methods found)
-- Teardown not needed for simple unit tests
-
-**Assertion Pattern:**
-```java
-// Direct assertions using JUnit
-assertEquals(expected, actual);
-assertNotNull(object);
-assertTrue(condition);
-assertFalse(condition);
-```
+- Each test method annotated with `@Test`
+- Assertions from `org.junit.Assert.*`
+- Chinese comments for test descriptions
 
 ## Mocking
 
-**Framework:** No mocking framework (Mockito, etc.) detected
+**Framework:** Manual mocking (no mocking framework like Mockito)
 
 **Patterns:**
-- Manual anonymous class implementations for interface mocking
-- Simple inline mock objects created in test methods
-
-**Example from `MainContractTest.java`:**
 ```java
+// Anonymous inner class for View interface mock
+final List<Message> receivedMessages = new ArrayList<>();
+
 MainContract.View mockView = new MainContract.View() {
     @Override
     public void onMessagesLoaded(List<Message> messages) {
@@ -96,7 +106,6 @@ MainContract.View mockView = new MainContract.View() {
 
     @Override
     public void onError(String error) {
-        // empty implementation
     }
 
     @Override
@@ -108,7 +117,7 @@ MainContract.View mockView = new MainContract.View() {
     }
 };
 
-// Verify Mock View works
+// Verify mock works
 Message testMsg = new Message();
 testMsg.setContent("Test");
 mockView.onMessageReceived(testMsg);
@@ -116,19 +125,18 @@ assertEquals(1, receivedMessages.size());
 ```
 
 **What to Mock:**
-- View interfaces in MVP pattern tests
-- API interfaces for presenter tests
+- View interfaces in MVP pattern
+- API interfaces for testing presenter logic
 
 **What NOT to Mock:**
-- Model classes (Message, Session) - tested directly
-- Simple data objects without dependencies
+- Domain models (Message, Session)
+- Simple data objects
 
 ## Fixtures and Factories
 
 **Test Data:**
 ```java
-// Inline fixture creation from MessageAdapterTest.java
-List<Message> messages = new ArrayList<>();
+// Creating test messages
 Message msg1 = new Message();
 msg1.setId("1");
 msg1.setRole("user");
@@ -144,8 +152,11 @@ messages.add(msg2);
 ```
 
 **Location:**
-- Fixtures created inline in test methods
-- No separate fixture files found in codebase
+- Inline in test methods (no separate fixture files)
+
+**Pattern:**
+- Direct instantiation for simple POJOs
+- Set properties individually for testing specific fields
 
 ## Coverage
 
@@ -153,39 +164,104 @@ messages.add(msg2);
 
 **View Coverage:**
 ```bash
-./gradlew testDebugUnitTestCoverage  # If configured
-# Or manually via Android Studio
+./gradlew testDebugUnitTest --info  # Shows test results
+# Coverage reports not generated by default
 ```
 
 ## Test Types
 
 **Unit Tests:**
-- Test individual classes in isolation
-- Use manual mocks for dependencies
-- Focus on model classes and MVP contracts
+- Focus: Model validation, interface contracts, simple logic
+- Examples:
+  - `MessageAdapterTest` - validates message role and content
+  - `MainContractTest` - validates interface exists
+  - `MainPresenterTest` - validates class structure
 
-**Integration Tests:**
-- Not detected in this codebase
-- Android instrumentation tests not present
+**Current Test Coverage:**
+- Limited to basic structural tests
+- No Android-dependent tests (Activity, Context)
+- Async operations not directly tested due to Android runtime requirements
 
-**E2E Tests:**
-- Not used in this project
+**What Works:**
+- Pure Java classes and interfaces
+- Model object creation and validation
+- Interface contract verification
+
+**What Doesn't Work (Android-dependent):**
+- Presenter methods that require Android Handler/Looper
+- Activity lifecycle methods
+- Android system calls
 
 ## Common Patterns
 
-**Async Testing:**
-- Not commonly used in current tests
-- Presenters use `Handler` and `ExecutorService` for threading
-- Tests verify class structure rather than runtime behavior
+**Async Testing (not implemented):**
+- Cannot test async code directly due to Android dependency
+- Would need `robolectric` or instrumented tests
 
 **Error Testing:**
-- Not extensively tested
-- Error handling tested via View callback verification
+```java
+@Test
+public void testMessageContent() {
+    Message msg = new Message();
+    msg.setContent("Test message content");
+    assertEquals("Test message content", msg.getContent());
+}
+```
 
-**View Interface Testing:**
-- Tests verify View interface methods can be called
-- Uses anonymous class implementation to simulate View
+**Model Validation:**
+```java
+@Test
+public void testMessageRoles() {
+    Message userMsg = new Message();
+    userMsg.setRole("user");
+    assertEquals("user", userMsg.getRole());
+
+    Message assistantMsg = new Message();
+    assistantMsg.setRole("assistant");
+    assertEquals("assistant", assistantMsg.getRole());
+}
+```
+
+## Android Testing Limitations
+
+**Issue:**
+- Tests run in JVM without Android runtime
+- `Handler`, `Looper`, `Context` not available
+
+**Workaround in Project:**
+- Tests verify class existence and interface structure only
+- No actual presenter execution tests
+
+**Example from `MainPresenterTest.java`:**
+```java
+@Test
+public void testPresenterCreation() {
+    // 验证可以使用不同方式创建 presenter
+    // 注意：在非 Android 环境下，Handler/Looper 不可用，所以这里只验证类结构
+    assertNotNull(MainPresenter.class);
+}
+```
+
+## Recommendations for Improvement
+
+1. **Add Robolectric for Android testing:**
+   ```gradle
+   testImplementation 'org.robolectric:robolectric:4.11.1'
+   ```
+
+2. **Add Mockito for mocking:**
+   ```gradle
+   testImplementation 'org.mockito:mockito-core:5.7.0'
+   ```
+
+3. **Create separate test utilities:**
+   - Move fixture creation to helper classes
+   - Create mock builders for common interfaces
+
+4. **Add instrumented tests for Android:**
+   - Move Android-dependent tests to `androidTest/` directory
+   - Run on emulator/device
 
 ---
 
-*Testing analysis: 2026-03-09*
+*Testing analysis: 2026-03-10*

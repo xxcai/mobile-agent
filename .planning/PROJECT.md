@@ -35,14 +35,17 @@
 - ✓ 代码下沉 (Tools/Manager → agent-android) — v2.1 (shipped 2026-03-09)
 - ✓ 启动流程优化 (clearContext 内存泄漏修复) — v2.1 (shipped 2026-03-09)
 - ✓ 接入文档 (README + API) — v2.1 (shipped 2026-03-09)
+- ✓ App 层 Tool 动态注册接口 — v2.2 (shipped 2026-03-10)
+- ✓ Tool 生命周期管理 — v2.2 (shipped 2026-03-10)
+- ✓ 动态 Tool 调用与验证 — v2.2 (shipped 2026-03-10)
 
 ### Active
 
 暂无
 
-## Current Milestone
+## Current Milestone: v2.3 (Planning)
 
-v2.1 已完成，等待归档
+*Use /gsd:new-milestone to define requirements*
 
 ## Context
 
@@ -87,4 +90,4 @@ v2.1 已完成，等待归档
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
 
 ---
-*Last updated: 2026-03-09 — v2.1 shipped*
+*Last updated: 2026-03-10 — v2.2 shipped*

@@ -1,231 +1,157 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-09
+**Analysis Date:** 2026-03-10
 
 ## Directory Layout
 
 ```
 mobile-agent/
-├── app/                         # Android Application Module
+├── cxxplatform/           # Native C++ core library
+│   ├── include/icraw/     # Public headers
+│   ├── src/               # Implementation
+│   ├── tests/             # Unit tests
+│   ├── demo/              # Demo application
+│   ├── workspace/         # Default skill workspace
+│   └── test_skill_workspace/  # Test skills
+├── agent-core/            # Java JNI bridge library
+│   └── src/main/
+│       ├── java/          # Java sources
+│       └── assets/        # Core skills/assets
+├── agent-android/         # Android UI and tools
+│   └── src/main/
+│       ├── java/          # Java sources
+│       ├── res/           # Android resources
+│       └── assets/        # Android assets
+├── app/                  # Application module
 │   ├── src/main/
-│   │   ├── java/com/hh/agent/
-│   │   │   ├── MainActivity.java        # Main UI Activity
-│   │   │   ├── LauncherActivity.java   # Launch Activity
-│   │   │   ├── contract/
-│   │   │   │   └── MainContract.java   # MVP Contract Interface
-│   │   │   ├── presenter/
-│   │   │   │   ├── MainPresenter.java  # Main Presenter
-│   │   │   │   └── NativeMobileAgentApiAdapter.java  # Native Bridge
-│   │   │   ├── ui/
-│   │   │   │   └── MessageAdapter.java  # RecyclerView Adapter
-│   │   │   ├── tools/                  # Android Tools
-│   │   │   │   ├── ShowToastTool.java
-│   │   │   │   ├── TakeScreenshotTool.java
-│   │   │   │   ├── SearchContactsTool.java
-│   │   │   │   ├── ReadClipboardTool.java
-│   │   │   │   ├── SendImMessageTool.java
-│   │   │   │   └── DisplayNotificationTool.java
-│   │   │   ├── AndroidToolManager.java # Tool Manager
-│   │   │   └── WorkspaceManager.java   # Workspace Management
-│   │   ├── res/                        # Android Resources
-│   │   └── AndroidManifest.xml
-│   └── build.gradle
-├── agent/                        # Android Library Module (Native)
-│   ├── src/main/
-│   │   ├── java/com/hh/agent/library/
-│   │   │   ├── api/
-│   │   │   │   ├── MobileAgentApi.java      # API Interface
-│   │   │   │   └── NativeMobileAgentApi.java # JNI Interface
-│   │   │   ├── model/
-│   │   │   │   ├── Message.java
-│   │   │   │   └── Session.java
-│   │   │   ├── NativeAgent.java             # Native Agent Wrapper
-│   │   │   ├── AndroidToolCallback.java     # Tool Callback Interface
-│   │   │   ├── ToolExecutor.java
-│   │   │   └── NativeAgent.java
-│   │   ├── cpp/                        # C++ Native Code
-│   │   │   ├── native_agent.cpp          # JNI Entry Point
-│   │   │   ├── android_tools.cpp        # Android Tool JNI
-│   │   │   ├── include/                 # Header Files
-│   │   │   │   ├── icraw/
-│   │   │   │   │   ├── mobile_agent.hpp
-│   │   │   │   │   ├── config.hpp
-│   │   │   │   │   ├── android_tools.hpp
-│   │   │   │   │   ├── types.hpp
-│   │   │   │   │   └── core/            # Core Headers
-│   │   │   │   │       ├── agent_loop.hpp
-│   │   │   │   │       ├── llm_provider.hpp
-│   │   │   │   │       ├── memory_manager.hpp
-│   │   │   │   │       └── tool_registry.hpp
-│   │   │   │   └── tools/tool_registry.hpp
-│   │   │   └── src/                    # Implementation
-│   │   │       ├── mobile_agent.cpp
-│   │   │       ├── config.cpp
-│   │   │       ├── logger.cpp
-│   │   │       ├── core/
-│   │   │       │   ├── agent_loop.cpp
-│   │   │       │   ├── llm_provider.cpp
-│   │   │       │   ├── curl_http_client.cpp
-│   │   │       │   ├── memory_manager.cpp
-│   │   │       │   ├── prompt_builder.cpp
-│   │   │       │   ├── skill_loader.cpp
-│   │   │       │   ├── token_utils.cpp
-│   │   │       │   └── content_block.cpp
-│   │   │       └── tools/
-│   │   │           └── tool_registry.cpp
-│   │   └── AndroidManifest.xml
-│   └── build.gradle
-├── cxxplatform/                   # Standalone C++ Platform (demo/reference)
-│   ├── include/                   # Headers (mirrors agent)
-│   ├── src/                       # Implementation (mirrors agent)
-│   └── tests/                     # C++ Unit Tests
-├── build.gradle                   # Root Build Config
-├── settings.gradle                # Module Settings
-├── config-template.gradle          # Gradle Template Config
-├── config.json.template           # Agent Config Template
-└── local.properties               # Local Config (API keys)
+│   │   ├── java/         # Application sources
+│   │   ├── res/          # Resources
+│   │   └── assets/       # App-specific skills
+│   └── src/test/         # Unit tests
+└── build.gradle           # Gradle build config
 ```
 
 ## Directory Purposes
 
-**app/src/main/java/com/hh/agent/**
-- Purpose: Android UI layer implementation
-- Contains: Activities, Presenters, Adapters, Tool implementations
-- Key files: `MainActivity.java`, `MainPresenter.java`, `MessageAdapter.java`
+**cxxplatform:**
+- Purpose: Native C++ agent engine
+- Contains: Core reasoning loop, LLM integration, memory, skills, tools
+- Key files:
+  - `include/icraw/mobile_agent.hpp` - Main facade
+  - `include/icraw/core/agent_loop.hpp` - Agent loop
+  - `include/icraw/core/llm_provider.hpp` - LLM abstraction
+  - `include/icraw/core/memory_manager.hpp` - Memory/SQLite
+  - `include/icraw/tools/tool_registry.hpp` - Tool registry
+  - `src/mobile_agent.cpp` - Implementation
 
-**app/src/main/java/com/hh/agent/contract/**
-- Purpose: MVP contract interfaces
-- Contains: MainContract.java defining View and Presenter interfaces
+**agent-core:**
+- Purpose: JNI bridge library (AAR)
+- Contains: Java bindings for native library
+- Key files:
+  - `src/main/java/com/hh/agent/library/NativeAgent.java` - JNI wrapper
+  - `src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java` - API singleton
+  - `src/main/assets/workspace/skills/` - Core skills
 
-**app/src/main/java/com/hh/agent/presenter/**
-- Purpose: Business logic and native agent coordination
-- Contains: MainPresenter, NativeMobileAgentApiAdapter
+**agent-android:**
+- Purpose: Android UI and built-in tools
+- Contains: MVP UI, Android tool implementations
+- Key files:
+  - `src/main/java/com/hh/agent/android/AgentActivity.java` - Main UI
+  - `src/main/java/com/hh/agent/android/AndroidToolManager.java` - Tool manager
+  - `src/main/java/com/hh/agent/android/presenter/MainPresenter.java` - MVP Presenter
 
-**app/src/main/java/com/hh/agent/tools/**
-- Purpose: Android tool implementations callable by agent
-- Contains: Tool implementations (Toast, Screenshot, Contacts, etc.)
-
-**agent/src/main/java/com/hh/agent/library/**
-- Purpose: Library module for agent core
-- Contains: API interfaces, JNI bindings, model classes
-
-**agent/src/main/cpp/**
-- Purpose: Native C++ implementation
-- Contains: JNI bridge, mobile agent core, tools system
-
-**cxxplatform/**
-- Purpose: Standalone C++ implementation for testing/reference
-- Contains: Same code as agent/src/main/cpp but with tests
+**app:**
+- Purpose: Application module
+- Contains: Launcher, app-specific tools
+- Key files:
+  - `src/main/java/com/hh/agent/LauncherActivity.java` - Entry point
+  - `src/main/java/com/hh/agent/tool/SearchContactsTool.java` - Custom tool
+  - `src/main/java/com/hh/agent/tool/SendImMessageTool.java` - Custom tool
 
 ## Key File Locations
 
 **Entry Points:**
-- `app/src/main/java/com/hh/agent/MainActivity.java`: Android app launch
-- `agent/src/main/cpp/native_agent.cpp`: Native library entry (JNI_OnLoad)
+- `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/LauncherActivity.java` - App launch
+- `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentActivity.java` - Agent UI
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/mobile_agent.cpp` - Native agent
 
 **Configuration:**
-- `config.json.template`: Agent configuration template
-- `local.properties`: Local overrides (API keys)
-- `app/build.gradle`: App module build config
-- `agent/build.gradle`: Library module with NDK config
+- `/Users/caixiao/Workspace/projects/mobile-agent/config.json.template` - Config template
+- `/Users/caixiao/Workspace/projects/mobile-agent/build.gradle` - Build config
+- `/Users/caixiao/Workspace/projects/mobile-agent/settings.gradle` - Project settings
 
 **Core Logic:**
-- `agent/src/main/cpp/src/mobile_agent.cpp`: Agent orchestration
-- `agent/src/main/cpp/src/core/agent_loop.cpp`: Agent loop with tool execution
-- `agent/src/main/cpp/src/core/memory_manager.cpp`: SQLite storage
-- `agent/src/main/cpp/src/core/llm_provider.cpp`: LLM API client
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/mobile_agent.cpp` - MobileAgent impl
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/agent_loop.cpp` - Agent loop
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/llm_provider.cpp` - LLM provider
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/memory_manager.cpp` - Memory
 
 **Testing:**
-- `app/src/test/java/com/hh/agent/`: Java unit tests
-- `cxxplatform/tests/`: C++ unit tests
+- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/tests/` - C++ tests
+- `/Users/caixiao/Workspace/projects/mobile-agent/app/src/test/java/` - Android tests
 
 ## Naming Conventions
 
-**Java Files:**
-- Pattern: `PascalCase.java`
-- Example: `MainActivity.java`, `MessageAdapter.java`, `MainContract.java`
-
-**Java Classes:**
-- Pattern: `PascalCase`
-- Example: `MainPresenter`, `NativeMobileAgentApiAdapter`, `AndroidToolManager`
-
-**Java Methods:**
-- Pattern: `camelCase`
-- Example: `sendMessage()`, `loadMessages()`, `attachView()`
-
-**C++ Files:**
-- Pattern: `snake_case.cpp`, `snake_case.hpp`
-- Example: `mobile_agent.cpp`, `agent_loop.hpp`
-
-**C++ Classes/Namespaces:**
-- Pattern: `PascalCase` for classes, `snake_case` for functions
-- Example: `MobileAgent`, `AgentLoop`, `tool_registry`
-
-**C++ Variables:**
-- Pattern: `snake_case_` with trailing underscore for members
-- Example: `memory_manager_`, `llm_provider_`, `agent_config_`
+**Files:**
+- Java: PascalCase (e.g., `AgentActivity.java`, `AndroidToolManager.java`)
+- C++ Headers: snake_case.hpp (e.g., `mobile_agent.hpp`, `agent_loop.hpp`)
+- C++ Sources: snake_case.cpp (e.g., `mobile_agent.cpp`, `agent_loop.cpp`)
+- Skills: SKILL.md (uppercase)
 
 **Directories:**
-- Pattern: `lowercase/` for most, `camelCase/` for Java packages
-- Example: `src/main/cpp/src/core/`, `com/hh/agent/library/`
+- Java packages: lowercase with dots (e.g., `com/hh/agent/android/tool`)
+- C++ modules: snake_case (e.g., `core/`, `tools/`)
+- Assets: lowercase (e.g., `workspace/skills/`)
+
+**Functions/Methods:**
+- Java: camelCase (e.g., `initializeToolManager()`, `registerTool()`)
+- C++: snake_case (e.g., `load_skills_from_directory()`)
 
 ## Where to Add New Code
 
+**New Native C++ Feature:**
+- Headers: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/`
+- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/`
+
 **New Android Tool:**
-- Implementation: `app/src/main/java/com/hh/agent/tools/NewToolName.java`
-- Register in: `AndroidToolManager.initialize()`
-- Test: `app/src/test/java/com/hh/agent/tools/`
+- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/tool/`
+- Registration: `AndroidToolManager.java`
 
-**New Native Tool:**
-- Implementation: `agent/src/main/cpp/src/tools/tool_registry.cpp` (in register_builtin_tools)
-- Schema: Add in tool schema registration
-- Test: `cxxplatform/tests/tool_registry.test.cpp`
+**New App Tool:**
+- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/tool/`
+- Registration: `LauncherActivity.java`
 
-**New C++ Core Component:**
-- Header: `agent/src/main/cpp/include/icraw/core/component_name.hpp`
-- Implementation: `agent/src/main/cpp/src/core/component_name.cpp`
+**New Skill:**
+- Core skills: `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/assets/workspace/skills/`
+- App skills: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/`
 
 **New UI Feature:**
-- Layout: `app/src/main/res/layout/feature_layout.xml`
-- Activity/Fragment: `app/src/main/java/com/hh/agent/ui/`
-- Test: `app/src/test/java/com/hh/agent/ui/`
-
-**Configuration:**
-- Agent Config: Modify `config.json.template`
-- Gradle Config: Modify root `build.gradle` or module `build.gradle`
+- Activity: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/`
+- Presenter: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/presenter/`
+- Contract: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/contract/`
 
 ## Special Directories
 
-**agent/src/main/cpp/include/**
-- Purpose: Public C++ headers
+**cxxplatform/include/icraw:**
+- Purpose: Public C++ API headers
 - Generated: No
 - Committed: Yes
 
-**agent/src/main/cpp/src/core/**
-- Purpose: Core agent implementation files
+**cxxplatform/src/core:**
+- Purpose: Core agent implementations
 - Generated: No
 - Committed: Yes
 
-**cxxplatform/**
-- Purpose: Standalone C++ with tests
-- Generated: No
-- Committed: Yes (mirrors agent/cpp)
-
-**app/src/main/res/**
-- Purpose: Android resources (layouts, drawables, values)
+**workspace/skills:**
+- Purpose: Skill definitions (SKILL.md files)
 - Generated: No
 - Committed: Yes
 
-**gradle/**
-- Purpose: Gradle wrapper files
-- Generated: Yes (wrapper download)
-- Committed: Yes (wrapper jar and properties)
-
-**.gradle/**
-- Purpose: Gradle cache
-- Generated: Yes (build cache)
-- Committed: No (in .gitignore)
+**app/src/main/assets/workspace:**
+- Purpose: App-specific skills and resources
+- Generated: No
+- Committed: Yes
 
 ---
 
-*Structure analysis: 2026-03-09*
+*Structure analysis: 2026-03-10*

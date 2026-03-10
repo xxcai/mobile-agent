@@ -3,7 +3,6 @@ package com.hh.agent.android.presenter;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
 import com.hh.agent.library.api.MobileAgentApi;
@@ -47,6 +46,7 @@ public class MainPresenter implements MainContract.Presenter {
 
     /**
      * 创建 API 实例 - 只使用 Native Agent
+     * Note: AndroidToolManager 现在由 app 层 LauncherActivity 初始化和注册 Tool
      */
     private MobileAgentApi createApi(Context context) {
         try {
@@ -55,12 +55,6 @@ public class MainPresenter implements MainContract.Presenter {
                 adapter.setContext(context);
             }
             adapter.initialize("");
-
-            // Initialize AndroidToolManager to register Android tools callback
-            if (context != null) {
-                AndroidToolManager toolManager = new AndroidToolManager(context);
-                toolManager.initialize();
-            }
 
             return adapter;
         } catch (Exception e) {
