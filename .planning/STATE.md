@@ -32,7 +32,7 @@ progress:
 | Milestone | v2.1 架构重构 |
 | Phase | 5 (API Key 管理) |
 | Status | In progress |
-| Last activity: | 2026-03-09 — Milestone v2.1 started |
+| Last activity: | 2026-03-09 — Completed quick task 8: 分析最近3笔提交并制定合入agent-core的策略 |
 
 ---
 
@@ -114,6 +114,7 @@ None
 | 4 | 把拷贝config.json.template的工作，从agent模块的build.gradle中，抽到根目录单独gradle文件中。 | 2026-03-09 | 36e6ad8 | [4-config-json-template-agent-build-gradle-](./quick/4-config-json-template-agent-build-gradle-/) |
 | 5 | 扩展 config-template.gradle 支持 app 模块，并在 app/build.gradle 中引用 | 2026-03-09 | 26eaeeb | [5-quick-task-4-gradle-app](./quick/5-quick-task-4-gradle-app/) |
 | 6 | 移除 agent 模块中显式的 config-template.gradle 引用，改由 root 自动应用 | 2026-03-09 | 67996c2 | [6-quicktask-agent-gradle](./quick/6-quicktask-agent-gradle/) |
+| 8 | 分析最近3笔提交并制定合入agent-core的策略 | 2026-03-09 | 150eb10 | [8-3-agent-core](./quick/8-3-agent-core/) |
 
 ---
 

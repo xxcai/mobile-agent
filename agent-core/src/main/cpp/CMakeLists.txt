@@ -13,6 +13,7 @@ set(ICRAW_SOURCES
         src/core/llm_provider.cpp
         src/core/curl_http_client.cpp
         src/core/token_utils.cpp
+        src/core/mcp_client.cpp
         src/tools/tool_registry.cpp
         src/mobile_agent.cpp
         android_tools.cpp
@@ -30,6 +31,7 @@ set(ICRAW_HEADERS
         include/icraw/core/llm_provider.hpp
         include/icraw/core/http_client.hpp
         include/icraw/core/token_utils.hpp
+        include/icraw/core/mcp_client.hpp
         include/icraw/tools/tool_registry.hpp
         include/icraw/tools/android_log_sink.hpp
         include/icraw/config.hpp

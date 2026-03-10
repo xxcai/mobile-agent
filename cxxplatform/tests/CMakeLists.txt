@@ -11,6 +11,7 @@ add_executable(icraw_tests
     skill_loader.test.cpp
     skill_loader_enhancements.test.cpp
     memory_optimization.test.cpp
+    mcp_client.test.cpp
 )
 
 target_link_libraries(icraw_tests

@@ -12,7 +12,7 @@ class AgentConan(ConanFile):
         "nlohmann_json/3.11.3",
         "spdlog/1.15.1",
         "zlib/1.3.1",
-        "sqlite3/3.45.3",
+        "sqlite3/3.49.1",
     ]
 
     def configure(self):
