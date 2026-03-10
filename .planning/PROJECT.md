@@ -35,19 +35,17 @@
 - ✓ 代码下沉 (Tools/Manager → agent-android) — v2.1 (shipped 2026-03-09)
 - ✓ 启动流程优化 (clearContext 内存泄漏修复) — v2.1 (shipped 2026-03-09)
 - ✓ 接入文档 (README + API) — v2.1 (shipped 2026-03-09)
+- ✓ App 层 Tool 动态注册接口 — v2.2 (shipped 2026-03-10)
+- ✓ Tool 生命周期管理 — v2.2 (shipped 2026-03-10)
+- ✓ 动态 Tool 调用与验证 — v2.2 (shipped 2026-03-10)
 
 ### Active
 
 暂无
 
-## Current Milestone: v2.2 App 层动态注入 Android 工具
+## Current Milestone: v2.3 (Planning)
 
-**Goal:** 实现 app 层可动态注册自定义 Tool 到 AndroidToolManager，使 app 层能够扩展 Android 能力。
-
-**Target features:**
-- App 层自定义 Tool 注册接口
-- Tool 生命周期管理（注册、注销、查询）
-- 动态 Tool 调用机制
+*Use /gsd:new-milestone to define requirements*
 
 ## Context
 
@@ -92,4 +90,4 @@
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
 
 ---
-*Last updated: 2026-03-10 — v2.2 started*
+*Last updated: 2026-03-10 — v2.2 shipped*
