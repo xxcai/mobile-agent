@@ -53,17 +53,17 @@ App 层动态注入 Android 工具
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INJT-01 | Phase 6 | Pending |
-| INJT-02 | Phase 6 | Pending |
-| INJT-03 | Phase 6 | Pending |
-| INJT-04 | Phase 7 | Pending |
-| INJT-05 | Phase 7 | Pending |
-| INJT-06 | Phase 7 | Pending |
-| INJT-07 | Phase 8 | Pending |
-| INJT-08 | Phase 8 | Pending |
-| INJT-09 | Phase 8 | Pending |
-| INJT-10 | Phase 8 | Pending |
-| INJT-11 | Phase 8 | Pending |
+| INJT-01 | Phase 1 | Pending |
+| INJT-02 | Phase 1 | Pending |
+| INJT-03 | Phase 1 | Pending |
+| INJT-04 | Phase 2 | Pending |
+| INJT-05 | Phase 2 | Pending |
+| INJT-06 | Phase 2 | Pending |
+| INJT-07 | Phase 3 | Pending |
+| INJT-08 | Phase 3 | Pending |
+| INJT-09 | Phase 3 | Pending |
+| INJT-10 | Phase 3 | Pending |
+| INJT-11 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total

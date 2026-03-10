@@ -30,7 +30,7 @@ progress:
 | Field | Value |
 |-------|-------|
 | Milestone | v2.2 App 层动态注入 Android 工具 |
-| Phase | Defining roadmap (phase 6-8) |
+| Phase | Defining roadmap (phase 1-3) |
 | Status | In progress |
 | Last activity: | 2026-03-10 — Creating roadmap |
 
@@ -84,9 +84,9 @@ None
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 6 | Tool 注册接口 | INJT-01, INJT-02, INJT-03 | Not started |
-| 7 | Tool 生命周期管理 | INJT-04, INJT-05, INJT-06 | Not started |
-| 8 | 动态 Tool 调用与验证 | INJT-07, INJT-08, INJT-09, INJT-10, INJT-11 | Not started |
+| 1 | Tool 注册接口 | INJT-01, INJT-02, INJT-03 | Not started |
+| 2 | Tool 生命周期管理 | INJT-04, INJT-05, INJT-06 | Not started |
+| 3 | 动态 Tool 调用与验证 | INJT-07, INJT-08, INJT-09, INJT-10, INJT-11 | Not started |
 
 ---
 

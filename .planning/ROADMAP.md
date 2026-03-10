@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ✅ **v2.2 App 层动态注入 Android 工具** — Phases 6 to 8 (in progress)
+- ✅ **v2.2 App 层动态注入 Android 工具** — Phases 1 to 3 (in progress)
 - ✅ **v2.1 架构重构** — Phases 1 to 5 (shipped 2026-03-09)
 - ✅ **v2.0 接入真实项目** — Phases v20-01 to v20-04 (shipped 2026-03-09)
 - ✅ **v1.6 自定义 Skills 验证** — Phases v16-01 to v16-02 (shipped 2026-03-06)
@@ -14,11 +14,11 @@
 ## v2.2 (In Progress)
 
 <details>
-<summary>🚧 v2.2 App 层动态注入 Android 工具 (Phases 6 to 8) — IN PROGRESS</summary>
+<summary>🚧 v2.2 App 层动态注入 Android 工具 (Phases 1 to 3) — IN PROGRESS</summary>
 
 **Goal:** 实现 app 层可动态注册自定义 Tool 到 AndroidToolManager，使 app 层能够扩展 Android 能力。
 
-### Phase 6: Tool 注册接口
+### Phase 1: Tool 注册接口
 
 **Goal**: App 层可以通过接口注册自定义 Tool 到 AndroidToolManager，支持运行时动态添加
 
@@ -35,7 +35,7 @@
 
 ---
 
-### Phase 7: Tool 生命周期管理
+### Phase 2: Tool 生命周期管理
 
 **Goal**: 支持 Tool 的查询、注销和静态声明
 
@@ -52,7 +52,7 @@
 
 ---
 
-### Phase 8: 动态 Tool 调用与验证
+### Phase 3: 动态 Tool 调用与验证
 
 **Goal**: Agent 能够调用通过 App 层注册的 Tool，完成示例验证
 
@@ -153,7 +153,7 @@
 
 | Milestone | Phase Range | Status | Completed |
 |-----------|-------------|--------|-----------|
-| v2.2 | 6 to 8 | In progress | - |
+| v2.2 | 1 to 3 | In progress | - |
 | v2.1 | 1 to 5 | ✓ Complete | 2026-03-09 |
 | v2.0 | v20-01 to v20-04 | ✓ Complete | 2026-03-09 |
 | v1.6 | v16-01 to v16-02 | ✓ Complete | 2026-03-06 |
@@ -164,9 +164,9 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 6. Tool 注册接口 | 0/TBD | Not started | - |
-| 7. Tool 生命周期管理 | 0/TBD | Not started | - |
-| 8. 动态 Tool 调用与验证 | 0/TBD | Not started | - |
+| 1. Tool 注册接口 | 0/TBD | Not started | - |
+| 2. Tool 生命周期管理 | 0/TBD | Not started | - |
+| 3. 动态 Tool 调用与验证 | 0/TBD | Not started | - |
 
 ---
 
