@@ -106,7 +106,7 @@
 - 完整接入文档
 
 **Plans:**
-- [x] 01-agent-android-module/01-PLAN.md — 新增 agent-android 模块
+1/1 plans complete
 - [x] 02-rename-modules/02-PLAN.md — 重命名模块 (agent → agent-core, app 简化为壳)
 - [x] 05-api-key/05-01-PLAN.md — 扩展 ToolExecutor 接口
 - [x] 05-api-key/05-02-PLAN.md — 6 个 Tool 实现新方法
@@ -164,8 +164,7 @@
 
 | Milestone | Phase Range | Status | Completed |
 |-----------|-------------|--------|-----------|
-| v2.2 | 1 to 3 | In progress | - |
-| v2.1 | 1 to 5 | ✓ Complete | 2026-03-09 |
+| v2.2 | 1 to 3 | 1/1 | Complete    | 2026-03-10 | v2.1 | 1 to 5 | ✓ Complete | 2026-03-09 |
 | v2.0 | v20-01 to v20-04 | ✓ Complete | 2026-03-09 |
 | v1.6 | v16-01 to v16-02 | ✓ Complete | 2026-03-06 |
 | v1.5 | v15-01 to v15-03 | ✓ Complete | 2026-03-05 |

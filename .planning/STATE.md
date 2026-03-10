@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.2
-milestone_name: App 层动态注入 Android 工具
-status: defining_roadmap
-last_updated: "2026-03-10T00:00:00.000Z"
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-10T02:26:46.239Z"
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
 ---
 
 # STATE: Mobile Agent - v2.2 App 层动态注入 Android 工具

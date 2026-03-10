@@ -10,9 +10,9 @@ App 层动态注入 Android 工具
 
 ### Tool 注册接口
 
-- [ ] **INJT-01**: App 层可以通过接口注册自定义 Tool 到 AndroidToolManager
-- [ ] **INJT-02**: Tool 注册支持运行时动态添加（应用运行期间）
-- [ ] **INJT-03**: 注册时需要提供 Tool 名称、描述和执行器
+- [x] **INJT-01**: App 层可以通过接口注册自定义 Tool 到 AndroidToolManager
+- [x] **INJT-02**: Tool 注册支持运行时动态添加（应用运行期间）
+- [x] **INJT-03**: 注册时需要提供 Tool 名称、描述和执行器
 
 ### Tool 生命周期管理
 
@@ -53,9 +53,9 @@ App 层动态注入 Android 工具
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INJT-01 | Phase 1 | Pending |
-| INJT-02 | Phase 1 | Pending |
-| INJT-03 | Phase 1 | Pending |
+| INJT-01 | Phase 1 | Complete |
+| INJT-02 | Phase 1 | Complete |
+| INJT-03 | Phase 1 | Complete |
 | INJT-04 | Phase 2 | Pending |
 | INJT-05 | Phase 2 | Pending |
 | INJT-06 | Phase 2 | Pending |
