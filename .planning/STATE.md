@@ -2,7 +2,7 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: 语音转文字
-status: defining_requirements
+status: planning
 last_updated: "2026-03-10T03:10:00.000Z"
 progress:
   total_phases: 3
@@ -32,7 +32,7 @@ progress:
 | Milestone | v2.3 语音转文字 |
 | Phase | Planning (3 phases defined) |
 | Status | Defining requirements |
-| Last activity: | 2026-03-10 — Roadmap created |
+| Last activity: | 2026-03-10 — Phase 1 context gathered |
 
 ---
 
