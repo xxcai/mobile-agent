@@ -27,10 +27,22 @@
 - 使用 `setImageResource()` 切换图标
 
 ### 语音识别实现
-- **系统 SpeechRecognizer**: Android 内置 API
-- **识别模式**: ONLINE_RECOGNITION (需要网络)
-- **结果处理**: 使用 onPartialResults 实时显示识别内容
-- **权限处理**: 运行时请求 RECORD_AUDIO 权限
+- **接口抽象**: 通过 IVoiceRecognizer 接口接入
+- **接口定义**:
+  ```java
+  public interface IVoiceRecognizer {
+      interface Callback {
+          void onSuccess(String text);
+          void onFail(String error);
+      }
+      void start(Callback callback);
+      void stop();
+  }
+  ```
+- **App 层 Mock**: MockVoiceRecognizer 实现类
+  - 模拟多次更新: 字符串数组 ["你", "你好", "你好，", "你好，今天", "你好，今天天气很好"]
+  - 定时触发 onSuccess 最终返回
+  - UI 层通过独立机制处理实时更新显示
 
 ### 转写更新策略
 - **实时更新到输入框**: 识别到的文字实时显示在 etMessage 中
@@ -56,12 +68,14 @@
 
 ### Integration Points
 - AgentActivity.java: 添加 OnTouchListener 监听按钮按压
-- SpeechRecognizer: Android 内置 API
+- IVoiceRecognizer 接口: 由 app 层注入实现
 - etMessage: EditText，转写结果写入目标
 
 ### 需要新增
-- 录音状态图标动画 (按压时显示波形)
-- SpeechRecognizer 初始化和回调处理
+- IVoiceRecognizer 接口定义 (agent-android)
+- MockVoiceRecognizer 实现 (app 层)
+- 录音图标切换 (ic_mic → ic_mic_recording)
+- UI 层实时更新机制
 
 </codebase_context>
 
