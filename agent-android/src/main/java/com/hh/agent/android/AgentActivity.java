@@ -42,6 +42,9 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         // 初始化视图
         initViews();
 
+        // 显示语音按钮
+        setVoiceButtonVisible(true);
+
         // 加载 native agent 配置
         NativeMobileAgentApiAdapter.loadConfigFromAssets(this);
 
