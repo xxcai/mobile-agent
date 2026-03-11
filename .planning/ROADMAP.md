@@ -56,7 +56,10 @@
 2. 用户讲话过程中，语音转文字工具实时返回识别结果（完整文本），实时更新到输入框
 3. 用户松手时，录音动画结束，语音识别停止
 
-**Plans:** TBD
+**Plans:** 1/1 created (Plan 1: 按压说话 + 实时转写)
+
+Plans:
+- [ ] 02-PLAN.md — 按压说话模式、录音动画、IVoiceRecognizer 接口、Mock 实现
 
 ---
 
@@ -83,7 +86,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1 - 语音按钮 UI | 1/1 | Completed | 2026-03-11 |
-| 2 - 语音交互逻辑 | 0/1 | Not started | - |
+| 2 - 语音交互逻辑 | 1/1 | Planned | - |
 | 3 - 语音能力接入 | 0/1 | Not started | - |
 
 ---
