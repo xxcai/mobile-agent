@@ -1,6 +1,7 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -10,6 +11,8 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.voice.IVoiceRecognizer;
+import com.hh.agent.android.voice.MockVoiceRecognizer;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.android.presenter.MainPresenter;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
@@ -29,6 +32,8 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private Toolbar toolbar;
     private MessageAdapter adapter;
     private MainPresenter presenter;
+    private IVoiceRecognizer voiceRecognizer;
+    private boolean isRecording = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +61,10 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         btnSend = findViewById(R.id.btnSend);
         btnVoice = findViewById(R.id.btnVoice);
 
+        // 初始化语音识别器
+        voiceRecognizer = new MockVoiceRecognizer();
+        setupVoiceButtonListener();
+
         // 设置 Toolbar
         setSupportActionBar(toolbar);
 
@@ -81,6 +90,68 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     public void setVoiceButtonVisible(boolean visible) {
         if (btnVoice != null) {
             btnVoice.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /**
+     * 设置语音按钮按压监听器（按压说话模式）
+     */
+    private void setupVoiceButtonListener() {
+        if (btnVoice == null || voiceRecognizer == null) {
+            return;
+        }
+
+        btnVoice.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // 按下：开始录音
+                    if (!isRecording) {
+                        isRecording = true;
+                        updateVoiceButtonState(true);
+                        voiceRecognizer.start(new IVoiceRecognizer.Callback() {
+                            @Override
+                            public void onSuccess(String text) {
+                                runOnUiThread(() -> {
+                                    if (etMessage != null) {
+                                        etMessage.setText(text);
+                                        etMessage.setSelection(text.length()); // 光标移到末尾
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onFail(String error) {
+                                runOnUiThread(() -> {
+                                    Toast.makeText(AgentActivity.this, error, Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        });
+                    }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    // 松开：停止录音
+                    if (isRecording) {
+                        isRecording = false;
+                        updateVoiceButtonState(false);
+                        voiceRecognizer.stop();
+                    }
+                    return true;
+
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /**
+     * 更新语音按钮状态
+     * @param recording true 表示录音中，false 表示空闲
+     */
+    private void updateVoiceButtonState(boolean recording) {
+        if (btnVoice != null) {
+            btnVoice.setImageResource(recording ? R.drawable.ic_mic_recording : R.drawable.ic_mic);
         }
     }
 
