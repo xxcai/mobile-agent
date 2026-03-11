@@ -344,8 +344,9 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
             return icraw::g_android_tools.call_tool(function_name, tool_args);
         };
 
-        tool_schemas_.push_back(std::move(tool_schema));
+        // Log before move since tool_schema.name will be empty after move
         ICRAW_LOG_INFO("[TOOL] register_tools_from_schema: Registered tool '{}'", tool_schema.name);
+        tool_schemas_.push_back(std::move(tool_schema));
     }
 }
 
