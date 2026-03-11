@@ -53,7 +53,7 @@ std::string PromptBuilder::build_full() const {
             if (!always_skills.empty()) {
                 ss << "# Active Skills\n\n";
                 ss << skill_loader_->get_skill_context(always_skills) << "\n\n";
-                ICRAW_LOG_INFO("PromptBuilder: Added {} always-skills to prompt", always_skills.size());
+                ICRAW_LOG_INFO("[PROMPT] PromptBuilder: Added {} always-skills to prompt", always_skills.size());
             }
 
             // Level 2: Skills summary (metadata only, on-demand loading)
@@ -119,7 +119,7 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
             if (!always_skills.empty()) {
                 ss << "# Active Skills\n\n";
                 ss << skill_loader_->get_skill_context(always_skills) << "\n\n";
-                ICRAW_LOG_INFO("PromptBuilder[ephemeral]: Added {} always-skills to prompt", always_skills.size());
+                ICRAW_LOG_INFO("[PROMPT] PromptBuilder[ephemeral]: Added {} always-skills to prompt", always_skills.size());
             }
 
             // Level 2: Skills summary (metadata only, on-demand loading)

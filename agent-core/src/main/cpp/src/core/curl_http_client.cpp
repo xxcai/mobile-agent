@@ -25,6 +25,8 @@ bool CurlHttpClient::perform_request(const std::string& url,
                                      std::map<std::string, std::string>& response_headers,
                                      HttpError& error,
                                      const HttpHeaders& headers) {
+    auto start_time = std::chrono::steady_clock::now();
+
     CURL* curl = static_cast<CURL*>(curl_);
     if (!curl) {
         error.code = -1;
@@ -98,22 +100,31 @@ bool CurlHttpClient::perform_request(const std::string& url,
     }
     
     if (res != CURLE_OK) {
+        auto end_time = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = -1;
         error.message = curl_easy_strerror(res);
-        ICRAW_LOG_ERROR("[HTTP] Curl error: {} (code: {})", error.message, static_cast<int>(res));
+        ICRAW_LOG_ERROR("[HTTP] {} {} - error ({}ms)", method, url, elapsed);
         return false;
     }
     
     // Get the HTTP response code
     long http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-    
+
     if (http_code >= 400) {
+        auto end_time = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = static_cast<int>(http_code);
         error.message = "HTTP error: " + std::to_string(http_code);
+        ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
         return false;
     }
-    
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
+
     return true;
 }
 
@@ -124,6 +135,8 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
                                             StreamCallback callback,
                                             HttpError& error,
                                             const HttpHeaders& headers) {
+    auto start_time = std::chrono::steady_clock::now();
+
     CURL* curl = static_cast<CURL*>(curl_);
     if (!curl) {
         error.code = -1;
@@ -227,11 +240,18 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     
     if (http_code >= 400) {
+        auto end_time = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = static_cast<int>(http_code);
         error.message = "HTTP error: " + std::to_string(http_code);
+        ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
         return false;
     }
-    
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[HTTP] {} {} - stream OK ({}ms)", method, url, elapsed);
+
     return true;
 }
 
