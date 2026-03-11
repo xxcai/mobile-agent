@@ -30,6 +30,7 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private ImageButton btnSend;
     private ImageButton btnVoice;
     private Toolbar toolbar;
+    private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
     private boolean isRecording = false;
@@ -64,6 +65,7 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
         btnVoice = findViewById(R.id.btnVoice);
+        voiceRecordingOverlay = findViewById(R.id.voiceRecordingOverlay);
 
         // 设置语音按钮监听器
         setupVoiceButtonListener();
@@ -160,6 +162,10 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private void updateVoiceButtonState(boolean recording) {
         if (btnVoice != null) {
             btnVoice.setImageResource(recording ? R.drawable.ic_mic_recording : R.drawable.ic_mic);
+        }
+        // 显示/隐藏录音遮罩
+        if (voiceRecordingOverlay != null) {
+            voiceRecordingOverlay.setVisibility(recording ? View.VISIBLE : View.GONE);
         }
     }
 

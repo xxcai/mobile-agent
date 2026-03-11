@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 外圈脉冲 -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#33F44336" />
+            <size android:width="120dp" android:height="120dp" />
+        </shape>
+    </item>
+    <item
+        android:bottom="10dp"
+        android:left="10dp"
+        android:right="10dp"
+        android:top="10dp">
+        <shape android:shape="oval">
+            <solid android:color="#55F44336" />
+        </shape>
+    </item>
+    <item
+        android:bottom="25dp"
+        android:left="25dp"
+        android:right="25dp"
+        android:top="25dp">
+        <shape android:shape="oval">
+            <solid android:color="#88F44336" />
+        </shape>
+    </item>
+    <item
+        android:bottom="40dp"
+        android:left="40dp"
+        android:right="40dp"
+        android:top="40dp">
+        <shape android:shape="oval">
+            <solid android:color="#CCF44336" />
+        </shape>
+    </item>
+    <!-- 中心麦克风 -->
+    <item
+        android:bottom="40dp"
+        android:left="40dp"
+        android:right="40dp"
+        android:top="40dp">
+        <shape android:shape="oval">
+            <solid android:color="#F44336" />
+        </shape>
+    </item>
+</layer-list>

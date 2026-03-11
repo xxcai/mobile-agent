@@ -90,4 +90,9 @@
 
     </LinearLayout>
 
+    <!-- 语音录音遮罩 -->
+    <include
+        layout="@layout/overlay_voice_recording"
+        android:id="@+id/voiceRecordingOverlay" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
