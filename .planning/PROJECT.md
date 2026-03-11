@@ -38,14 +38,19 @@
 - ✓ App 层 Tool 动态注册接口 — v2.2 (shipped 2026-03-10)
 - ✓ Tool 生命周期管理 — v2.2 (shipped 2026-03-10)
 - ✓ 动态 Tool 调用与验证 — v2.2 (shipped 2026-03-10)
+- ✓ 语音按钮 UI — v2.3 (shipped 2026-03-11)
+- ✓ 按压说话交互 — v2.3 (shipped 2026-03-11)
+- ✓ 实时语音转文字 — v2.3 (shipped 2026-03-11)
+- ✓ 语音能力依赖注入 — v2.3 (shipped 2026-03-11)
+- ✓ Android 录音权限处理 — v2.3 (shipped 2026-03-11)
 
 ### Active
 
 暂无
 
-## Current Milestone: v2.3 (Planning)
+## Current Milestone: v2.4 (待规划)
 
-*Use /gsd:new-milestone to define requirements*
+**Goal:** 待定义
 
 ## Context
 
@@ -88,6 +93,7 @@
 | 平台分离 | Tools/Manager 在 app，agent 纯 Java | ✓ v2.0 shipped |
 | Callback 接口 | AndroidToolCallback 解耦 agent/app | ✓ v2.0 shipped |
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
+| 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | — v2.3 planning |
 
 ---
-*Last updated: 2026-03-10 — v2.2 shipped*
+*Last updated: 2026-03-11 — v2.3 shipped*

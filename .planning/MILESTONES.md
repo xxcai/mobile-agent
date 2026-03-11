@@ -1,5 +1,14 @@
 # Milestones
 
+## v2.3 语音转文字 (Shipped: 2026-03-11)
+
+**Phases completed:** 1 phases, 0 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v2.0 接入真实项目 (Shipped: 2026-03-09)
 
 **Phases completed:** 7 phases, 7 plans, 0 tasks

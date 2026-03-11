@@ -5,6 +5,8 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import com.hh.agent.android.AgentActivity;
 import com.hh.agent.android.AgentInitializer;
+import com.hh.agent.voice.MockVoiceRecognizer;
+import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
@@ -33,6 +35,9 @@ public class LauncherActivity extends AppCompatActivity {
         tools.put("take_screenshot", new TakeScreenshotTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
+
+        // 注入 Mock 语音识别器（开发测试用）
+        VoiceRecognizerHolder.getInstance().setRecognizer(new MockVoiceRecognizer());
 
         // 初始化 Agent
         AgentInitializer.initialize(getApplication(), tools, () -> {

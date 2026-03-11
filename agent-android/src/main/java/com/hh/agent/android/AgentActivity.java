@@ -1,14 +1,20 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.voice.IVoiceRecognizer;
+import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.android.presenter.MainPresenter;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
@@ -21,12 +27,18 @@ import java.util.List;
  */
 public class AgentActivity extends AppCompatActivity implements MainContract.View {
 
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+
     private RecyclerView rvMessages;
     private EditText etMessage;
     private ImageButton btnSend;
+    private ImageButton btnVoice;
     private Toolbar toolbar;
+    private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
+    private boolean isRecording = false;
+    private boolean permissionGranted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +47,11 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
 
         // 初始化视图
         initViews();
+
+        // 仅在已注入语音识别器时显示语音按钮
+        if (VoiceRecognizerHolder.getInstance().getRecognizer() != null) {
+            setVoiceButtonVisible(true);
+        }
 
         // 加载 native agent 配置
         NativeMobileAgentApiAdapter.loadConfigFromAssets(this);
@@ -47,11 +64,43 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         presenter.loadMessages();
     }
 
+    /**
+     * 检查并请求录音权限
+     */
+    private void checkAndRequestAudioPermission() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissionGranted = true;
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.RECORD_AUDIO},
+                    REQUEST_RECORD_AUDIO_PERMISSION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionGranted = true;
+            } else {
+                permissionGranted = false;
+                Toast.makeText(this, "录音权限被拒绝，语音功能无法使用", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     private void initViews() {
         toolbar = findViewById(R.id.toolbar);
         rvMessages = findViewById(R.id.rvMessages);
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
+        btnVoice = findViewById(R.id.btnVoice);
+        voiceRecordingOverlay = findViewById(R.id.voiceRecordingOverlay);
+
+        // 设置语音按钮监听器
+        setupVoiceButtonListener();
 
         // 设置 Toolbar
         setSupportActionBar(toolbar);
@@ -69,6 +118,95 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
                 etMessage.setText(""); // 清空输入框
             }
         });
+    }
+
+    /**
+     * 设置语音按钮是否可见
+     * @param visible true 显示，false 隐藏
+     */
+    public void setVoiceButtonVisible(boolean visible) {
+        if (btnVoice != null) {
+            btnVoice.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /**
+     * 设置语音按钮按压监听器（按压说话模式）
+     */
+    private void setupVoiceButtonListener() {
+        if (btnVoice == null) {
+            return;
+        }
+
+        btnVoice.setOnTouchListener((v, event) -> {
+            IVoiceRecognizer recognizer = VoiceRecognizerHolder.getInstance().getRecognizer();
+            if (recognizer == null) {
+                return false;
+            }
+
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // 按下：开始录音
+                    if (!isRecording) {
+                        // 检查录音权限
+                        if (!permissionGranted) {
+                            // 仅请求权限，不开始录音，等待用户再次操作
+                            ActivityCompat.requestPermissions(AgentActivity.this,
+                                    new String[]{android.Manifest.permission.RECORD_AUDIO},
+                                    REQUEST_RECORD_AUDIO_PERMISSION);
+                            return true;
+                        }
+                        isRecording = true;
+                        updateVoiceButtonState(true);
+                        recognizer.start(new IVoiceRecognizer.Callback() {
+                            @Override
+                            public void onSuccess(String text) {
+                                runOnUiThread(() -> {
+                                    if (etMessage != null) {
+                                        etMessage.setText(text);
+                                        etMessage.setSelection(text.length()); // 光标移到末尾
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onFail(String error) {
+                                runOnUiThread(() -> {
+                                    Toast.makeText(AgentActivity.this, error, Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        });
+                    }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    // 松开：停止录音
+                    if (isRecording) {
+                        isRecording = false;
+                        updateVoiceButtonState(false);
+                        recognizer.stop();
+                    }
+                    return true;
+
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /**
+     * 更新语音按钮状态
+     * @param recording true 表示录音中，false 表示空闲
+     */
+    private void updateVoiceButtonState(boolean recording) {
+        if (btnVoice != null) {
+            btnVoice.setImageResource(recording ? R.drawable.ic_mic_recording : R.drawable.ic_mic);
+        }
+        // 显示/隐藏录音遮罩
+        if (voiceRecordingOverlay != null) {
+            voiceRecordingOverlay.setVisibility(recording ? View.VISIBLE : View.GONE);
+        }
     }
 
     @Override
