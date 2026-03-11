@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.3
 milestone_name: 语音转文字
-status: planning
-last_updated: "2026-03-11T01:15:00.000Z"
+status: unknown
+last_updated: "2026-03-11T01:40:25.157Z"
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # STATE: Mobile Agent - v2.3 语音转文字

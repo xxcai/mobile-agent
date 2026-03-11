@@ -19,7 +19,7 @@
 ### Phases
 
 - [x] **Phase 1: 语音按钮 UI** - 在输入框右侧添加语音按钮 (Plan 1 completed)
-- [ ] **Phase 2: 语音交互逻辑** - 按压录音、实时转写、松手结束
+- [x] **Phase 2: 语音交互逻辑** - 按压录音、实时转写、松手结束 (completed 2026-03-11)
 - [ ] **Phase 3: 语音能力接入** - 接口定义与注入
 
 ---
@@ -56,7 +56,7 @@
 2. 用户讲话过程中，语音转文字工具实时返回识别结果（完整文本），实时更新到输入框
 3. 用户松手时，录音动画结束，语音识别停止
 
-**Plans:** 1/1 created (Plan 1: 按压说话 + 实时转写)
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 02-PLAN.md — 按压说话模式、录音动画、IVoiceRecognizer 接口、Mock 实现
@@ -86,7 +86,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1 - 语音按钮 UI | 1/1 | Completed | 2026-03-11 |
-| 2 - 语音交互逻辑 | 1/1 | Planned | - |
+| 2 - 语音交互逻辑 | 1/1 | Complete   | 2026-03-11 |
 | 3 - 语音能力接入 | 0/1 | Not started | - |
 
 ---

@@ -13,9 +13,9 @@
 
 ### 语音交互
 
-- [ ] **VT-04**: 按压按钮显示录音动画提示，开始语音识别
-- [ ] **VT-05**: 讲话过程中语音转文字工具实时返回识别结果（完整文本），实时更新到输入框
-- [ ] **VT-06**: 松手按钮结束语音识别，动画结束
+- [x] **VT-04**: 按压按钮显示录音动画提示，开始语音识别
+- [x] **VT-05**: 讲话过程中语音转文字工具实时返回识别结果（完整文本），实时更新到输入框
+- [x] **VT-06**: 松手按钮结束语音识别，动画结束
 
 ### 语音能力接入
 
@@ -40,9 +40,9 @@
 | VT-01 | Phase 1 | Pending |
 | VT-02 | Phase 1 | Pending |
 | VT-03 | Phase 1 | Pending |
-| VT-04 | Phase 2 | Pending |
-| VT-05 | Phase 2 | Pending |
-| VT-06 | Phase 2 | Pending |
+| VT-04 | Phase 2 | Complete |
+| VT-05 | Phase 2 | Complete |
+| VT-06 | Phase 2 | Complete |
 | VT-07 | Phase 3 | Pending |
 | VT-08 | Phase 3 | Pending |
 
