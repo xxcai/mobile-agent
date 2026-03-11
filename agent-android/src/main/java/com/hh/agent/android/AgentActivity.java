@@ -48,9 +48,6 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         // 初始化视图
         initViews();
 
-        // 检查并请求录音权限
-        checkAndRequestAudioPermission();
-
         // 仅在已注入语音识别器时显示语音按钮
         if (VoiceRecognizerHolder.getInstance().getRecognizer() != null) {
             setVoiceButtonVisible(true);
@@ -153,7 +150,10 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
                     if (!isRecording) {
                         // 检查录音权限
                         if (!permissionGranted) {
-                            checkAndRequestAudioPermission();
+                            // 仅请求权限，不开始录音，等待用户再次操作
+                            ActivityCompat.requestPermissions(AgentActivity.this,
+                                    new String[]{android.Manifest.permission.RECORD_AUDIO},
+                                    REQUEST_RECORD_AUDIO_PERMISSION);
                             return true;
                         }
                         isRecording = true;
