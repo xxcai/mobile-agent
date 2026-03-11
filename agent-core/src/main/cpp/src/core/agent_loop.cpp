@@ -11,6 +11,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <chrono>
 
 namespace icraw {
 
@@ -168,9 +169,11 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     
     // Agent loop
     int iteration = 0;
+    auto loop_start_time = std::chrono::steady_clock::now();
     ICRAW_LOG_DEBUG("[AGENT_LOOP] Starting agent loop, max_iterations={}", max_iterations_);
     while (iteration < max_iterations_ && !stop_requested_) {
         iteration++;
+        auto iter_start_time = std::chrono::steady_clock::now();
         ICRAW_LOG_DEBUG("[AGENT_LOOP] Iteration {} started", iteration);
         
         // Reset state for this iteration
@@ -373,11 +376,19 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             event.data["content"] = result.content;
             callback(event);
         }
+
+        auto iter_end_time = std::chrono::steady_clock::now();
+        auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
+        ICRAW_LOG_INFO("[LOOP] Iteration {} - {}ms", iteration, iter_duration_ms);
     }
-    
-    ICRAW_LOG_DEBUG("[AGENT_LOOP] Loop ended, iteration={}, total_messages={}", 
+
+    auto loop_end_time = std::chrono::steady_clock::now();
+    auto loop_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end_time - loop_start_time).count();
+    ICRAW_LOG_INFO("[LOOP] Full loop - {}ms ({} iterations)", loop_duration_ms, iteration);
+
+    ICRAW_LOG_DEBUG("[AGENT_LOOP] Loop ended, iteration={}, total_messages={}",
         iteration, new_messages.size());
-    
+
     return new_messages;
 }
 
