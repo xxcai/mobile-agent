@@ -8,6 +8,8 @@ import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.contract.MainContract;
@@ -25,6 +27,8 @@ import java.util.List;
  */
 public class AgentActivity extends AppCompatActivity implements MainContract.View {
 
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+
     private RecyclerView rvMessages;
     private EditText etMessage;
     private ImageButton btnSend;
@@ -34,6 +38,7 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private MessageAdapter adapter;
     private MainPresenter presenter;
     private boolean isRecording = false;
+    private boolean permissionGranted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +47,9 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
 
         // 初始化视图
         initViews();
+
+        // 检查并请求录音权限
+        checkAndRequestAudioPermission();
 
         // 仅在已注入语音识别器时显示语音按钮
         if (VoiceRecognizerHolder.getInstance().getRecognizer() != null) {
@@ -57,6 +65,33 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
 
         // 加载历史消息
         presenter.loadMessages();
+    }
+
+    /**
+     * 检查并请求录音权限
+     */
+    private void checkAndRequestAudioPermission() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissionGranted = true;
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.RECORD_AUDIO},
+                    REQUEST_RECORD_AUDIO_PERMISSION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionGranted = true;
+            } else {
+                permissionGranted = false;
+                Toast.makeText(this, "录音权限被拒绝，语音功能无法使用", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private void initViews() {
@@ -116,6 +151,11 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
                 case MotionEvent.ACTION_DOWN:
                     // 按下：开始录音
                     if (!isRecording) {
+                        // 检查录音权限
+                        if (!permissionGranted) {
+                            checkAndRequestAudioPermission();
+                            return true;
+                        }
                         isRecording = true;
                         updateVoiceButtonState(true);
                         recognizer.start(new IVoiceRecognizer.Callback() {
