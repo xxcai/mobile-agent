@@ -5,7 +5,7 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import com.hh.agent.android.AgentActivity;
 import com.hh.agent.android.AgentInitializer;
-import com.hh.agent.android.voice.MockVoiceRecognizer;
+import com.hh.agent.voice.MockVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
