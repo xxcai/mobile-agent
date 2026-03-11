@@ -48,14 +48,15 @@
 
 暂无
 
-## Current Milestone: v2.4 Agent 性能分析
+## Current Milestone: v2.5 容器Activity模块
 
-**Goal:** 分析 agent-core C++ 层日志和性能，识别耗时点并优化
+**Goal:** 实现悬浮球入口和容器Activity，支持数据持久化，独立于现有项目验证
 
 **Target features:**
-- 统一 C++ 层日志打印形式
-- 补充关键路径日志（脱敏处理）
-- 性能分析，识别耗时点
+- 悬浮球入口 — 应用在前台时显示悬浮球，切换App时隐藏，切回本App时恢复显示
+- 容器Activity — 点击悬浮球展开为全屏Activity，可插入当前Task栈顶，关闭时收缩回悬浮球
+- 数据持久化 — Activity关闭后保存数据，下次打开自动恢复状态
+- 独立验证 — 先独立实现，不与现有项目耦合
 
 ## Context
 
@@ -101,4 +102,4 @@
 | 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | — v2.3 planning |
 
 ---
-*Last updated: 2026-03-11 — v2.4 started*
+*Last updated: 2026-03-11 — v2.5 started*

@@ -1,6 +1,5 @@
-# Requirements: Mobile Agent - Agent 性能分析
+# Requirements: Mobile Agent - 容器Activity模块
 
-**Defined:** 2026-03-11
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
 ---
@@ -170,5 +169,94 @@
 - Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-03-10*
-*Last updated: 2026-03-10 after roadmap created*
+
+# v2.5 Requirements (容器Activity模块)
+
+## v2.5.1 悬浮球入口
+
+### Requirements
+
+- [ ] **FLOAT-01**: 悬浮球显示在屏幕边缘（可配置左/右/上/下）
+- [ ] **FLOAT-02**: 应用在前台时显示悬浮球
+- [ ] **FLOAT-03**: 切换到其他App时隐藏悬浮球
+- [ ] **FLOAT-04**: 切回本App时恢复显示悬浮球
+
+**验收标准:**
+- 悬浮球可见且可点击
+- 切换App时悬浮球正确隐藏/显示
+
+---
+
+## v2.5.2 容器Activity
+
+### Requirements
+
+- [ ] **CONTAINER-01**: 点击悬浮球展开为全屏Activity
+- [ ] **CONTAINER-02**: 容器Activity可插入当前Task栈顶
+- [ ] **CONTAINER-03**: Activity关闭时收缩回悬浮球
+- [ ] **CONTAINER-04**: 悬浮球支持拖拽定位
+- [ ] **CONTAINER-05**: 悬浮球样式可自定义（图标、大小、颜色）
+
+**验收标准:**
+- 点击悬浮球能展开Activity
+- 关闭Activity后悬浮球恢复显示
+
+---
+
+## v2.5.3 数据持久化
+
+### Requirements
+
+- [ ] **PERSIST-01**: Activity关闭后保存当前状态数据
+- [ ] **PERSIST-02**: 下次打开时自动恢复状态
+
+**验收标准:**
+- 重新打开后数据完整恢复
+
+---
+
+## v2.5.4 独立验证
+
+### Requirements
+
+- [ ] **INDEP-01**: 新建独立Android Module，不依赖现有agent模块
+- [ ] **INDEP-02**: 独立编译、独立测试
+
+**验收标准:**
+- 模块可独立编译运行
+- 与现有项目解耦
+
+---
+
+## Out of Scope (v2.5)
+
+| Feature | Reason |
+|---------|--------|
+| 悬浮球与主App通信 | 独立验证阶段不涉及 |
+| 多悬浮球支持 | 单悬浮球即可满足需求 |
+| 悬浮球主题自定义 | 作为未来功能 |
+
+---
+
+## Traceability (v2.5)
+
+| Requirement | Phase | Status |
+|------------|-------|--------|
+| FLOAT-01 | Phase 1 | Pending |
+| FLOAT-02 | Phase 1 | Pending |
+| FLOAT-03 | Phase 1 | Pending |
+| FLOAT-04 | Phase 1 | Pending |
+| CONTAINER-01 | Phase 2 | Pending |
+| CONTAINER-02 | Phase 2 | Pending |
+| CONTAINER-03 | Phase 2 | Pending |
+| CONTAINER-04 | Phase 2 | Pending |
+| CONTAINER-05 | Phase 2 | Pending |
+| PERSIST-01 | Phase 3 | Pending |
+| PERSIST-02 | Phase 3 | Pending |
+| INDEP-01 | Phase 4 | Pending |
+| INDEP-02 | Phase 4 | Pending |
+
+---
+
+*Requirements defined: 2026-03-11*
+*Last updated: 2026-03-11 after v2.5 requirements defined*
