@@ -1,17 +1,12 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.3
-milestone_name: 语音转文字
-status: unknown
-last_updated: "2026-03-11T02:56:24.273Z"
-progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 1
+milestone: v2.4
+milestone_name: Agent 性能分析
+status: in_progress
+last_updated: "2026-03-11T14:00:00.000Z"
 ---
 
-# STATE: Mobile Agent - v2.3 语音转文字
+# STATE: Mobile Agent - v2.4 Agent 性能分析
 
 **Last Updated:** 2026-03-11
 
@@ -21,7 +16,7 @@ progress:
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.3 语音转文字
+**Current Focus:** v2.4 Agent 性能分析
 
 ---
 
@@ -29,10 +24,10 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.3 语音转文字 |
-| Phase | 3 (语音能力接入) |
-| Status | Plan completed |
-| Last activity: | 2026-03-11 — Completed quick task 12: 点击语音按钮的时候，需要处理好安卓需要的录音权限 |
+| Milestone | v2.4 Agent 性能分析 |
+| Phase | 3 of 3 |
+| Status | Phase 2 UAT complete, Phase 3 ready to plan |
+| Last activity: | 2026-03-11 — Phase 2 UAT completed |
 
 ---
 
@@ -40,12 +35,9 @@ progress:
 
 ### Recent Changes
 
-- 2026-03-11: Phase 3 plan created - VoiceRecognizerHolder 单例
-- 2026-03-11: Phase 3 context gathered - 语音能力接入
-- 2026-03-11: Phase 2 completed - 按压说话交互流程
-- 2026-03-11: Phase 2 context gathered - 语音交互逻辑
-- 2026-03-11: Phase 1 completed - 语音按钮 UI
-- 2026-03-10: v2.3 started - 语音转文字功能
+- 2026-03-11: v2.4 started - Agent 性能分析
+- 2026-03-11: Phase 1 & 2 completed
+- 2026-03-11: Phase 2 UAT completed (4/4 passed, 1 skipped)
 
 ### Blockers
 
@@ -55,45 +47,22 @@ None
 
 None
 
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 12 | 点击语音按钮的时候，需要处理好安卓需要的录音权限，在agent-android中实现 | 2026-03-11 | bc90b91 | [12-agent-android](./quick/12-agent-android/) |
-
 ---
 
 ## Decisions
 
-- 2026-03-11: 语音识别通过 Setter 注入 (setVoiceRecognizer)
-- 2026-03-11: 语音交互使用按压说话模式 (Press-to-talk)
-- 2026-03-11: 使用 IVoiceRecognizer 接口抽象
-- 2026-03-11: 实时转写结果更新到输入框
-- 2026-03-10: 语音转文字能力通过接口注入，由上层 app 提供实现
-- 2026-03-11: VoiceRecognizerHolder 单例管理语音识别器
+- 日志格式统一使用 `[模块] 操作 - Xms`
+- 日志标签统一为 `[LOOP]`（而非 `[AGENT_LOOP]`）
 
 ---
 
-## v2.3 进度
+## v2.4 进度
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | 语音按钮 UI | VT-01, VT-02, VT-03 | Completed |
-| 2 | 语音交互逻辑 | VT-04, VT-05, VT-06 | Completed |
-| 3 | 语音能力接入 | VT-07, VT-08 | Completed |
-
----
-
-## Performance Metrics
-
-| Metric | Value |
-|--------|-------|
-| v2.3 Phases | 3 |
-| v2.3 Requirements | 8 |
-| v2.2 Phases | 3 (shipped) |
-| v2.1 Phases | 5 (shipped) |
-| v2.0 Phases | 4 (shipped) |
-| v1.6 Phases | 2 (shipped) |
+| 1 | 统一日志格式 | LOG-01~LOG-03, SEC-01~SEC-02 | ✅ Complete |
+| 2 | 补充关键路径日志 | HTTP/LLM/MCP/TOOL/LOOP 耗时日志 | ✅ Complete (UAT passed) |
+| 3 | 性能分析与优化 | PERF-01~PERF-03 | Requirements defined |
 
 ---
 

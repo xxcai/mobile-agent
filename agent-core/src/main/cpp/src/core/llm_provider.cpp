@@ -370,7 +370,7 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion - {}ms", duration_ms);
+        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
 
         return response;
     }
@@ -403,7 +403,7 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion failed - {}ms", duration_ms);
+        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
 
         return response;
     }
@@ -413,7 +413,7 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion - {}ms", duration_ms);
+        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
 
         return parse_response(response_json);
     } catch (const nlohmann::json::parse_error& e) {
@@ -423,7 +423,7 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion failed - {}ms", duration_ms);
+        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
 
         return response;
     }
@@ -510,7 +510,7 @@ void OpenAICompatibleProvider::chat_completion_stream(
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[LLM] chat_completion_stream - {}ms", duration_ms);
+    ICRAW_LOG_INFO("[LLM] chat_completion_stream - ({}ms)", duration_ms);
 }
 
 } // namespace icraw

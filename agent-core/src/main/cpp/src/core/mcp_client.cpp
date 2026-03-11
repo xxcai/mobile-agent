@@ -63,7 +63,7 @@ std::optional<McpInitializeResult> McpClient::initialize() {
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] initialize - {}ms", duration_ms);
+    ICRAW_LOG_INFO("[MCP] initialize - ({}ms)", duration_ms);
 
     ICRAW_LOG_INFO("[MCP] Connected to server: {} v{}",
                    server_info_.name, server_info_.version);
@@ -104,7 +104,7 @@ std::optional<McpListToolsResult> McpClient::list_tools(const std::string& curso
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] list_tools - {}ms", duration_ms);
+    ICRAW_LOG_INFO("[MCP] list_tools - ({}ms)", duration_ms);
 
     return McpListToolsResult::from_json(result);
 }
@@ -136,7 +136,7 @@ std::optional<McpToolResult> McpClient::call_tool(const std::string& name,
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] call_tool {} - {}ms", name, duration_ms);
+    ICRAW_LOG_INFO("[MCP] call_tool {} - ({}ms)", name, duration_ms);
 
     return McpToolResult::from_json(result);
 }

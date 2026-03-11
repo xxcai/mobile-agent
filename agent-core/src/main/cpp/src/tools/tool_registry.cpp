@@ -248,7 +248,7 @@ std::string ToolRegistry::execute_tool(const std::string& tool_name,
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[TOOL] {} - {}ms", tool_name, duration_ms);
+    ICRAW_LOG_INFO("[TOOL] {} - ({}ms)", tool_name, duration_ms);
 
     return result;
 }

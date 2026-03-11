@@ -1,5 +1,16 @@
 # Milestones
 
+## v2.4 Agent 性能分析 (Shipped: 2026-03-11)
+
+**Phases completed:** 3 phases, 1 plans, 0 tasks
+
+**Key accomplishments:**
+- Phase 1: 统一日志格式 — 改进日志宏，添加脱敏处理
+- Phase 2: 补充关键路径日志 — HTTP/LLM/MCP/TOOL/LOOP 耗时日志
+- Phase 3: 性能分析与优化 — 手动日志分析 + 性能热点分析
+
+---
+
 ## v2.3 语音转文字 (Shipped: 2026-03-11)
 
 **Phases completed:** 1 phases, 0 plans, 0 tasks

@@ -115,7 +115,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         // Log iteration timing before decision (ensures log even when breaking)
         auto iter_end_time = std::chrono::steady_clock::now();
         auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
-        ICRAW_LOG_INFO("[LOOP] Iteration {} - {}ms", iteration, iter_duration_ms);
+        ICRAW_LOG_INFO("[LOOP] Iteration {} - ({}ms)", iteration, iter_duration_ms);
 
         // Check if we're done
         if (response.tool_calls.empty() || response.finish_reason == "end_turn") {
@@ -138,7 +138,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
 
     auto loop_end_time = std::chrono::steady_clock::now();
     auto loop_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end_time - loop_start_time).count();
-    ICRAW_LOG_INFO("[LOOP] Full loop - {}ms ({} iterations)", loop_duration_ms, iteration);
+    ICRAW_LOG_INFO("[LOOP] Full loop - ({}ms) {} iterations", loop_duration_ms, iteration);
 
     return new_messages;
 }
@@ -343,7 +343,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         // Log iteration timing before decision (ensures log even when breaking)
         auto iter_end_time = std::chrono::steady_clock::now();
         auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
-        ICRAW_LOG_INFO("[LOOP] Iteration {} - {}ms", iteration, iter_duration_ms);
+        ICRAW_LOG_INFO("[LOOP] Iteration {} - ({}ms)", iteration, iter_duration_ms);
 
         if (valid_tool_calls.empty()) {
             // No valid tool calls - check finish_reason to decide
@@ -397,7 +397,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
     auto loop_end_time = std::chrono::steady_clock::now();
     auto loop_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end_time - loop_start_time).count();
-    ICRAW_LOG_INFO("[LOOP] Full loop - {}ms ({} iterations)", loop_duration_ms, iteration);
+    ICRAW_LOG_INFO("[LOOP] Full loop - ({}ms) {} iterations", loop_duration_ms, iteration);
 
     ICRAW_LOG_DEBUG("[LOOP] Loop ended, iteration={}, total_messages={}",
         iteration, new_messages.size());
