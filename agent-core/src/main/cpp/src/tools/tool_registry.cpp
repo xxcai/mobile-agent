@@ -226,6 +226,8 @@ void ToolRegistry::register_builtin_tools() {
 
 std::string ToolRegistry::execute_tool(const std::string& tool_name,
                                         const nlohmann::json& parameters) {
+    auto start_time = std::chrono::steady_clock::now();
+
     auto it = tools_.find(tool_name);
     if (it == tools_.end()) {
         nlohmann::json error_result;
@@ -233,15 +235,22 @@ std::string ToolRegistry::execute_tool(const std::string& tool_name,
         error_result["error"] = "Unknown tool: " + tool_name;
         return error_result.dump();
     }
-    
+
+    std::string result;
     try {
-        return it->second(parameters);
+        result = it->second(parameters);
     } catch (const std::exception& e) {
         nlohmann::json error_result;
         error_result["success"] = false;
         error_result["error"] = std::string("Tool execution failed: ") + e.what();
         return error_result.dump();
     }
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[TOOL] {} - {}ms", tool_name, duration_ms);
+
+    return result;
 }
 
 std::vector<ToolSchema> ToolRegistry::get_tool_schemas() const {
