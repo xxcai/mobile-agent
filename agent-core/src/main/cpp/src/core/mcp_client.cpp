@@ -1,6 +1,7 @@
 #include "icraw/core/mcp_client.hpp"
 #include "icraw/core/logger.hpp"
 #include <sstream>
+#include <chrono>
 
 namespace icraw {
 
@@ -25,100 +26,118 @@ void McpClient::set_http_client(std::unique_ptr<HttpClient> client) {
 // === Lifecycle ===
 
 std::optional<McpInitializeResult> McpClient::initialize() {
+    auto start_time = std::chrono::steady_clock::now();
+
     if (initialized_) {
         ICRAW_LOG_WARN("[MCP] Already initialized");
         return std::nullopt;
     }
-    
+
     // Build initialize request
     nlohmann::json params;
     params["protocolVersion"] = config_.protocol_version;
-    
+
     // Client capabilities
     nlohmann::json capabilities = nlohmann::json::object();
     params["capabilities"] = capabilities;
-    
+
     // Client info
     nlohmann::json client_info;
     client_info["name"] = config_.client_name;
     client_info["version"] = config_.client_version;
     params["clientInfo"] = client_info;
-    
+
     nlohmann::json result;
     if (!send_request("initialize", params, result)) {
         ICRAW_LOG_ERROR("[MCP] Initialize request failed: {}", last_error_.message);
         return std::nullopt;
     }
-    
+
     // Parse initialization result
     McpInitializeResult init_result = McpInitializeResult::from_json(result);
-    
+
     // Store server info
     server_capabilities_ = init_result.capabilities;
     server_info_ = init_result.server_info;
     initialized_ = true;
-    
-    ICRAW_LOG_INFO("[MCP] Connected to server: {} v{}", 
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[MCP] initialize - ({}ms)", duration_ms);
+
+    ICRAW_LOG_INFO("[MCP] Connected to server: {} v{}",
                    server_info_.name, server_info_.version);
     ICRAW_LOG_DEBUG("[MCP] Server capabilities: tools={}, resources={}, prompts={}",
                     server_capabilities_.tools_supported,
                     server_capabilities_.resources_supported,
                     server_capabilities_.prompts_supported);
-    
+
     return init_result;
 }
 
 // === Tools ===
 
 std::optional<McpListToolsResult> McpClient::list_tools(const std::string& cursor) {
+    auto start_time = std::chrono::steady_clock::now();
+
     if (!initialized_) {
         last_error_.code = -1;
         last_error_.message = "Client not initialized";
         return std::nullopt;
     }
-    
+
     if (!server_capabilities_.tools_supported) {
         last_error_.code = -1;
         last_error_.message = "Server does not support tools";
         return std::nullopt;
     }
-    
+
     nlohmann::json params = nlohmann::json::object();
     if (!cursor.empty()) {
         params["cursor"] = cursor;
     }
-    
+
     nlohmann::json result;
     if (!send_request("tools/list", params, result)) {
         return std::nullopt;
     }
-    
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[MCP] list_tools - ({}ms)", duration_ms);
+
     return McpListToolsResult::from_json(result);
 }
 
-std::optional<McpToolResult> McpClient::call_tool(const std::string& name, 
+std::optional<McpToolResult> McpClient::call_tool(const std::string& name,
                                                    const nlohmann::json& arguments) {
+    auto start_time = std::chrono::steady_clock::now();
+
     if (!initialized_) {
         last_error_.code = -1;
         last_error_.message = "Client not initialized";
         return std::nullopt;
     }
-    
+
     if (!server_capabilities_.tools_supported) {
         last_error_.code = -1;
         last_error_.message = "Server does not support tools";
         return std::nullopt;
     }
-    
+
     nlohmann::json params;
     params["name"] = name;
     params["arguments"] = arguments;
-    
+
     nlohmann::json result;
     if (!send_request("tools/call", params, result)) {
         return std::nullopt;
     }
-    
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[MCP] call_tool {} - ({}ms)", name, duration_ms);
+
     return McpToolResult::from_json(result);
 }
 

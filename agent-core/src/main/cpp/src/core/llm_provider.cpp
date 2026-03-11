@@ -2,6 +2,7 @@
 #include "icraw/core/logger.hpp"
 #include <algorithm>
 #include <sstream>
+#include <chrono>
 
 namespace icraw {
 
@@ -318,31 +319,33 @@ std::vector<std::string> OpenAICompatibleProvider::get_supported_models() const 
 }
 
 ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompletionRequest& request) {
+    auto start_time = std::chrono::steady_clock::now();
+
     if (!http_client_) {
         ChatCompletionResponse response;
         response.finish_reason = "error";
         response.content = "HTTP client not initialized";
         return response;
     }
-    
+
     nlohmann::json body;
     body["model"] = request.model.empty() ? default_model_ : request.model;
     body["temperature"] = request.temperature;
     body["max_tokens"] = request.max_tokens;
-    
+
     nlohmann::json messages = nlohmann::json::array();
     for (const auto& msg : request.messages) {
         messages.push_back(msg.to_json());
     }
     body["messages"] = messages;
-    
+
     if (!request.tools.empty()) {
         body["tools"] = request.tools;
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
-    
+
     std::string request_body_str = body.dump();
-    
+
     ICRAW_LOG_DEBUG("=== ChatCompletion Request (non-stream) ===");
     ICRAW_LOG_DEBUG("URL: {}/chat/completions", base_url_);
     ICRAW_LOG_DEBUG("Body: {}", request_body_str);
@@ -364,6 +367,11 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         // Return a simple mock response
         response.content = "Mock Agent: I received your message: \"" + user_message + "\". (Configure API key for real responses)";
+
+        auto end_time = std::chrono::steady_clock::now();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
+
         return response;
     }
 
@@ -392,17 +400,31 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
         } catch (...) {
             response.content = "HTTP error " + std::to_string(error.code) + ": " + response_body;
         }
-        
+
+        auto end_time = std::chrono::steady_clock::now();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
+
         return response;
     }
     
     try {
         nlohmann::json response_json = nlohmann::json::parse(response_body);
+
+        auto end_time = std::chrono::steady_clock::now();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
+
         return parse_response(response_json);
     } catch (const nlohmann::json::parse_error& e) {
         ChatCompletionResponse response;
         response.finish_reason = "parse_error";
         response.content = "Failed to parse response: " + std::string(e.what());
+
+        auto end_time = std::chrono::steady_clock::now();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
+
         return response;
     }
 }
@@ -410,7 +432,9 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 void OpenAICompatibleProvider::chat_completion_stream(
     const ChatCompletionRequest& request,
     std::function<void(const ChatCompletionResponse&)> callback) {
-    
+
+    auto start_time = std::chrono::steady_clock::now();
+
     if (!http_client_) {
         throw std::runtime_error("HTTP client not initialized");
     }
@@ -483,6 +507,10 @@ void OpenAICompatibleProvider::chat_completion_stream(
         throw std::runtime_error("Streaming request failed: " + error.message);
     }
     ICRAW_LOG_DEBUG("[LLM_STREAM] perform_request_stream completed successfully");
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[LLM] chat_completion_stream - ({}ms)", duration_ms);
 }
 
 } // namespace icraw

@@ -226,6 +226,8 @@ void ToolRegistry::register_builtin_tools() {
 
 std::string ToolRegistry::execute_tool(const std::string& tool_name,
                                         const nlohmann::json& parameters) {
+    auto start_time = std::chrono::steady_clock::now();
+
     auto it = tools_.find(tool_name);
     if (it == tools_.end()) {
         nlohmann::json error_result;
@@ -233,15 +235,22 @@ std::string ToolRegistry::execute_tool(const std::string& tool_name,
         error_result["error"] = "Unknown tool: " + tool_name;
         return error_result.dump();
     }
-    
+
+    std::string result;
     try {
-        return it->second(parameters);
+        result = it->second(parameters);
     } catch (const std::exception& e) {
         nlohmann::json error_result;
         error_result["success"] = false;
         error_result["error"] = std::string("Tool execution failed: ") + e.what();
         return error_result.dump();
     }
+
+    auto end_time = std::chrono::steady_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+    ICRAW_LOG_INFO("[TOOL] {} - ({}ms)", tool_name, duration_ms);
+
+    return result;
 }
 
 std::vector<ToolSchema> ToolRegistry::get_tool_schemas() const {
@@ -265,14 +274,14 @@ void ToolRegistry::set_base_path(const std::string& path) {
 
 void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
     if (!schema.contains("tools") || !schema["tools"].is_array()) {
-        ICRAW_LOG_WARN("register_tools_from_schema: No 'tools' array in schema");
+        ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: No 'tools' array in schema");
         return;
     }
 
     const auto& tools = schema["tools"];
     for (const auto& tool : tools) {
         if (!tool.contains("type") || !tool.contains("function")) {
-            ICRAW_LOG_WARN("register_tools_from_schema: Skipping invalid tool entry");
+            ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: Skipping invalid tool entry");
             continue;
         }
 
@@ -297,7 +306,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
         }
 
         if (tool_schema.name.empty()) {
-            ICRAW_LOG_WARN("register_tools_from_schema: Skipping tool with empty name");
+            ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: Skipping tool with empty name");
             continue;
         }
 
@@ -328,7 +337,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
         };
 
         tool_schemas_.push_back(std::move(tool_schema));
-        ICRAW_LOG_INFO("register_tools_from_schema: Registered tool '{}'", tool_schema.name);
+        ICRAW_LOG_INFO("[TOOL] register_tools_from_schema: Registered tool '{}'", tool_schema.name);
     }
 }
 
@@ -686,8 +695,8 @@ bool ToolRegistry::is_path_allowed(const std::string& path) const {
 #endif
         
         // Debug logging
-        ICRAW_LOG_DEBUG("is_path_allowed: input='{}', base_path_='{}'", path, base_path_);
-        ICRAW_LOG_DEBUG("is_path_allowed: resolved path='{}', base='{}'", path_str, base_str);
+        ICRAW_LOG_DEBUG("[TOOL] is_path_allowed: input='{}', base_path_='{}'", path, base_path_);
+        ICRAW_LOG_DEBUG("[TOOL] is_path_allowed: resolved path='{}', base='{}'", path_str, base_str);
         
         // Ensure base_str ends with separator for prefix matching
         if (base_str.back() != std::filesystem::path::preferred_separator) {
@@ -700,7 +709,7 @@ bool ToolRegistry::is_path_allowed(const std::string& path) const {
         std::transform(base_str.begin(), base_str.end(), base_str.begin(), ::tolower);
 #endif
         
-        ICRAW_LOG_DEBUG("is_path_allowed: normalized path='{}', base='{}'", path_str, base_str);
+        ICRAW_LOG_DEBUG("[TOOL] is_path_allowed: normalized path='{}', base='{}'", path_str, base_str);
         
         // Check if path starts with base directory
         // path_str must be either:
@@ -718,16 +727,16 @@ bool ToolRegistry::is_path_allowed(const std::string& path) const {
                              (path_str.compare(0, base_str.length(), base_str) == 0);
         bool allowed = is_base_dir || is_within_base;
         
-        ICRAW_LOG_DEBUG("is_path_allowed: path_str='{}', base_without_sep='{}', base_str='{}'", 
+        ICRAW_LOG_DEBUG("[TOOL] is_path_allowed: path_str='{}', base_without_sep='{}', base_str='{}'", 
                         path_str, base_without_sep, base_str);
-        ICRAW_LOG_DEBUG("is_path_allowed: is_base_dir={}, is_within_base={}, result={}", 
+        ICRAW_LOG_DEBUG("[TOOL] is_path_allowed: is_base_dir={}, is_within_base={}, result={}", 
                         is_base_dir, is_within_base, allowed);
         return allowed;
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("is_path_allowed exception: {}", e.what());
+        ICRAW_LOG_ERROR("[TOOL] is_path_allowed exception: {}", e.what());
         return false;
     } catch (...) {
-        ICRAW_LOG_ERROR("is_path_allowed unknown exception");
+        ICRAW_LOG_ERROR("[TOOL] is_path_allowed unknown exception");
         return false;
     }
 }

@@ -48,9 +48,14 @@
 
 暂无
 
-## Current Milestone: v2.4 (待规划)
+## Current Milestone: v2.4 Agent 性能分析
 
-**Goal:** 待定义
+**Goal:** 分析 agent-core C++ 层日志和性能，识别耗时点并优化
+
+**Target features:**
+- 统一 C++ 层日志打印形式
+- 补充关键路径日志（脱敏处理）
+- 性能分析，识别耗时点
 
 ## Context
 
@@ -96,4 +101,4 @@
 | 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | — v2.3 planning |
 
 ---
-*Last updated: 2026-03-11 — v2.3 shipped*
+*Last updated: 2026-03-11 — v2.4 started*
