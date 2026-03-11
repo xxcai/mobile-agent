@@ -65,4 +65,14 @@ None
 
 ---
 
+## v2.4 进度 (Complete)
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 1 | 统一日志格式 | LOG-01~LOG-03, SEC-01~SEC-02 | ✅ Complete |
+| 2 | 补充关键路径日志 | HTTP/LLM/MCP/TOOL/LOOP 耗时日志 | ✅ Complete (UAT passed) |
+| 3 | 性能分析与优化 | PERF-01~PERF-03 | ✅ Complete |
+
+---
+
 *State managed by GSD workflow*
