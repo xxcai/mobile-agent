@@ -82,6 +82,9 @@ std::vector<SkillMetadata> SkillLoader::load_skills(
 
     // Log loaded skills
     ICRAW_LOG_INFO("SkillLoader: Total loaded {} skills", all_skills.size());
+    for (const auto& skill : all_skills) {
+        ICRAW_LOG_INFO("SkillLoader: Loaded skill: {}", skill.name);
+    }
 
     return all_skills;
 }
