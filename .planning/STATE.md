@@ -32,7 +32,7 @@ progress:
 | Milestone | v2.3 语音转文字 |
 | Phase | 3 (语音能力接入) |
 | Status | Plan completed |
-| Last activity: | 2026-03-11 — Phase 3 plan created |
+| Last activity: | 2026-03-11 — Completed quick task 12: 点击语音按钮的时候，需要处理好安卓需要的录音权限 |
 
 ---
 
@@ -54,6 +54,12 @@ None
 ### Todos
 
 None
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 12 | 点击语音按钮的时候，需要处理好安卓需要的录音权限，在agent-android中实现 | 2026-03-11 | bc90b91 | [12-agent-android](./quick/12-agent-android/) |
 
 ---
 
