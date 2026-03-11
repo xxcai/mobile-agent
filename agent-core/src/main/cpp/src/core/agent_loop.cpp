@@ -325,21 +325,16 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         
         // === Decision Point ===
         // Check if we should continue the loop or exit
-        ICRAW_LOG_DEBUG("Decision: valid_tool_calls={}, finish_reason='{}'",
+        ICRAW_LOG_DEBUG("Decision: valid_tool_calls={}, finish_reason='{}'", 
             valid_tool_calls.size(), last_finish_reason_);
-
-        // Record iteration timing before decision
-        auto iter_end_time = std::chrono::steady_clock::now();
-        auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
-        ICRAW_LOG_INFO("[LOOP] Iteration {} - {}ms", iteration, iter_duration_ms);
-
+        
         if (valid_tool_calls.empty()) {
             // No valid tool calls - check finish_reason to decide
             if (last_finish_reason_ == "stop" || last_finish_reason_ == "end_turn") {
                 ICRAW_LOG_DEBUG("Exiting loop: finish_reason={}", last_finish_reason_);
                 break;  // Exit loop - LLM is done
             }
-
+            
             // For text-only responses (no tool calls), also exit the loop
             // The LLM has finished its response
             ICRAW_LOG_DEBUG("Exiting loop: text-only response");
@@ -381,6 +376,10 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             event.data["content"] = result.content;
             callback(event);
         }
+
+        auto iter_end_time = std::chrono::steady_clock::now();
+        auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
+        ICRAW_LOG_INFO("[LOOP] Iteration {} - {}ms", iteration, iter_duration_ms);
     }
 
     auto loop_end_time = std::chrono::steady_clock::now();
