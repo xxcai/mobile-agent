@@ -38,7 +38,6 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private MessageAdapter adapter;
     private MainPresenter presenter;
     private boolean isRecording = false;
-    private boolean permissionGranted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,28 +63,11 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         presenter.loadMessages();
     }
 
-    /**
-     * 检查并请求录音权限
-     */
-    private void checkAndRequestAudioPermission() {
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
-                == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            permissionGranted = true;
-        } else {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{android.Manifest.permission.RECORD_AUDIO},
-                    REQUEST_RECORD_AUDIO_PERMISSION);
-        }
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
-            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                permissionGranted = true;
-            } else {
-                permissionGranted = false;
+            if (grantResults.length > 0 && grantResults[0] != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "录音权限被拒绝，语音功能无法使用", Toast.LENGTH_SHORT).show();
             }
         }
@@ -148,9 +130,10 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
                 case MotionEvent.ACTION_DOWN:
                     // 按下：开始录音
                     if (!isRecording) {
-                        // 检查录音权限
-                        if (!permissionGranted) {
-                            // 仅请求权限，不开始录音，等待用户再次操作
+                        // 实时检查录音权限
+                        if (ContextCompat.checkSelfPermission(AgentActivity.this, android.Manifest.permission.RECORD_AUDIO)
+                                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            // 权限未授予，请求权限
                             ActivityCompat.requestPermissions(AgentActivity.this,
                                     new String[]{android.Manifest.permission.RECORD_AUDIO},
                                     REQUEST_RECORD_AUDIO_PERMISSION);
