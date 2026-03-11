@@ -258,5 +258,8 @@ memory.db
 # Backup files
 *.orig
 
+# GSD generated context files
+.planning/
+
 # Agent config template (contains sensitive API keys - DO NOT COMMIT)
 config.json.template
