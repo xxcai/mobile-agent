@@ -1,6 +1,7 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
@@ -24,6 +25,7 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
     private RecyclerView rvMessages;
     private EditText etMessage;
     private ImageButton btnSend;
+    private ImageButton btnVoice;
     private Toolbar toolbar;
     private MessageAdapter adapter;
     private MainPresenter presenter;
@@ -52,6 +54,7 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         rvMessages = findViewById(R.id.rvMessages);
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
+        btnVoice = findViewById(R.id.btnVoice);
 
         // 设置 Toolbar
         setSupportActionBar(toolbar);
@@ -69,6 +72,16 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
                 etMessage.setText(""); // 清空输入框
             }
         });
+    }
+
+    /**
+     * 设置语音按钮是否可见
+     * @param visible true 显示，false 隐藏
+     */
+    public void setVoiceButtonVisible(boolean visible) {
+        if (btnVoice != null) {
+            btnVoice.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
     }
 
     @Override
