@@ -22,7 +22,7 @@
 
 | Phase | Name | Description | Requirements |
 |-------|------|-------------|--------------|
-| 1 | 悬浮球入口 | Complete    | 2026-03-12 |
+| 1 | 悬浮球入口 | Complete | FLOAT-01~FLOAT-04 |
 | 2 | 容器Activity | 展开/收起、Task栈管理 | CONTAINER-01~CONTAINER-05 |
 | 3 | 数据持久化 | 状态保存与恢复 | PERSIST-01~PERSIST-02 |
 | 4 | 独立验证 | 独立Module、编译测试 | INDEP-01~INDEP-02 |
@@ -56,13 +56,14 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1 | 1/1 | Complete | 2026-03-12 |
-| 2 | - | Pending | - |
+| 2 | 1/1 | Pending | - |
 | 3 | - | Pending | - |
 | 4 | - | Pending | - |
 
 ### Plans
 
 - [x] 01-floating-window/01-PLAN.md — 悬浮球Module结构 + 核心类 + 广播通信
+- [ ] 02-container-activity/02-01-PLAN.md — 容器Activity实现（半透明、展开/收起、Task栈管理）
 
 ---
 
@@ -92,4 +93,4 @@
 
 - [x] 03-performance-analysis/03-PLAN.md — 手动日志分析 + 性能热点分析
 
-*Roadmap updated: 2026-03-11*
+*Roadmap updated: 2026-03-12*

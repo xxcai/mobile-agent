@@ -5,15 +5,23 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
-        <!-- 广播接收器：监听APP前后台状态 -->
+        <!-- 广播接收器：监听APP前后台状态和悬浮球显示 -->
         <receiver
             android:name=".FloatingBallReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.hh.agent.action.APP_FOREGROUND" />
                 <action android:name="com.hh.agent.action.APP_BACKGROUND" />
+                <action android:name="com.hh.agent.action.SHOW_FLOATING_BALL" />
             </intent-filter>
         </receiver>
+
+        <!-- 容器Activity：悬浮球展开的半透明Activity -->
+        <activity
+            android:name=".ContainerActivity"
+            android:launchMode="singleTop"
+            android:theme="@style/ContainerActivityTheme"
+            android:exported="false" />
     </application>
 
 </manifest>
