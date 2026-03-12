@@ -69,7 +69,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
         }
 
         // 初始化 Presenter，使用 Native C++ Agent
-        presenter = new MainPresenter(this, "native:default");
+        presenter = new MainPresenter(getActivity(), "native:default");
         presenter.attachView(this);
 
         // 加载历史消息
