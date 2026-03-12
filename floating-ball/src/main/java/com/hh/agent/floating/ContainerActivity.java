@@ -1,10 +1,5 @@
 package com.hh.agent.floating;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -12,6 +7,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -25,23 +21,23 @@ import androidx.appcompat.app.AppCompatActivity;
 public class ContainerActivity extends AppCompatActivity {
 
     private static final String TAG = "ContainerActivity";
-    public static final String ACTION_SHOW_FLOATING_BALL = "com.hh.agent.action.SHOW_FLOATING_BALL";
 
-    private FrameLayout mRootLayout;
-    private BroadcastReceiver mFloatingBallReceiver;
+    private LinearLayout mRootLayout;
+    private FloatingBallManager mFloatingBallManager;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 初始化悬浮球管理器并隐藏悬浮球
+        mFloatingBallManager = FloatingBallManager.getInstance(this);
+        mFloatingBallManager.hide();
 
         // 设置Window为半透明
         setupWindow();
 
         // 创建布局
         setupLayout();
-
-        // 注册广播接收器
-        registerFloatingBallReceiver();
 
         // 处理返回键
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -56,10 +52,8 @@ public class ContainerActivity extends AppCompatActivity {
      * 设置Window为半透明
      */
     private void setupWindow() {
-        // 设置半透明背景
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-        }
+        // 窗口半透明已在主题中通过windowIsTranslucent设置
+        // 此处不再需要FLAG_TRANSLUCENT_STATUS，避免与底部定位窗口冲突
 
         // 设置窗口高度为屏幕60%
         WindowManager.LayoutParams params = getWindow().getAttributes();
@@ -80,8 +74,9 @@ public class ContainerActivity extends AppCompatActivity {
      * 创建布局
      */
     private void setupLayout() {
-        // 创建根布局
-        mRootLayout = new FrameLayout(this);
+        // 创建根布局 - 使用LinearLayout简化垂直布局
+        mRootLayout = new LinearLayout(this);
+        mRootLayout.setOrientation(LinearLayout.VERTICAL);
         mRootLayout.setBackgroundColor(0xE6FFFFFF); // 90%不透明的白色背景
 
         // 获取屏幕高度
@@ -89,20 +84,28 @@ public class ContainerActivity extends AppCompatActivity {
         int containerHeight = (int) (screenHeight * 0.6); // 占屏幕60%高度
 
         // 设置布局参数
-        FrameLayout.LayoutParams rootParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 containerHeight
         );
         rootParams.gravity = Gravity.BOTTOM;
         mRootLayout.setLayoutParams(rootParams);
 
-        // 创建标题栏
+        // 创建标题栏 (固定高度48dp)
         View titleBar = createTitleBar();
-        mRootLayout.addView(titleBar);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(48)
+        );
+        mRootLayout.addView(titleBar, titleParams);
 
-        // 创建内容区域
+        // 创建内容区域 (填充剩余空间)
         View contentArea = createContentArea();
-        mRootLayout.addView(contentArea);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+        );
+        mRootLayout.addView(contentArea, contentParams);
 
         // 设置容器内部点击不关闭（移除原来的OnClickListener）
         // 外部点击通过 FLAG_WATCH_OUTSIDE_TOUCH 机制处理
@@ -117,17 +120,11 @@ public class ContainerActivity extends AppCompatActivity {
      * 创建标题栏
      */
     private View createTitleBar() {
+        // 使用FrameLayout作为标题栏容器，可以方便地定位子元素
         FrameLayout titleBar = new FrameLayout(this);
-        int titleBarHeight = dpToPx(48);
+        titleBar.setBackgroundColor(0xE6FFFFFF); // 90%不透明的白色背景
 
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                titleBarHeight
-        );
-        params.gravity = Gravity.TOP;
-        titleBar.setLayoutParams(params);
-
-        // 标题文字
+        // 标题文字 - 居中显示
         TextView titleText = new TextView(this);
         titleText.setText("容器");
         titleText.setTextSize(18);
@@ -140,7 +137,7 @@ public class ContainerActivity extends AppCompatActivity {
         titleText.setLayoutParams(titleParams);
         titleBar.addView(titleText);
 
-        // 关闭按钮
+        // 关闭按钮 - 靠右显示
         ImageButton closeButton = new ImageButton(this);
         closeButton.setBackgroundResource(android.R.drawable.ic_menu_close_clear_cancel);
         closeButton.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
@@ -159,7 +156,7 @@ public class ContainerActivity extends AppCompatActivity {
         divider.setBackgroundColor(0xFFDDDDDD);
         FrameLayout.LayoutParams dividerParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                1
+                dpToPx(1)
         );
         dividerParams.gravity = Gravity.BOTTOM;
         divider.setLayoutParams(dividerParams);
@@ -178,47 +175,22 @@ public class ContainerActivity extends AppCompatActivity {
         contentText.setTextColor(0xFF666666);
         contentText.setGravity(Gravity.CENTER);
 
+        // 使用MATCH_PARENT让内容区域填充LinearLayout中的剩余空间
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         );
-        params.topMargin = dpToPx(48);
         contentText.setLayoutParams(params);
 
         return contentText;
     }
 
-    /**
-     * 注册悬浮球显示广播接收器
-     */
-    private void registerFloatingBallReceiver() {
-        mFloatingBallReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (ACTION_SHOW_FLOATING_BALL.equals(intent.getAction())) {
-                    // 悬浮球已恢复显示
-                }
-            }
-        };
-
-        IntentFilter filter = new IntentFilter(ACTION_SHOW_FLOATING_BALL);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(mFloatingBallReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(mFloatingBallReceiver, filter);
-        }
-    }
-
-    /**
-     * 发送广播通知悬浮球恢复显示
-     */
-    private void sendShowFloatingBallBroadcast() {
-        Intent intent = new Intent(ACTION_SHOW_FLOATING_BALL);
-        sendBroadcast(intent);
-    }
-
     @Override
     public void finish() {
+        // 显示悬浮球
+        if (mFloatingBallManager != null) {
+            mFloatingBallManager.show();
+        }
         super.finish();
         // 设置退出动画
         overridePendingTransition(0, R.anim.slide_out_bottom);
@@ -227,14 +199,6 @@ public class ContainerActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 通知悬浮球恢复显示
-        sendShowFloatingBallBroadcast();
-
-        // 注销广播接收器
-        if (mFloatingBallReceiver != null) {
-            unregisterReceiver(mFloatingBallReceiver);
-            mFloatingBallReceiver = null;
-        }
     }
 
     private int dpToPx(int dp) {
