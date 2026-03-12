@@ -17,4 +17,3 @@ dependencyResolutionManagement {
 include ':app'
 include ':agent-core'
 include ':agent-android'
-include ':floating-ball'
