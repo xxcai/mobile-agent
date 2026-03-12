@@ -1,5 +1,6 @@
 package com.hh.agent.floating;
 
+import com.hh.agent.android.AgentFragment;
 import com.hh.agent.android.R;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -14,6 +15,9 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 /**
  * 容器Activity - 悬浮球点击后展开的半透明Activity
@@ -100,21 +104,38 @@ public class ContainerActivity extends AppCompatActivity {
         );
         mRootLayout.addView(titleBar, titleParams);
 
-        // 创建内容区域 (填充剩余空间)
-        View contentArea = createContentArea();
+        // 创建内容区域容器 (填充剩余空间)
+        FrameLayout contentContainer = new FrameLayout(this);
+        contentContainer.setId(View.generateViewId()); // 生成唯一ID供Fragment使用
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
         );
-        mRootLayout.addView(contentArea, contentParams);
+        mRootLayout.addView(contentContainer, contentParams);
 
         // 设置容器内部点击不关闭（移除原来的OnClickListener）
         // 外部点击通过 FLAG_WATCH_OUTSIDE_TOUCH 机制处理
 
         setContentView(mRootLayout);
 
+        // 加载 AgentFragment 到内容区域
+        loadAgentFragment(contentContainer.getId());
+
         // 设置进入和退出动画
         overridePendingTransition(R.anim.slide_in_bottom, R.anim.slide_out_bottom);
+    }
+
+    /**
+     * 加载 AgentFragment
+     */
+    private void loadAgentFragment(int containerId) {
+        FragmentManager fragmentManager = getSupportFragmentManager();
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+
+        // 创建并加载 AgentFragment
+        AgentFragment agentFragment = new AgentFragment();
+        transaction.replace(containerId, agentFragment);
+        transaction.commit();
     }
 
     /**
@@ -164,26 +185,6 @@ public class ContainerActivity extends AppCompatActivity {
         titleBar.addView(divider);
 
         return titleBar;
-    }
-
-    /**
-     * 创建内容区域
-     */
-    private View createContentArea() {
-        TextView contentText = new TextView(this);
-        contentText.setText("悬浮球容器\n\n点击返回键、关闭按钮或外部区域可收起");
-        contentText.setTextSize(16);
-        contentText.setTextColor(0xFF666666);
-        contentText.setGravity(Gravity.CENTER);
-
-        // 使用MATCH_PARENT让内容区域填充LinearLayout中的剩余空间
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-        );
-        contentText.setLayoutParams(params);
-
-        return contentText;
     }
 
     @Override
