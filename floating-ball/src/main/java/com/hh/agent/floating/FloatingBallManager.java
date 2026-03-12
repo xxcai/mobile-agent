@@ -86,7 +86,7 @@ public class FloatingBallManager {
         // 创建悬浮球View
         mFloatingBallView = new FloatingBallView(mContext);
         mFloatingBallView.setOnTouchListener(mFloatingBallView.getDragTouchListener());
-        mFloatingBallView.setOnClickListener(v -> {
+        mFloatingBallView.setOnSingleTapListener(v -> {
             if (mOnClickListener != null) {
                 mOnClickListener.onClick(v);
             }
