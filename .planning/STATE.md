@@ -2,8 +2,11 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: 容器Activity模块
-status: not_started
-last_updated: "2026-03-11T14:00:00.000Z"
+status: in_progress
+current_phase: 1
+current_plan: 1
+total_plans_in_phase: 1
+last_updated: "2026-03-12T00:59:00.000Z"
 ---
 
 # STATE: Mobile Agent - v2.5 容器Activity模块
@@ -25,9 +28,9 @@ last_updated: "2026-03-11T14:00:00.000Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.5 容器Activity模块 |
-| Phase | Not started |
-| Status | Defining requirements |
-| Last activity: | 2026-03-11 — Milestone v2.5 started |
+| Phase | 1 - 悬浮球入口 |
+| Status | In Progress (Plan 01) |
+| Last activity: | 2026-03-12 — Executing Phase 1 Plan 01 |
 
 ---
 
@@ -50,7 +53,7 @@ None
 
 ## Decisions
 
-(None yet)
+- 2026-03-12: Phase 1 使用单例模式管理悬浮球，ActivityLifecycleCallbacks + 广播通信
 
 ---
 
@@ -58,7 +61,7 @@ None
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | 悬浮球入口 | FLOAT-01~FLOAT-04 | Pending |
+| 1 | 悬浮球入口 | FLOAT-01~FLOAT-04 | ✅ Complete |
 | 2 | 容器Activity | CONTAINER-01~CONTAINER-05 | Pending |
 | 3 | 数据持久化 | PERSIST-01~PERSIST-02 | Pending |
 | 4 | 独立验证 | INDEP-01~INDEP-02 | Pending |

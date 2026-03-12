@@ -55,14 +55,14 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1 | 1/1 | In Progress | - |
+| 1 | 1/1 | Complete | 2026-03-12 |
 | 2 | - | Pending | - |
 | 3 | - | Pending | - |
 | 4 | - | Pending | - |
 
 ### Plans
 
-- [ ] 01-floating-window/01-PLAN.md — 悬浮球Module结构 + 核心类 + App可见性监听
+- [x] 01-floating-window/01-PLAN.md — 悬浮球Module结构 + 核心类 + 广播通信
 
 ---
 
