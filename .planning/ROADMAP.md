@@ -27,10 +27,10 @@
 2. 功能正常工作
 
 **Plans:**
-- [x] 01-floating-window-01-PLAN.md — 迁移 floating-ball 源码到 agent-android，更新 Gradle 配置，验证编译 (1/1 plans)
+1/1 plans complete
 
-### Phase 2: MainActivity + 悬浮球基础
-**Goal:** 新启动页，悬浮建 MainActivity 球浮在 MainActivity 上
+### Phase 2: MainActivity + 悬浮球基础 (Complete)
+**Goal:** 新启动页，悬浮球浮在 MainActivity 上
 
 **Requirements:** MAIN-01, MAIN-02, FLOAT-01
 
@@ -38,6 +38,9 @@
 1. 新建 MainActivity 作为启动页
 2. app 启动时加载 MainActivity
 3. 悬浮球在 MainActivity 上正确显示
+
+**Plans:**
+1/1 plans complete
 
 ### Phase 3: Fragment 容器化
 **Goal:** AgentActivity 界面抽取为 Fragment，集成到 ContainerActivity
@@ -48,6 +51,9 @@
 1. AgentActivity 界面抽取为 Fragment
 2. Fragment 正确加载到 ContainerActivity
 3. 原有跳转逻辑保留
+
+**Plans:**
+- [ ] 03-01-PLAN.md — AgentActivity 抽取为 Fragment，集成到 ContainerActivity
 
 ### Phase 4: Agent 后台运行
 **Goal:** Agent 后台运行，支持记忆恢复
