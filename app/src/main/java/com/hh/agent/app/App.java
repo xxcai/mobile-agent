@@ -1,7 +1,9 @@
 package com.hh.agent.app;
 
 import android.app.Application;
+import android.content.Intent;
 import android.util.Log;
+import com.hh.agent.floating.ContainerActivity;
 import com.hh.agent.floating.FloatingBallManager;
 
 /**
@@ -33,10 +35,15 @@ public class App extends Application {
             floatingBallManager.showPermissionTip();
         }
 
-        // 设置悬浮球点击事件（待Phase 2实现容器Activity）
+        // 设置悬浮球点击事件（启动容器Activity）
         floatingBallManager.setOnClickListener(v -> {
-            Log.d(TAG, "Floating ball clicked - will launch container activity in Phase 2");
-            // TODO Phase 2: 启动容器Activity
+            Log.d(TAG, "Floating ball clicked - launching container activity");
+            // 隐藏悬浮球
+            floatingBallManager.hide();
+            // 启动容器Activity
+            Intent intent = new Intent(this, ContainerActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
         });
 
         // 注册生命周期观察者

@@ -48,6 +48,13 @@ public class FloatingBallManager {
     }
 
     /**
+     * 设置上下文（用于启动Activity）
+     */
+    public void setContext(Context context) {
+        // 保持对ApplicationContext的引用
+    }
+
+    /**
      * 获取屏幕宽度（像素）
      */
     private int getScreenWidth() {

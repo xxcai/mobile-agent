@@ -12,6 +12,7 @@ public class FloatingBallReceiver extends BroadcastReceiver {
 
     public static final String ACTION_APP_FOREGROUND = "com.hh.agent.action.APP_FOREGROUND";
     public static final String ACTION_APP_BACKGROUND = "com.hh.agent.action.APP_BACKGROUND";
+    public static final String ACTION_SHOW_FLOATING_BALL = "com.hh.agent.action.SHOW_FLOATING_BALL";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -28,6 +29,9 @@ public class FloatingBallReceiver extends BroadcastReceiver {
         } else if (ACTION_APP_BACKGROUND.equals(action)) {
             // 应用进入后台，隐藏悬浮球
             manager.hide();
+        } else if (ACTION_SHOW_FLOATING_BALL.equals(action)) {
+            // 容器Activity关闭，恢复显示悬浮球
+            manager.show();
         }
     }
 }
