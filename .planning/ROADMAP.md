@@ -23,7 +23,7 @@
 | Phase | Name | Description | Requirements |
 |-------|------|-------------|--------------|
 | 1 | 悬浮球入口 | Complete | FLOAT-01~FLOAT-04 |
-| 2 | 容器Activity | 展开/收起、Task栈管理 | CONTAINER-01~CONTAINER-05 |
+| 2 | 容器Activity | In Progress    | 2026-03-12 |
 | 3 | 数据持久化 | 状态保存与恢复 | PERSIST-01~PERSIST-02 |
 | 4 | 独立验证 | 独立Module、编译测试 | INDEP-01~INDEP-02 |
 
@@ -56,14 +56,15 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1 | 1/1 | Complete | 2026-03-12 |
-| 2 | 1/1 | Pending | - |
+| 2 | 2/2 | In Progress | 2026-03-12 |
 | 3 | - | Pending | - |
 | 4 | - | Pending | - |
 
 ### Plans
 
 - [x] 01-floating-window/01-PLAN.md — 悬浮球Module结构 + 核心类 + 广播通信
-- [ ] 02-container-activity/02-01-PLAN.md — 容器Activity实现（半透明、展开/收起、Task栈管理）
+- [x] 02-container-activity/02-01-PLAN.md — 容器Activity实现（半透明、展开/收起、Task栈管理）
+- [ ] 02-container-activity/02-02-PLAN.md — 修复UAT gap（点击外部收起、悬浮球恢复显示）
 
 ---
 
