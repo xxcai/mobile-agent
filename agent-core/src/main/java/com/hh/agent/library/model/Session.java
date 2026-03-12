@@ -1,5 +1,6 @@
 package com.hh.agent.library.model;
 
+import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,10 +10,10 @@ import java.util.Map;
  * 会话实体类
  */
 public class Session {
-    private String key;                    // channel:chat_id
-    private List<Message> messages;
-    private long createdAt;
-    private long updatedAt;
+    @SerializedName("key") private String key;                    // channel:chat_id
+    @SerializedName("messages") private List<Message> messages;
+    @SerializedName("createdAt") private long createdAt;
+    @SerializedName("updatedAt") private long updatedAt;
 
     public Session() {
         this.messages = new ArrayList<>();

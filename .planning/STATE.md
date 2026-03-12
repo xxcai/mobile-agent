@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: 主界面重构
 status: unknown
-last_updated: "2026-03-12T08:55:10.137Z"
+last_updated: "2026-03-12T09:35:13.636Z"
 ---
 
 # STATE: Mobile Agent - v2.6 主界面重构
@@ -25,9 +25,9 @@ last_updated: "2026-03-12T08:55:10.137Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
-| Phase | 3 (Planned) |
+| Phase | 3 (Plan 01 Complete) |
 | Status | In Progress |
-| Last activity: | 2026-03-12 — Phase 3 Plan 01 created |
+| Last activity: | 2026-03-12 — Phase 3 Plan 01 completed - Fragment 容器化 |
 
 ---
 
@@ -35,6 +35,7 @@ last_updated: "2026-03-12T08:55:10.137Z"
 
 ### Recent Changes
 
+- 2026-03-12: Phase 3 Plan 01 completed - Fragment 容器化（AgentFragment 嵌入 ContainerActivity）
 - 2026-03-12: Phase 3 Plan 01 created - Fragment 容器化
 - 2026-03-12: Phase 2 Plan 01 completed - MainActivity 启动页 + 悬浮球控制
 - 2026-03-12: Phase 1 completed - floating-ball 合并到 agent-android
@@ -48,7 +49,7 @@ None
 
 ### Todos
 
-None
+- 2026-03-12: AgentFragment 底部输入框显示不全 (UI bug)
 
 ---
 
@@ -67,7 +68,7 @@ None
 |-------|------|--------------|--------|
 | 1 | 模块合并 | FLOAT-02 | ✅ Complete |
 | 2 | MainActivity + 悬浮球基础 | MAIN-01, MAIN-02, FLOAT-01 | ✅ Complete |
-| 3 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | 📋 Planned (1 plan) |
+| 3 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | ✅ Complete |
 | 4 | Agent 后台运行 | AGENT-01~AGENT-04 | Pending |
 | 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | Pending |
 | 6 | 整合测试 | - | Pending |

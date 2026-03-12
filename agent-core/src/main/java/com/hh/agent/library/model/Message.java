@@ -1,13 +1,15 @@
 package com.hh.agent.library.model;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * 消息实体类
  */
 public class Message {
-    private String id;
-    private String role;        // "user", "assistant", "system"
-    private String content;
-    private long timestamp;
+    @SerializedName("id") private String id;
+    @SerializedName("role") private String role;        // "user", "assistant", "system"
+    @SerializedName("content") private String content;
+    @SerializedName("timestamp") private long timestamp;
 
     public Message() {
         this.timestamp = System.currentTimeMillis();

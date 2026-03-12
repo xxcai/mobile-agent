@@ -42,7 +42,7 @@
 **Plans:**
 1/1 plans complete
 
-### Phase 3: Fragment 容器化
+### Phase 3: Fragment 容器化 (Complete)
 **Goal:** AgentActivity 界面抽取为 Fragment，集成到 ContainerActivity
 
 **Requirements:** FRAG-01, FRAG-02, FRAG-03
@@ -53,7 +53,7 @@
 3. 原有跳转逻辑保留
 
 **Plans:**
-- [ ] 03-01-PLAN.md — AgentActivity 抽取为 Fragment，集成到 ContainerActivity
+1/1 plans complete
 
 ### Phase 4: Agent 后台运行
 **Goal:** Agent 后台运行，支持记忆恢复
@@ -64,6 +64,9 @@
 1. Agent 可以在后台持续运行
 2. 重新打开 Agent 界面时恢复之前显示
 3. 重新打开 Agent 界面时更新最新进度
+
+**Plans:**
+- [ ] 04-01-PLAN.md — 实现会话持久化 (Session/Message JSON序列化 + SharedPreferences)
 
 ### Phase 5: 界面优化 + 语音保留
 **Goal:** AgentActivity 界面优化，保留语音功能
