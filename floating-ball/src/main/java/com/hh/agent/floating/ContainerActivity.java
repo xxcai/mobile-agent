@@ -7,6 +7,7 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -57,14 +58,22 @@ public class ContainerActivity extends AppCompatActivity {
     private void setupWindow() {
         // 设置半透明背景
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            getWindow().setFlags(
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS,
-                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
-            );
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
         }
 
-        // 设置背景半透明
-        getWindow().setGravity(Gravity.BOTTOM);
+        // 设置窗口高度为屏幕60%
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        params.height = (int) (screenHeight * 0.6);
+        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+
+        // 设置标志位监听窗口外部触摸事件
+        // FLAG_NOT_TOUCH_MODAL: 让触摸事件传递给下层窗口
+        // FLAG_WATCH_OUTSIDE_TOUCH: 监听窗口外部的触摸事件
+        params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+
+        getWindow().setAttributes(params);
     }
 
     /**
@@ -95,13 +104,8 @@ public class ContainerActivity extends AppCompatActivity {
         View contentArea = createContentArea();
         mRootLayout.addView(contentArea);
 
-        // 设置外部点击关闭
-        mRootLayout.setClickable(true);
-        mRootLayout.setFocusable(true);
-        mRootLayout.setOnClickListener(v -> {
-            // 点击外部区域关闭Activity
-            finish();
-        });
+        // 设置容器内部点击不关闭（移除原来的OnClickListener）
+        // 外部点击通过 FLAG_WATCH_OUTSIDE_TOUCH 机制处理
 
         setContentView(mRootLayout);
 
@@ -236,5 +240,16 @@ public class ContainerActivity extends AppCompatActivity {
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
         return Math.round(dp * density);
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // 处理窗口外部触摸事件
+        if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+            // 点击窗口外部（Activity Window 60% 区域之外的屏幕部分）关闭Activity
+            finish();
+            return true;
+        }
+        return super.onTouchEvent(event);
     }
 }
