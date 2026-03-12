@@ -57,6 +57,19 @@
 
 **Next milestone:** 待规划
 
+## Current Milestone: v2.6 主界面重构
+
+**Goal:** 重构 app 主界面，实现 MainActivity 启动页 + Fragment 容器化 + 悬浮球合并 + Agent 后台运行
+
+**Target features:**
+- 新建 MainActivity 作为启动页
+- 悬浮球在满足条件时浮在 MainActivity 上
+- AgentActivity 界面用 Fragment 承载到 ContainerActivity
+- floating-ball 模块合并到 android-agent
+- AgentActivity 界面优化
+- Agent 后台运行 + 记忆恢复能力
+- 保留现有语音功能
+
 ## Context
 
 **现有代码库:**
