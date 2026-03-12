@@ -42,21 +42,20 @@
 - ✓ 按压说话交互 — v2.3 (shipped 2026-03-11)
 - ✓ 实时语音转文字 — v2.3 (shipped 2026-03-11)
 - ✓ 语音能力依赖注入 — v2.3 (shipped 2026-03-11)
+- ✓ 悬浮球入口 — v2.5 (shipped 2026-03-12)
+- ✓ 容器Activity — v2.5 (shipped 2026-03-12)
+- ✓ Broadcast 通信机制 — v2.5 (shipped 2026-03-12)
 - ✓ Android 录音权限处理 — v2.3 (shipped 2026-03-11)
 
 ### Active
 
 暂无
 
-## Current Milestone: v2.5 容器Activity模块
+## Current Milestone: Planning
 
-**Goal:** 实现悬浮球入口和容器Activity，支持数据持久化，独立于现有项目验证
+**Last milestone completed:** v2.5 容器Activity模块 (shipped 2026-03-12)
 
-**Target features:**
-- 悬浮球入口 — 应用在前台时显示悬浮球，切换App时隐藏，切回本App时恢复显示
-- 容器Activity — 点击悬浮球展开为全屏Activity，可插入当前Task栈顶，关闭时收缩回悬浮球
-- 数据持久化 — Activity关闭后保存数据，下次打开自动恢复状态
-- 独立验证 — 先独立实现，不与现有项目耦合
+**Next milestone:** 待规划
 
 ## Context
 
@@ -99,7 +98,10 @@
 | 平台分离 | Tools/Manager 在 app，agent 纯 Java | ✓ v2.0 shipped |
 | Callback 接口 | AndroidToolCallback 解耦 agent/app | ✓ v2.0 shipped |
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
-| 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | — v2.3 planning |
+| 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | ✓ v2.3 shipped |
+| 悬浮球单例模式 | 不使用 Service，使用 WindowManager | ✓ v2.5 shipped |
+| Broadcast 通信 | Activity 与悬浮球通过广播协调 | ✓ v2.5 shipped |
+| SingleTop Activity | 避免容器Activity重复创建 | ✓ v2.5 shipped |
 
 ---
-*Last updated: 2026-03-11 — v2.5 started*
+*Last updated: 2026-03-12 — v2.5 completed*

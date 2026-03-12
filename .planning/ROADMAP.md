@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🚧 **v2.5 容器Activity模块** — Phases 1 to 4 (in progress)
+- ✅ **v2.5 容器Activity模块** — Phases 1 to 2 (shipped 2026-03-12)
 - ✅ **v2.4 Agent 性能分析** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.3 语音转文字** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.2 App 层动态注入 Android 工具** — Phases 1 to 3 (shipped 2026-03-10)
@@ -14,84 +14,22 @@
 
 ---
 
-## v2.5 容器Activity模块 (In Progress)
+<details>
+<summary>✅ v2.5 容器Activity模块 (Phases 1-2) — SHIPPED 2026-03-12</summary>
 
-**Goal:** 实现悬浮球入口和容器Activity，支持数据持久化，独立于现有项目验证
+- [x] Phase 1: 悬浮球入口 (1/1 plans) — completed 2026-03-12
+- [x] Phase 2: 容器Activity (2/2 plans) — completed 2026-03-12
 
-### Phases
+**Key achievements:**
+- 创建独立的 floating-ball Android Module
+- 实现悬浮球显示/隐藏/拖拽
+- 实现 ContainerActivity 半透明容器
+- 修复点击外部收起和悬浮球恢复问题
 
-| Phase | Name | Description | Requirements |
-|-------|------|-------------|--------------|
-| 1 | 悬浮球入口 | Complete | FLOAT-01~FLOAT-04 |
-| 2 | 容器Activity | In Progress    | 2026-03-12 |
-| 3 | 数据持久化 | 状态保存与恢复 | PERSIST-01~PERSIST-02 |
-| 4 | 独立验证 | 独立Module、编译测试 | INDEP-01~INDEP-02 |
+**See:** `.planning/milestones/v2.5-ROADMAP.md`
 
-### Success Criteria
-
-#### Phase 1: 悬浮球入口
-1. 悬浮球能显示在屏幕边缘
-2. 应用在前台时悬浮球可见
-3. 切换到其他App时悬浮球隐藏
-4. 切回本App时悬浮球恢复显示
-
-#### Phase 2: 容器Activity
-1. 点击悬浮球展开全屏Activity
-2. Activity关闭后悬浮球恢复
-3. 悬浮球支持拖拽
-4. Activity正确插入Task栈
-
-#### Phase 3: 数据持久化
-1. 关闭Activity时数据自动保存
-2. 重新打开时数据正确恢复
-
-#### Phase 4: 独立验证
-1. 新Module可独立编译
-2. 不依赖现有agent模块
+</details>
 
 ---
-
-## Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1 | 1/1 | Complete | 2026-03-12 |
-| 2 | 2/2 | In Progress | 2026-03-12 |
-| 3 | - | Pending | - |
-| 4 | - | Pending | - |
-
-### Plans
-
-- [x] 01-floating-window/01-PLAN.md — 悬浮球Module结构 + 核心类 + 广播通信
-- [x] 02-container-activity/02-01-PLAN.md — 容器Activity实现（半透明、展开/收起、Task栈管理）
-- [ ] 02-container-activity/02-02-PLAN.md — 修复UAT gap（点击外部收起、悬浮球恢复显示）
-
----
-
-## v2.4 Agent 性能分析 (Complete)
-
-**Goal:** 分析 agent-core C++ 层日志和性能，识别耗时点并优化
-
-### Phases
-
-| Phase | Name | Description |
-|-------|------|-------------|
-| 1 | 统一日志格式 | 改进日志宏，添加脱敏处理 |
-| 2 | 补充关键路径日志 | HTTP/LLM/MCP/TOOL/LOOP 耗时日志 |
-| 3 | 性能分析与优化 | ScopedTimer，识别热点 |
-
----
-
-## Progress
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1 | - | Complete | 2026-03-11 |
-| 2 | 1/1 | Complete | 2026-03-11 |
-| 3 | 1/1 | Complete | 2026-03-11 |
-
-### Plans
-
-- [x] 03-performance-analysis/03-PLAN.md — 手动日志分析 + 性能热点分析
 
 *Roadmap updated: 2026-03-12*
