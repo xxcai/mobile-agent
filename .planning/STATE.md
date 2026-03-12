@@ -25,9 +25,9 @@ last_updated: "2026-03-12"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
-| Phase | Not started |
-| Status | Defining requirements |
-| Last activity: | 2026-03-12 — Milestone v2.6 started |
+| Phase | 1 (Plan 01 Complete) |
+| Status | Planning |
+| Last activity: | 2026-03-12 — Phase 1 Plan 01 completed - floating-ball 合并到 agent-android |
 
 ---
 
@@ -35,6 +35,7 @@ last_updated: "2026-03-12"
 
 ### Recent Changes
 
+- 2026-03-12: Phase 1 Plan 01 completed - floating-ball 合并到 agent-android
 - 2026-03-12: Phase 2 Plan 01 completed - 容器Activity实现
 - 2026-03-11: v2.5 started - 容器Activity模块
 - 2026-03-11: v2.4 completed - Agent 性能分析
@@ -60,9 +61,9 @@ None
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 1 | MainActivity + 悬浮球基础 | MAIN-01, MAIN-02, FLOAT-01 | Pending |
-| 2 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | Pending |
-| 3 | 模块合并 | FLOAT-02 | Pending |
+| 1 | 模块合并 | FLOAT-02 | ✅ Complete |
+| 2 | MainActivity + 悬浮球基础 | MAIN-01, MAIN-02, FLOAT-01 | Pending |
+| 3 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | Pending |
 | 4 | Agent 后台运行 | AGENT-01~AGENT-04 | Pending |
 | 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | Pending |
 | 6 | 整合测试 | - | Pending |

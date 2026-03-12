@@ -17,7 +17,7 @@
 
 ## v2.6 主界面重构
 
-### Phase 1: 模块合并
+### Phase 1: 模块合并 (Complete)
 **Goal:** floating-ball 模块合并到 android-agent
 
 **Requirements:** FLOAT-02
@@ -27,7 +27,7 @@
 2. 功能正常工作
 
 **Plans:**
-- [ ] 01-floating-window-01-PLAN.md — 迁移 floating-ball 源码到 agent-android，更新 Gradle 配置，验证编译
+- [x] 01-floating-window-01-PLAN.md — 迁移 floating-ball 源码到 agent-android，更新 Gradle 配置，验证编译 (1/1 plans)
 
 ### Phase 2: MainActivity + 悬浮球基础
 **Goal:** 新启动页，悬浮建 MainActivity 球浮在 MainActivity 上
