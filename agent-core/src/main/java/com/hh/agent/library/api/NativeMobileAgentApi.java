@@ -1,5 +1,8 @@
 package com.hh.agent.library.api;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import com.google.gson.Gson;
 import java.io.IOException;
 import java.util.ArrayList;
 import com.hh.agent.library.AndroidToolCallback;
@@ -17,9 +20,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NativeMobileAgentApi implements MobileAgentApi {
 
     private static NativeMobileAgentApi instance;
+    private static final String PREFS_NAME = "agent_sessions";
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
     private AndroidToolCallback toolCallback;
+    private SharedPreferences prefs;
+    private Gson gson;
 
     private NativeMobileAgentApi() {
     }
@@ -32,6 +38,79 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             instance = new NativeMobileAgentApi();
         }
         return instance;
+    }
+
+    /**
+     * 初始化上下文相关的组件
+     * 必须在使用持久化功能前调用
+     *
+     * @param context Android Context (通常为 Application Context)
+     */
+    public synchronized void initializeContext(Context context) {
+        if (prefs == null && context != null) {
+            prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            gson = new Gson();
+            System.out.println("[NativeMobileAgentApi] Context initialized for persistence");
+        }
+    }
+
+    /**
+     * 保存会话到本地存储
+     *
+     * @param session 要保存的会话
+     */
+    public synchronized void saveSession(Session session) {
+        if (prefs == null || gson == null || session == null) {
+            System.out.println("[NativeMobileAgentApi] Cannot save session: context not initialized");
+            return;
+        }
+        String json = gson.toJson(session);
+        prefs.edit().putString(session.getKey(), json).apply();
+        System.out.println("[NativeMobileAgentApi] Session saved: " + session.getKey());
+    }
+
+    /**
+     * 从本地存储加载会话
+     *
+     * @param sessionKey 会话键
+     * @return 会话对象，不存在则返回 null
+     */
+    public synchronized Session loadSession(String sessionKey) {
+        if (prefs == null || gson == null) {
+            System.out.println("[NativeMobileAgentApi] Cannot load session: context not initialized");
+            return null;
+        }
+        String json = prefs.getString(sessionKey, null);
+        if (json == null) {
+            return null;
+        }
+        Session session = gson.fromJson(json, Session.class);
+        System.out.println("[NativeMobileAgentApi] Session loaded: " + sessionKey);
+        return session;
+    }
+
+    /**
+     * 从本地存储加载所有会话
+     *
+     * @return 会话数量
+     */
+    public synchronized int loadAllSessions() {
+        if (prefs == null || gson == null) {
+            System.out.println("[NativeMobileAgentApi] Cannot load sessions: context not initialized");
+            return 0;
+        }
+        Map<String, ?> allSessions = prefs.getAll();
+        int count = 0;
+        for (String key : allSessions.keySet()) {
+            String json = (String) allSessions.get(key);
+            Session session = gson.fromJson(json, Session.class);
+            if (session != null) {
+                sessions.put(key, session);
+                count++;
+            }
+        }
+        System.out.println("[NativeMobileAgentApi] Loaded " + count + " sessions from storage");
+        return count;
     }
 
     /**
@@ -144,6 +223,9 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         assistantMessage.setRole("assistant");
         assistantMessage.setContent(response);
         session.addMessage(assistantMessage);
+
+        // 持久化会话
+        saveSession(session);
 
         return assistantMessage;
     }
