@@ -22,7 +22,7 @@
 
 | Phase | Name | Description | Requirements |
 |-------|------|-------------|--------------|
-| 1 | 悬浮球入口 | 悬浮球显示/隐藏、拖拽定位 | FLOAT-01~FLOAT-04 |
+| 1 | 悬浮球入口 | Complete    | 2026-03-12 |
 | 2 | 容器Activity | 展开/收起、Task栈管理 | CONTAINER-01~CONTAINER-05 |
 | 3 | 数据持久化 | 状态保存与恢复 | PERSIST-01~PERSIST-02 |
 | 4 | 独立验证 | 独立Module、编译测试 | INDEP-01~INDEP-02 |

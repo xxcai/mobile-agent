@@ -71,6 +71,9 @@ public class AppLifecycleObserver implements Application.ActivityLifecycleCallba
 
     private void sendBroadcast(String action) {
         Intent intent = new Intent(action);
+        // 指定包名，确保广播能传递给同应用的 BroadcastReceiver
+        intent.setPackage(application.getPackageName());
         application.sendBroadcast(intent);
+        Log.d(TAG, "sendBroadcast: " + action);
     }
 }

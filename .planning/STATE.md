@@ -2,11 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.5
 milestone_name: 容器Activity模块
-status: in_progress
-current_phase: 1
-current_plan: 1
-total_plans_in_phase: 1
-last_updated: "2026-03-12T00:59:00.000Z"
+status: unknown
+last_updated: "2026-03-12T00:55:26.872Z"
 ---
 
 # STATE: Mobile Agent - v2.5 容器Activity模块

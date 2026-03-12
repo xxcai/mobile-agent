@@ -26,9 +26,11 @@ public class App extends Application {
         floatingBallManager = FloatingBallManager.getInstance(this);
         floatingBallManager.initialize();
 
-        // 如果有悬浮窗权限则显示悬浮球
+        // 检查权限并尝试显示悬浮球
         if (floatingBallManager.checkOverlayPermission()) {
             floatingBallManager.show();
+        } else {
+            floatingBallManager.showPermissionTip();
         }
 
         // 设置悬浮球点击事件（待Phase 2实现容器Activity）

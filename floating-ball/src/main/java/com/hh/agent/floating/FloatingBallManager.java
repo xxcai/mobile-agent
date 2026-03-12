@@ -27,8 +27,6 @@ public class FloatingBallManager {
     private FloatingBallView mFloatingBallView;
     private View.OnClickListener mOnClickListener;
     private boolean mIsShowing = false;
-    private int mCurrentX;
-    private int mCurrentY;
 
     private FloatingBallManager(Context context) {
         mContext = context.getApplicationContext();
@@ -47,6 +45,27 @@ public class FloatingBallManager {
             }
         }
         return sInstance;
+    }
+
+    /**
+     * 获取屏幕宽度（像素）
+     */
+    private int getScreenWidth() {
+        return mContext.getResources().getDisplayMetrics().widthPixels;
+    }
+
+    /**
+     * 获取屏幕高度（像素）
+     */
+    private int getScreenHeight() {
+        return mContext.getResources().getDisplayMetrics().heightPixels;
+    }
+
+    /**
+     * 获取悬浮球尺寸（像素）
+     */
+    private int getBallSize() {
+        return dpToPx(48);
     }
 
     /**
@@ -70,17 +89,15 @@ public class FloatingBallManager {
         mLayoutParams = new WindowManager.LayoutParams();
         mLayoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
         mLayoutParams.format = PixelFormat.RGBA_8888;
+        mLayoutParams.gravity = Gravity.TOP | Gravity.START;
         mLayoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
-        mLayoutParams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-        mLayoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT;
-        mLayoutParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+        mLayoutParams.width = getBallSize();
+        mLayoutParams.height = getBallSize();
 
         // 默认位置：屏幕右侧边缘，垂直居中
-        mLayoutParams.x = 0;
-        mLayoutParams.y = 0;
-        mCurrentX = 0;
-        mCurrentY = 0;
+        mLayoutParams.x = getScreenWidth() - getBallSize();
+        mLayoutParams.y = (getScreenHeight() / 2) - (getBallSize() / 2);
     }
 
     /**
@@ -123,6 +140,20 @@ public class FloatingBallManager {
     }
 
     /**
+     * 获取当前X坐标
+     */
+    public int getX() {
+        return mLayoutParams.x;
+    }
+
+    /**
+     * 获取当前Y坐标
+     */
+    public int getY() {
+        return mLayoutParams.y;
+    }
+
+    /**
      * 设置点击监听器
      */
     public void setOnClickListener(View.OnClickListener listener) {
@@ -154,17 +185,46 @@ public class FloatingBallManager {
     }
 
     /**
+     * 显示权限提示（没有权限时调用）
+     */
+    public void showPermissionTip() {
+        Toast.makeText(mContext,
+                "需要悬浮窗权限才能显示悬浮球\n点击通知去设置",
+                Toast.LENGTH_LONG).show();
+    }
+
+    /**
      * 更新悬浮球位置（拖拽时调用）
      */
     public void updatePosition(int x, int y) {
-        if (mLayoutParams != null) {
-            mCurrentX = x;
-            mCurrentY = y;
-            mLayoutParams.x = x;
-            mLayoutParams.y = y;
-            if (mIsShowing) {
-                mWindowManager.updateViewLayout(mFloatingBallView, mLayoutParams);
-            }
+        if (mLayoutParams == null) {
+            return;
+        }
+
+        // 边界检查：确保不超出屏幕范围
+        int ballSize = getBallSize();
+        int screenWidth = getScreenWidth();
+        int screenHeight = getScreenHeight();
+
+        // X轴边界限制
+        if (x < 0) {
+            x = 0;
+        } else if (x > screenWidth - ballSize) {
+            x = screenWidth - ballSize;
+        }
+
+        // Y轴边界限制
+        if (y < 0) {
+            y = 0;
+        } else if (y > screenHeight - ballSize) {
+            y = screenHeight - ballSize;
+        }
+
+        mLayoutParams.x = x;
+        mLayoutParams.y = y;
+
+        if (mIsShowing) {
+            mWindowManager.updateViewLayout(mFloatingBallView, mLayoutParams);
         }
     }
 
@@ -176,21 +236,20 @@ public class FloatingBallManager {
             return;
         }
 
-        // 获取屏幕宽度
-        int screenWidth = mWindowManager.getDefaultDisplay().getWidth();
-        int ballWidth = dpToPx(48);
+        int screenWidth = getScreenWidth();
+        int ballSize = getBallSize();
+        int rightEdge = screenWidth - ballSize;
 
-        // 计算吸附位置
-        int centerX = mCurrentX + ballWidth / 2;
+        // 计算悬浮球中心X坐标
+        int centerX = mLayoutParams.x + ballSize / 2;
+
+        // 根据中心点位置吸附到最近边缘
         if (centerX < screenWidth / 2) {
-            // 靠近左边缘，吸附到左边
-            mCurrentX = 0;
+            mLayoutParams.x = 0;
         } else {
-            // 靠近右边缘，吸附到右边
-            mCurrentX = screenWidth - ballWidth;
+            mLayoutParams.x = rightEdge;
         }
 
-        mLayoutParams.x = mCurrentX;
         if (mIsShowing) {
             mWindowManager.updateViewLayout(mFloatingBallView, mLayoutParams);
         }

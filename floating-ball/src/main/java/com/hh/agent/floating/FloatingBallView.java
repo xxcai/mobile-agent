@@ -1,10 +1,10 @@
 package com.hh.agent.floating;
 
 import android.content.Context;
-import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -14,8 +14,6 @@ import android.widget.ImageView;
  */
 public class FloatingBallView extends ImageView {
 
-    private int mStartX;
-    private int mStartY;
     private boolean isDragging = false;
 
     public FloatingBallView(Context context) {
@@ -35,8 +33,11 @@ public class FloatingBallView extends ImageView {
         paint.setStyle(Paint.Style.FILL);
         setBackground(background);
 
-        // 设置默认图片（可选，使用圆形背景即可）
         setScaleType(ScaleType.CENTER);
+
+        // 必须设置 clickable 和 focusable 才能响应触摸事件
+        setClickable(true);
+        setFocusable(true);
     }
 
     private int dpToPx(int dp) {
@@ -49,39 +50,32 @@ public class FloatingBallView extends ImageView {
      */
     public OnTouchListener getDragTouchListener() {
         return new OnTouchListener() {
+            private int touchOffsetX, touchOffsetY;
+
             @Override
-            public boolean onTouch(View v, android.view.MotionEvent event) {
+            public boolean onTouch(View v, MotionEvent event) {
+                FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
                 switch (event.getAction()) {
-                    case android.view.MotionEvent.ACTION_DOWN:
-                        mStartX = (int) event.getRawX();
-                        mStartY = (int) event.getRawY();
+                    case MotionEvent.ACTION_DOWN:
+                        // 记录触摸点相对于悬浮球位置的偏移
+                        touchOffsetX = (int) event.getRawX() - manager.getX();
+                        touchOffsetY = (int) event.getRawY() - manager.getY();
                         isDragging = true;
                         return true;
 
-                    case android.view.MotionEvent.ACTION_MOVE:
+                    case MotionEvent.ACTION_MOVE:
                         if (isDragging) {
-                            int deltaX = (int) event.getRawX() - mStartX;
-                            int deltaY = (int) event.getRawY() - mStartY;
-
-                            int[] position = new int[2];
-                            v.getLocationOnScreen(position);
-
-                            int newX = position[0] + deltaX;
-                            int newY = position[1] + deltaY;
-
-                            // 更新位置
-                            FloatingBallManager.getInstance(getContext()).updatePosition(newX, newY);
-
-                            mStartX = (int) event.getRawX();
-                            mStartY = (int) event.getRawY();
+                            // 新位置 = 当前触摸点 - 偏移
+                            int newX = (int) event.getRawX() - touchOffsetX;
+                            int newY = (int) event.getRawY() - touchOffsetY;
+                            manager.updatePosition(newX, newY);
                         }
                         return true;
 
-                    case android.view.MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_UP:
                         if (isDragging) {
                             isDragging = false;
-                            // 执行边缘吸附
-                            FloatingBallManager.getInstance(getContext()).snapToEdge();
+                            manager.snapToEdge();
                         }
                         return true;
 
