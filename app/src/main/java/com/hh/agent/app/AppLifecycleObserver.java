@@ -1,8 +1,11 @@
 package com.hh.agent.app;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Intent;
 import android.util.Log;
+import com.hh.agent.MainActivity;
+import com.hh.agent.floating.FloatingBallManager;
 
 /**
  * 应用生命周期观察者
@@ -55,13 +58,21 @@ public class AppLifecycleObserver implements Application.ActivityLifecycleCallba
     }
 
     @Override
-    public void onActivityResumed(android.app.Activity activity) {
-        // not used
+    public void onActivityResumed(Activity activity) {
+        // MainActivity 恢复时显示悬浮球
+        if (activity instanceof MainActivity) {
+            FloatingBallManager.getInstance(application).show();
+            Log.d(TAG, "onActivityResumed: MainActivity, show floating ball");
+        }
     }
 
     @Override
-    public void onActivityPaused(android.app.Activity activity) {
-        // not used
+    public void onActivityPaused(Activity activity) {
+        // MainActivity 暂停时隐藏悬浮球
+        if (activity instanceof MainActivity) {
+            FloatingBallManager.getInstance(application).hide();
+            Log.d(TAG, "onActivityPaused: MainActivity, hide floating ball");
+        }
     }
 
     @Override
