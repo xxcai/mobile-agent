@@ -27,6 +27,7 @@ public class MainPresenter implements MainContract.Presenter {
     private MainContract.View view;
     private final MobileAgentApi mobileAgentApi;
     private final ExecutorService executor;
+    private final ExecutorService loadMessagesExecutor;
     private final Handler mainHandler;
     private final String sessionKey;
 
@@ -51,6 +52,7 @@ public class MainPresenter implements MainContract.Presenter {
     private MainPresenter() {
         this.mobileAgentApi = new NativeMobileAgentApiAdapter();
         this.executor = Executors.newSingleThreadExecutor();
+        this.loadMessagesExecutor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.sessionKey = "native:default";
     }
@@ -79,7 +81,7 @@ public class MainPresenter implements MainContract.Presenter {
             mainHandler.post(() -> view.showLoading());
         }
 
-        executor.execute(() -> {
+        loadMessagesExecutor.execute(() -> {
             try {
                 // 确保会话存在
                 mobileAgentApi.getSession(sessionKey);
@@ -89,7 +91,14 @@ public class MainPresenter implements MainContract.Presenter {
                 if (view != null) {
                     mainHandler.post(() -> {
                         view.hideLoading();
+                        // 先加载历史消息
                         view.onMessagesLoaded(messages);
+                        // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
+                        // 这样可以避免 setMessages() 替换掉思考消息的问题
+                        if (isThinking) {
+                            view.showThinking();
+                            view.showLoading();
+                        }
                     });
                 }
             } catch (Exception e) {
@@ -176,16 +185,13 @@ public class MainPresenter implements MainContract.Presenter {
     /**
      * 恢复 View 状态
      * 当页面重新打开时，根据 isThinking 状态恢复 UI
+     *
+     * 注意：thinking 状态的 UI 恢复现在统一在 loadMessages() 完成后处理，
+     * 这样可以避免 setMessages() 替换掉思考消息的问题
      */
     private void restoreViewState() {
-        if (view == null) {
-            return;
-        }
-        // 如果正在思考，恢复显示思考状态
-        if (isThinking) {
-            view.showThinking();
-            view.showLoading();
-        }
+        // thinking 状态的 UI 恢复现在移到了 loadMessages() 完成后
+        // 详见 loadMessages() 中的 onMessagesLoaded 回调
     }
 
     @Override
@@ -207,7 +213,9 @@ public class MainPresenter implements MainContract.Presenter {
      * 注意：单例模式下不真正销毁，只是解绑 view
      */
     public void destroy() {
-        // 单例模式下不关闭 executor，保留线程池
+        // 关闭线程池
+        executor.shutdown();
+        loadMessagesExecutor.shutdown();
         // 清理 Context 引用，避免内存泄漏
         if (mobileAgentApi instanceof NativeMobileAgentApiAdapter) {
             ((NativeMobileAgentApiAdapter) mobileAgentApi).clearContext();

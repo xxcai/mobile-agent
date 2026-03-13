@@ -292,7 +292,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
         super.onDestroyView();
         if (presenter != null) {
             presenter.detachView();
-            presenter.destroy();
+            // presenter.destroy();   // 移除：不应销毁单例，应保留状态
         }
     }
 }
