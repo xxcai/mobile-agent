@@ -26,7 +26,7 @@ last_updated: "2026-03-13T03:25:00.000Z"
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
 | Status | ✅ Completed (shipped 2026-03-13) |
-| Last activity: | 2026-03-13 — Completed v2.6 milestone |
+| Last activity: | 2026-03-13 — Completed quick task 15: 分析app模块ActivityLifecycleCallbacks |
 
 ---
 
@@ -52,6 +52,7 @@ None
 | # | Description | Date | Commit | Status | Directory |
 |---|-------------|------|--------|--------|-----------|
 | 14 | 现在容器Activity弹出的动画很生硬，帮我设计一下。可以添加动画阻尼和透明度变化 | 2026-03-13 | 2403c13 | Verified | [14-activity](./quick/14-activity/) |
+| 15 | 分析app模块里面多处注册ActivityLifecycleCallbacks，看下是否可以合并 | 2026-03-13 | - | Verified | [15-app-activitylifecyclecallbacks](./quick/15-app-activitylifecyclecallbacks/) |
 
 ### Todos
 
