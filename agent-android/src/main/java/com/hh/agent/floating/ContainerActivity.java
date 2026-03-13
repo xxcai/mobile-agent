@@ -87,21 +87,14 @@ public class ContainerActivity extends AppCompatActivity {
         mRootLayout.setOrientation(LinearLayout.VERTICAL);
         mRootLayout.setBackgroundColor(0xFFFFFFFF); // 纯白色背景
 
-        // 获取屏幕高度和导航栏高度
-        int screenHeight = getResources().getDisplayMetrics().heightPixels;
-        int navigationBarHeight = getResources().getDimensionPixelSize(
-            getResources().getIdentifier("navigation_bar_height", "dimen", "android"));
-        // 容器高度保持为屏幕高度的75%
-        int containerHeight = (int) (screenHeight * 0.75);
-
         // 设置布局参数
         LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                containerHeight
+                LinearLayout.LayoutParams.MATCH_PARENT
         );
         rootParams.gravity = Gravity.BOTTOM;
         // 顶部/左右保持16dp，底部为导航栏高度
-        rootParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), navigationBarHeight);
+        rootParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
         mRootLayout.setLayoutParams(rootParams);
 
         // 设置圆角 outline（使窗口呈现圆角）
