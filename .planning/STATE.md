@@ -26,7 +26,7 @@ last_updated: "2026-03-13T03:25:00.000Z"
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
 | Status | ✅ Completed (shipped 2026-03-13) |
-| Last activity: | 2026-03-13 — Completed quick task 15: 分析app模块ActivityLifecycleCallbacks |
+| Last activity: | 2026-03-13 — Completed quick task 16: 合并 ActivityLifecycleCallbacks |
 
 ---
 
@@ -53,6 +53,7 @@ None
 |---|-------------|------|--------|--------|-----------|
 | 14 | 现在容器Activity弹出的动画很生硬，帮我设计一下。可以添加动画阻尼和透明度变化 | 2026-03-13 | 2403c13 | Verified | [14-activity](./quick/14-activity/) |
 | 15 | 分析app模块里面多处注册ActivityLifecycleCallbacks，看下是否可以合并 | 2026-03-13 | - | Verified | [15-app-activitylifecyclecallbacks](./quick/15-app-activitylifecyclecallbacks/) |
+| 16 | 按照 analysis.md 合并 ActivityLifecycleCallbacks，将 MainActivity 中的悬浮球显示/隐藏逻辑合并到 AppLifecycleObserver | 2026-03-13 | f9e25ff | Verified | [16-analysis-md-activitylifecyclecallbacks](./quick/16-analysis-md-activitylifecyclecallbacks/) |
 
 ### Todos
 
