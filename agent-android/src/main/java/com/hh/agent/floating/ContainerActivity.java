@@ -2,10 +2,13 @@ package com.hh.agent.floating;
 
 import com.hh.agent.android.AgentFragment;
 import com.hh.agent.android.R;
+import android.graphics.Outline;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -82,7 +85,7 @@ public class ContainerActivity extends AppCompatActivity {
         // 创建根布局 - 使用LinearLayout简化垂直布局
         mRootLayout = new LinearLayout(this);
         mRootLayout.setOrientation(LinearLayout.VERTICAL);
-        mRootLayout.setBackgroundResource(R.drawable.bg_container); // 圆角白色背景
+        mRootLayout.setBackgroundColor(0xFFFFFFFF); // 纯白色背景
 
         // 获取屏幕高度
         int screenHeight = getResources().getDisplayMetrics().heightPixels;
@@ -94,7 +97,17 @@ public class ContainerActivity extends AppCompatActivity {
                 containerHeight
         );
         rootParams.gravity = Gravity.BOTTOM;
+        rootParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
         mRootLayout.setLayoutParams(rootParams);
+
+        // 设置圆角 outline（使窗口呈现圆角）
+        mRootLayout.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dpToPx(24));
+            }
+        });
+        mRootLayout.setClipToOutline(true);
 
         // 创建内容区域容器 (填充剩余空间)
         FrameLayout contentContainer = new FrameLayout(this);
