@@ -57,7 +57,12 @@ None
 
 ### Todos
 
-None
+| Title | Area | Created |
+|-------|------|---------|
+| AgentFragment 底部输入框显示不全 | ui | 2026-03-12 |
+| 悬浮球在ContainerActivity前台时错误显示 | floating-ball | 2026-03-12 |
+| ContainerActivity布局改成XML | floating-ball | 2026-03-12 |
+| 优化MainPresenter里面的线程池 | agent-android | 2026-03-13 |
 
 ---
 
