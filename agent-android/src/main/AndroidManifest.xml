@@ -11,12 +11,6 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
-        <activity
-            android:name=".AgentActivity"
-            android:exported="true"
-            android:label="MobileAgent"
-            android:theme="@style/AppTheme" />
-
         <!-- 悬浮球相关组件 -->
         <receiver
             android:name="com.hh.agent.floating.FloatingBallReceiver"
