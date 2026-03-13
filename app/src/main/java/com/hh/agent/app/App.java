@@ -32,7 +32,7 @@ public class App extends Application {
         NativeMobileAgentApi.getInstance().loadAllSessions();
 
         // 初始化语音识别器（Mock 实现）
-        VoiceRecognizerHolder.getInstance().setRecognizer(new MockVoiceRecognizer(this));
+        VoiceRecognizerHolder.getInstance().setRecognizer(new MockVoiceRecognizer());
 
         // 初始化悬浮球
         floatingBallManager = FloatingBallManager.getInstance(this);
