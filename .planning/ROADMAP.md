@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v2.6 主界面重构** — Phases 1 to 5 (in progress)
+- 🔄 **v2.6 主界面重构** — Phases 1 to 6 (in progress)
 - ✅ **v2.5 容器Activity模块** — Phases 1 to 2 (shipped 2026-03-12)
 - ✅ **v2.4 Agent 性能分析** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.3 语音转文字** — Phases 1 to 3 (shipped 2026-03-11)
@@ -68,7 +68,7 @@
 **Plans:**
 1/1 plans complete
 
-### Phase 5: 界面优化 + 语音保留
+### Phase 5: 界面优化 + 语音保留 (Complete)
 **Goal:** AgentActivity 界面优化，保留语音功能
 
 **Requirements:** UI-01, VOICE-01
@@ -76,6 +76,9 @@
 **Success criteria:**
 1. AgentActivity 界面优化完成（见 discuss 环节）
 2. 语音功能正常工作
+
+**Plans:**
+1/1 plans complete
 
 ### Phase 6: 整合测试
 **Goal:** 端到端测试所有功能
@@ -87,6 +90,9 @@
 4. Agent 后台运行正常
 5. 界面优化生效
 6. 语音功能正常
+
+**Plans:**
+- [ ] 06-01-PLAN.md — 6 个功能点手动测试验证
 
 ---
 
@@ -108,4 +114,4 @@
 
 ---
 
-*Roadmap updated: 2026-03-12*
+*Roadmap updated: 2026-03-13*

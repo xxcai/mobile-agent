@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -33,6 +32,7 @@ import java.util.List;
 public class AgentFragment extends Fragment implements MainContract.View {
 
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+    private static boolean sPermissionGranted = false;
 
     private RecyclerView rvMessages;
     private EditText etMessage;
@@ -55,8 +55,15 @@ public class AgentFragment extends Fragment implements MainContract.View {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 初始化视图
         initViews(view);
+
+        // 从静态变量恢复权限状态
+        permissionGranted = sPermissionGranted;
+
+        // 检查并初始化权限状态（仅当未授权时）
+        if (!permissionGranted) {
+            checkAndRequestAudioPermission();
+        }
 
         // 仅在已注入语音识别器时显示语音按钮
         if (VoiceRecognizerHolder.getInstance().getRecognizer() != null) {
@@ -84,11 +91,12 @@ public class AgentFragment extends Fragment implements MainContract.View {
             return;
         }
 
-        if (ContextCompat.checkSelfPermission(getActivity(), android.Manifest.permission.RECORD_AUDIO)
+        if (ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.RECORD_AUDIO)
                 == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             permissionGranted = true;
+            sPermissionGranted = true;
         } else {
-            ActivityCompat.requestPermissions(getActivity(),
+            requestPermissions(
                     new String[]{android.Manifest.permission.RECORD_AUDIO},
                     REQUEST_RECORD_AUDIO_PERMISSION);
         }
@@ -120,15 +128,11 @@ public class AgentFragment extends Fragment implements MainContract.View {
             String content = etMessage.getText().toString().trim();
             if (!content.isEmpty()) {
                 presenter.sendMessage(content);
-                etMessage.setText(""); // 清空输入框
+                etMessage.setText("");
             }
         });
     }
 
-    /**
-     * 设置语音按钮是否可见
-     * @param visible true 显示，false 隐藏
-     */
     public void setVoiceButtonVisible(boolean visible) {
         if (btnVoice != null) {
             btnVoice.setVisibility(visible ? View.VISIBLE : View.GONE);
@@ -155,12 +159,9 @@ public class AgentFragment extends Fragment implements MainContract.View {
                     if (!isRecording) {
                         // 检查录音权限
                         if (!permissionGranted) {
-                            // 仅请求权限，不开始录音，等待用户再次操作
-                            if (getActivity() != null) {
-                                ActivityCompat.requestPermissions(getActivity(),
-                                        new String[]{android.Manifest.permission.RECORD_AUDIO},
-                                        REQUEST_RECORD_AUDIO_PERMISSION);
-                            }
+                            requestPermissions(
+                                    new String[]{android.Manifest.permission.RECORD_AUDIO},
+                                    REQUEST_RECORD_AUDIO_PERMISSION);
                             return true;
                         }
                         isRecording = true;
@@ -172,7 +173,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
                                     getActivity().runOnUiThread(() -> {
                                         if (etMessage != null) {
                                             etMessage.setText(text);
-                                            etMessage.setSelection(text.length()); // 光标移到末尾
+                                            etMessage.setSelection(text.length());
                                         }
                                     });
                                 }
@@ -208,13 +209,11 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     /**
      * 更新语音按钮状态
-     * @param recording true 表示录音中，false 表示空闲
      */
     private void updateVoiceButtonState(boolean recording) {
         if (btnVoice != null) {
             btnVoice.setImageResource(recording ? R.drawable.ic_mic_recording : R.drawable.ic_mic);
         }
-        // 显示/隐藏录音遮罩
         if (voiceRecordingOverlay != null) {
             voiceRecordingOverlay.setVisibility(recording ? View.VISIBLE : View.GONE);
         }
@@ -223,21 +222,18 @@ public class AgentFragment extends Fragment implements MainContract.View {
     @Override
     public void onMessagesLoaded(List<Message> messages) {
         adapter.setMessages(messages);
-        // 滚动到底部
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
     @Override
     public void onMessageReceived(Message message) {
         adapter.addMessage(message);
-        // 滚动到底部
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
     @Override
     public void onUserMessageSent(Message message) {
         adapter.addMessage(message);
-        // 滚动到底部
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
@@ -275,6 +271,20 @@ public class AgentFragment extends Fragment implements MainContract.View {
     @Override
     public void hideThinking() {
         adapter.removeThinkingMessage();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionGranted = true;
+                sPermissionGranted = true;
+                Toast.makeText(getContext(), "录音权限已授予", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(getContext(), "需要录音权限才能使用语音功能", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override

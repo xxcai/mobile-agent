@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: 主界面重构
 status: in_progress
-last_updated: "2026-03-13T01:20:00.000Z"
+last_updated: "2026-03-13T01:25:00.000Z"
 ---
 
 # STATE: Mobile Agent - v2.6 主界面重构
@@ -25,9 +25,9 @@ last_updated: "2026-03-13T01:20:00.000Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
-| Phase | 5 (Plan 01 Complete) |
+| Phase | 6 (Plan 01 Created) |
 | Status | In Progress |
-| Last activity: | 2026-03-13 — Phase 5 Plan 01 completed - 界面优化 + 语音保留 |
+| Last activity: | 2026-03-13 — Phase 6 Plan 01 created - 整合测试 |
 
 ---
 
@@ -35,17 +35,14 @@ last_updated: "2026-03-13T01:20:00.000Z"
 
 ### Recent Changes
 
-- 2026-03-13: Phase 5 Plan 01 completed - 界面优化 + 语音保留（容器无标题栏+圆角+不透明背景，标题改为 Mobile Agent）
+- 2026-03-13: Phase 6 Plan 01 created - 整合测试（6 个功能点手动测试）
+- 2026-03-13: Phase 5 Plan 01 completed - 界面优化 + 语音保留
 - 2026-03-13: Phase 5 Plan 01 created - 界面优化 + 语音保留
 - 2026-03-13: Phase 5 context gathered - 界面优化 + 语音保留
-- 2026-03-12: Phase 4 Plan 01 completed - 会话持久化（SharedPreferences + Gson）
-- 2026-03-12: Phase 3 Plan 01 completed - Fragment 容器化（AgentFragment 嵌入 ContainerActivity）
-- 2026-03-12: Phase 3 Plan 01 created - Fragment 容器化
+- 2026-03-12: Phase 4 Plan 01 completed - 会话持久化
+- 2026-03-12: Phase 3 Plan 01 completed - Fragment 容器化
 - 2026-03-12: Phase 2 Plan 01 completed - MainActivity 启动页 + 悬浮球控制
 - 2026-03-12: Phase 1 completed - floating-ball 合并到 agent-android
-- 2026-03-12: Phase 2 Plan 01 completed - 容器Activity实现
-- 2026-03-11: v2.5 started - 容器Activity模块
-- 2026-03-11: v2.4 completed - Agent 性能分析
 
 ### Blockers
 
@@ -53,17 +50,17 @@ None
 
 ### Todos
 
-- 2026-03-12: AgentFragment 底部输入框显示不全 (UI bug)
+None
 
 ---
 
 ## Decisions
 
+- 2026-03-13: Phase 6 使用手动测试验证 6 个功能点
 - 2026-03-13: Phase 5 AgentFragment 界面优化（容器样式 + 标题栏）+ 底部输入框 bug 修复 + 语音按钮验证
 - 2026-03-12: Phase 4 使用 SharedPreferences + Gson 实现会话持久化
 - 2026-03-12: Phase 3 使用 Fragment 嵌入 ContainerActivity（半透明 BottomSheet）
-- 2026-03-12: Phase 3 完全抽取 AgentActivity UI 逻辑到 AgentFragment
-- 2026-03-12: Phase 2 使用Broadcast协调悬浮球显示/隐藏
+- 2026-03-12: Phase 2 使用 Broadcast 协调悬浮球显示/隐藏
 - 2026-03-12: Phase 1 使用单例模式管理悬浮球，ActivityLifecycleCallbacks + 广播通信
 
 ---
@@ -76,8 +73,8 @@ None
 | 2 | MainActivity + 悬浮球基础 | MAIN-01, MAIN-02, FLOAT-01 | ✅ Complete |
 | 3 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | ✅ Complete |
 | 4 | Agent 后台运行 | AGENT-01~AGENT-04 | ✅ Complete |
-| 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | Pending |
-| 6 | 整合测试 | - | Pending |
+| 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | ✅ Complete |
+| 6 | 整合测试 | - | Plan Created |
 
 ---
 
