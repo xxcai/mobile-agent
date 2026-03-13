@@ -1,16 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android"
-    android:interpolator="@android:anim/accelerate_interpolator">
+    android:interpolator="@android:anim/accelerate_decelerate_interpolator">
 
-    <!-- 向屏幕底部滑出 -->
+    <!-- 向底部滑出 (0 -> 100%) -->
     <translate
         android:duration="300"
         android:fromYDelta="0"
         android:toYDelta="100%" />
 
-    <!-- 淡出效果 -->
+    <!-- 淡出效果 (1.0 -> 0.0) -->
     <alpha
         android:duration="300"
         android:fromAlpha="1.0"
         android:toAlpha="0.0" />
+
+    <!-- 缩放效果 (1.0 -> 0.8) -->
+    <scale
+        android:duration="300"
+        android:fromXScale="1.0"
+        android:fromYScale="1.0"
+        android:toXScale="0.8"
+        android:toYScale="0.8"
+        android:pivotX="50%"
+        android:pivotY="50%" />
 </set>
