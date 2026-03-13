@@ -75,8 +75,8 @@ public class AgentFragment extends Fragment implements MainContract.View {
             com.hh.agent.android.presenter.NativeMobileAgentApiAdapter.loadConfigFromAssets(getActivity());
         }
 
-        // 初始化 Presenter，使用 Native C++ Agent
-        presenter = new MainPresenter(getActivity(), "native:default");
+        // 初始化 Presenter，使用单例模式
+        presenter = MainPresenter.getInstance();
         presenter.attachView(this);
 
         // 加载历史消息

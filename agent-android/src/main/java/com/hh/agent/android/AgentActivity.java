@@ -56,8 +56,8 @@ public class AgentActivity extends AppCompatActivity implements MainContract.Vie
         // 加载 native agent 配置
         NativeMobileAgentApiAdapter.loadConfigFromAssets(this);
 
-        // 初始化 Presenter，使用 Native C++ Agent
-        presenter = new MainPresenter(this, "native:default");
+        // 初始化 Presenter，使用单例模式
+        presenter = MainPresenter.getInstance();
         presenter.attachView(this);
 
         // 加载历史消息
