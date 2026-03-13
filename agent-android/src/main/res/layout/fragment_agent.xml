@@ -18,7 +18,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:titleTextColor="@android:color/white"
-        app:title="Nanobot" />
+        app:title="Mobile Agent" />
 
     <!-- 消息列表 -->
     <androidx.recyclerview.widget.RecyclerView
@@ -71,8 +71,7 @@
             android:contentDescription="语音输入"
             android:scaleType="centerInside"
             android:padding="12dp"
-            android:tint="@android:color/white"
-            android:visibility="gone" />
+            android:tint="@android:color/white" />
 
         <!-- 发送按钮 -->
         <ImageButton

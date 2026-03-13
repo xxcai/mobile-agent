@@ -55,7 +55,7 @@
 **Plans:**
 1/1 plans complete
 
-### Phase 4: Agent 后台运行
+### Phase 4: Agent 后台运行 (Complete)
 **Goal:** Agent 后台运行，支持记忆恢复
 
 **Requirements:** AGENT-01, AGENT-02, AGENT-03, AGENT-04
@@ -66,7 +66,7 @@
 3. 重新打开 Agent 界面时更新最新进度
 
 **Plans:**
-- [ ] 04-01-PLAN.md — 实现会话持久化 (Session/Message JSON序列化 + SharedPreferences)
+1/1 plans complete
 
 ### Phase 5: 界面优化 + 语音保留
 **Goal:** AgentActivity 界面优化，保留语音功能

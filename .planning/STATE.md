@@ -25,9 +25,9 @@ last_updated: "2026-03-12T09:35:13.636Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
-| Phase | 3 (Plan 01 Complete) |
+| Phase | 4 (Plan 01 Complete) |
 | Status | In Progress |
-| Last activity: | 2026-03-12 — Phase 3 Plan 01 completed - Fragment 容器化 |
+| Last activity: | 2026-03-12 — Phase 4 Plan 01 completed - 会话持久化 |
 
 ---
 
@@ -35,6 +35,7 @@ last_updated: "2026-03-12T09:35:13.636Z"
 
 ### Recent Changes
 
+- 2026-03-12: Phase 4 Plan 01 completed - 会话持久化（SharedPreferences + Gson）
 - 2026-03-12: Phase 3 Plan 01 completed - Fragment 容器化（AgentFragment 嵌入 ContainerActivity）
 - 2026-03-12: Phase 3 Plan 01 created - Fragment 容器化
 - 2026-03-12: Phase 2 Plan 01 completed - MainActivity 启动页 + 悬浮球控制
@@ -55,6 +56,7 @@ None
 
 ## Decisions
 
+- 2026-03-12: Phase 4 使用 SharedPreferences + Gson 实现会话持久化
 - 2026-03-12: Phase 3 使用 Fragment 嵌入 ContainerActivity（半透明 BottomSheet）
 - 2026-03-12: Phase 3 完全抽取 AgentActivity UI 逻辑到 AgentFragment
 - 2026-03-12: Phase 2 使用Broadcast协调悬浮球显示/隐藏
@@ -69,7 +71,7 @@ None
 | 1 | 模块合并 | FLOAT-02 | ✅ Complete |
 | 2 | MainActivity + 悬浮球基础 | MAIN-01, MAIN-02, FLOAT-01 | ✅ Complete |
 | 3 | Fragment 容器化 | FRAG-01, FRAG-02, FRAG-03 | ✅ Complete |
-| 4 | Agent 后台运行 | AGENT-01~AGENT-04 | Pending |
+| 4 | Agent 后台运行 | AGENT-01~AGENT-04 | ✅ Complete |
 | 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | Pending |
 | 6 | 整合测试 | - | Pending |
 

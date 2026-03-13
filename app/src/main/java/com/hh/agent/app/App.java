@@ -3,8 +3,11 @@ package com.hh.agent.app;
 import android.app.Application;
 import android.content.Intent;
 import android.util.Log;
+import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.floating.ContainerActivity;
 import com.hh.agent.floating.FloatingBallManager;
+import com.hh.agent.library.api.NativeMobileAgentApi;
+import com.hh.agent.voice.MockVoiceRecognizer;
 
 /**
  * Application类
@@ -23,6 +26,13 @@ public class App extends Application {
         instance = this;
 
         Log.d(TAG, "App onCreate");
+
+        // 初始化会话持久化（当前为 Mock，后续 C++ 实现）
+        NativeMobileAgentApi.getInstance().initializeContext(this);
+        NativeMobileAgentApi.getInstance().loadAllSessions();
+
+        // 初始化语音识别器（Mock 实现）
+        VoiceRecognizerHolder.getInstance().setRecognizer(new MockVoiceRecognizer(this));
 
         // 初始化悬浮球
         floatingBallManager = FloatingBallManager.getInstance(this);

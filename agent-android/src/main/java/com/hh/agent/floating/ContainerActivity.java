@@ -60,10 +60,10 @@ public class ContainerActivity extends AppCompatActivity {
         // 窗口半透明已在主题中通过windowIsTranslucent设置
         // 此处不再需要FLAG_TRANSLUCENT_STATUS，避免与底部定位窗口冲突
 
-        // 设置窗口高度为屏幕60%
+        // 设置窗口高度为屏幕75%
         WindowManager.LayoutParams params = getWindow().getAttributes();
         int screenHeight = getResources().getDisplayMetrics().heightPixels;
-        params.height = (int) (screenHeight * 0.6);
+        params.height = (int) (screenHeight * 0.75);
         params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
 
         // 设置标志位监听窗口外部触摸事件
@@ -82,11 +82,11 @@ public class ContainerActivity extends AppCompatActivity {
         // 创建根布局 - 使用LinearLayout简化垂直布局
         mRootLayout = new LinearLayout(this);
         mRootLayout.setOrientation(LinearLayout.VERTICAL);
-        mRootLayout.setBackgroundColor(0xE6FFFFFF); // 90%不透明的白色背景
+        mRootLayout.setBackgroundResource(R.drawable.bg_container); // 圆角白色背景
 
         // 获取屏幕高度
         int screenHeight = getResources().getDisplayMetrics().heightPixels;
-        int containerHeight = (int) (screenHeight * 0.6); // 占屏幕60%高度
+        int containerHeight = (int) (screenHeight * 0.75); // 占屏幕75%高度
 
         // 设置布局参数
         LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
@@ -95,14 +95,6 @@ public class ContainerActivity extends AppCompatActivity {
         );
         rootParams.gravity = Gravity.BOTTOM;
         mRootLayout.setLayoutParams(rootParams);
-
-        // 创建标题栏 (固定高度48dp)
-        View titleBar = createTitleBar();
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(48)
-        );
-        mRootLayout.addView(titleBar, titleParams);
 
         // 创建内容区域容器 (填充剩余空间)
         FrameLayout contentContainer = new FrameLayout(this);
