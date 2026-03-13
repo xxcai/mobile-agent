@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.6
 milestone_name: 主界面重构
-status: unknown
-last_updated: "2026-03-12T09:35:13.636Z"
+status: in_progress
+last_updated: "2026-03-13T01:20:00.000Z"
 ---
 
 # STATE: Mobile Agent - v2.6 主界面重构
 
-**Last Updated:** 2026-03-12
+**Last Updated:** 2026-03-13
 
 ---
 
@@ -25,9 +25,9 @@ last_updated: "2026-03-12T09:35:13.636Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.6 主界面重构 |
-| Phase | 4 (Plan 01 Complete) |
+| Phase | 5 (Plan 01 Complete) |
 | Status | In Progress |
-| Last activity: | 2026-03-12 — Phase 4 Plan 01 completed - 会话持久化 |
+| Last activity: | 2026-03-13 — Phase 5 Plan 01 completed - 界面优化 + 语音保留 |
 
 ---
 
@@ -35,6 +35,9 @@ last_updated: "2026-03-12T09:35:13.636Z"
 
 ### Recent Changes
 
+- 2026-03-13: Phase 5 Plan 01 completed - 界面优化 + 语音保留（容器无标题栏+圆角+不透明背景，标题改为 Mobile Agent）
+- 2026-03-13: Phase 5 Plan 01 created - 界面优化 + 语音保留
+- 2026-03-13: Phase 5 context gathered - 界面优化 + 语音保留
 - 2026-03-12: Phase 4 Plan 01 completed - 会话持久化（SharedPreferences + Gson）
 - 2026-03-12: Phase 3 Plan 01 completed - Fragment 容器化（AgentFragment 嵌入 ContainerActivity）
 - 2026-03-12: Phase 3 Plan 01 created - Fragment 容器化
@@ -56,6 +59,7 @@ None
 
 ## Decisions
 
+- 2026-03-13: Phase 5 AgentFragment 界面优化（容器样式 + 标题栏）+ 底部输入框 bug 修复 + 语音按钮验证
 - 2026-03-12: Phase 4 使用 SharedPreferences + Gson 实现会话持久化
 - 2026-03-12: Phase 3 使用 Fragment 嵌入 ContainerActivity（半透明 BottomSheet）
 - 2026-03-12: Phase 3 完全抽取 AgentActivity UI 逻辑到 AgentFragment
