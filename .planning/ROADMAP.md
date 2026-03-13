@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- 🔄 **v2.6 主界面重构** — Phases 1 to 6 (in progress)
+- ✅ **v2.6 主界面重构** — Phases 1 to 6 (shipped 2026-03-13)
 - ✅ **v2.5 容器Activity模块** — Phases 1 to 2 (shipped 2026-03-12)
 - ✅ **v2.4 Agent 性能分析** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.3 语音转文字** — Phases 1 to 3 (shipped 2026-03-11)
@@ -15,84 +15,27 @@
 
 ---
 
-## v2.6 主界面重构
+<details>
+<summary>✅ v2.6 主界面重构 (Phases 1-6) — SHIPPED 2026-03-13</summary>
 
-### Phase 1: 模块合并 (Complete)
-**Goal:** floating-ball 模块合并到 android-agent
+- [x] Phase 1: 模块合并 (1/1 plans) — completed 2026-03-12
+- [x] Phase 2: MainActivity + 悬浮球基础 (1/1 plans) — completed 2026-03-12
+- [x] Phase 3: Fragment 容器化 (1/1 plans) — completed 2026-03-12
+- [x] Phase 4: Agent 后台运行 (1/1 plans) — completed 2026-03-12
+- [x] Phase 5: 界面优化 + 语音保留 (1/1 plans) — completed 2026-03-13
+- [x] Phase 6: 整合测试 (1/1 plans) — completed 2026-03-13
 
-**Requirements:** FLOAT-02
+**Key achievements:**
+- floating-ball 模块合并到 android-agent
+- MainActivity 启动页 + 悬浮球控制
+- Fragment 容器化（AgentFragment + ContainerActivity）
+- 会话持久化（SharedPreferences + Gson）
+- 界面优化（圆角、不透明背景、底部输入框修复）
+- 6 项功能整合测试通过
 
-**Success criteria:**
-1. floating-ball 代码合并到 android-agent 模块
-2. 功能正常工作
+**See:** `.planning/milestones/v2.6-ROADMAP.md`
 
-**Plans:**
-1/1 plans complete
-
-### Phase 2: MainActivity + 悬浮球基础 (Complete)
-**Goal:** 新启动页，悬浮球浮在 MainActivity 上
-
-**Requirements:** MAIN-01, MAIN-02, FLOAT-01
-
-**Success criteria:**
-1. 新建 MainActivity 作为启动页
-2. app 启动时加载 MainActivity
-3. 悬浮球在 MainActivity 上正确显示
-
-**Plans:**
-1/1 plans complete
-
-### Phase 3: Fragment 容器化 (Complete)
-**Goal:** AgentActivity 界面抽取为 Fragment，集成到 ContainerActivity
-
-**Requirements:** FRAG-01, FRAG-02, FRAG-03
-
-**Success criteria:**
-1. AgentActivity 界面抽取为 Fragment
-2. Fragment 正确加载到 ContainerActivity
-3. 原有跳转逻辑保留
-
-**Plans:**
-1/1 plans complete
-
-### Phase 4: Agent 后台运行 (Complete)
-**Goal:** Agent 后台运行，支持记忆恢复
-
-**Requirements:** AGENT-01, AGENT-02, AGENT-03, AGENT-04
-
-**Success criteria:**
-1. Agent 可以在后台持续运行
-2. 重新打开 Agent 界面时恢复之前显示
-3. 重新打开 Agent 界面时更新最新进度
-
-**Plans:**
-1/1 plans complete
-
-### Phase 5: 界面优化 + 语音保留 (Complete)
-**Goal:** AgentActivity 界面优化，保留语音功能
-
-**Requirements:** UI-01, VOICE-01
-
-**Success criteria:**
-1. AgentActivity 界面优化完成（见 discuss 环节）
-2. 语音功能正常工作
-
-**Plans:**
-1/1 plans complete
-
-### Phase 6: 整合测试
-**Goal:** 端到端测试所有功能
-
-**Success criteria:**
-1. MainActivity 启动正常
-2. 悬浮球显示正常
-3. Fragment 切换正常
-4. Agent 后台运行正常
-5. 界面优化生效
-6. 语音功能正常
-
-**Plans:**
-1/1 plans complete
+</details>
 
 ---
 

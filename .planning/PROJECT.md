@@ -46,6 +46,13 @@
 - ✓ 容器Activity — v2.5 (shipped 2026-03-12)
 - ✓ Broadcast 通信机制 — v2.5 (shipped 2026-03-12)
 - ✓ Android 录音权限处理 — v2.3 (shipped 2026-03-11)
+- ✓ floating-ball 模块合并 — v2.6 (shipped 2026-03-13)
+- ✓ MainActivity 启动页 — v2.6 (shipped 2026-03-13)
+- ✓ ActivityLifecycleCallbacks 悬浮球控制 — v2.6 (shipped 2026-03-13)
+- ✓ Fragment 容器化 — v2.6 (shipped 2026-03-13)
+- ✓ 会话持久化 (SharedPreferences + Gson) — v2.6 (shipped 2026-03-13)
+- ✓ 界面优化 (圆角/不透明背景) — v2.6 (shipped 2026-03-13)
+- ✓ 语音功能保留 — v2.6 (shipped 2026-03-13)
 
 ### Active
 
@@ -53,22 +60,23 @@
 
 ## Current Milestone: Planning
 
-**Last milestone completed:** v2.5 容器Activity模块 (shipped 2026-03-12)
+**Last milestone completed:** v2.6 主界面重构 (shipped 2026-03-13)
 
 **Next milestone:** 待规划
 
-## Current Milestone: v2.6 主界面重构
+## v2.6 Summary (Archived)
 
-**Goal:** 重构 app 主界面，实现 MainActivity 启动页 + Fragment 容器化 + 悬浮球合并 + Agent 后台运行
+**Shipped:** 2026-03-13
+**Phases:** 6
+**Plans:** 6
 
-**Target features:**
-1. floating-ball 模块合并到 android-agent
-2. 新建 MainActivity 作为启动页
-3. 悬浮球在满足条件时浮在 MainActivity 上
-4. AgentActivity 界面用 Fragment 承载到 ContainerActivity
-5. Agent 后台运行 + 记忆恢复能力
-6. 界面优化
-7. 保留现有语音功能
+Key achievements:
+- floating-ball 模块合并到 android-agent
+- MainActivity 启动页 + ActivityLifecycleCallbacks 悬浮球控制
+- Fragment 容器化（AgentFragment + ContainerActivity）
+- 会话持久化（SharedPreferences + Gson）
+- 界面优化（圆角、不透明背景、底部输入框修复）
+- 6 项功能整合测试通过
 
 ## Context
 
@@ -115,6 +123,8 @@
 | 悬浮球单例模式 | 不使用 Service，使用 WindowManager | ✓ v2.5 shipped |
 | Broadcast 通信 | Activity 与悬浮球通过广播协调 | ✓ v2.5 shipped |
 | SingleTop Activity | 避免容器Activity重复创建 | ✓ v2.5 shipped |
+| Application 级别初始化 | MobileAgentApplication 初始化会话持久化 | ✓ v2.6 shipped |
+| Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-12 — v2.5 completed*
+*Last updated: 2026-03-13 — v2.6 completed*
