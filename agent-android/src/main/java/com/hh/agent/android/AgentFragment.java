@@ -135,6 +135,12 @@ public class AgentFragment extends Fragment implements MainContract.View {
             if (isStreaming) {
                 // 取消流式响应
                 presenter.cancelStream();
+                // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
+                adapter.removeThinkingMessage();
+                adapter.removeAiMessages();
+                // 清除累积的文本
+                streamTextBuffer.setLength(0);
+                // 重置状态（按钮恢复，用户输入保留在 etMessage）
                 resetStreamingState();
             } else {
                 // 发送消息
@@ -358,8 +364,9 @@ public class AgentFragment extends Fragment implements MainContract.View {
         adapter.addErrorMessage(errorCode, errorMessage);
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
-        // 清除思考消息
+        // 清除 AI 相关消息（thinking, tool_use, tool_result, assistant）
         adapter.removeThinkingMessage();
+        adapter.removeAiMessages();
 
         // 清除累积的文本
         streamTextBuffer.setLength(0);
