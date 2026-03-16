@@ -1,6 +1,7 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -263,6 +264,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
+        Log.d("AgentFragment", "onStreamToolUse: id=" + id + ", name=" + name + ", args=" + argumentsJson);
         // 添加工具调用消息
         adapter.addToolUseMessage(name, argumentsJson);
 
@@ -272,6 +274,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamToolResult(String id, String result) {
+        Log.d("AgentFragment", "onStreamToolResult: id=" + id + ", result=" + result);
         // 添加工具结果消息
         // 从消息列表中获取最后一个 tool_use 消息的工具名称
         String toolName = getLastToolName();
