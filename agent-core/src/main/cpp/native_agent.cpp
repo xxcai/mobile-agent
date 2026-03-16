@@ -373,4 +373,198 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSetToolsSchem
     env->ReleaseStringUTFChars(schemaJson, schema_json);
 }
 
+/**
+ * Send a message with streaming callback to Java layer
+ * This implements the stream event channel from C++ to Java
+ */
+JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageStream(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring message,
+        jobject listener) {
+
+    const char* msg = env->GetStringUTFChars(message, nullptr);
+    if (!msg) {
+        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Empty message");
+        return;
+    }
+
+    if (!g_agent) {
+        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Agent not initialized");
+        env->ReleaseStringUTFChars(message, msg);
+        return;
+    }
+
+    if (!listener) {
+        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Listener is null");
+        env->ReleaseStringUTFChars(message, msg);
+        return;
+    }
+
+    // Create global reference to keep the listener object alive
+    jobject listener_global_ref = env->NewGlobalRef(listener);
+
+    // Get JavaVM pointer for multi-threaded access
+    JavaVM* java_vm = nullptr;
+    env->GetJavaVM(&java_vm);
+
+    // Get method IDs for all callback methods
+    jclass listener_cls = env->GetObjectClass(listener);
+
+    jmethodID method_onTextDelta = env->GetMethodID(listener_cls, "onTextDelta", "(Ljava/lang/String;)V");
+    jmethodID method_onToolUse = env->GetMethodID(listener_cls, "onToolUse",
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID method_onToolResult = env->GetMethodID(listener_cls, "onToolResult",
+        "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID method_onMessageEnd = env->GetMethodID(listener_cls, "onMessageEnd", "(Ljava/lang/String;)V");
+    jmethodID method_onError = env->GetMethodID(listener_cls, "onError",
+        "(Ljava/lang/String;Ljava/lang/String;)V");
+
+    env->DeleteLocalRef(listener_cls);
+
+    // Create JNI callback that delegates to Java
+    class JniStreamCallback : public icraw::AgentEventCallback {
+    public:
+        JniStreamCallback(JavaVM* jvm, jobject listener,
+                          jmethodID onTextDelta, jmethodID onToolUse,
+                          jmethodID onToolResult, jmethodID onMessageEnd,
+                          jmethodID onError)
+            : java_vm_(jvm), listener_(listener),
+              method_onTextDelta_(onTextDelta), method_onToolUse_(onToolUse),
+              method_onToolResult_(onToolResult), method_onMessageEnd_(onMessageEnd),
+              method_onError_(onError) {}
+
+        void operator()(const icraw::AgentEvent& event) override {
+            // Attach current thread to JVM if needed
+            JNIEnv* env = nullptr;
+            bool attached = false;
+            int getEnvResult = java_vm_->GetEnv((void**)&env, JNI_VERSION_1_6);
+            if (getEnvResult == JNI_EDETACHED) {
+                if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
+                    attached = true;
+                } else {
+                    icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Failed to attach thread");
+                    return;
+                }
+            } else if (getEnvResult != JNI_OK) {
+                icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Failed to get JNI env");
+                return;
+            }
+
+            try {
+                if (event.type == "text_delta") {
+                    std::string text = event.data.value("text", "");
+                    jstring j_text = env->NewStringUTF(text.c_str());
+                    env->CallVoidMethod(listener_, method_onTextDelta_, j_text);
+                    env->DeleteLocalRef(j_text);
+
+                } else if (event.type == "tool_use") {
+                    std::string id = event.data.value("id", "");
+                    std::string name = event.data.value("name", "");
+                    std::string arguments = event.data.value("input", nlohmann::json::object()).dump();
+
+                    jstring j_id = env->NewStringUTF(id.c_str());
+                    jstring j_name = env->NewStringUTF(name.c_str());
+                    jstring j_args = env->NewStringUTF(arguments.c_str());
+
+                    env->CallVoidMethod(listener_, method_onToolUse_, j_id, j_name, j_args);
+
+                    env->DeleteLocalRef(j_id);
+                    env->DeleteLocalRef(j_name);
+                    env->DeleteLocalRef(j_args);
+
+                } else if (event.type == "tool_result") {
+                    std::string tool_use_id = event.data.value("tool_use_id", "");
+                    std::string content = event.data.value("content", "");
+
+                    jstring j_id = env->NewStringUTF(tool_use_id.c_str());
+                    jstring j_result = env->NewStringUTF(content.c_str());
+
+                    env->CallVoidMethod(listener_, method_onToolResult_, j_id, j_result);
+
+                    env->DeleteLocalRef(j_id);
+                    env->DeleteLocalRef(j_result);
+
+                } else if (event.type == "message_end") {
+                    std::string finish_reason = event.data.value("finish_reason", "unknown");
+                    jstring j_reason = env->NewStringUTF(finish_reason.c_str());
+                    env->CallVoidMethod(listener_, method_onMessageEnd_, j_reason);
+                    env->DeleteLocalRef(j_reason);
+                }
+            } catch (...) {
+                icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Exception in callback");
+            }
+
+            // Detach thread if we attached it
+            if (attached) {
+                java_vm_->DetachCurrentThread();
+            }
+        }
+
+        // Method to report error to Java
+        void reportError(const std::string& errorCode, const std::string& errorMessage) {
+            JNIEnv* env = nullptr;
+            bool attached = false;
+            int getEnvResult = java_vm_->GetEnv((void**)&env, JNI_VERSION_1_6);
+            if (getEnvResult == JNI_EDETACHED) {
+                if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
+                    attached = true;
+                } else {
+                    return;
+                }
+            } else if (getEnvResult != JNI_OK) {
+                return;
+            }
+
+            jstring j_code = env->NewStringUTF(errorCode.c_str());
+            jstring j_message = env->NewStringUTF(errorMessage.c_str());
+
+            env->CallVoidMethod(listener_, method_onError_, j_code, j_message);
+
+            env->DeleteLocalRef(j_code);
+            env->DeleteLocalRef(j_message);
+
+            if (attached) {
+                java_vm_->DetachCurrentThread();
+            }
+        }
+
+    private:
+        JavaVM* java_vm_;
+        jobject listener_;
+        jmethodID method_onTextDelta_;
+        jmethodID method_onToolUse_;
+        jmethodID method_onToolResult_;
+        jmethodID method_onMessageEnd_;
+        jmethodID method_onError_;
+    };
+
+    // Create callback instance
+    auto callback = std::make_unique<JniStreamCallback>(
+        java_vm, listener_global_ref,
+        method_onTextDelta, method_onToolUse,
+        method_onToolResult, method_onMessageEnd,
+        method_onError);
+
+    JniStreamCallback* callback_ptr = callback.get();
+
+    try {
+        // Call chat_stream with the callback
+        g_agent->chat_stream(msg, *callback);
+        icraw::Logger::get_instance().logger()->debug("nativeSendMessageStream: chat_stream completed");
+    } catch (const std::exception& e) {
+        // Report error to Java via callback
+        callback_ptr->reportError("cpp_exception", e.what());
+        icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Exception: {}", e.what());
+    } catch (...) {
+        callback_ptr->reportError("unknown_error", "Unknown exception in chat_stream");
+        icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Unknown exception");
+    }
+
+    // Clean up global reference
+    env->DeleteGlobalRef(listener_global_ref);
+
+    env->ReleaseStringUTFChars(message, msg);
+}
+
 } // extern "C"
