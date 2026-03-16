@@ -215,12 +215,13 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 
                 // When stream ends, StreamParser provides complete tool calls
                 if (chunk.is_stream_end) {
-                    ICRAW_LOG_DEBUG("[LOOP] Stream end: finish_reason='{}', tool_calls={}", 
+                    ICRAW_LOG_DEBUG("[LOOP] Stream end: finish_reason='{}', tool_calls={}",
                         chunk.finish_reason, chunk.tool_calls.size());
                     stream_complete = true;
                     final_tool_calls = chunk.tool_calls;  // Already accumulated by StreamParser
                     last_finish_reason_ = chunk.finish_reason;
-                    
+
+                    ICRAW_LOG_DEBUG("[LOOP] Sending message_end event");
                     AgentEvent event;
                     event.type = "message_end";
                     event.data["finish_reason"] = chunk.finish_reason;
