@@ -30,6 +30,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int VIEW_TYPE_USER = 0;
     public static final int VIEW_TYPE_ASSISTANT = 1;
     public static final int VIEW_TYPE_THINKING = 2;
+    public static final int VIEW_TYPE_TOOL_USE = 3;
+    public static final int VIEW_TYPE_TOOL_RESULT = 4;
 
     private List<Message> messages = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -55,6 +57,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (viewType == VIEW_TYPE_THINKING) {
             View view = inflater.inflate(R.layout.item_thinking, parent, false);
             return new ThinkingViewHolder(view);
+        } else if (viewType == VIEW_TYPE_TOOL_USE) {
+            View view = inflater.inflate(R.layout.item_tool_use, parent, false);
+            return new ToolUseViewHolder(view);
+        } else if (viewType == VIEW_TYPE_TOOL_RESULT) {
+            View view = inflater.inflate(R.layout.item_tool_result, parent, false);
+            return new ToolResultViewHolder(view);
         } else {
             View view = inflater.inflate(R.layout.item_message, parent, false);
             return new MessageViewHolder(view, timeFormat, markwon);
@@ -66,6 +74,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         Message message = messages.get(position);
         if (holder instanceof ThinkingViewHolder) {
             ((ThinkingViewHolder) holder).bind(message.getContent());
+        } else if (holder instanceof ToolUseViewHolder) {
+            ((ToolUseViewHolder) holder).bind(message.getName(), message.getContent());
+        } else if (holder instanceof ToolResultViewHolder) {
+            ((ToolResultViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
         }
@@ -74,10 +86,15 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public int getItemViewType(int position) {
         Message message = messages.get(position);
-        if ("thinking".equals(message.getRole())) {
+        String role = message.getRole();
+        if ("thinking".equals(role)) {
             return VIEW_TYPE_THINKING;
-        } else if ("user".equals(message.getRole())) {
+        } else if ("user".equals(role)) {
             return VIEW_TYPE_USER;
+        } else if ("tool_use".equals(role)) {
+            return VIEW_TYPE_TOOL_USE;
+        } else if ("tool_result".equals(role)) {
+            return VIEW_TYPE_TOOL_RESULT;
         } else {
             return VIEW_TYPE_ASSISTANT;
         }
@@ -148,6 +165,36 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 添加工具调用消息
+     * @param toolName 工具名称
+     * @param toolInput 工具输入参数
+     */
+    public void addToolUseMessage(String toolName, String toolInput) {
+        Message message = new Message();
+        message.setRole("tool_use");
+        message.setName(toolName);
+        message.setContent(toolInput);
+        message.setTimestamp(System.currentTimeMillis());
+        this.messages.add(message);
+        notifyItemInserted(this.messages.size() - 1);
+    }
+
+    /**
+     * 添加工具结果消息
+     * @param toolName 工具名称
+     * @param toolResult 工具返回结果
+     */
+    public void addToolResultMessage(String toolName, String toolResult) {
+        Message message = new Message();
+        message.setRole("tool_result");
+        message.setName(toolName);
+        message.setContent(toolResult);
+        message.setTimestamp(System.currentTimeMillis());
+        this.messages.add(message);
+        notifyItemInserted(this.messages.size() - 1);
+    }
+
+    /**
      * 清空消息列表
      */
     public void clear() {
@@ -210,6 +257,46 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         void bind(String content) {
             tvThinking.setText(content);
+        }
+    }
+
+    /**
+     * 工具调用 ViewHolder
+     */
+    static class ToolUseViewHolder extends RecyclerView.ViewHolder {
+
+        private final TextView tvToolName;
+        private final TextView tvToolInput;
+
+        ToolUseViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvToolName = itemView.findViewById(R.id.tvToolName);
+            tvToolInput = itemView.findViewById(R.id.tvToolInput);
+        }
+
+        void bind(String toolName, String toolInput) {
+            tvToolName.setText(toolName);
+            tvToolInput.setText(toolInput);
+        }
+    }
+
+    /**
+     * 工具结果 ViewHolder
+     */
+    static class ToolResultViewHolder extends RecyclerView.ViewHolder {
+
+        private final TextView tvToolName;
+        private final TextView tvToolResult;
+
+        ToolResultViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvToolName = itemView.findViewById(R.id.tvToolName);
+            tvToolResult = itemView.findViewById(R.id.tvToolResult);
+        }
+
+        void bind(String toolName, String toolResult) {
+            tvToolName.setText(toolName + " Result");
+            tvToolResult.setText(toolResult);
         }
     }
 }

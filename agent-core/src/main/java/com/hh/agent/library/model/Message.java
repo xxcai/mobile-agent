@@ -7,7 +7,8 @@ import com.google.gson.annotations.SerializedName;
  */
 public class Message {
     @SerializedName("id") private String id;
-    @SerializedName("role") private String role;        // "user", "assistant", "system"
+    @SerializedName("role") private String role;        // "user", "assistant", "system", "thinking", "tool_use", "tool_result"
+    @SerializedName("name") private String name;         // tool name for tool_use and tool_result
     @SerializedName("content") private String content;
     @SerializedName("timestamp") private long timestamp;
 
@@ -28,6 +29,14 @@ public class Message {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getRole() {

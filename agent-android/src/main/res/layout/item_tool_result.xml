@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:layout_marginStart="32dp"
+    android:layout_marginEnd="32dp"
+    android:background="@drawable/bg_tool_result"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp">
+
+    <!-- 工具结果标题 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="8dp">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_result"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="Result icon" />
+
+        <TextView
+            android:id="@+id/tvToolName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tool Result"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#888888" />
+
+    </LinearLayout>
+
+    <!-- 工具返回结果 -->
+    <TextView
+        android:id="@+id/tvToolResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:text="Tool result..."
+        android:textSize="12sp"
+        android:textColor="#333333"
+        android:fontFamily="monospace"
+        android:background="#FFFFFF" />
+
+</LinearLayout>
