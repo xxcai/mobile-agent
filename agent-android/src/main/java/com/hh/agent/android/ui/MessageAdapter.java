@@ -314,7 +314,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             if (content == null) {
                 content = "";
             }
+            Log.d("MessageAdapter", "bindMessage: setting text to '" + content + "'");
             tvThinking.setText(content);
+            Log.d("MessageAdapter", "bindMessage: text now is '" + tvThinking.getText() + "'");
         }
     }
 
