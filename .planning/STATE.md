@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.7
-milestone_name: 待规划
-status: planning
-last_updated: "2026-03-13T03:25:00.000Z"
+milestone_name: 流式输出
+status: ready_to_plan
+last_updated: "2026-03-16T00:00:00.000Z"
 ---
 
 # STATE: Mobile Agent
 
-**Last Updated:** 2026-03-13
+**Last Updated:** 2026-03-16
 
 ---
 
@@ -16,7 +16,7 @@ last_updated: "2026-03-13T03:25:00.000Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** 规划下一个里程碑
+**Current Focus:** v2.7 流式输出 - 定义需求
 
 ---
 
@@ -24,9 +24,9 @@ last_updated: "2026-03-13T03:25:00.000Z"
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.6 主界面重构 |
-| Status | ✅ Completed (shipped 2026-03-13) |
-| Last activity: | 2026-03-13 — Completed quick task 16: 合并 ActivityLifecycleCallbacks |
+| Milestone | v2.7 流式输出 |
+| Status | Phase 1 Complete |
+| Last activity: | 2026-03-16 — Phase 1 Plan 01 completed - JNI 底层桥接 |
 
 ---
 
@@ -34,6 +34,8 @@ last_updated: "2026-03-13T03:25:00.000Z"
 
 ### Recent Changes
 
+- 2026-03-16: Phase 1 Plan 01 completed - JNI 底层桥接 (STREAM-01, STREAM-02)
+- 2026-03-16: Phase 1 Plan 01 created - JNI 底层桥接
 - 2026-03-13: Phase 6 Plan 01 created - 整合测试（6 个功能点手动测试）
 - 2026-03-13: Phase 5 Plan 01 completed - 界面优化 + 语音保留
 - 2026-03-13: Phase 5 Plan 01 created - 界面优化 + 语音保留
@@ -64,11 +66,13 @@ None
 | ContainerActivity布局改成XML | floating-ball | 2026-03-12 |
 | 优化MainPresenter里面的线程池 | agent-android | 2026-03-13 |
 | 添加session持久化 | cpp | 2026-03-13 |
+| C++ 层实现 error 事件回调 | cpp | 2026-03-16 |
 
 ---
 
 ## Decisions
 
+- 2026-03-16: Phase 1 每个事件类型使用单独回调方法 (onTextDelta/onToolUse/onToolResult/onMessageEnd/onError)，使用 per-callback attach/detach 模式
 - 2026-03-13: Phase 6 使用手动测试验证 6 个功能点
 - 2026-03-13: Phase 5 AgentFragment 界面优化（容器样式 + 标题栏）+ 底部输入框 bug 修复 + 语音按钮验证
 - 2026-03-12: Phase 4 使用 SharedPreferences + Gson 实现会话持久化
@@ -88,6 +92,17 @@ None
 | 4 | Agent 后台运行 | AGENT-01~AGENT-04 | ✅ Complete |
 | 5 | 界面优化 + 语音保留 | UI-01, VOICE-01 | ✅ Complete |
 | 6 | 整合测试 | - | ✅ Complete |
+
+---
+
+## v2.7 进度
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 1 | JNI 底层桥接 | STREAM-01, STREAM-02 | ✅ Complete |
+| 2 | Java API 层 | STREAM-03 | ○ Pending |
+| 3 | UI 流式交互 | UI-01~UI-06 | ○ Pending |
+| 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ○ Pending |
 
 ---
 
