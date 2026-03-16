@@ -464,6 +464,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
                     std::string id = event.data.value("id", "");
                     std::string name = event.data.value("name", "");
                     std::string arguments = event.data.value("input", nlohmann::json::object()).dump();
+                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: tool_use event, name='{}'", name);
 
                     jstring j_id = env->NewStringUTF(id.c_str());
                     jstring j_name = env->NewStringUTF(name.c_str());
@@ -489,6 +490,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
 
                 } else if (event.type == "message_end") {
                     std::string finish_reason = event.data.value("finish_reason", "unknown");
+                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: message_end event, finish_reason='{}'", finish_reason);
                     jstring j_reason = env->NewStringUTF(finish_reason.c_str());
                     env->CallVoidMethod(listener_, method_onMessageEnd_, j_reason);
                     env->DeleteLocalRef(j_reason);
