@@ -452,8 +452,10 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
             }
 
             try {
+                icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: event type='{}'", event.type);
                 if (event.type == "text_delta") {
                     std::string text = event.data.value("text", "");
+                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: text_delta event, text='{}'", text);
                     jstring j_text = env->NewStringUTF(text.c_str());
                     env->CallVoidMethod(listener_, method_onTextDelta_, j_text);
                     env->DeleteLocalRef(j_text);
