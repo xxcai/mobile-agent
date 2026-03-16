@@ -282,6 +282,14 @@ public class AgentFragment extends Fragment implements MainContract.View {
         String toolName = getLastToolName();
         adapter.addToolResultMessage(toolName, result);
 
+        // 工具结果返回后，LLM 即将开始下一次响应
+        // 清除旧的 thinking 消息，准备显示新的 thinking
+        hideThinking();
+        // 清除累积的文本，准备接收新的响应
+        streamTextBuffer.setLength(0);
+        // 显示新的 thinking 消息
+        showThinking();
+
         // 自动滚动到最新消息
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
