@@ -145,9 +145,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      * @param content 新的文本内容（替换而非追加）
      */
     public void updateThinkingMessage(String content) {
+        Log.d("MessageAdapter", "updateThinkingMessage called with: '" + content + "'");
         for (int i = 0; i < messages.size(); i++) {
             Message msg = messages.get(i);
+            Log.d("MessageAdapter", "updateThinkingMessage: checking msg[" + i + "], role=" + msg.getRole() + ", content=" + msg.getContent());
             if ("thinking".equals(msg.getRole())) {
+                Log.d("MessageAdapter", "updateThinkingMessage: found thinking at " + i + ", setting content to '" + content + "'");
                 msg.setContent(content);
                 notifyItemChanged(i);
                 return;
