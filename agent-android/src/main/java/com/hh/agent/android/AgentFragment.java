@@ -252,8 +252,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
     // 流式回调方法实现
     @Override
     public void onStreamTextDelta(String textDelta) {
-        // 累积文本内容（替换模式）
-        streamTextBuffer.setLength(0);
+        // 累积文本内容（累积模式，不是替换）
         streamTextBuffer.append(textDelta);
 
         // 更新 thinking 消息内容
