@@ -4,6 +4,7 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.util.Log;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -302,12 +303,15 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         void bindMessage(Message message) {
-            String role = message.getRole();
-            if ("sending".equals(role)) {
-                tvThinking.setText("发送中...");
-            } else {
-                tvThinking.setText(message.getContent());
+            if (tvThinking == null) {
+                Log.e("MessageAdapter", "tvThinking is null!");
+                return;
             }
+            String content = message.getContent();
+            if (content == null) {
+                content = "";
+            }
+            tvThinking.setText(content);
         }
     }
 
