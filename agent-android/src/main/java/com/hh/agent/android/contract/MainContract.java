@@ -51,6 +51,31 @@ public interface MainContract {
          * 隐藏思考中提示
          */
         void hideThinking();
+
+        /**
+         * 流式文本增量回调
+         */
+        void onStreamTextDelta(String textDelta);
+
+        /**
+         * 工具调用开始回调
+         */
+        void onStreamToolUse(String id, String name, String argumentsJson);
+
+        /**
+         * 工具调用结果回调
+         */
+        void onStreamToolResult(String id, String result);
+
+        /**
+         * 流式消息结束回调
+         */
+        void onStreamMessageEnd(String finishReason);
+
+        /**
+         * 流式错误回调
+         */
+        void onStreamError(String errorCode, String errorMessage);
     }
 
     /**
@@ -76,5 +101,10 @@ public interface MainContract {
          * 解绑 View
          */
         void detachView();
+
+        /**
+         * 取消流式请求
+         */
+        void cancelStream();
     }
 }

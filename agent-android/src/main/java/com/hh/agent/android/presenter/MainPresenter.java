@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
+import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 import com.hh.agent.library.model.Message;
@@ -142,37 +143,76 @@ public class MainPresenter implements MainContract.Presenter {
         }
 
         // 标记正在思考状态
-        // TODO: 后续迁移到 C++ 层实现
         isThinking = true;
 
-        executor.execute(() -> {
-            try {
-                // 发送消息，获取回复
-                Message response = mobileAgentApi.sendMessage(content, sessionKey);
-
-                // 清除思考状态
-                isThinking = false;
-
+        // 创建流式事件监听器
+        AgentEventListener streamListener = new AgentEventListener() {
+            @Override
+            public void onTextDelta(String text) {
                 if (view != null) {
-                    mainHandler.post(() -> {
-                        view.hideThinking();
-                        view.hideLoading();
-                        view.onMessageReceived(response);
-                    });
+                    mainHandler.post(() -> view.onStreamTextDelta(text));
                 }
-            } catch (Exception e) {
+            }
+
+            @Override
+            public void onToolUse(String id, String name, String argumentsJson) {
+                if (view != null) {
+                    mainHandler.post(() -> view.onStreamToolUse(id, name, argumentsJson));
+                }
+            }
+
+            @Override
+            public void onToolResult(String id, String result) {
+                if (view != null) {
+                    mainHandler.post(() -> view.onStreamToolResult(id, result));
+                }
+            }
+
+            @Override
+            public void onMessageEnd(String finishReason) {
                 // 清除思考状态
                 isThinking = false;
-
                 if (view != null) {
                     mainHandler.post(() -> {
                         view.hideThinking();
                         view.hideLoading();
-                        view.onError("发送消息失败: " + e.getMessage());
+                        view.onStreamMessageEnd(finishReason);
                     });
                 }
             }
-        });
+
+            @Override
+            public void onError(String errorCode, String errorMessage) {
+                // 清除思考状态
+                isThinking = false;
+                if (view != null) {
+                    mainHandler.post(() -> {
+                        view.hideThinking();
+                        view.hideLoading();
+                        view.onStreamError(errorCode, errorMessage);
+                    });
+                }
+            }
+        };
+
+        // 使用流式接口发送消息
+        mobileAgentApi.sendMessageStream(content, sessionKey, streamListener);
+    }
+
+    @Override
+    public void cancelStream() {
+        if (isThinking) {
+            // 调用 NativeAgent 取消流式请求
+            com.hh.agent.library.NativeAgent.cancelStream();
+            // 清除思考状态
+            isThinking = false;
+            if (view != null) {
+                mainHandler.post(() -> {
+                    view.hideThinking();
+                    view.hideLoading();
+                });
+            }
+        }
     }
 
     @Override

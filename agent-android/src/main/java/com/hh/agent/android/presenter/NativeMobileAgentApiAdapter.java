@@ -1,6 +1,7 @@
 package com.hh.agent.android.presenter;
 
 import android.content.Context;
+import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.Session;
@@ -166,6 +167,11 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
             messages.add(convertMessage(agentMessage));
         }
         return messages;
+    }
+
+    @Override
+    public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
+        nativeApi.sendMessageStream(content, sessionKey, listener);
     }
 
     /**
