@@ -164,13 +164,10 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
     if (sse_event.empty()) {
         return false;
     }
-    
-    if (is_stream_end(sse_event)) {
-        response.is_stream_end = true;
-        response.tool_calls = get_accumulated_tool_calls();
-        return true;
-    }
-    
+
+    // Don't return early on stream end - we need to parse finish_reason from JSON
+    // The is_stream_end check is done after JSON parsing below
+
     if (sse_event.find("data:") != 0) {
         return false;
     }
