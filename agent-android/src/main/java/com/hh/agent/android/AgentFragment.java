@@ -309,6 +309,14 @@ public class AgentFragment extends Fragment implements MainContract.View {
     @Override
     public void onStreamMessageEnd(String finishReason) {
         Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", streamTextBuffer=" + streamTextBuffer.toString());
+
+        // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
+        if ("tool_calls".equals(finishReason)) {
+            Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping thinking message");
+            return;
+        }
+
+        // finish_reason 是 stop 时，才删除 thinking 并添加最终响应
         // 1. 删除 thinking 消息
         hideThinking();
 
