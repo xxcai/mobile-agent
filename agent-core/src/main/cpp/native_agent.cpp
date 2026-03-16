@@ -434,7 +434,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
               method_onToolResult_(onToolResult), method_onMessageEnd_(onMessageEnd),
               method_onError_(onError) {}
 
-        void operator()(const icraw::AgentEvent& event) override {
+        void operator()(const icraw::AgentEvent& event) {
             // Attach current thread to JVM if needed
             JNIEnv* env = nullptr;
             bool attached = false;

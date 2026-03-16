@@ -244,6 +244,35 @@ public class AgentFragment extends Fragment implements MainContract.View {
         }
     }
 
+    // 流式回调方法实现
+    @Override
+    public void onStreamTextDelta(String textDelta) {
+        // 流式文本增量更新 - 可选实现用于实时显示
+    }
+
+    @Override
+    public void onStreamToolUse(String id, String name, String argumentsJson) {
+        // 工具调用开始 - 可选实现用于显示工具调用
+    }
+
+    @Override
+    public void onStreamToolResult(String id, String result) {
+        // 工具调用结果 - 可选实现用于显示结果
+    }
+
+    @Override
+    public void onStreamMessageEnd(String finishReason) {
+        // 流式消息结束 - 可选实现用于完成状态
+    }
+
+    @Override
+    public void onStreamError(String errorCode, String errorMessage) {
+        // 流式错误 - 显示错误信息
+        if (getContext() != null) {
+            Toast.makeText(getContext(), "Stream error: " + errorMessage, Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     public void showLoading() {
         if (btnSend != null) {

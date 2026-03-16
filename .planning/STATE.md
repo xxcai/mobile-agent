@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.7
 milestone_name: 流式输出
-status: ready_to_plan
-last_updated: "2026-03-16T00:00:00.000Z"
+status: planning
+last_updated: "2026-03-16T12:00:00.000Z"
 ---
 
 # STATE: Mobile Agent
@@ -16,7 +16,7 @@ last_updated: "2026-03-16T00:00:00.000Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.7 流式输出 - 定义需求
+**Current Focus:** v2.7 流式输出 - Phase 2 完成
 
 ---
 
@@ -25,8 +25,8 @@ last_updated: "2026-03-16T00:00:00.000Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.7 流式输出 |
-| Status | Phase 1 Complete |
-| Last activity: | 2026-03-16 — Phase 1 Plan 01 completed - JNI 底层桥接 |
+| Status | Phase 2 Complete |
+| Last activity: | 2026-03-16 — Phase 2 Plan 01 completed - Java API 层流式接口 |
 
 ---
 
@@ -34,6 +34,8 @@ last_updated: "2026-03-16T00:00:00.000Z"
 
 ### Recent Changes
 
+- 2026-03-16: Phase 2 Plan 01 completed - Java API 层流式接口 (STREAM-03)
+- 2026-03-16: Phase 2 Plan 01 created - Java API 层流式接口 (STREAM-03)
 - 2026-03-16: Phase 1 Plan 01 completed - JNI 底层桥接 (STREAM-01, STREAM-02)
 - 2026-03-16: Phase 1 Plan 01 created - JNI 底层桥接
 - 2026-03-13: Phase 6 Plan 01 created - 整合测试（6 个功能点手动测试）
@@ -72,6 +74,9 @@ None
 
 ## Decisions
 
+- 2026-03-16: Phase 2 使用接口 + 回调监听器模式，sendMessageStream(String, AgentEventListener)
+- 2026-03-16: Phase 2 扩展 MainContract.View 添加 onStreamTextDelta, onStreamMessageEnd 等方法
+- 2026-03-16: Phase 2 添加 cancelStream() 方法，NativeAgent.cancelStream()
 - 2026-03-16: Phase 1 每个事件类型使用单独回调方法 (onTextDelta/onToolUse/onToolResult/onMessageEnd/onError)，使用 per-callback attach/detach 模式
 - 2026-03-13: Phase 6 使用手动测试验证 6 个功能点
 - 2026-03-13: Phase 5 AgentFragment 界面优化（容器样式 + 标题栏）+ 底部输入框 bug 修复 + 语音按钮验证
@@ -100,7 +105,7 @@ None
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 1 | JNI 底层桥接 | STREAM-01, STREAM-02 | ✅ Complete |
-| 2 | Java API 层 | STREAM-03 | ○ Pending |
+| 2 | Java API 层 | STREAM-03 | ✅ Complete |
 | 3 | UI 流式交互 | UI-01~UI-06 | ○ Pending |
 | 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ○ Pending |
 
