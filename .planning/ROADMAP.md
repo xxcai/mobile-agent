@@ -20,16 +20,23 @@
 <summary>🔄 v2.7 流式输出 (Phases 1-4) — IN PROGRESS</summary>
 
 - [x] Phase 1: JNI 底层桥接 (1/1 plans) — completed 2026-03-16
-- [ ] Phase 2: Java API 层 (0/1 plans) — pending
-- [ ] Phase 3: UI 流式交互 (0/1 plans) — pending
-- [ ] Phase 4: 异常处理与取消 (0/1 plans) — pending
+- [x] Phase 2: Java API 层 (1/1 plans) — completed 2026-03-16
+- [x] Phase 3: UI 流式交互 (1/1 plans) — completed 2026-03-16
+- [ ] Phase 4: 异常处理与取消 (1/1 plans) — pending
 
 **Key achievements:**
 - JNI stream callback with AttachCurrentThread/DetachCurrentThread
 - AgentEventListener interface with 5 event methods
 - Stream event channel from C++ to Java
+- Java API layer with sendMessageStream and cancelStream
+- UI streaming with real-time text updates and tool calls
 
-**See:** `.planning/milestones/v2.7-phases/01-jni-stream-bridge/`
+**See:** `.planning/milestones/v2.7-phases/`
+
+**Plans:**
+- [x] v2.7-02-01-PLAN.md — Java API 层流式接口 (completed 2026-03-16)
+- [x] v2.7-03-01-PLAN.md — UI 流式交互 (completed 2026-03-16)
+- [ ] v2.7-04-01-PLAN.md — 异常处理与取消
 
 </details>
 

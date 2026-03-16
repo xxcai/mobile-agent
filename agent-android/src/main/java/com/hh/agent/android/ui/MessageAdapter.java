@@ -32,6 +32,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int VIEW_TYPE_THINKING = 2;
     public static final int VIEW_TYPE_TOOL_USE = 3;
     public static final int VIEW_TYPE_TOOL_RESULT = 4;
+    public static final int VIEW_TYPE_ERROR = 5;
 
     private List<Message> messages = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -63,6 +64,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (viewType == VIEW_TYPE_TOOL_RESULT) {
             View view = inflater.inflate(R.layout.item_tool_result, parent, false);
             return new ToolResultViewHolder(view);
+        } else if (viewType == VIEW_TYPE_ERROR) {
+            View view = inflater.inflate(R.layout.item_error, parent, false);
+            return new ErrorViewHolder(view);
         } else {
             View view = inflater.inflate(R.layout.item_message, parent, false);
             return new MessageViewHolder(view, timeFormat, markwon);
@@ -78,6 +82,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ((ToolUseViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof ToolResultViewHolder) {
             ((ToolResultViewHolder) holder).bind(message.getName(), message.getContent());
+        } else if (holder instanceof ErrorViewHolder) {
+            ((ErrorViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
         }
@@ -97,6 +103,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return VIEW_TYPE_TOOL_USE;
         } else if ("tool_result".equals(role)) {
             return VIEW_TYPE_TOOL_RESULT;
+        } else if ("error".equals(role)) {
+            return VIEW_TYPE_ERROR;
         } else {
             return VIEW_TYPE_ASSISTANT;
         }
@@ -354,6 +362,61 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void bind(String toolName, String toolResult) {
             tvToolName.setText(toolName + " Result");
             tvToolResult.setText(toolResult);
+        }
+    }
+
+    /**
+     * 错误消息 ViewHolder
+     */
+    static class ErrorViewHolder extends RecyclerView.ViewHolder {
+
+        private final TextView tvErrorCode;
+        private final TextView tvErrorMessage;
+
+        ErrorViewHolder(@NonNull View itemView) {
+            super(itemView);
+            tvErrorCode = itemView.findViewById(R.id.tvErrorCode);
+            tvErrorMessage = itemView.findViewById(R.id.tvErrorMessage);
+        }
+
+        void bind(String errorCode, String errorMessage) {
+            tvErrorCode.setText(errorCode != null ? errorCode : "Error");
+            tvErrorMessage.setText(errorMessage != null ? errorMessage : "Unknown error");
+        }
+    }
+
+    /**
+     * 添加错误消息
+     * @param errorCode 错误代码
+     * @param errorMessage 错误消息内容
+     */
+    public void addErrorMessage(String errorCode, String errorMessage) {
+        Message message = new Message();
+        message.setRole("error");
+        message.setName(errorCode);
+        message.setContent(errorMessage);
+        message.setTimestamp(System.currentTimeMillis());
+        this.messages.add(message);
+        notifyItemInserted(this.messages.size() - 1);
+    }
+
+    /**
+     * 移除所有 AI 相关消息（thinking, tool_use, tool_result, assistant）
+     * 保留用户消息
+     */
+    public void removeAiMessages() {
+        boolean removed = false;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message msg = messages.get(i);
+            String role = msg.getRole();
+            if ("thinking".equals(role) || "tool_use".equals(role) ||
+                "tool_result".equals(role) || "assistant".equals(role)) {
+                messages.remove(i);
+                removed = true;
+            }
+        }
+        if (removed) {
+            notifyDataSetChanged();
         }
     }
 }
