@@ -56,27 +56,26 @@
 
 ### Active
 
-暂无
+- [ ] JNI 层流式桥接 (nativeSendMessageStream) — v2.7
+- [ ] Java API 层流式接口 (sendMessageStream) — v2.7
+- [ ] UI 流式请求支持 — v2.7
+- [ ] 消息增量更新 — v2.7
+- [ ] 异常处理与取消 — v2.7
 
-## Current Milestone: Planning
+## Current Milestone: v2.7 流式输出
+
+**Goal:** 将 MobileAgent 的同步 chat 接口改为流式输出，实现 AI 响应实时展示到 UI，提升用户等待体验。
+
+**Target features:**
+- JNI 层流式桥接 (nativeSendMessageStream)
+- Java API 层流式接口 (sendMessageStream + AgentEventListener)
+- UI 点击发送改为流式请求
+- 消息增量更新 (实时展示 AI 文本片段)
+- 异常处理与取消
 
 **Last milestone completed:** v2.6 主界面重构 (shipped 2026-03-13)
 
-**Next milestone:** 待规划
-
-## v2.6 Summary (Archived)
-
-**Shipped:** 2026-03-13
-**Phases:** 6
-**Plans:** 6
-
-Key achievements:
-- floating-ball 模块合并到 android-agent
-- MainActivity 启动页 + ActivityLifecycleCallbacks 悬浮球控制
-- Fragment 容器化（AgentFragment + ContainerActivity）
-- 会话持久化（SharedPreferences + Gson）
-- 界面优化（圆角、不透明背景、底部输入框修复）
-- 6 项功能整合测试通过
+**Next milestone:** v2.8 (待规划)
 
 ## Context
 
@@ -127,4 +126,4 @@ Key achievements:
 | Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-13 — v2.6 completed*
+*Last updated: 2026-03-16 — v2.7 active*

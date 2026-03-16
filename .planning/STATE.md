@@ -16,7 +16,7 @@ last_updated: "2026-03-16T07:19:22.699Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.7 流式输出 - Phase 3 完成
+**Current Focus:** v2.7 流式输出 - Phase 4 完成
 
 ---
 
@@ -25,8 +25,8 @@ last_updated: "2026-03-16T07:19:22.699Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.7 流式输出 |
-| Status | Phase 2 Complete |
-| Last activity: | 2026-03-16 — Phase 2 Plan 01 completed - Java API 层流式接口 |
+| Status | Phase 4 Complete |
+| Last activity: | 2026-03-16 — Phase 4 Plan 01 completed - 异常处理与取消 |
 
 ---
 
@@ -34,6 +34,7 @@ last_updated: "2026-03-16T07:19:22.699Z"
 
 ### Recent Changes
 
+- 2026-03-16: Phase 4 Plan 01 completed - 异常处理与取消 (ERROR-01~ERROR-04)
 - 2026-03-16: Phase 2 Plan 01 completed - Java API 层流式接口 (STREAM-03)
 - 2026-03-16: Phase 2 Plan 01 created - Java API 层流式接口 (STREAM-03)
 - 2026-03-16: Phase 1 Plan 01 completed - JNI 底层桥接 (STREAM-01, STREAM-02)
@@ -74,6 +75,9 @@ None
 
 ## Decisions
 
+- 2026-03-16: Phase 4 错误消息使用红色背景样式展示在消息列表中
+- 2026-03-16: Phase 4 按钮使用图标切换（ic_menu_send / ic_menu_close_clear_cancel）
+- 2026-03-16: Phase 4 取消/错误后保留用户输入内容在输入框中
 - 2026-03-16: Phase 2 使用接口 + 回调监听器模式，sendMessageStream(String, AgentEventListener)
 - 2026-03-16: Phase 2 扩展 MainContract.View 添加 onStreamTextDelta, onStreamMessageEnd 等方法
 - 2026-03-16: Phase 2 添加 cancelStream() 方法，NativeAgent.cancelStream()
@@ -107,7 +111,7 @@ None
 | 1 | JNI 底层桥接 | STREAM-01, STREAM-02 | ✅ Complete |
 | 2 | Java API 层 | STREAM-03 | ✅ Complete |
 | 3 | UI 流式交互 | UI-01~UI-06 | ✅ Complete |
-| 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ○ Pending |
+| 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ✅ Complete |
 
 ---
 

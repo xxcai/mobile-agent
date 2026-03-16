@@ -1,5 +1,20 @@
 # Milestones
 
+## v2.7 流式输出 (Active)
+
+**Phases:** 4 (Phase 7-10)
+**Goal:** 将 MobileAgent 的同步 chat 接口改为流式输出，实现 AI 响应实时展示到 UI
+
+**Current phase:** Phase 7 - JNI 底层桥接
+
+**Requirements:** 13 v1 requirements
+- Phase 7: JNI 底层桥接 (STREAM-01, STREAM-02)
+- Phase 8: Java API 层流式接口 (STREAM-03)
+- Phase 9: UI 流式交互 (UI-01 to UI-06)
+- Phase 10: 异常处理与取消 (ERROR-01 to ERROR-04)
+
+---
+
 ## v2.6 主界面重构 (Shipped: 2026-03-13)
 
 **Phases completed:** 6 phases, 6 plans
