@@ -1,5 +1,6 @@
 package com.hh.agent.library.api;
 
+import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.Session;
 
@@ -44,4 +45,13 @@ public interface MobileAgentApi {
      * @return 消息列表
      */
     List<Message> getHistory(String sessionKey, int maxMessages);
+
+    /**
+     * 发送消息（流式）
+     *
+     * @param content    消息内容
+     * @param sessionKey 会话密钥
+     * @param listener 流式事件监听器
+     */
+    void sendMessageStream(String content, String sessionKey, AgentEventListener listener);
 }

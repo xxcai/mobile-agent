@@ -101,4 +101,16 @@ public class NativeAgent {
      * Native method to send message with streaming callback
      */
     private static native void nativeSendMessageStream(String message, AgentEventListener listener);
+
+    /**
+     * Cancel the current streaming request
+     */
+    public static void cancelStream() {
+        nativeCancelStream();
+    }
+
+    /**
+     * Native method to cancel streaming request
+     */
+    private static native void nativeCancelStream();
 }

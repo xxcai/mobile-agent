@@ -2,6 +2,7 @@ package com.hh.agent.library.api;
 
 import android.content.Context;
 import java.util.ArrayList;
+import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.AndroidToolCallback;
 import com.hh.agent.library.NativeAgent;
 import com.hh.agent.library.model.Message;
@@ -263,6 +264,25 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         saveSession(session);
 
         return assistantMessage;
+    }
+
+    @Override
+    public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
+        // 确保会话存在
+        Session session = sessions.get(sessionKey);
+        if (session == null) {
+            session = new Session(sessionKey);
+            sessions.put(sessionKey, session);
+        }
+
+        // 添加用户消息
+        Message userMessage = new Message();
+        userMessage.setRole("user");
+        userMessage.setContent(content);
+        session.addMessage(userMessage);
+
+        // 调用 Native Agent 流式接口
+        NativeAgent.sendMessageStream(content, listener);
     }
 
     @Override

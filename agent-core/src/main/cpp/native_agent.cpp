@@ -567,4 +567,23 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
     env->ReleaseStringUTFChars(message, msg);
 }
 
+/**
+ * Cancel the current streaming request
+ */
+JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeCancelStream(
+        JNIEnv* env,
+        jclass /* clazz */) {
+
+    icraw::Logger::get_instance().logger()->info("nativeCancelStream: Cancelling streaming request");
+
+    if (!g_agent) {
+        icraw::Logger::get_instance().logger()->warn("nativeCancelStream: Agent not initialized");
+        return;
+    }
+
+    // Call stop on the agent to cancel the streaming request
+    g_agent->stop();
+    icraw::Logger::get_instance().logger()->info("nativeCancelStream: Streaming request cancelled");
+}
+
 } // extern "C"
