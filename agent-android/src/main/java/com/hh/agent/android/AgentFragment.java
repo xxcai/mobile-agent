@@ -45,6 +45,9 @@ public class AgentFragment extends Fragment implements MainContract.View {
     private boolean isRecording = false;
     private boolean permissionGranted = false;
 
+    // 用于累积流式文本内容
+    private StringBuilder streamTextBuffer = new StringBuilder();
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -247,7 +250,15 @@ public class AgentFragment extends Fragment implements MainContract.View {
     // 流式回调方法实现
     @Override
     public void onStreamTextDelta(String textDelta) {
-        // 流式文本增量更新 - 可选实现用于实时显示
+        // 累积文本内容（替换模式）
+        streamTextBuffer.setLength(0);
+        streamTextBuffer.append(textDelta);
+
+        // 更新 thinking 消息内容
+        adapter.updateThinkingMessage(streamTextBuffer.toString());
+
+        // 自动滚动到最新消息
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
     @Override
