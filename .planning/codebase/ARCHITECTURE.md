@@ -1,168 +1,218 @@
 # Architecture
 
-**Analysis Date:** 2026-03-10
+**Analysis Date:** 2026-03-12
 
 ## Pattern Overview
 
-**Overall:** Layered Architecture with MVP Pattern
+**Overall:** MVP (Model-View-Presenter) + Clean Architecture with Native C++ Core
 
 **Key Characteristics:**
-- Native C++ Core: The agent engine is implemented in C++ (cxxplatform) providing the core reasoning loop, LLM integration, memory management, and skill/tool system
-- Java/JNI Bridge: Android-specific layer (agent-core) provides JNI wrapper to expose native C++ functionality to Java
-- Dynamic Tool Injection: Tools can be dynamically registered at runtime through AndroidToolManager
-- Skill-based Workflow: Skills (SKILL.md format) define reusable workflows with tool calls
+- MVP pattern in Android UI layer (agent-android module)
+- Clean separation between UI, business logic, and native core
+- JNI bridge between Java/Kotlin Android layer and C++ native agent engine
+- Tool execution pattern: Dynamic registration with callback-based execution
+- Session-based conversation management
 
 ## Layers
 
-**Native Core Layer (cxxplatform):**
-- Purpose: Core agent engine implementation in C++
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/`
-- Contains:
-  - Core agent loop (`src/core/agent_loop.cpp`)
-  - LLM provider abstraction (`src/core/llm_provider.cpp`)
-  - Memory management with SQLite (`src/core/memory_manager.cpp`)
-  - Skill loader (`src/core/skill_loader.cpp`)
-  - Tool registry (`src/tools/tool_registry.cpp`)
-  - HTTP client for API calls (`src/core/curl_http_client.cpp`)
-- Depends on: nlohmann-json, curl, sqlite3
-- Used by: agent-core (via JNI)
+### Layer 1: Android UI (app + agent-android)
 
-**Native Bridge Layer (agent-core):**
-- Purpose: Java JNI bindings to native C++ library
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/java/com/hh/agent/library/`
-- Contains:
-  - `NativeAgent.java` - JNI wrapper class loading libicraw.so
-  - `AndroidToolCallback.java` - Interface for Android tool callbacks
-  - `ToolExecutor.java` - Base interface for tool implementations
-  - `api/MobileAgentApi.java` - High-level API abstraction
-  - `api/NativeMobileAgentApi.java` - Native API singleton
-  - `model/Message.java`, `model/Session.java` - Data models
-- Depends on: cxxplatform native library
-- Used by: agent-android, app
+**Purpose:** User interface and user interaction handling
 
-**Android Tool Layer (agent-android):**
-- Purpose: Built-in Android tools and UI foundation
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/`
-- Contains:
-  - `AndroidToolManager.java` - Dynamic tool registration and routing
-  - `AgentActivity.java` - Main UI entry (MVP View)
-  - `presenter/MainPresenter.java` - MVP Presenter
-  - `contract/MainContract.java` - MVP contract
-  - `tool/*.java` - Built-in tools (ShowToastTool, DisplayNotificationTool, etc.)
-- Depends on: agent-core
-- Used by: app
+**Location:** `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/` and `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/`
 
-**Application Layer (app):**
-- Purpose: Application-specific tools and launcher
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/`
-- Contains:
-  - `LauncherActivity.java` - App entry, registers tools to AndroidToolManager
-  - `tool/SearchContactsTool.java` - App-specific tool
-  - `tool/SendImMessageTool.java` - App-specific tool
-- Depends on: agent-android
-- Provides: Custom tools that can be dynamically injected
+**Contains:**
+- Activity classes: `LauncherActivity.java`, `AgentActivity.java`
+- MVP Contracts: `MainContract.java` (View + Presenter interfaces)
+- Presenters: `MainPresenter.java` - business logic
+- UI Components: `MessageAdapter.java` - RecyclerView adapter
+- Voice recognition: `IVoiceRecognizer.java`, `VoiceRecognizerHolder.java`
 
-**Assets/Skills Layer:**
-- Purpose: Skill definitions loaded at runtime
-- Locations:
-  - `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/assets/workspace/skills/`
-  - `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/`
-- Contains: SKILL.md files defining workflows
+**Depends on:** agent-core module for API
+
+**Used by:** Android system (Activities)
+
+---
+
+### Layer 2: Android Tool Layer (app/tools + AndroidToolManager)
+
+**Purpose:** Tool implementation and management for Android-specific capabilities
+
+**Location:** `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/tool/`
+
+**Contains:**
+- Tool implementations: `ShowToastTool.java`, `TakeScreenshotTool.java`, `DisplayNotificationTool.java`, `ReadClipboardTool.java`, `SearchContactsTool.java`, `SendImMessageTool.java`
+- Tool manager: `AndroidToolManager.java` - registers and routes tool calls
+
+**Depends on:** agent-core (ToolExecutor interface, AndroidToolCallback)
+
+**Used by:** agent-android (via NativeMobileAgentApi callback)
+
+---
+
+### Layer 3: Java API Layer (agent-core Java)
+
+**Purpose:** Java API surface and JNI bridge to native code
+
+**Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/java/com/hh/agent/library/`
+
+**Contains:**
+- API interfaces: `MobileAgentApi.java` - main API
+- API implementation: `NativeMobileAgentApi.java` - JNI bridge
+- JNI native binding: `NativeAgent.java` - native method declarations
+- Models: `Message.java`, `Session.java`
+- Tool callback: `AndroidToolCallback.java`
+- Tool executor: `ToolExecutor.java`
+
+**Depends on:** C++ native code (via JNI)
+
+**Used by:** agent-android module
+
+---
+
+### Layer 4: Native C++ Core (agent-core/cpp)
+
+**Purpose:** Agent core logic - LLM interaction, memory management, tool execution
+
+**Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/cpp/src/`
+
+**Contains:**
+- Core agent: `mobile_agent.cpp` - main agent implementation
+- Agent loop: `core/agent_loop.cpp` - conversation loop
+- LLM provider: `core/llm_provider.cpp` - OpenAI-compatible API
+- HTTP client: `core/curl_http_client.cpp` - network calls
+- Memory manager: `core/memory_manager.cpp` - SQLite-based history
+- Skill loader: `core/skill_loader.cpp` - skill loading
+- Tool registry: `tools/tool_registry.cpp` - tool registration
+- Prompt builder: `core/prompt_builder.cpp` - system prompt construction
+- Config: `config.cpp` - configuration loading
+
+**Depends on:** None (self-contained)
+
+**Used by:** Java layer via JNI
+
+---
+
+### Layer 5: Floating Ball Module
+
+**Purpose:** Floating window overlay for agent interaction
+
+**Location:** `/Users/caixiao/Workspace/projects/mobile-agent/floating-ball/src/main/java/com/hh/agent/floating/`
+
+**Contains:**
+- `FloatingBallManager.java` - floating window management
+- `FloatingBallView.java` - floating ball UI
+- `FloatingBallReceiver.java` - broadcast receiver
+- `ContainerActivity.java` - container activity for overlays
+
+**Depends on:** agent-android
+
+**Used by:** Android system
+
+---
 
 ## Data Flow
 
 **User Message Flow:**
 
-1. User types message in AgentActivity (UI Layer)
-2. MainPresenter sends message via NativeMobileAgentApi
-3. NativeMobileAgentApi calls NativeAgent.nativeSendMessage (JNI)
-4. C++ MobileAgent.chat() receives message
-5. AgentLoop.process_message() orchestrates the turn:
-   - Builds prompts with SkillLoader
-   - Calls LLMProvider for completion
-   - Handles tool calls via ToolRegistry
-   - Updates MemoryManager with conversation
-6. Response flows back through JNI to Java
-7. MainPresenter updates MessageAdapter
-8. AgentActivity displays message in RecyclerView
+1. **User Input** - User types message in `AgentActivity.java`
+2. **Presenter** - `MainPresenter.sendMessage()` receives message
+3. **API Call** - Calls `NativeMobileAgentApi.sendMessage(content, sessionKey)`
+4. **JNI Bridge** - `NativeAgent.nativeSendMessage(content)` invokes C++
+5. **C++ Agent** - `MobileAgent::send_message()` processes through `AgentLoop`
+6. **LLM Call** - `LlmProvider` sends request to LLM API
+7. **Tool Execution** - If LLM returns tool call, `ToolRegistry` routes to `AndroidToolCallback`
+8. **Android Tool** - `AndroidToolManager` executes tool, returns result
+9. **Response** - Response flows back through JNI to Java, then to UI
 
-**Tool Execution Flow:**
+**Tool Registration Flow:**
 
-1. LLM returns tool_call in response
-2. AgentLoop.handle_tool_calls() processes tool_calls
-3. If Android tool: calls back through AndroidToolCallback JNI
-4. AndroidToolManager.callTool() routes to registered ToolExecutor
-5. ToolExecutor.execute() performs the action
-6. Result returned to AgentLoop
-7. Tool result added to conversation context
-8. LLM receives tool result and continues
-
-## Key Abstractions
-
-**MobileAgent (Facade):**
-- Purpose: Simplified entry point for mobile platforms
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/mobile_agent.hpp`
-- Pattern: Facade pattern - wraps all core components
-
-**AgentLoop (Orchestration):**
-- Purpose: Main agent reasoning loop implementation
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/core/agent_loop.hpp`
-- Pattern: Loop/Reactor pattern - handles message processing iterations
-
-**SkillLoader (Dynamic Loading):**
-- Purpose: Loads and parses SKILL.md files at runtime
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/core/skill_loader.hpp`
-- Pattern: Plugin/Extension pattern
-
-**ToolRegistry (Tool Management):**
-- Purpose: Manages available tools and executes them
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/tools/tool_registry.hpp`
-- Pattern: Registry pattern
-
-**AndroidToolManager (Dynamic Tool Injection):**
-- Purpose: Runtime tool registration and JSON schema generation
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java`
-- Pattern: Service Locator / Dynamic Registry
-
-**LLMProvider (Abstraction):**
-- Purpose: Abstracts LLM API calls with support for multiple providers
-- Examples: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/core/llm_provider.hpp`
-- Pattern: Strategy pattern - supports OpenAI-compatible APIs
-
-## Entry Points
-
-**App Launch Entry:**
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/LauncherActivity.java`
-- Triggers: App launch (intent from launcher or splash)
-- Responsibilities: Initialize AndroidToolManager, register tools, navigate to AgentActivity
-
-**Agent Entry:**
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentActivity.java`
-- Triggers: User opens agent interface
-- Responsibilities: Load config, initialize presenter, display messages
-
-**Native Agent Entry:**
-- Location: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/mobile_agent.cpp`
-- Triggers: First JNI call (nativeInitialize)
-- Responsibilities: Initialize all core components, load skills, prepare agent
-
-## Error Handling
-
-**Strategy:** Result objects and exception propagation
-
-**Patterns:**
-- C++: Exceptions for critical errors, error codes for recoverable errors
-- Java: Try-catch in UI layer, error callbacks to View
-- Tool execution: JSON error responses with success=false
-
-## Cross-Cutting Concerns
-
-**Logging:** Android Log (Java), custom logger (C++)
-
-**Validation:** Path validation in ToolRegistry, JSON schema for tools
-
-**Authentication:** API key passed through config, not hardcoded
+1. **Initialize** - `AndroidToolManager.initialize()` loads tools config
+2. **Register** - App calls `registerTool(ToolExecutor)` for each tool
+3. **Generate JSON** - `generateToolsJson()` creates tool schema
+4. **Push to Native** - `NativeMobileAgentApi.setToolsJson()` passes to C++
+5. **Tool Registry** - C++ `ToolRegistry` receives and registers tools
 
 ---
 
-*Architecture analysis: 2026-03-10*
+## Key Abstractions
+
+### MobileAgentApi (Interface)
+- **Purpose:** Abstract API for mobile agent operations
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/java/com/hh/agent/library/api/MobileAgentApi.java`
+- **Pattern:** Interface + Implementation (Strategy pattern)
+
+### NativeMobileAgentApi (Singleton)
+- **Purpose:** Singleton implementation with JNI bridge
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java`
+- **Pattern:** Singleton
+
+### ToolExecutor (Interface)
+- **Purpose:** Base interface for tool implementations
+- **Location:** `/Usersorkspace/projects/mobile/caixiao/W-agent/agent-core/src/main/java/com/hh/agent/library/ToolExecutor.java`
+- **Pattern:** Strategy pattern - each tool implements this interface
+
+### AndroidToolManager
+- **Purpose:** Tool registry and dispatcher on Android side
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java`
+- **Pattern:** Registry pattern
+
+### MainContract (MVP)
+- **Purpose:** MVP contract defining View and Presenter interfaces
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/contract/MainContract.java`
+- **Pattern:** MVP Contract pattern
+
+---
+
+## Entry Points
+
+### Android Entry Point
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/LauncherActivity.java`
+- **Triggers:** App launch (cold start)
+- **Responsibilities:** Initialize agent, navigate to main UI
+
+### Main Activity Entry
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentActivity.java`
+- **Triggers:** User opens chat interface
+- **Responsibilities:** Display chat UI, handle user input
+
+### Agent Initialization
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java`
+- **Triggers:** App start or first use
+- **Responsibilities:** Initialize NativeMobileAgentApi, register tools
+
+### JNI Entry Point
+- **Location:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/cpp/native_agent.cpp`
+- **Triggers:** Java calls NativeAgent.native* methods
+- **Responsibilities:** JNI binding, dispatch to C++ MobileAgent
+
+---
+
+## Error Handling
+
+**Strategy:** RuntimeException propagation with error callbacks
+
+**Patterns:**
+- Java layer: `RuntimeException` with descriptive messages
+- Native layer: C++ exceptions caught and logged, return error codes
+- UI layer: `View.onError(String error)` callback pattern for display
+
+---
+
+## Cross-Cutting Concerns
+
+**Logging:**
+- Java: `android.util.Log` with tag-based logging
+- C++: Custom `Logger` class in `icraw::Logger`
+
+**Validation:**
+- Input validation in tool implementations
+- Config validation at initialization
+
+**Authentication:**
+- API key stored in `config.json` (external configuration)
+- Passed to C++ layer at initialization
+
+---
+
+*Architecture analysis: 2026-03-12*

@@ -42,20 +42,41 @@
 - ✓ 按压说话交互 — v2.3 (shipped 2026-03-11)
 - ✓ 实时语音转文字 — v2.3 (shipped 2026-03-11)
 - ✓ 语音能力依赖注入 — v2.3 (shipped 2026-03-11)
+- ✓ 悬浮球入口 — v2.5 (shipped 2026-03-12)
+- ✓ 容器Activity — v2.5 (shipped 2026-03-12)
+- ✓ Broadcast 通信机制 — v2.5 (shipped 2026-03-12)
 - ✓ Android 录音权限处理 — v2.3 (shipped 2026-03-11)
+- ✓ floating-ball 模块合并 — v2.6 (shipped 2026-03-13)
+- ✓ MainActivity 启动页 — v2.6 (shipped 2026-03-13)
+- ✓ ActivityLifecycleCallbacks 悬浮球控制 — v2.6 (shipped 2026-03-13)
+- ✓ Fragment 容器化 — v2.6 (shipped 2026-03-13)
+- ✓ 会话持久化 (SharedPreferences + Gson) — v2.6 (shipped 2026-03-13)
+- ✓ 界面优化 (圆角/不透明背景) — v2.6 (shipped 2026-03-13)
+- ✓ 语音功能保留 — v2.6 (shipped 2026-03-13)
 
 ### Active
 
 暂无
 
-## Current Milestone: v2.4 Agent 性能分析
+## Current Milestone: Planning
 
-**Goal:** 分析 agent-core C++ 层日志和性能，识别耗时点并优化
+**Last milestone completed:** v2.6 主界面重构 (shipped 2026-03-13)
 
-**Target features:**
-- 统一 C++ 层日志打印形式
-- 补充关键路径日志（脱敏处理）
-- 性能分析，识别耗时点
+**Next milestone:** 待规划
+
+## v2.6 Summary (Archived)
+
+**Shipped:** 2026-03-13
+**Phases:** 6
+**Plans:** 6
+
+Key achievements:
+- floating-ball 模块合并到 android-agent
+- MainActivity 启动页 + ActivityLifecycleCallbacks 悬浮球控制
+- Fragment 容器化（AgentFragment + ContainerActivity）
+- 会话持久化（SharedPreferences + Gson）
+- 界面优化（圆角、不透明背景、底部输入框修复）
+- 6 项功能整合测试通过
 
 ## Context
 
@@ -98,7 +119,12 @@
 | 平台分离 | Tools/Manager 在 app，agent 纯 Java | ✓ v2.0 shipped |
 | Callback 接口 | AndroidToolCallback 解耦 agent/app | ✓ v2.0 shipped |
 | JSON String API | app 读取文件，agent 只接收数据 | ✓ v2.0 shipped |
-| 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | — v2.3 planning |
+| 语音转文字接口注入 | 语音能力由上层 app 通过接口注入 | ✓ v2.3 shipped |
+| 悬浮球单例模式 | 不使用 Service，使用 WindowManager | ✓ v2.5 shipped |
+| Broadcast 通信 | Activity 与悬浮球通过广播协调 | ✓ v2.5 shipped |
+| SingleTop Activity | 避免容器Activity重复创建 | ✓ v2.5 shipped |
+| Application 级别初始化 | MobileAgentApplication 初始化会话持久化 | ✓ v2.6 shipped |
+| Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-11 — v2.4 started*
+*Last updated: 2026-03-13 — v2.6 completed*

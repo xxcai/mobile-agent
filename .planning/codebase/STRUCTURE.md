@@ -1,157 +1,255 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-10
+**Analysis Date:** 2026-03-12
 
 ## Directory Layout
 
 ```
 mobile-agent/
-├── cxxplatform/           # Native C++ core library
-│   ├── include/icraw/     # Public headers
-│   ├── src/               # Implementation
-│   ├── tests/             # Unit tests
-│   ├── demo/              # Demo application
-│   ├── workspace/         # Default skill workspace
-│   └── test_skill_workspace/  # Test skills
-├── agent-core/            # Java JNI bridge library
-│   └── src/main/
-│       ├── java/          # Java sources
-│       └── assets/        # Core skills/assets
-├── agent-android/         # Android UI and tools
-│   └── src/main/
-│       ├── java/          # Java sources
-│       ├── res/           # Android resources
-│       └── assets/        # Android assets
-├── app/                  # Application module
-│   ├── src/main/
-│   │   ├── java/         # Application sources
-│   │   ├── res/          # Resources
-│   │   └── assets/       # App-specific skills
-│   └── src/test/         # Unit tests
-└── build.gradle           # Gradle build config
+├── app/                         # Android 应用主模块
+├── agent-android/               # Android Library - UI和工具管理层
+├── agent-core/                  # Android Library - Java API + C++ 核心
+├── floating-ball/               # 悬浮球模块
+├── cxxplatform/                 # 独立 C++ 平台 (测试/参考)
+├── docs/                        # 文档
+├── build.gradle                 # 根构建文件
+├── settings.gradle              # Gradle 设置
+└── config.json.template         # 配置模板
 ```
 
 ## Directory Purposes
 
-**cxxplatform:**
-- Purpose: Native C++ agent engine
-- Contains: Core reasoning loop, LLM integration, memory, skills, tools
-- Key files:
-  - `include/icraw/mobile_agent.hpp` - Main facade
-  - `include/icraw/core/agent_loop.hpp` - Agent loop
-  - `include/icraw/core/llm_provider.hpp` - LLM abstraction
-  - `include/icraw/core/memory_manager.hpp` - Memory/SQLite
-  - `include/icraw/tools/tool_registry.hpp` - Tool registry
-  - `src/mobile_agent.cpp` - Implementation
+### app/ (Android 应用主模块)
 
-**agent-core:**
-- Purpose: JNI bridge library (AAR)
-- Contains: Java bindings for native library
-- Key files:
-  - `src/main/java/com/hh/agent/library/NativeAgent.java` - JNI wrapper
-  - `src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java` - API singleton
-  - `src/main/assets/workspace/skills/` - Core skills
+**Purpose:** Android 应用主模块，包含入口 Activity、工具实现、工作空间管理
 
-**agent-android:**
-- Purpose: Android UI and built-in tools
-- Contains: MVP UI, Android tool implementations
-- Key files:
-  - `src/main/java/com/hh/agent/android/AgentActivity.java` - Main UI
-  - `src/main/java/com/hh/agent/android/AndroidToolManager.java` - Tool manager
-  - `src/main/java/com/hh/agent/android/presenter/MainPresenter.java` - MVP Presenter
+**Contains:**
+- 入口 Activity: `LauncherActivity.java`
+- 应用类: `App.java`, `AppLifecycleObserver.java`
+- 工具实现: `tool/` 目录
+- 语音识别: `voice/MockVoiceRecognizer.java`
 
-**app:**
-- Purpose: Application module
-- Contains: Launcher, app-specific tools
-- Key files:
-  - `src/main/java/com/hh/agent/LauncherActivity.java` - Entry point
-  - `src/main/java/com/hh/agent/tool/SearchContactsTool.java` - Custom tool
-  - `src/main/java/com/hh/agent/tool/SendImMessageTool.java` - Custom tool
-
-## Key File Locations
-
-**Entry Points:**
-- `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/LauncherActivity.java` - App launch
-- `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentActivity.java` - Agent UI
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/mobile_agent.cpp` - Native agent
-
-**Configuration:**
-- `/Users/caixiao/Workspace/projects/mobile-agent/config.json.template` - Config template
-- `/Users/caixiao/Workspace/projects/mobile-agent/build.gradle` - Build config
-- `/Users/caixiao/Workspace/projects/mobile-agent/settings.gradle` - Project settings
-
-**Core Logic:**
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/mobile_agent.cpp` - MobileAgent impl
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/agent_loop.cpp` - Agent loop
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/llm_provider.cpp` - LLM provider
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/core/memory_manager.cpp` - Memory
-
-**Testing:**
-- `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/tests/` - C++ tests
-- `/Users/caixiao/Workspace/projects/mobile-agent/app/src/test/java/` - Android tests
-
-## Naming Conventions
-
-**Files:**
-- Java: PascalCase (e.g., `AgentActivity.java`, `AndroidToolManager.java`)
-- C++ Headers: snake_case.hpp (e.g., `mobile_agent.hpp`, `agent_loop.hpp`)
-- C++ Sources: snake_case.cpp (e.g., `mobile_agent.cpp`, `agent_loop.cpp`)
-- Skills: SKILL.md (uppercase)
-
-**Directories:**
-- Java packages: lowercase with dots (e.g., `com/hh/agent/android/tool`)
-- C++ modules: snake_case (e.g., `core/`, `tools/`)
-- Assets: lowercase (e.g., `workspace/skills/`)
-
-**Functions/Methods:**
-- Java: camelCase (e.g., `initializeToolManager()`, `registerTool()`)
-- C++: snake_case (e.g., `load_skills_from_directory()`)
-
-## Where to Add New Code
-
-**New Native C++ Feature:**
-- Headers: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/include/icraw/`
-- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/cxxplatform/src/`
-
-**New Android Tool:**
-- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/tool/`
-- Registration: `AndroidToolManager.java`
-
-**New App Tool:**
-- Implementation: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/tool/`
-- Registration: `LauncherActivity.java`
-
-**New Skill:**
-- Core skills: `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/assets/workspace/skills/`
-- App skills: `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/`
-
-**New UI Feature:**
-- Activity: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/`
-- Presenter: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/presenter/`
-- Contract: `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/contract/`
-
-## Special Directories
-
-**cxxplatform/include/icraw:**
-- Purpose: Public C++ API headers
-- Generated: No
-- Committed: Yes
-
-**cxxplatform/src/core:**
-- Purpose: Core agent implementations
-- Generated: No
-- Committed: Yes
-
-**workspace/skills:**
-- Purpose: Skill definitions (SKILL.md files)
-- Generated: No
-- Committed: Yes
-
-**app/src/main/assets/workspace:**
-- Purpose: App-specific skills and resources
-- Generated: No
-- Committed: Yes
+**Key files:**
+- `app/src/main/java/com/hh/agent/LauncherActivity.java` - 应用启动入口
+- `app/src/main/java/com/hh/agent/app/App.java` - Application 类
 
 ---
 
-*Structure analysis: 2026-03-10*
+### agent-android/ (UI层)
+
+**Purpose:** Android Library 模块，包含 MVP UI 组件、工具管理
+
+**Contains:**
+- Activity: `AgentActivity.java`
+- MVP Contract: `contract/MainContract.java`
+- Presenter: `presenter/MainPresenter.java`
+- UI 组件: `ui/MessageAdapter.java`
+- 工具管理: `AndroidToolManager.java`, `WorkspaceManager.java`
+- 初始化: `AgentInitializer.java`
+- 语音识别接口: `voice/IVoiceRecognizer.java`, `voice/VoiceRecognizerHolder.java`
+
+**Key files:**
+- `agent-android/src/main/java/com/hh/agent/android/AgentActivity.java` - 主界面 Activity
+- `agent-android/src/main/java/com/hh/agent/android/presenter/MainPresenter.java` - 业务逻辑
+- `agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java` - 工具管理
+
+---
+
+### agent-core/ (核心层)
+
+**Purpose:** Android Library 模块，包含 Java API 接口、C++ 原生代码
+
+**Contains:**
+- Java API: `api/MobileAgentApi.java`, `api/NativeMobileAgentApi.java`
+- JNI 绑定: `NativeAgent.java`
+- 数据模型: `model/Message.java`, `model/Session.java`
+- 工具接口: `ToolExecutor.java`, `AndroidToolCallback.java`
+- C++ 核心: `src/mobile_agent.cpp`
+- C++ 核心模块: `src/core/` - agent_loop, llm_provider, memory_manager 等
+
+**Key files:**
+- `agent-core/src/main/java/com/hh/agent/library/api/MobileAgentApi.java` - API 接口
+- `agent-core/src/main/java/com/hh/agent/library/api/NativeMobileAgentApi.java` - API 实现
+- `agent-core/src/main/cpp/native_agent.cpp` - JNI 入口
+- `agent-core/src/main/cpp/src/mobile_agent.cpp` - C++ Agent 实现
+
+---
+
+### floating-ball/ (悬浮球模块)
+
+**Purpose:** 悬浮球功能模块，提供浮动窗口和容器 Activity
+
+**Contains:**
+- `FloatingBallManager.java` - 悬浮球管理
+- `FloatingBallView.java` - 悬浮球视图
+- `FloatingBallReceiver.java` - 广播接收器
+- `ContainerActivity.java` - 容器 Activity
+
+**Key files:**
+- `floating-ball/src/main/java/com/hh/agent/floating/FloatingBallManager.java` - 悬浮球管理
+- `floating-ball/src/main/java/com/hh/agent/floating/ContainerActivity.java` - 容器 Activity
+
+---
+
+### cxxplatform/ (独立 C++ 平台)
+
+**Purpose:** 独立 C++ 平台，用于测试和参考实现
+
+**Contains:**
+- C++ 源码: `src/` 目录
+- 头文件: `include/` 目录
+- 测试: `tests/` 目录
+- 文档: `docs/` 目录
+
+**Key files:**
+- `cxxplatform/CMakeLists.txt` - 构建配置
+
+---
+
+### docs/ (文档)
+
+**Purpose:** 项目文档目录
+
+**Contains:**
+- Android 工具扩展指南
+- 其他技术文档
+
+---
+
+## Key File Locations
+
+### Entry Points
+
+- **应用启动:** `/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/LauncherActivity.java`
+- **主界面:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentActivity.java`
+- **Agent 初始化:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java`
+
+### Configuration
+
+- **配置模板:** `/Users/caixiao/Workspace/projects/mobile-agent/config.json.template`
+- **Gradle 配置:** `/Users/caixiao/Workspace/projects/mobile-agent/build.gradle`
+
+### Core Logic
+
+- **Java API:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/java/com/hh/agent/library/api/`
+- **JNI 入口:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/cpp/native_agent.cpp`
+- **C++ Agent:** `/Users/caixiao/Workspace/projects/mobile-agent/agent-core/src/main/cpp/src/mobile_agent.cpp`
+
+### Testing
+
+- **单元测试:** `/Users/caixiao/Workspace/projects/mobile-agent/app/src/test/java/com/hh/agent/`
+
+---
+
+## Naming Conventions
+
+### Files
+
+**Java:**
+- 类文件: `PascalCase.java` - 如 `MainPresenter.java`, `AndroidToolManager.java`
+- 包名: 全小写，如 `com.hh.agent.android`
+
+**C++:**
+- 源文件: `snake_case.cpp` - 如 `native_agent.cpp`, `mobile_agent.cpp`
+- 头文件: `snake_case.hpp` 或 `snake_case.h`
+- 类/命名空间: `PascalCase` - 如 `MobileAgent`, `AgentLoop`
+
+### Directories
+
+**Java:**
+- 包目录: 全小写，用点分隔 - 如 `com/hh/agent/android/presenter`
+- 资源目录: 小写 - 如 `res/layout/`, `res/values/`
+
+**C++:**
+- 目录: `snake_case` - 如 `src/core/`, `include/icraw/`
+
+---
+
+## Where to Add New Code
+
+### New Feature (Android UI)
+
+1. **UI 实现:**
+   - 如果是 Activity: 放在 `agent-android/src/main/java/com/hh/agent/android/`
+   - 如果是 View 组件: 放在 `agent-android/src/main/java/com/hh/agent/android/ui/`
+
+2. **业务逻辑:**
+   - Presenter: `agent-android/src/main/java/com/hh/agent/android/presenter/`
+   - Contract: `agent-android/src/main/java/com/hh/agent/android/contract/`
+
+3. **测试:**
+   - 单元测试: `app/src/test/java/com/hh/agent/`
+
+---
+
+### New Android Tool
+
+1. **工具实现:**
+   - 放在 `app/src/main/java/com/hh/agent/tool/`
+   - 实现 `ToolExecutor` 接口
+
+2. **注册工具:**
+   - 在 `AgentInitializer.java` 或 `AndroidToolManager` 中注册
+
+---
+
+### New C++ Feature
+
+1. **核心逻辑:**
+   - 放在 `agent-core/src/main/cpp/src/core/`
+
+2. **工具相关:**
+   - 放在 `agent-core/src/main/cpp/src/tools/`
+
+3. **头文件:**
+   - 放在 `agent-core/src/main/cpp/include/icraw/`
+
+---
+
+## Special Directories
+
+### res/ (资源目录)
+
+**Purpose:** Android 资源文件（布局、字符串、样式等）
+
+**Location:** `app/src/main/res/`, `agent-android/src/main/res/`, `floating-ball/src/main/res/`
+
+**Generated:** No (committed)
+
+---
+
+### assets/ (资源目录)
+
+**Purpose:** 应用资源文件（配置文件、图片等）
+
+**Location:** `app/src/main/assets/`, `agent-android/src/main/assets/`
+
+**Generated:** No (committed)
+
+---
+
+### cpp/ (C++ 源码)
+
+**Purpose:** C++ 原生代码
+
+**Location:** `agent-core/src/main/cpp/`
+
+**Contains:**
+- JNI 绑定: `native_agent.cpp`, `android_tools.cpp`
+- 核心实现: `src/` 子目录
+
+**Generated:** No (committed)
+
+---
+
+### test/ (测试代码)
+
+**Purpose:** 单元测试
+
+**Location:** `app/src/test/java/com/hh/agent/`
+
+**Generated:** No (committed)
+
+---
+
+*Structure analysis: 2026-03-12*

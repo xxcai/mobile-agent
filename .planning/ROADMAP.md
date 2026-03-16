@@ -2,6 +2,9 @@
 
 ## Milestones
 
+- ✅ **v2.6 主界面重构** — Phases 1 to 6 (shipped 2026-03-13)
+- ✅ **v2.5 容器Activity模块** — Phases 1 to 2 (shipped 2026-03-12)
+- ✅ **v2.4 Agent 性能分析** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.3 语音转文字** — Phases 1 to 3 (shipped 2026-03-11)
 - ✅ **v2.2 App 层动态注入 Android 工具** — Phases 1 to 3 (shipped 2026-03-10)
 - ✅ **v2.1 架构重构** — Phases 1 to 5 (shipped 2026-03-09)
@@ -10,30 +13,48 @@
 - ✅ **v1.5 LLM → Android 调用管道** — Phases v15-01 to v15-03 (shipped 2026-03-05)
 - ✅ **v1.4 Android Tools 通道** — Phases 1-4 (shipped 2026-03-05)
 
-## v2.4 Agent 性能分析 (Complete)
+---
 
-**Goal:** 分析 agent-core C++ 层日志和性能，识别耗时点并优化
+<details>
+<summary>✅ v2.6 主界面重构 (Phases 1-6) — SHIPPED 2026-03-13</summary>
 
-### Phases
+- [x] Phase 1: 模块合并 (1/1 plans) — completed 2026-03-12
+- [x] Phase 2: MainActivity + 悬浮球基础 (1/1 plans) — completed 2026-03-12
+- [x] Phase 3: Fragment 容器化 (1/1 plans) — completed 2026-03-12
+- [x] Phase 4: Agent 后台运行 (1/1 plans) — completed 2026-03-12
+- [x] Phase 5: 界面优化 + 语音保留 (1/1 plans) — completed 2026-03-13
+- [x] Phase 6: 整合测试 (1/1 plans) — completed 2026-03-13
 
-| Phase | Name | Description |
-|-------|------|-------------|
-| 1 | 统一日志格式 | 改进日志宏，添加脱敏处理 |
-| 2 | 补充关键路径日志 | HTTP/LLM/MCP/TOOL/LOOP 耗时日志 |
-| 3 | 性能分析与优化 | ScopedTimer，识别热点 |
+**Key achievements:**
+- floating-ball 模块合并到 android-agent
+- MainActivity 启动页 + 悬浮球控制
+- Fragment 容器化（AgentFragment + ContainerActivity）
+- 会话持久化（SharedPreferences + Gson）
+- 界面优化（圆角、不透明背景、底部输入框修复）
+- 6 项功能整合测试通过
+
+**See:** `.planning/milestones/v2.6-ROADMAP.md`
+
+</details>
 
 ---
 
-## Progress
+<details>
+<summary>✅ v2.5 容器Activity模块 (Phases 1-2) — SHIPPED 2026-03-12</summary>
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1 | - | Complete | 2026-03-11 |
-| 2 | 1/1 | Complete | 2026-03-11 |
-| 3 | 1/1 | Complete | 2026-03-11 |
+- [x] Phase 1: 悬浮球入口 (1/1 plans) — completed 2026-03-12
+- [x] Phase 2: 容器Activity (2/2 plans) — completed 2026-03-12
 
-### Plans
+**Key achievements:**
+- 创建独立的 floating-ball Android Module
+- 实现悬浮球显示/隐藏/拖拽
+- 实现 ContainerActivity 半透明容器
+- 修复点击外部收起和悬浮球恢复问题
 
-- [x] 03-performance-analysis/03-PLAN.md — 手动日志分析 + 性能热点分析
+**See:** `.planning/milestones/v2.5-ROADMAP.md`
 
-*Roadmap updated: 2026-03-11*
+</details>
+
+---
+
+*Roadmap updated: 2026-03-13*

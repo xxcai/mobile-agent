@@ -3,10 +3,10 @@ package com.hh.agent;
 import android.content.Intent;
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
-import com.hh.agent.android.AgentActivity;
 import com.hh.agent.android.AgentInitializer;
-import com.hh.agent.voice.MockVoiceRecognizer;
+import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
+import com.hh.agent.voice.MockVoiceRecognizer;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
@@ -19,13 +19,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 启动界面 - 初始化 Agent 并进入 AgentActivity
+ * MainActivity - 主界面启动页
+ * 作为空白容器，悬浮球浮在此界面上
+ * Agent 功能通过悬浮球点击触发 ContainerActivity 加载
  */
-public class LauncherActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 空白容器，不需要 setContentView
 
         // 准备工具 Map
         Map<String, ToolExecutor> tools = new HashMap<>();
@@ -41,8 +44,9 @@ public class LauncherActivity extends AppCompatActivity {
 
         // 初始化 Agent
         AgentInitializer.initialize(getApplication(), tools, () -> {
-            startActivity(new Intent(this, AgentActivity.class));
-            finish();
+            // Agent 初始化完成后不做任何操作，保持在 MainActivity
+            // 用户通过悬浮球进入 Agent 界面
         });
+
     }
 }

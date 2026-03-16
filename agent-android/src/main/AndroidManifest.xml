@@ -8,13 +8,25 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
+        <!-- 悬浮球相关组件 -->
+        <receiver
+            android:name="com.hh.agent.floating.FloatingBallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.hh.agent.action.APP_FOREGROUND" />
+                <action android:name="com.hh.agent.action.APP_BACKGROUND" />
+                <action android:name="com.hh.agent.action.SHOW_FLOATING_BALL" />
+            </intent-filter>
+        </receiver>
+
         <activity
-            android:name=".AgentActivity"
-            android:exported="true"
-            android:label="MobileAgent"
-            android:theme="@style/AppTheme" />
+            android:name="com.hh.agent.floating.ContainerActivity"
+            android:launchMode="singleTop"
+            android:theme="@style/ContainerActivityTheme"
+            android:exported="false" />
     </application>
 
 </manifest>
