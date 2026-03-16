@@ -5,11 +5,10 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="8dp"
-    android:layout_marginStart="16dp"
-    android:layout_marginEnd="48dp"
     android:background="@drawable/bg_tool_use"
     android:layout_marginTop="4dp"
-    android:layout_marginBottom="4dp">
+    android:layout_marginBottom="4dp"
+    android:layout_marginEnd="40dp">
 
     <!-- 工具调用标题 -->
     <LinearLayout
