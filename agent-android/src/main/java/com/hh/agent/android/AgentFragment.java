@@ -254,6 +254,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
     public void onStreamTextDelta(String textDelta) {
         // 累积文本内容（累积模式，不是替换）
         streamTextBuffer.append(textDelta);
+        Log.d("AgentFragment", "onStreamTextDelta: new='" + textDelta + "', accumulated='" + streamTextBuffer.toString() + "'");
 
         // 更新 thinking 消息内容
         adapter.updateThinkingMessage(streamTextBuffer.toString());
