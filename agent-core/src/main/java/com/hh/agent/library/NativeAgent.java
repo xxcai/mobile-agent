@@ -9,6 +9,9 @@ public class NativeAgent {
     // Callback instance registered by Java layer
     private static AndroidToolCallback sCallback;
 
+    // Stream event listener for streaming responses
+    private static AgentEventListener sStreamListener;
+
     static {
         System.loadLibrary("icraw");
     }
@@ -82,4 +85,20 @@ public class NativeAgent {
      * @param schemaJson JSON string containing tools schema
      */
     public static native void nativeSetToolsSchema(String schemaJson);
+
+    /**
+     * Send a message with streaming event callback
+     *
+     * @param message The message to send
+     * @param listener The event listener to receive stream events
+     */
+    public static void sendMessageStream(String message, AgentEventListener listener) {
+        sStreamListener = listener;
+        nativeSendMessageStream(message, listener);
+    }
+
+    /**
+     * Native method to send message with streaming callback
+     */
+    private static native void nativeSendMessageStream(String message, AgentEventListener listener);
 }
