@@ -64,7 +64,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
-        if (holder instanceof MessageViewHolder) {
+        if (holder instanceof ThinkingViewHolder) {
+            ((ThinkingViewHolder) holder).bind(message.getContent());
+        } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
         }
     }
@@ -114,6 +116,35 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 return;
             }
         }
+    }
+
+    /**
+     * 更新思考中的消息内容
+     * @param content 新的文本内容（替换而非追加）
+     */
+    public void updateThinkingMessage(String content) {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("thinking".equals(msg.getRole())) {
+                msg.setContent(content);
+                notifyItemChanged(i);
+                return;
+            }
+        }
+    }
+
+    /**
+     * 获取思考消息的索引
+     * @return thinking 消息的索引，不存在则返回 -1
+     */
+    public int getThinkingMessageIndex() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("thinking".equals(msg.getRole())) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -170,8 +201,15 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     static class ThinkingViewHolder extends RecyclerView.ViewHolder {
 
+        private final TextView tvThinking;
+
         ThinkingViewHolder(@NonNull View itemView) {
             super(itemView);
+            tvThinking = itemView.findViewById(R.id.tvThinking);
+        }
+
+        void bind(String content) {
+            tvThinking.setText(content);
         }
     }
 }
