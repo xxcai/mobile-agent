@@ -237,6 +237,8 @@ public class AgentFragment extends Fragment implements MainContract.View {
     @Override
     public void onUserMessageSent(Message message) {
         adapter.addMessage(message);
+        // 添加发送中状态消息
+        adapter.addSendingMessage();
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
@@ -263,12 +265,45 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
-        // 工具调用开始 - 可选实现用于显示工具调用
+        // 删除发送中状态消息
+        removeSendingMessage();
+
+        // 添加工具调用消息
+        adapter.addToolUseMessage(name, argumentsJson);
+
+        // 自动滚动到最新消息
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
     @Override
     public void onStreamToolResult(String id, String result) {
-        // 工具调用结果 - 可选实现用于显示结果
+        // 添加工具结果消息
+        // 从消息列表中获取最后一个 tool_use 消息的工具名称
+        String toolName = getLastToolName();
+        adapter.addToolResultMessage(toolName, result);
+
+        // 自动滚动到最新消息
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    /**
+     * 获取最后一个工具调用的名称
+     */
+    private String getLastToolName() {
+        for (int i = adapter.getItemCount() - 1; i >= 0; i--) {
+            Message msg = adapter.getMessageAt(i);
+            if (msg != null && "tool_use".equals(msg.getRole())) {
+                return msg.getName();
+            }
+        }
+        return "Tool";
+    }
+
+    /**
+     * 删除发送中状态消息
+     */
+    private void removeSendingMessage() {
+        adapter.removeSendingMessage();
     }
 
     @Override

@@ -73,7 +73,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
         if (holder instanceof ThinkingViewHolder) {
-            ((ThinkingViewHolder) holder).bind(message.getContent());
+            ((ThinkingViewHolder) holder).bindMessage(message);
         } else if (holder instanceof ToolUseViewHolder) {
             ((ToolUseViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof ToolResultViewHolder) {
@@ -91,6 +91,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return VIEW_TYPE_THINKING;
         } else if ("user".equals(role)) {
             return VIEW_TYPE_USER;
+        } else if ("sending".equals(role)) {
+            return VIEW_TYPE_THINKING;  // 复用 thinking 样式显示发送中
         } else if ("tool_use".equals(role)) {
             return VIEW_TYPE_TOOL_USE;
         } else if ("tool_result".equals(role)) {
@@ -203,6 +205,46 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 获取指定位置的消息
+     * @param position 消息位置
+     * @return 消息对象，不存在则返回 null
+     */
+    public Message getMessageAt(int position) {
+        if (position >= 0 && position < messages.size()) {
+            return messages.get(position);
+        }
+        return null;
+    }
+
+    /**
+     * 删除发送中状态消息
+     */
+    public void removeSendingMessage() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("sending".equals(msg.getRole())) {
+                messages.remove(i);
+                notifyItemRemoved(i);
+                return;
+            }
+        }
+    }
+
+    /**
+     * 添加发送中状态消息
+     * @return 发送中消息的索引
+     */
+    public int addSendingMessage() {
+        Message message = new Message();
+        message.setRole("sending");
+        message.setContent("发送中...");
+        message.setTimestamp(System.currentTimeMillis());
+        this.messages.add(message);
+        notifyItemInserted(this.messages.size() - 1);
+        return this.messages.size() - 1;
+    }
+
+    /**
      * 普通消息 ViewHolder
      */
     static class MessageViewHolder extends RecyclerView.ViewHolder {
@@ -257,6 +299,15 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         void bind(String content) {
             tvThinking.setText(content);
+        }
+
+        void bindMessage(Message message) {
+            String role = message.getRole();
+            if ("sending".equals(role)) {
+                tvThinking.setText("发送中...");
+            } else {
+                tvThinking.setText(message.getContent());
+            }
         }
     }
 
