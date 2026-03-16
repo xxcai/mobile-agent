@@ -195,10 +195,10 @@ public class MainPresenter implements MainContract.Presenter {
             }
         };
 
-        // 使用后台线程执行网络请求，避免阻塞主线程
-        new Thread(() -> {
+        // 使用 executor 执行网络请求，避免阻塞主线程
+        executor.execute(() -> {
             mobileAgentApi.sendMessageStream(content, sessionKey, streamListener);
-        }).start();
+        });
     }
 
     @Override
