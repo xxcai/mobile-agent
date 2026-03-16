@@ -273,7 +273,20 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamMessageEnd(String finishReason) {
-        // 流式消息结束 - 可选实现用于完成状态
+        // 1. 删除 thinking 消息
+        hideThinking();
+
+        // 2. 创建新的 AI 助手消息
+        Message assistantMessage = new Message();
+        assistantMessage.setRole("assistant");
+        assistantMessage.setContent(streamTextBuffer.toString());
+        assistantMessage.setTimestamp(System.currentTimeMillis());
+
+        // 3. 添加最终消息
+        onMessageReceived(assistantMessage);
+
+        // 清除累积的文本内容
+        streamTextBuffer.setLength(0);
     }
 
     @Override
