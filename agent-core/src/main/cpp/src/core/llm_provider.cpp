@@ -148,7 +148,15 @@ std::vector<ToolCall> OpenAIStreamParser::get_accumulated_tool_calls() {
 }
 
 bool OpenAIStreamParser::is_stream_end(const std::string& sse_event) const {
-    return sse_event.find("data: [DONE]") != std::string::npos;
+    // Check for explicit [DONE] marker
+    if (sse_event.find("data: [DONE]") != std::string::npos) {
+        return true;
+    }
+    // Check for finish_reason in the JSON - indicates stream is ending
+    if (sse_event.find("finish_reason") != std::string::npos) {
+        return true;
+    }
+    return false;
 }
 
 bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
@@ -206,6 +214,8 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
         
         if (!response.finish_reason.empty()) {
             response.tool_calls = get_accumulated_tool_calls();
+            // Stream ends when we receive a finish_reason (stop, tool_calls, etc.)
+            response.is_stream_end = true;
         }
         
         return true;
