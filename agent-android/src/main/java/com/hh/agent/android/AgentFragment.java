@@ -237,8 +237,6 @@ public class AgentFragment extends Fragment implements MainContract.View {
     @Override
     public void onUserMessageSent(Message message) {
         adapter.addMessage(message);
-        // 添加发送中状态消息
-        adapter.addSendingMessage();
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
@@ -265,9 +263,6 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
-        // 删除发送中状态消息
-        removeSendingMessage();
-
         // 添加工具调用消息
         adapter.addToolUseMessage(name, argumentsJson);
 
