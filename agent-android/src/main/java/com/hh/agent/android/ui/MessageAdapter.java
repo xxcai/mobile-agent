@@ -4,7 +4,6 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.util.Log;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -73,7 +72,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
-        Log.d("MessageAdapter", "onBindViewHolder: pos=" + position + ", holder=" + holder.getClass().getSimpleName() + ", msg.role=" + message.getRole() + ", msg.content=" + message.getContent());
         if (holder instanceof ThinkingViewHolder) {
             ((ThinkingViewHolder) holder).bindMessage(message);
         } else if (holder instanceof ToolUseViewHolder) {
@@ -121,7 +119,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      * 添加单条消息
      */
     public void addMessage(Message message) {
-        Log.d("MessageAdapter", "addMessage: role=" + message.getRole() + ", content=" + message.getContent());
         this.messages.add(message);
         notifyItemInserted(this.messages.size() - 1);
     }
@@ -145,12 +142,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      * @param content 新的文本内容（替换而非追加）
      */
     public void updateThinkingMessage(String content) {
-        Log.d("MessageAdapter", "updateThinkingMessage called with: '" + content + "'");
+        // 空内容不更新，保护现有内容
+        if (content == null || content.isEmpty()) {
+            return;
+        }
         for (int i = 0; i < messages.size(); i++) {
             Message msg = messages.get(i);
-            Log.d("MessageAdapter", "updateThinkingMessage: checking msg[" + i + "], role=" + msg.getRole() + ", content=" + msg.getContent());
             if ("thinking".equals(msg.getRole())) {
-                Log.d("MessageAdapter", "updateThinkingMessage: found thinking at " + i + ", setting content to '" + content + "'");
                 msg.setContent(content);
                 notifyItemChanged(i);
                 return;
@@ -301,7 +299,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         ThinkingViewHolder(@NonNull View itemView) {
             super(itemView);
             tvThinking = itemView.findViewById(R.id.tvThinking);
-            Log.d("MessageAdapter", "ThinkingViewHolder created, tvThinking=" + tvThinking);
         }
 
         void bind(String content) {
@@ -310,16 +307,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         void bindMessage(Message message) {
             if (tvThinking == null) {
-                Log.e("MessageAdapter", "tvThinking is null!");
                 return;
             }
             String content = message.getContent();
             if (content == null) {
                 content = "";
             }
-            Log.d("MessageAdapter", "bindMessage: setting text to '" + content + "'");
             tvThinking.setText(content);
-            Log.d("MessageAdapter", "bindMessage: text now is '" + tvThinking.getText() + "'");
         }
     }
 
