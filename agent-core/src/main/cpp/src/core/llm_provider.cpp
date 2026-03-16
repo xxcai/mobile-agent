@@ -479,6 +479,7 @@ void OpenAICompatibleProvider::chat_completion_stream(
     
     // Create SSE callback using stream parser
     auto sse_callback = [&](const std::string& sse_event) -> bool {
+        ICRAW_LOG_DEBUG("[LLM_STREAM] SSE event received: {}", sse_event);
         ChatCompletionResponse response;
         
         if (stream_parser_->parse_chunk(sse_event, response)) {
