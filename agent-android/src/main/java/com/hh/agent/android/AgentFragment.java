@@ -231,6 +231,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onMessageReceived(Message message) {
+        Log.d("AgentFragment", "onMessageReceived: role=" + message.getRole() + ", content=" + message.getContent());
         adapter.addMessage(message);
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
@@ -307,6 +308,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamMessageEnd(String finishReason) {
+        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", streamTextBuffer=" + streamTextBuffer.toString());
         // 1. 删除 thinking 消息
         hideThinking();
 
@@ -316,6 +318,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
         assistantMessage.setContent(streamTextBuffer.toString());
         assistantMessage.setTimestamp(System.currentTimeMillis());
 
+        Log.d("AgentFragment", "onStreamMessageEnd: adding assistant message, content=" + assistantMessage.getContent());
         // 3. 添加最终消息
         onMessageReceived(assistantMessage);
 
@@ -357,6 +360,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void hideThinking() {
+        Log.d("AgentFragment", "hideThinking: removing thinking message");
         adapter.removeThinkingMessage();
     }
 
