@@ -49,6 +49,9 @@ public class AgentFragment extends Fragment implements MainContract.View {
     // 用于累积流式文本内容
     private StringBuilder streamTextBuffer = new StringBuilder();
 
+    // 流式响应状态标记
+    private boolean isStreaming = false;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -129,10 +132,17 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
         // 设置发送按钮点击事件
         btnSend.setOnClickListener(v -> {
-            String content = etMessage.getText().toString().trim();
-            if (!content.isEmpty()) {
-                presenter.sendMessage(content);
-                etMessage.setText("");
+            if (isStreaming) {
+                // 取消流式响应
+                presenter.cancelStream();
+                resetStreamingState();
+            } else {
+                // 发送消息
+                String content = etMessage.getText().toString().trim();
+                if (!content.isEmpty()) {
+                    presenter.sendMessage(content);
+                    etMessage.setText("");
+                }
             }
         });
     }
@@ -344,10 +354,18 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onStreamError(String errorCode, String errorMessage) {
-        // 流式错误 - 显示错误信息
-        if (getContext() != null) {
-            Toast.makeText(getContext(), "Stream error: " + errorMessage, Toast.LENGTH_SHORT).show();
-        }
+        // 流式错误 - 显示错误消息到消息列表
+        adapter.addErrorMessage(errorCode, errorMessage);
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+
+        // 清除思考消息
+        adapter.removeThinkingMessage();
+
+        // 清除累积的文本
+        streamTextBuffer.setLength(0);
+
+        // 重置流式状态和按钮
+        resetStreamingState();
     }
 
     @Override
@@ -366,6 +384,11 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void showThinking() {
+        isStreaming = true;
+        // 切换按钮为取消状态
+        btnSend.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        btnSend.setContentDescription(getString(R.string.cancel_button));
+
         Message thinkingMsg = new Message();
         thinkingMsg.setRole("thinking");
         thinkingMsg.setContent("MobileAgent 正在思考...");
@@ -378,6 +401,26 @@ public class AgentFragment extends Fragment implements MainContract.View {
     public void hideThinking() {
         Log.d("AgentFragment", "hideThinking: removing thinking message");
         adapter.removeThinkingMessage();
+        // 恢复按钮为发送状态
+        resetSendButton();
+    }
+
+    /**
+     * 重置发送按钮为正常状态
+     */
+    private void resetSendButton() {
+        isStreaming = false;
+        btnSend.setEnabled(true);
+        btnSend.setImageResource(android.R.drawable.ic_menu_send);
+        btnSend.setContentDescription(getString(R.string.send_button));
+    }
+
+    /**
+     * 重置流式响应状态
+     */
+    private void resetStreamingState() {
+        isStreaming = false;
+        resetSendButton();
     }
 
     @Override
