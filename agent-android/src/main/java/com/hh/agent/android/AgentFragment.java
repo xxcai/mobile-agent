@@ -340,6 +340,23 @@ public class AgentFragment extends Fragment implements MainContract.View {
             return;
         }
 
+        // 检查是否为错误类型的 finish_reason
+        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error"};
+        for (String errorType : errorFinishReasons) {
+            if (errorType.equals(finishReason)) {
+                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + finishReason);
+                // 显示错误消息
+                adapter.addErrorMessage(finishReason, "API 响应被截断或内容不符合要求");
+                // 隐藏 thinking 消息
+                hideThinking();
+                // 清除 AI 消息
+                adapter.removeAiMessages();
+                // 清空 buffer
+                streamTextBuffer.setLength(0);
+                return;
+            }
+        }
+
         // finish_reason 是 stop 时，才删除 thinking 并添加最终响应
         // 1. 删除 thinking 消息
         hideThinking();
