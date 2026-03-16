@@ -195,8 +195,10 @@ public class MainPresenter implements MainContract.Presenter {
             }
         };
 
-        // 使用流式接口发送消息
-        mobileAgentApi.sendMessageStream(content, sessionKey, streamListener);
+        // 使用后台线程执行网络请求，避免阻塞主线程
+        new Thread(() -> {
+            mobileAgentApi.sendMessageStream(content, sessionKey, streamListener);
+        }).start();
     }
 
     @Override
