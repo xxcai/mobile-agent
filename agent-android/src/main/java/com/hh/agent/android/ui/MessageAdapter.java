@@ -73,6 +73,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Message message = messages.get(position);
+        Log.d("MessageAdapter", "onBindViewHolder: pos=" + position + ", holder=" + holder.getClass().getSimpleName() + ", msg.role=" + message.getRole() + ", msg.content=" + message.getContent());
         if (holder instanceof ThinkingViewHolder) {
             ((ThinkingViewHolder) holder).bindMessage(message);
         } else if (holder instanceof ToolUseViewHolder) {
@@ -120,6 +121,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      * 添加单条消息
      */
     public void addMessage(Message message) {
+        Log.d("MessageAdapter", "addMessage: role=" + message.getRole() + ", content=" + message.getContent());
         this.messages.add(message);
         notifyItemInserted(this.messages.size() - 1);
     }
@@ -296,6 +298,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         ThinkingViewHolder(@NonNull View itemView) {
             super(itemView);
             tvThinking = itemView.findViewById(R.id.tvThinking);
+            Log.d("MessageAdapter", "ThinkingViewHolder created, tvThinking=" + tvThinking);
         }
 
         void bind(String content) {
