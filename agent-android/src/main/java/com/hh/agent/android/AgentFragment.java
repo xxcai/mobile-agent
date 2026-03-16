@@ -258,7 +258,8 @@ public class AgentFragment extends Fragment implements MainContract.View {
         // 更新 thinking 消息内容
         adapter.updateThinkingMessage(streamTextBuffer.toString());
 
-        // 自动滚动到最新消息
+        // 强制刷新 RecyclerView
+        rvMessages.invalidate();
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
