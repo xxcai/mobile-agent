@@ -30,7 +30,7 @@ import java.util.List;
  * Agent Fragment - 从 AgentActivity 抽取的 UI 逻辑
  * 用于嵌入到 ContainerActivity 中显示
  */
-public class AgentFragment extends Fragment implements MainContract.View {
+public class AgentFragment extends Fragment implements MainContract.MessageListView, MainContract.StreamingView {
 
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static boolean sPermissionGranted = false;
@@ -84,7 +84,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
         // 初始化 Presenter，使用单例模式
         presenter = MainPresenter.getInstance();
-        presenter.attachView(this);
+        presenter.attachView(this, this);
 
         // 加载历史消息
         presenter.loadMessages();
