@@ -75,6 +75,9 @@ None
 
 ## Decisions
 
+- 2026-03-17: Phase 1 使用 C++ SQLite 存储历史消息，通过 JNI 调用获取
+- 2026-03-17: Phase 1 SQL 层过滤 role IN ('user', 'assistant') 排除工具调用
+- 2026-03-17: Phase 1 JSON 格式在 JNI 层传递消息数据
 - 2026-03-16: Phase 4 错误消息使用红色背景样式展示在消息列表中
 - 2026-03-16: Phase 4 按钮使用图标切换（ic_menu_send / ic_menu_close_clear_cancel）
 - 2026-03-16: Phase 4 取消/错误后保留用户输入内容在输入框中
@@ -120,7 +123,9 @@ None
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| - | 历史消息加载 | - | ⏳ Pending |
+| 1 | 数据库加载层 | HIST-01, HIST-02, HIST-03 | ✅ Complete |
+| 2 | UI 展示层 | HIST-04, HIST-05 | ⏳ Pending |
+| 3 | 分页加载 | HIST-06 | ⏳ Pending |
 
 ---
 

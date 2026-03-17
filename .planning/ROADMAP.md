@@ -18,10 +18,10 @@
 ---
 
 <details>
-<summary>⏳ v2.8 历史消息加载 (Phases 1-3) — Planning</summary>
+<summary>⏳ v2.8 历史消息加载 (Phases 1-3) — In Progress</summary>
 
-- [ ] Phase 1: 数据库加载层 (plans: 1)
-  - [ ] v2.8-01-01-PLAN.md — 实现 C++ SQLite JNI 桥接
+- [x] Phase 1: 数据库加载层 (plans: 1/1) — completed 2026-03-17
+  - [x] v2.8-01-01-PLAN.md — 实现 C++ SQLite JNI 桥接 (COMPLETED)
 - [ ] Phase 2: UI 展示层 (plans: TBD)
 - [ ] Phase 3: 分页加载 (plans: TBD)
 
@@ -65,8 +65,6 @@
 **See:** `.planning/milestones/v2.6-ROADMAP.md`
 
 </details>
-
----
 
 <details>
 <summary>✅ v2.5 容器Activity模块 (Phases 1-2) — SHIPPED 2026-03-12</summary>
