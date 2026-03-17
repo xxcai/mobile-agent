@@ -123,6 +123,12 @@ std::string MobileAgent::chat(const std::string& message) {
 }
 
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
+    // Save user message to SQLite first
+    if (!message.empty()) {
+        auto result = memory_manager_->add_message("user", message, "default", nlohmann::json{});
+        ICRAW_LOG_DEBUG("[CHAT_STREAM] Saved user message, result={}", result);
+    }
+
     ICRAW_LOG_DEBUG("[CHAT_STREAM] Starting process_message_stream");
     auto new_messages = agent_loop_->process_message_stream(
         message, history_, system_prompt_, callback);
