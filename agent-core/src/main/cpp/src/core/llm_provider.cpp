@@ -255,8 +255,9 @@ nlohmann::json LLMProvider::build_request_body(const ChatCompletionRequest& requ
 ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& response) const {
     ChatCompletionResponse result;
 
-    // Debug: log full response
-    ICRAW_LOG_DEBUG("[LLM] Full response: {}", response.dump(2));
+    // Debug: log full response using printf to ensure visibility
+    printf("[LLM] Full response: %s\n", response.dump(2).c_str());
+    fflush(stdout);
 
     if (!response.contains("choices") || response["choices"].empty()) {
         result.finish_reason = "error";
@@ -271,7 +272,8 @@ ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& respons
 
         // Check for reasoning_content (o1 model)
         if (message.contains("reasoning_content") && !message["reasoning_content"].is_null()) {
-            ICRAW_LOG_DEBUG("[LLM] Found reasoning_content: {}", message["reasoning_content"].get<std::string>());
+            printf("[LLM] Found reasoning_content: %s\n", message["reasoning_content"].get<std::string>().c_str());
+            fflush(stdout);
         }
 
         if (message.contains("content") && !message["content"].is_null()) {
