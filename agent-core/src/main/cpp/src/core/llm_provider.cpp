@@ -188,13 +188,6 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
     try {
         nlohmann::json chunk_json = nlohmann::json::parse(json_str);
 
-        // Debug: log delta keys
-        if (chunk_json.contains("choices") && chunk_json["choices"].size() > 0 &&
-            chunk_json["choices"][0].contains("delta")) {
-            const auto& delta = chunk_json["choices"][0]["delta"];
-            ICRAW_LOG_DEBUG("[LLM_STREAM] Delta keys: {}", delta.dump());
-        }
-
         if (!chunk_json.contains("choices") || chunk_json["choices"].empty()) {
             return false;
         }

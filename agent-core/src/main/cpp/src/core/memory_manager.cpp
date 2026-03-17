@@ -515,7 +515,6 @@ int64_t MemoryManager::add_message(const std::string& role,
     // Check if messages_fts exists, if not we may need to handle FTS trigger issues
     auto fts_check = db_->query_string("SELECT name FROM sqlite_master WHERE type='table' AND name='messages_fts';");
     if (!fts_check) {
-        ICRAW_LOG_WARN("add_message: messages_fts table does not exist, dropping FTS triggers if any");
         // Drop any orphan triggers that reference messages_fts
         db_->execute("DROP TRIGGER IF EXISTS messages_ai;");
         db_->execute("DROP TRIGGER IF EXISTS messages_ad;");
@@ -525,10 +524,7 @@ int64_t MemoryManager::add_message(const std::string& role,
     // Use parameterized query to prevent SQL injection
     std::string sql = "INSERT INTO messages (role, content, timestamp, session_id, metadata, token_count) VALUES (?, ?, ?, ?, ?, ?);";
 
-    ICRAW_LOG_DEBUG("add_message: preparing SQL: {}", sql);
-
     if (!db_->prepare(sql)) {
-        ICRAW_LOG_ERROR("add_message: prepare failed, error: {}", db_->get_error());
         return -1;
     }
 
@@ -543,7 +539,6 @@ int64_t MemoryManager::add_message(const std::string& role,
     db_->step_exec();
 
     int64_t id = db_->last_insert_rowid();
-    ICRAW_LOG_DEBUG("add_message: inserted id={}", id);
     
     // Update token stats (async-friendly: just invalidate cache)
     if (id > 0) {

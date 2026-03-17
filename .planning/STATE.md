@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.8
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-03-16T19:30:00Z"
+status: unknown
+last_updated: "2026-03-17T00:48:05.534Z"
 ---
 
 # STATE: Mobile Agent
@@ -70,6 +70,7 @@ None
 | 优化MainPresenter里面的线程池 | agent-android | 2026-03-13 |
 | 添加session持久化 | cpp | 2026-03-13 |
 | C++ 层实现 error 事件回调 | cpp | 2026-03-16 |
+| 历史消息保存时过滤 thinking 内容 (</think>) | cpp | 2026-03-17 |
 
 ---
 

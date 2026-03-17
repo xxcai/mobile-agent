@@ -142,10 +142,8 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
         if (!msg.content.empty()) {
             std::string content;
             for (const auto& block : msg.content) {
-                ICRAW_LOG_DEBUG("[CHAT_STREAM] Processing block: type={}, text={}", block.type, block.text.substr(0, 30));
                 // Skip thinking content - it's internal reasoning, not actual response
                 if (block.type == "thinking") {
-                    ICRAW_LOG_DEBUG("[CHAT_STREAM] Skipping thinking block");
                     continue;
                 }
                 if (!block.text.empty()) {
@@ -153,7 +151,6 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                 }
             }
             if (!content.empty()) {
-                ICRAW_LOG_DEBUG("[CHAT_STREAM] Saving message: role={}, content={}", msg.role, content.substr(0, 50));
                 nlohmann::json metadata;
                 // Store tool calls if present
                 if (!msg.content.empty() && msg.content[0].type == "tool_use") {
