@@ -25,20 +25,21 @@
 
 - [x] Phase 1: 拆分 MainContract.View 接口 (P0) — 降低耦合
   - [x] v2.9-01-01-PLAN.md — 拆分 MainContract.View 接口 (VIEW-ISP-01) (COMPLETED)
-- [ ] Phase 2: 提取 StreamingManager (P0) — 解耦流式状态管理
-  - [ ] v2.9-02-01-PLAN.md — 创建 StreamingManager 并迁移代码 (STREAM-EXTRACT-01)
+- [x] Phase 2: 提取 StreamingManager (P0) — 解耦流式状态管理
+  - [x] v2.9-02-01-PLAN.md — 创建 StreamingManager 并迁移代码 (STREAM-EXTRACT-01) (COMPLETED)
 - [ ] Phase 3: 统一线程池管理 (P1) — 资源优化
+  - [x] v2.9-03-01-PLAN.md — 创建 ThreadPoolManager 并迁移代码 (THREAD-01) (PLANNED)
 - [ ] Phase 4: 提取 SessionManager (P1) — 分离会话管理逻辑
-- [ ] Phase 5: 引入依赖注入容器 (P2) — 提高可测试性
+- [x] v2.9-05-01-PLAN.md — 创建 AgentContainer 依赖注入容器 (DI-01) (PLANNED)
 - [ ] Phase 6: 统一包结构 (P2) — 代码组织清晰
 - [ ] Phase 7: 统一状态管理 (P3) — 状态一致性
 
 **Requirements:**
 - Phase 1: VIEW-ISP-01 ✅
-- Phase 2: STREAM-EXTRACT-01 ⏳
+- Phase 2: STREAM-EXTRACT-01 ✅
 - Phase 3: THREAD-01 ⏳
 - Phase 4: SESSION-01 ⏳
-- Phase 5: DI-01 ⏳
+- Phase 5: DI-01 (PLANNED)
 - Phase 6: PACKAGE-01 ⏳
 - Phase 7: STATE-01 ⏳
 
