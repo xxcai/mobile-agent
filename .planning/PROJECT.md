@@ -61,19 +61,18 @@
 - [ ] UI 流式请求支持 — v2.7
 - [ ] 消息增量更新 — v2.7
 - [ ] 异常处理与取消 — v2.7
+- [ ] Agent 启动时加载历史消息 — v2.8
 
-## Current Milestone: v2.7 流式输出
+## Current Milestone: v2.8 历史消息加载
 
-**Goal:** 将 MobileAgent 的同步 chat 接口改为流式输出，实现 AI 响应实时展示到 UI，提升用户等待体验。
+**Goal:** Agent 界面启动时，从数据库加载历史消息并展示在聊天界面，实现会话连续性。
 
 **Target features:**
-- JNI 层流式桥接 (nativeSendMessageStream)
-- Java API 层流式接口 (sendMessageStream + AgentEventListener)
-- UI 点击发送改为流式请求
-- 消息增量更新 (实时展示 AI 文本片段)
-- 异常处理与取消
+- 启动时从 SQLite 加载历史消息
+- 消息展示在 UI（MessageAdapter）
+- 会话连续性（重启 App 后能看到之前的对话）
 
-**Last milestone completed:** v2.6 主界面重构 (shipped 2026-03-13)
+**Last milestone completed:** v2.7 流式输出 (shipped 2026-03-16)
 
 **Next milestone:** v2.8 (待规划)
 
@@ -126,4 +125,4 @@
 | Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-16 — v2.7 active*
+*Last updated: 2026-03-16 — v2.8 active*

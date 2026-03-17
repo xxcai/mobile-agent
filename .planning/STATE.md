@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.7
+milestone: v2.8
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-16T07:19:22.699Z"
+status: in_progress
+last_updated: "2026-03-16T19:30:00Z"
 ---
 
 # STATE: Mobile Agent
@@ -16,7 +16,7 @@ last_updated: "2026-03-16T07:19:22.699Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.7 流式输出 - Phase 4 完成
+**Current Focus:** v2.8 历史消息加载 - Defining requirements
 
 ---
 
@@ -24,9 +24,9 @@ last_updated: "2026-03-16T07:19:22.699Z"
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.7 流式输出 |
-| Status | Phase 4 Complete |
-| Last activity: | 2026-03-16 — Phase 4 Plan 01 completed - 异常处理与取消 |
+| Milestone | v2.8 历史消息加载 |
+| Status | 📋 Defining requirements |
+| Last activity: | 2026-03-16 — v2.8 milestone started |
 
 ---
 
@@ -90,6 +90,7 @@ None
 - 2026-03-12: Phase 1 使用单例模式管理悬浮球，ActivityLifecycleCallbacks + 广播通信
 
 ---
+- [Phase v2.7-04]: Gap closure: onStreamMessageEnd 添加错误 finish_reason 检查逻辑
 
 ## v2.6 进度
 
@@ -112,6 +113,14 @@ None
 | 2 | Java API 层 | STREAM-03 | ✅ Complete |
 | 3 | UI 流式交互 | UI-01~UI-06 | ✅ Complete |
 | 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ✅ Complete |
+
+---
+
+## v2.8 进度
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| - | 历史消息加载 | - | ⏳ Pending |
 
 ---
 

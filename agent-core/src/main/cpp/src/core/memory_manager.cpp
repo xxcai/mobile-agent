@@ -545,6 +545,59 @@ int64_t MemoryManager::add_message(const std::string& role,
     return id;
 }
 
+std::vector<MemoryEntry> MemoryManager::get_recent_messages_by_roles(
+        int limit,
+        const std::vector<std::string>& roles,
+        const std::string& session_id) const {
+    std::vector<MemoryEntry> messages;
+
+    if (!db_ || !db_->is_open()) {
+        return messages;
+    }
+
+    // Build role filter: role IN ('user', 'assistant')
+    std::string role_filter;
+    for (size_t i = 0; i < roles.size(); ++i) {
+        if (i > 0) role_filter += ", ";
+        role_filter += "'" + roles[i] + "'";
+    }
+
+    std::string sql = "SELECT id, role, content, timestamp, session_id, metadata, token_count, consolidated FROM messages "
+                      "WHERE session_id = ? AND role IN (" + role_filter + ") "
+                      "ORDER BY timestamp DESC LIMIT ?;";
+
+    if (!db_->prepare(sql)) {
+        return messages;
+    }
+
+    db_->bind(1, session_id);
+    db_->bind(2, static_cast<int64_t>(limit));
+
+    while (db_->step()) {
+        MemoryEntry entry;
+        entry.id = db_->get_column_int(0);
+        entry.role = db_->get_column_string(1);
+        entry.content = db_->get_column_string(2);
+        entry.timestamp = db_->get_column_string(3);
+        entry.session_id = db_->get_column_string(4);
+        std::string metadata_str = db_->get_column_string(5);
+        if (!metadata_str.empty()) {
+            try {
+                entry.metadata = nlohmann::json::parse(metadata_str);
+            } catch (...) {}
+        }
+        entry.token_count = static_cast<int>(db_->get_column_int(6));
+        entry.consolidated = db_->get_column_int(7) != 0;
+        messages.push_back(std::move(entry));
+    }
+
+    db_->reset();
+
+    // Reverse to get chronological order (oldest first)
+    std::reverse(messages.begin(), messages.end());
+    return messages;
+}
+
 std::vector<MemoryEntry> MemoryManager::get_recent_messages(int limit,
                                                              const std::string& session_id) const {
     std::vector<MemoryEntry> messages;
