@@ -17,9 +17,6 @@ import java.util.List;
 /**
  * MainActivity 的 Presenter 实现
  * 使用 Native C++ Agent
- *
- * TODO: isThinking 状态目前保存在 Presenter 层
- * 后续应该迁移到底层 C++ 实现，实现真正的异步消息处理
  */
 public class MainPresenter implements MainContract.Presenter {
 
@@ -158,6 +155,7 @@ public class MainPresenter implements MainContract.Presenter {
         streamingManager.setCallback(new StreamingManager.StreamingCallback() {
             @Override
             public void onTextDelta(String text) {
+                Log.d("MainPresenter", "onTextDelta: text=" + text);
                 if (streamingView != null) {
                     mainHandler.post(() -> streamingView.onStreamTextDelta(text));
                 }
@@ -165,6 +163,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onToolUse(String id, String name, String argumentsJson) {
+                Log.d("MainPresenter", "onToolUse: id=" + id);
                 if (streamingView != null) {
                     mainHandler.post(() -> streamingView.onStreamToolUse(id, name, argumentsJson));
                 }
@@ -172,6 +171,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onToolResult(String id, String result) {
+                Log.d("MainPresenter", "onToolResult: id=" + id);
                 if (streamingView != null) {
                     mainHandler.post(() -> streamingView.onStreamToolResult(id, result));
                 }
@@ -179,10 +179,10 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onMessageEnd(String finishReason) {
+                Log.d("MainPresenter", "onMessageEnd: finishReason=" + finishReason);
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        // 只隐藏 loading，不删除 thinking 消息
-                        // thinking 消息的删除在 onStreamMessageEnd 中处理
+                        streamingView.hideThinking();
                         messageListView.hideLoading();
                         streamingView.onStreamMessageEnd(finishReason);
                     });
@@ -191,6 +191,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onError(String errorCode, String errorMessage) {
+                Log.d("MainPresenter", "onError: errorCode=" + errorCode + ", errorMessage=" +errorMessage);
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
@@ -223,20 +224,6 @@ public class MainPresenter implements MainContract.Presenter {
     public void attachView(MainContract.MessageListView messageListView, MainContract.StreamingView streamingView) {
         this.messageListView = messageListView;
         this.streamingView = streamingView;
-        // 重新 attach 时，检查并恢复状态
-        restoreViewState();
-    }
-
-    /**
-     * 恢复 View 状态
-     * 当页面重新打开时，根据 isThinking 状态恢复 UI
-     *
-     * 注意：thinking 状态的 UI 恢复现在统一在 loadMessages() 完成后处理，
-     * 这样可以避免 setMessages() 替换掉思考消息的问题
-     */
-    private void restoreViewState() {
-        // thinking 状态的 UI 恢复现在移到了 loadMessages() 完成后
-        // 详见 loadMessages() 中的 onMessagesLoaded 回调
     }
 
     @Override

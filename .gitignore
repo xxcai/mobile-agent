@@ -122,6 +122,7 @@ Makefile
 *.cmake
 !CMakeLists.txt
 !cmake/*.cmake
+!agent-core/conan_android_toolchain.cmake
 
 # Compiled object files
 *.o
