@@ -1,6 +1,7 @@
 package com.hh.agent.presenter;
 
-import com.hh.agent.contract.MainContract;
+import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.presenter.MainPresenter;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.model.Message;
 import org.junit.Test;
@@ -35,11 +36,11 @@ public class MainPresenterTest {
     }
 
     @Test
-    public void testMockView() {
-        // 验证 View 接口可以正常实现
+    public void testMockMessageListView() {
+        // 验证 MessageListView 接口可以正常实现
         final List<Message> receivedMessages = new ArrayList<>();
 
-        MainContract.View mockView = new MainContract.View() {
+        MainContract.MessageListView mockView = new MainContract.MessageListView() {
             @Override
             public void onMessagesLoaded(List<Message> messages) {
                 receivedMessages.addAll(messages);
@@ -47,6 +48,11 @@ public class MainPresenterTest {
 
             @Override
             public void onMessageReceived(Message message) {
+                receivedMessages.add(message);
+            }
+
+            @Override
+            public void onUserMessageSent(Message message) {
                 receivedMessages.add(message);
             }
 
