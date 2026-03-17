@@ -29,14 +29,11 @@ public class MainPresenter implements MainContract.Presenter {
     private MainContract.MessageListView messageListView;
     private MainContract.StreamingView streamingView;
     private final MobileAgentApi mobileAgentApi;
+    private final StreamingManager streamingManager;
     private final ExecutorService executor;
     private final ExecutorService loadMessagesExecutor;
     private final Handler mainHandler;
     private final String sessionKey;
-
-    // TODO: 后续迁移到 C++ 层实现
-    // 标记当前是否正在等待 Agent 响应（正在思考）
-    private boolean isThinking = false;
 
     /**
      * 获取单例实例
@@ -54,6 +51,7 @@ public class MainPresenter implements MainContract.Presenter {
      */
     private MainPresenter() {
         this.mobileAgentApi = new NativeMobileAgentApiAdapter();
+        this.streamingManager = new StreamingManager(mobileAgentApi);
         this.executor = Executors.newSingleThreadExecutor();
         this.loadMessagesExecutor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
@@ -76,6 +74,15 @@ public class MainPresenter implements MainContract.Presenter {
     @Deprecated
     public MainPresenter(String sessionKey) {
         this();
+    }
+
+    /**
+     * 获取 MobileAgentApi 实例
+     *
+     * @return MobileAgentApi 实例
+     */
+    public MobileAgentApi getMobileAgentApi() {
+        return mobileAgentApi;
     }
 
     private static final String TAG = "MainPresenter";
@@ -104,7 +111,7 @@ public class MainPresenter implements MainContract.Presenter {
                         messageListView.onMessagesLoaded(messages);
                         // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
                         // 这样可以避免 setMessages() 替换掉思考消息的问题
-                        if (isThinking && streamingView != null) {
+                        if (streamingManager.isStreaming() && streamingView != null) {
                             streamingView.showThinking();
                             if (messageListView != null) {
                                 messageListView.showLoading();
@@ -138,25 +145,22 @@ public class MainPresenter implements MainContract.Presenter {
         userMessage.setContent(content);
         userMessage.setTimestamp(System.currentTimeMillis());
 
-        // 先通知 View 显示用户消息
+        // 先通知 View 显示用户消息（同步执行，确保 UI 立即更新）
         if (messageListView != null) {
-            mainHandler.post(() -> messageListView.onUserMessageSent(userMessage));
+            messageListView.onUserMessageSent(userMessage);
         }
 
-        // 显示思考中提示
+        // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
         if (streamingView != null) {
-            mainHandler.post(() -> streamingView.showThinking());
+            streamingView.showThinking();
         }
 
         if (messageListView != null) {
-            mainHandler.post(() -> messageListView.showLoading());
+            messageListView.showLoading();
         }
 
-        // 标记正在思考状态
-        isThinking = true;
-
-        // 创建流式事件监听器
-        AgentEventListener streamListener = new AgentEventListener() {
+        // 设置 StreamingManager 回调，将事件转发到 streamingView
+        streamingManager.setCallback(new StreamingManager.StreamingCallback() {
             @Override
             public void onTextDelta(String text) {
                 if (streamingView != null) {
@@ -180,11 +184,10 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onMessageEnd(String finishReason) {
-                // 清除思考状态
-                isThinking = false;
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        streamingView.hideThinking();
+                        // 只隐藏 loading，不删除 thinking 消息
+                        // thinking 消息的删除在 onStreamMessageEnd 中处理
                         messageListView.hideLoading();
                         streamingView.onStreamMessageEnd(finishReason);
                     });
@@ -193,8 +196,6 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onError(String errorCode, String errorMessage) {
-                // 清除思考状态
-                isThinking = false;
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
@@ -203,21 +204,17 @@ public class MainPresenter implements MainContract.Presenter {
                     });
                 }
             }
-        };
-
-        // 使用 executor 执行网络请求，避免阻塞主线程
-        executor.execute(() -> {
-            mobileAgentApi.sendMessageStream(content, sessionKey, streamListener);
         });
+
+        // 使用 StreamingManager 发送流式消息
+        streamingManager.sendMessageStream(content, sessionKey);
     }
 
     @Override
     public void cancelStream() {
-        if (isThinking) {
-            // 调用 NativeAgent 取消流式请求
-            com.hh.agent.library.NativeAgent.cancelStream();
-            // 清除思考状态
-            isThinking = false;
+        if (streamingManager.isStreaming()) {
+            // 使用 StreamingManager 取消流式请求
+            streamingManager.cancel();
             if (streamingView != null && messageListView != null) {
                 mainHandler.post(() -> {
                     streamingView.hideThinking();
@@ -252,14 +249,6 @@ public class MainPresenter implements MainContract.Presenter {
         this.messageListView = null;
         this.streamingView = null;
         // 注意：单例模式下不销毁 presenter，保留状态
-    }
-
-    /**
-     * 获取当前思考状态
-     * TODO: 后续迁移到 C++ 层实现
-     */
-    public boolean isThinking() {
-        return isThinking;
     }
 
     /**

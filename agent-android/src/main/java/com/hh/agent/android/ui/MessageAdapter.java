@@ -165,6 +165,20 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 获取思考消息的当前内容
+     * @return thinking 消息的内容，不存在则返回 null
+     */
+    public String getThinkingMessageContent() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("thinking".equals(msg.getRole())) {
+                return msg.getContent();
+            }
+        }
+        return null;
+    }
+
+    /**
      * 获取思考消息的索引
      * @return thinking 消息的索引，不存在则返回 -1
      */

@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.MainPresenter;
+import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
@@ -43,14 +44,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
+    private StreamingManager streamingManager;
     private boolean isRecording = false;
     private boolean permissionGranted = false;
-
-    // 用于累积流式文本内容
-    private StringBuilder streamTextBuffer = new StringBuilder();
-
-    // 流式响应状态标记
-    private boolean isStreaming = false;
 
     @Nullable
     @Override
@@ -85,6 +81,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 初始化 Presenter，使用单例模式
         presenter = MainPresenter.getInstance();
         presenter.attachView(this, this);
+
+        // 初始化 StreamingManager
+        streamingManager = new StreamingManager(presenter.getMobileAgentApi());
 
         // 加载历史消息
         presenter.loadMessages();
@@ -132,14 +131,12 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         // 设置发送按钮点击事件
         btnSend.setOnClickListener(v -> {
-            if (isStreaming) {
+            if (streamingManager.isStreaming()) {
                 // 取消流式响应
                 presenter.cancelStream();
                 // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
                 adapter.removeThinkingMessage();
                 adapter.removeAiMessages();
-                // 清除累积的文本
-                streamTextBuffer.setLength(0);
                 // 重置状态（按钮恢复，用户输入保留在 etMessage）
                 resetStreamingState();
             } else {
@@ -268,12 +265,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     // 流式回调方法实现
     @Override
     public void onStreamTextDelta(String textDelta) {
-        // 累积文本内容（累积模式，不是替换）
-        streamTextBuffer.append(textDelta);
-        Log.d("AgentFragment", "onStreamTextDelta: new='" + textDelta + "', accumulated='" + streamTextBuffer.toString() + "'");
+        // 从 adapter 获取当前 thinking 消息内容并追加新文本
+        String currentContent = adapter.getThinkingMessageContent();
+        String newContent = (currentContent != null ? currentContent : "") + textDelta;
+        Log.d("AgentFragment", "onStreamTextDelta: new='" + textDelta + "', accumulated='" + newContent + "'");
 
         // 更新 thinking 消息内容
-        adapter.updateThinkingMessage(streamTextBuffer.toString());
+        adapter.updateThinkingMessage(newContent);
 
         // 强制刷新 RecyclerView
         rvMessages.invalidate();
@@ -301,8 +299,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 工具结果返回后，LLM 即将开始下一次响应
         // 清除旧的 thinking 消息，准备显示新的 thinking
         hideThinking();
-        // 清除累积的文本，准备接收新的响应
-        streamTextBuffer.setLength(0);
         // 显示新的 thinking 消息
         showThinking();
 
@@ -332,7 +328,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamMessageEnd(String finishReason) {
-        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", streamTextBuffer=" + streamTextBuffer.toString());
+        // 从 adapter 获取 thinking 消息内容
+        String thinkingContent = adapter.getThinkingMessageContent();
+        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", thinkingContent=" + thinkingContent);
 
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
         if ("tool_calls".equals(finishReason)) {
@@ -351,8 +349,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
                 hideThinking();
                 // 清除 AI 消息
                 adapter.removeAiMessages();
-                // 清空 buffer
-                streamTextBuffer.setLength(0);
                 return;
             }
         }
@@ -364,15 +360,12 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 2. 创建新的 AI 助手消息
         Message assistantMessage = new Message();
         assistantMessage.setRole("assistant");
-        assistantMessage.setContent(streamTextBuffer.toString());
+        assistantMessage.setContent(thinkingContent != null ? thinkingContent : "");
         assistantMessage.setTimestamp(System.currentTimeMillis());
 
         Log.d("AgentFragment", "onStreamMessageEnd: adding assistant message, content=" + assistantMessage.getContent());
         // 3. 添加最终消息
         onMessageReceived(assistantMessage);
-
-        // 清除累积的文本内容
-        streamTextBuffer.setLength(0);
     }
 
     @Override
@@ -384,9 +377,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 清除 AI 相关消息（thinking, tool_use, tool_result, assistant）
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
-
-        // 清除累积的文本
-        streamTextBuffer.setLength(0);
 
         // 重置流式状态和按钮
         resetStreamingState();
@@ -408,7 +398,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void showThinking() {
-        isStreaming = true;
         // 切换按钮为取消状态
         btnSend.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
         btnSend.setContentDescription(getString(R.string.cancel_button));
@@ -433,7 +422,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
      * 重置发送按钮为正常状态
      */
     private void resetSendButton() {
-        isStreaming = false;
         btnSend.setEnabled(true);
         btnSend.setImageResource(android.R.drawable.ic_menu_send);
         btnSend.setContentDescription(getString(R.string.send_button));
@@ -443,7 +431,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
      * 重置流式响应状态
      */
     private void resetStreamingState() {
-        isStreaming = false;
         resetSendButton();
     }
 

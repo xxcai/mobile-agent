@@ -1,9 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.8
+milestone: v2.9
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-17T00:48:05.534Z"
+last_updated: "2026-03-17T06:12:04.911Z"
+progress:
+  total_phases: 7
+  completed_phases: 1
+  total_plans: 14
+  completed_plans: 1
 ---
 
 # STATE: Mobile Agent
@@ -16,7 +21,7 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.8 历史消息加载 - UI 展示层验证完成
+**Current Focus:** v2.9 代码结构优化 - Phase 1 Context Gathered
 
 ---
 
@@ -24,9 +29,9 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.8 历史消息加载 |
+| Milestone | v2.9 代码结构优化 |
 | Status | 🔄 In Progress |
-| Last activity: | 2026-03-17 — v2.8-02 UI 展示层验证完成 |
+| Last activity: | 2026-03-17 — 添加 v2.9 里程碑: 优化agent-android代码结构 |
 
 ---
 
@@ -34,6 +39,7 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 ### Recent Changes
 
+- 2026-03-17: Phase 1 Plan 01 completed - 拆分 MainContract.View 接口 (VIEW-ISP-01)
 - 2026-03-17: Phase 2 Plan 01 completed - UI 展示层验证 (HIST-04, HIST-05)
 - 2026-03-17: Phase 1 Plan 01 completed - 数据库加载层 (HIST-01~HIST-03)
 - 2026-03-16: Phase 4 Plan 01 completed - 异常处理与取消 (ERROR-01~ERROR-04)
@@ -54,6 +60,10 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 None
 
+### Roadmap Evolution
+
+- 2026-03-17: 添加 v2.9 里程碑: 优化agent-android代码结构
+
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Status | Directory |
@@ -61,6 +71,7 @@ None
 | 14 | 现在容器Activity弹出的动画很生硬，帮我设计一下。可以添加动画阻尼和透明度变化 | 2026-03-13 | 2403c13 | Verified | [14-activity](./quick/14-activity/) |
 | 15 | 分析app模块里面多处注册ActivityLifecycleCallbacks，看下是否可以合并 | 2026-03-13 | - | Verified | [15-app-activitylifecyclecallbacks](./quick/15-app-activitylifecyclecallbacks/) |
 | 16 | 按照 analysis.md 合并 ActivityLifecycleCallbacks，将 MainActivity 中的悬浮球显示/隐藏逻辑合并到 AppLifecycleObserver | 2026-03-13 | f9e25ff | Verified | [16-analysis-md-activitylifecyclecallbacks](./quick/16-analysis-md-activitylifecyclecallbacks/) |
+| 17 | 对agent-android做代码结构优化建议 | 2026-03-17 | 73b3326 | Verified | [260317-h5r-agent-android](./quick/260317-h5r-agent-android/) |
 
 ### Todos
 
@@ -73,6 +84,7 @@ None
 | 添加session持久化 | cpp | 2026-03-13 |
 | C++ 层实现 error 事件回调 | cpp | 2026-03-16 |
 | 历史消息保存时过滤 thinking 内容 (</think>) | cpp | 2026-03-17 |
+| v2.8 Phase 3 分页加载 - HIST-06 | ui | 2026-03-17 |
 
 ---
 
@@ -120,6 +132,20 @@ None
 | 2 | Java API 层 | STREAM-03 | ✅ Complete |
 | 3 | UI 流式交互 | UI-01~UI-06 | ✅ Complete |
 | 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ✅ Complete |
+
+---
+
+## v2.9 进度
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 1 | 拆分 MainContract.View 接口 | VIEW-ISP-01 | ✅ Complete |
+| 2 | 提取 StreamingManager | STREAM-EXTRACT-01 | ✅ Complete |
+| 3 | 统一线程池管理 | THREAD-01 | ⏳ Pending |
+| 4 | 提取 SessionManager | SESSION-01 | ⏳ Pending |
+| 5 | 引入依赖注入容器 | DI-01 | ⏳ Pending |
+| 6 | 统一包结构 | PACKAGE-01 | ⏳ Pending |
+| 7 | 统一状态管理 | STATE-01 | ⏳ Pending |
 
 ---
 

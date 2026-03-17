@@ -2,14 +2,15 @@
 
 ## Milestones
 
-- ⏳ **v2.8 历史消息加载** — Phases 1 to 3 (planning)
+- ⏳ **v2.9 代码结构优化** — Phases 1-7 (in progress)
+- ✅ **v2.8 历史消息加载** — Phases 1-2 (shipped 2026-03-17)
 - ✅ **v2.7 流式输出** — Phases 1 to 4 (shipped 2026-03-16)
 - ✅ **v2.6 主界面重构** — Phases 1 to 6 (shipped 2026-03-13)
-- ✅ **v2.5 容器Activity模块** — Phases 1 to 2 (shipped 2026-03-12)
-- ✅ **v2.4 Agent 性能分析** — Phases 1 to 3 (shipped 2026-03-11)
-- ✅ **v2.3 语音转文字** — Phases 1 to 3 (shipped 2026-03-11)
-- ✅ **v2.2 App 层动态注入 Android 工具** — Phases 1 to 3 (shipped 2026-03-10)
-- ✅ **v2.1 架构重构** — Phases 1 to 5 (shipped 2026-03-09)
+- ✅ **v2.5 容器Activity模块** — Phases 1-2 (shipped 2026-03-12)
+- ✅ **v2.4 Agent 性能分析** — Phases 1-3 (shipped 2026-03-11)
+- ✅ **v2.3 语音转文字** — Phases 1-3 (shipped 2026-03-11)
+- ✅ **v2.2 App 层动态注入 Android 工具** — Phases 1-3 (shipped 2026-03-10)
+- ✅ **v2.1 架构重构** — Phases 1-5 (shipped 2026-03-09)
 - ✅ **v2.0 接入真实项目** — Phases v20-01 to v20-04 (shipped 2026-03-09)
 - ✅ **v1.6 自定义 Skills 验证** — Phases v16-01 to v16-02 (shipped 2026-03-06)
 - ✅ **v1.5 LLM → Android 调用管道** — Phases v15-01 to v15-03 (shipped 2026-03-05)
@@ -18,18 +19,47 @@
 ---
 
 <details>
-<summary>⏳ v2.8 历史消息加载 (Phases 1-3) — In Progress</summary>
+<summary>⏳ v2.9 代码结构优化 (Phases 1-7) — IN PROGRESS</summary>
+
+基于 architecture-analysis.md 的分析，将优化任务拆分为7个可验证的阶段：
+
+- [x] Phase 1: 拆分 MainContract.View 接口 (P0) — 降低耦合
+  - [x] v2.9-01-01-PLAN.md — 拆分 MainContract.View 接口 (VIEW-ISP-01) (COMPLETED)
+- [ ] Phase 2: 提取 StreamingManager (P0) — 解耦流式状态管理
+  - [ ] v2.9-02-01-PLAN.md — 创建 StreamingManager 并迁移代码 (STREAM-EXTRACT-01)
+- [ ] Phase 3: 统一线程池管理 (P1) — 资源优化
+- [ ] Phase 4: 提取 SessionManager (P1) — 分离会话管理逻辑
+- [ ] Phase 5: 引入依赖注入容器 (P2) — 提高可测试性
+- [ ] Phase 6: 统一包结构 (P2) — 代码组织清晰
+- [ ] Phase 7: 统一状态管理 (P3) — 状态一致性
+
+**Requirements:**
+- Phase 1: VIEW-ISP-01 ✅
+- Phase 2: STREAM-EXTRACT-01 ⏳
+- Phase 3: THREAD-01 ⏳
+- Phase 4: SESSION-01 ⏳
+- Phase 5: DI-01 ⏳
+- Phase 6: PACKAGE-01 ⏳
+- Phase 7: STATE-01 ⏳
+
+**Reference:** `.planning/quick/260317-h5r-agent-android/architecture-analysis.md`
+
+</details>
+
+<details>
+<summary>✅ v2.8 历史消息加载 (Phases 1-2) — SHIPPED 2026-03-17</summary>
 
 - [x] Phase 1: 数据库加载层 (plans: 1/1) — completed 2026-03-17
   - [x] v2.8-01-01-PLAN.md — 实现 C++ SQLite JNI 桥接 (COMPLETED)
 - [x] Phase 2: UI 展示层 (plans: 1/1) — completed 2026-03-17
   - [x] v2.8-02-01-PLAN.md — 验证 UI 展示层实现 (HIST-04, HIST-05) (COMPLETED)
-- [ ] Phase 3: 分页加载 (plans: TBD)
+
+**Note:** Phase 3 (分页加载/HIST-06) 已移除，添加到 todo 待后续处理
 
 **Requirements:**
-- Phase 1: HIST-01, HIST-02, HIST-03
-- Phase 2: HIST-04, HIST-05
-- Phase 3: HIST-06
+- Phase 1: HIST-01, HIST-02, HIST-03 ✅
+- Phase 2: HIST-04, HIST-05 ✅
+- Phase 3: HIST-06 ❌ (已移除)
 
 </details>
 
