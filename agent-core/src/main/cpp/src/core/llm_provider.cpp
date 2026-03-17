@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <sstream>
 #include <chrono>
+#include <cstdio>
 
 namespace icraw {
 
