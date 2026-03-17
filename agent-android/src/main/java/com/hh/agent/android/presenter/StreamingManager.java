@@ -3,9 +3,8 @@ package com.hh.agent.android.presenter;
 import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.NativeAgent;
 import com.hh.agent.library.api.MobileAgentApi;
+import com.hh.agent.android.thread.ThreadPoolManager;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -29,7 +28,6 @@ public class StreamingManager {
 
     private final MobileAgentApi api;
     private final AtomicBoolean isStreaming = new AtomicBoolean(false);
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private StreamingCallback callback;
 
     /**
@@ -111,8 +109,8 @@ public class StreamingManager {
             }
         };
 
-        // 使用 executor 执行网络请求，避免阻塞主线程
-        executor.execute(() -> {
+        // 使用 ThreadPoolManager 执行网络请求，避免阻塞主线程
+        ThreadPoolManager.executeAgentStream(() -> {
             api.sendMessageStream(content, sessionKey, listener);
         });
     }
