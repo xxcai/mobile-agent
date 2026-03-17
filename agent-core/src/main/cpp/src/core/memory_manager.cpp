@@ -512,6 +512,16 @@ int64_t MemoryManager::add_message(const std::string& role,
     // Estimate token count for this message
     int token_count = estimate_tokens(content) + 4;  // +4 for role and formatting overhead
     
+    // Check if messages_fts exists, if not we may need to handle FTS trigger issues
+    auto fts_check = db_->query_string("SELECT name FROM sqlite_master WHERE type='table' AND name='messages_fts';");
+    if (!fts_check) {
+        ICRAW_LOG_WARN("add_message: messages_fts table does not exist, dropping FTS triggers if any");
+        // Drop any orphan triggers that reference messages_fts
+        db_->execute("DROP TRIGGER IF EXISTS messages_ai;");
+        db_->execute("DROP TRIGGER IF EXISTS messages_ad;");
+        db_->execute("DROP TRIGGER IF EXISTS messages_au;");
+    }
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "INSERT INTO messages (role, content, timestamp, session_id, metadata, token_count) VALUES (?, ?, ?, ?, ?, ?);";
 
