@@ -141,12 +141,14 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                 }
             }
             if (!content.empty()) {
+                ICRAW_LOG_DEBUG("[CHAT_STREAM] Saving message: role={}, content={}", msg.role, content.substr(0, 50));
                 nlohmann::json metadata;
                 // Store tool calls if present
                 if (!msg.content.empty() && msg.content[0].type == "tool_use") {
                     metadata["is_tool_call"] = true;
                 }
-                memory_manager_->add_message(msg.role, content, "default", metadata);
+                auto result = memory_manager_->add_message(msg.role, content, "default", metadata);
+                ICRAW_LOG_DEBUG("[CHAT_STREAM] add_message result: {}", result);
             }
         }
     }
