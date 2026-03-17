@@ -493,11 +493,16 @@ std::string MemoryManager::read_tools_file() const {
 
 // --- Conversation History ---
 
-int64_t MemoryManager::add_message(const std::string& role, 
+int64_t MemoryManager::add_message(const std::string& role,
                                     const std::string& content,
                                     const std::string& session_id,
                                     const nlohmann::json& metadata) {
-    if (!db_ || !db_->is_open()) {
+    if (!db_) {
+        ICRAW_LOG_ERROR("add_message: db_ is null");
+        return -1;
+    }
+    if (!db_->is_open()) {
+        ICRAW_LOG_ERROR("add_message: db is not open");
         return -1;
     }
     
