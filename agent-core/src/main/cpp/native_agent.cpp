@@ -590,4 +590,55 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeCancelStream(
     icraw::Logger::get_instance().logger()->info("nativeCancelStream: Streaming request cancelled");
 }
 
+/**
+ * Get recent messages from SQLite database filtered by roles
+ * Returns JSON array of messages: [{"role": "user", "content": "...", "timestamp": "..."}, ...]
+ */
+JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeGetHistory(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring sessionId,
+        jint limit) {
+
+    const char* session_id = env->GetStringUTFChars(sessionId, nullptr);
+    if (!session_id) {
+        return env->NewStringUTF("[]");
+    }
+
+    icraw::Logger::get_instance().logger()->debug("nativeGetHistory: session_id={}, limit={}", session_id, limit);
+
+    std::vector<std::string> roles = {"user", "assistant"};
+
+    std::vector<icraw::MemoryEntry> entries;
+
+    if (g_agent) {
+        try {
+            auto memory_manager = g_agent->get_memory_manager();
+            if (memory_manager) {
+                entries = memory_manager->get_recent_messages_by_roles(static_cast<int>(limit), roles, session_id);
+            }
+        } catch (const std::exception& e) {
+            icraw::Logger::get_instance().logger()->error("nativeGetHistory: {}", e.what());
+        }
+    }
+
+    // Convert to JSON array
+    nlohmann::json messages = nlohmann::json::array();
+    for (const auto& entry : entries) {
+        nlohmann::json msg;
+        msg["role"] = entry.role;
+        msg["content"] = entry.content;
+        msg["timestamp"] = entry.timestamp;
+        messages.push_back(msg);
+    }
+
+    std::string result = messages.dump();
+
+    env->ReleaseStringUTFChars(sessionId, session_id);
+
+    icraw::Logger::get_instance().logger()->debug("nativeGetHistory: returning {} messages", entries.size());
+
+    return env->NewStringUTF(result.c_str());
+}
+
 } // extern "C"
