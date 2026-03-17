@@ -514,22 +514,26 @@ int64_t MemoryManager::add_message(const std::string& role,
     
     // Use parameterized query to prevent SQL injection
     std::string sql = "INSERT INTO messages (role, content, timestamp, session_id, metadata, token_count) VALUES (?, ?, ?, ?, ?, ?);";
-    
+
+    ICRAW_LOG_DEBUG("add_message: preparing SQL: {}", sql);
+
     if (!db_->prepare(sql)) {
+        ICRAW_LOG_ERROR("add_message: prepare failed, error: {}", db_->get_error());
         return -1;
     }
-    
+
     db_->bind(1, role);
     db_->bind(2, content);
     db_->bind(3, timestamp);
     db_->bind(4, session_id);
     db_->bind(5, metadata_str);
     db_->bind(6, static_cast<int64_t>(token_count));
-    
+
     // Execute
     db_->step_exec();
-    
+
     int64_t id = db_->last_insert_rowid();
+    ICRAW_LOG_DEBUG("add_message: inserted id={}", id);
     
     // Update token stats (async-friendly: just invalidate cache)
     if (id > 0) {
