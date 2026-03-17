@@ -142,6 +142,10 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
         if (!msg.content.empty()) {
             std::string content;
             for (const auto& block : msg.content) {
+                // Skip thinking content - it's internal reasoning, not actual response
+                if (block.type == "thinking") {
+                    continue;
+                }
                 if (!block.text.empty()) {
                     content += block.text + " ";
                 }
