@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <sstream>
 #include <chrono>
-#include <cstdio>
 
 namespace icraw {
 
@@ -193,8 +192,7 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
         if (chunk_json.contains("choices") && chunk_json["choices"].size() > 0 &&
             chunk_json["choices"][0].contains("delta")) {
             const auto& delta = chunk_json["choices"][0]["delta"];
-            printf("[LLM_STREAM] Delta keys: %s\n", delta.dump().c_str());
-            fflush(stdout);
+            ICRAW_LOG_DEBUG("[LLM_STREAM] Delta keys: {}", delta.dump());
         }
 
         if (!chunk_json.contains("choices") || chunk_json["choices"].empty()) {
