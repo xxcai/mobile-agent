@@ -2,7 +2,8 @@
 
 ## Milestones
 
-- ⏳ **v2.9 代码结构优化** — Phases 1-7 (in progress)
+- ⏳ **v2.10 待规划** — (planned)
+- ✅ **v2.9 代码结构优化** — Phases 1-3 (shipped 2026-03-17)
 - ✅ **v2.8 历史消息加载** — Phases 1-2 (shipped 2026-03-17)
 - ✅ **v2.7 流式输出** — Phases 1 to 4 (shipped 2026-03-16)
 - ✅ **v2.6 主界面重构** — Phases 1 to 6 (shipped 2026-03-13)
@@ -19,31 +20,24 @@
 ---
 
 <details>
-<summary>⏳ v2.9 代码结构优化 (Phases 1-7) — IN PROGRESS</summary>
-
-基于 architecture-analysis.md 的分析，将优化任务拆分为7个可验证的阶段：
+<summary>✅ v2.9 代码结构优化 (Phases 1-3) — SHIPPED 2026-03-17</summary>
 
 - [x] Phase 1: 拆分 MainContract.View 接口 (P0) — 降低耦合
   - [x] v2.9-01-01-PLAN.md — 拆分 MainContract.View 接口 (VIEW-ISP-01) (COMPLETED)
 - [x] Phase 2: 提取 StreamingManager (P0) — 解耦流式状态管理
   - [x] v2.9-02-01-PLAN.md — 创建 StreamingManager 并迁移代码 (STREAM-EXTRACT-01) (COMPLETED)
-- [ ] Phase 3: 统一线程池管理 (P1) — 资源优化
-  - [x] v2.9-03-01-PLAN.md — 创建 ThreadPoolManager 并迁移代码 (THREAD-01) (PLANNED)
-- [ ] Phase 4: 提取 SessionManager (P1) — 分离会话管理逻辑
-- [x] v2.9-05-01-PLAN.md — 创建 AgentContainer 依赖注入容器 (DI-01) (PLANNED)
-- [ ] Phase 6: 统一包结构 (P2) — 代码组织清晰
-- [ ] Phase 7: 统一状态管理 (P3) — 状态一致性
+- [x] Phase 3: 统一线程池管理 (P1) — 资源优化
+  - [x] v2.9-03-01-PLAN.md — 创建 ThreadPoolManager 并迁移代码 (THREAD-01) (COMPLETED)
 
-**Requirements:**
-- Phase 1: VIEW-ISP-01 ✅
-- Phase 2: STREAM-EXTRACT-01 ✅
-- Phase 3: THREAD-01 ⏳
-- Phase 4: SESSION-01 ⏳
-- Phase 5: DI-01 (PLANNED)
-- Phase 6: PACKAGE-01 ⏳
-- Phase 7: STATE-01 ⏳
+**Cancelled:**
+- Phase 4: SessionManager 提取 (取消)
 
-**Reference:** `.planning/quick/260317-h5r-agent-android/architecture-analysis.md`
+**Deferred:**
+- Phase 5: 依赖注入容器 (当前代码复杂度不足以支持 DI)
+- Phase 6: 统一包结构
+- Phase 7: 统一状态管理 (已清理代码，保持现状)
+
+**Reference:** `.planning/milestones/v2.9-ROADMAP.md`
 
 </details>
 
@@ -117,3 +111,9 @@
 ---
 
 *Roadmap updated: 2026-03-17*
+
+---
+
+**v2.10 待规划**
+
+待开始新的 milestone。

@@ -1,5 +1,14 @@
 # Milestones
 
+## v2.8 历史消息加载 (Shipped: 2026-03-17)
+
+**Phases completed:** 0 phases, 0 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v2.7 流式输出 (Active)
 
 **Phases:** 4 (Phase 7-10)
