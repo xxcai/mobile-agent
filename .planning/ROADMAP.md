@@ -22,7 +22,8 @@
 
 - [x] Phase 1: 数据库加载层 (plans: 1/1) — completed 2026-03-17
   - [x] v2.8-01-01-PLAN.md — 实现 C++ SQLite JNI 桥接 (COMPLETED)
-- [ ] Phase 2: UI 展示层 (plans: TBD)
+- [x] Phase 2: UI 展示层 (plans: 1/1) — completed 2026-03-17
+  - [x] v2.8-02-01-PLAN.md — 验证 UI 展示层实现 (HIST-04, HIST-05) (COMPLETED)
 - [ ] Phase 3: 分页加载 (plans: TBD)
 
 **Requirements:**
@@ -84,4 +85,4 @@
 
 ---
 
-*Roadmap updated: 2026-03-16*
+*Roadmap updated: 2026-03-17*

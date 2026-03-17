@@ -8,7 +8,7 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 # STATE: Mobile Agent
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-17
 
 ---
 
@@ -16,7 +16,7 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.8 历史消息加载 - Defining requirements
+**Current Focus:** v2.8 历史消息加载 - UI 展示层验证完成
 
 ---
 
@@ -25,8 +25,8 @@ last_updated: "2026-03-17T00:48:05.534Z"
 | Field | Value |
 |-------|-------|
 | Milestone | v2.8 历史消息加载 |
-| Status | 📋 Defining requirements |
-| Last activity: | 2026-03-16 — v2.8 milestone started |
+| Status | 🔄 In Progress |
+| Last activity: | 2026-03-17 — v2.8-02 UI 展示层验证完成 |
 
 ---
 
@@ -34,6 +34,8 @@ last_updated: "2026-03-17T00:48:05.534Z"
 
 ### Recent Changes
 
+- 2026-03-17: Phase 2 Plan 01 completed - UI 展示层验证 (HIST-04, HIST-05)
+- 2026-03-17: Phase 1 Plan 01 completed - 数据库加载层 (HIST-01~HIST-03)
 - 2026-03-16: Phase 4 Plan 01 completed - 异常处理与取消 (ERROR-01~ERROR-04)
 - 2026-03-16: Phase 2 Plan 01 completed - Java API 层流式接口 (STREAM-03)
 - 2026-03-16: Phase 2 Plan 01 created - Java API 层流式接口 (STREAM-03)
@@ -76,6 +78,7 @@ None
 
 ## Decisions
 
+- 2026-03-17: Phase 2 UI 展示层验证通过 - 代码实现完整正确
 - 2026-03-17: Phase 1 使用 C++ SQLite 存储历史消息，通过 JNI 调用获取
 - 2026-03-17: Phase 1 SQL 层过滤 role IN ('user', 'assistant') 排除工具调用
 - 2026-03-17: Phase 1 JSON 格式在 JNI 层传递消息数据
@@ -125,7 +128,7 @@ None
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
 | 1 | 数据库加载层 | HIST-01, HIST-02, HIST-03 | ✅ Complete |
-| 2 | UI 展示层 | HIST-04, HIST-05 | ⏳ Pending |
+| 2 | UI 展示层 | HIST-04, HIST-05 | ✅ Complete |
 | 3 | 分页加载 | HIST-06 | ⏳ Pending |
 
 ---
