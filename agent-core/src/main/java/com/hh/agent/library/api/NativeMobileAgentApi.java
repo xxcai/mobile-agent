@@ -2,11 +2,16 @@ package com.hh.agent.library.api;
 
 import android.content.Context;
 import java.util.ArrayList;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.AndroidToolCallback;
 import com.hh.agent.library.NativeAgent;
 import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.Session;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +28,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
     private AndroidToolCallback toolCallback;
+    private static final Gson gson = new Gson();
 
     private NativeMobileAgentApi() {
     }
@@ -287,17 +293,59 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     @Override
     public List<Message> getHistory(String sessionKey, int maxMessages) {
-        Session session = sessions.get(sessionKey);
-        if (session == null) {
+        // Call C++ to get messages from SQLite
+        String jsonResult = NativeAgent.nativeGetHistory(sessionKey, maxMessages);
+
+        if (jsonResult == null || jsonResult.isEmpty()) {
             return new ArrayList<>();
         }
 
-        List<Message> messages = session.getMessages();
-        if (messages.size() <= maxMessages) {
-            return new ArrayList<>(messages);
-        }
+        try {
+            Type listType = new TypeToken<List<JsonObject>>(){}.getType();
+            List<JsonObject> jsonMessages = gson.fromJson(jsonResult, listType);
 
-        return new ArrayList<>(messages.subList(messages.size() - maxMessages, messages.size()));
+            List<Message> messages = new ArrayList<>();
+            for (JsonObject jsonMsg : jsonMessages) {
+                Message msg = new Message();
+                msg.setRole(jsonMsg.get("role").getAsString());
+                msg.setContent(jsonMsg.get("content").getAsString());
+
+                // Parse ISO 8601 timestamp to milliseconds
+                String timestampStr = jsonMsg.get("timestamp").getAsString();
+                msg.setTimestamp(parseTimestamp(timestampStr));
+
+                messages.add(msg);
+            }
+
+            return messages;
+        } catch (Exception e) {
+            System.err.println("[NativeMobileAgentApi] getHistory: Failed to parse messages: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Parse ISO 8601 timestamp string to milliseconds
+     */
+    private long parseTimestamp(String timestampStr) {
+        try {
+            // Format: "2026-03-16T10:30:00.123Z"
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            java.time.Instant instant = java.time.ZonedDateTime.parse(timestampStr,
+                java.time.format.DateTimeFormatter.ISO_DATE_TIME).toInstant();
+            return instant.toEpochMilli();
+        } catch (Exception e) {
+            // Fallback: try simpler parsing or use current time
+            try {
+                // Try without milliseconds
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                java.time.Instant instant = java.time.ZonedDateTime.parse(timestampStr,
+                    java.time.format.DateTimeFormatter.ISO_DATE_TIME).toInstant();
+                return instant.toEpochMilli();
+            } catch (Exception e2) {
+                return System.currentTimeMillis();
+            }
+        }
     }
 
     /**
