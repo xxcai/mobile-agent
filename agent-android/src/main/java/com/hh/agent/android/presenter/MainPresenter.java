@@ -3,6 +3,7 @@ package com.hh.agent.android.presenter;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
 import com.hh.agent.library.AgentEventListener;
@@ -76,8 +77,11 @@ public class MainPresenter implements MainContract.Presenter {
         this();
     }
 
+    private static final String TAG = "MainPresenter";
+
     @Override
     public void loadMessages() {
+        Log.d(TAG, "loadMessages: start, sessionKey=" + sessionKey);
         if (view != null) {
             mainHandler.post(() -> view.showLoading());
         }
@@ -87,12 +91,15 @@ public class MainPresenter implements MainContract.Presenter {
                 // 确保会话存在
                 mobileAgentApi.getSession(sessionKey);
 
+                Log.d(TAG, "loadMessages: calling getHistory, sessionKey=" + sessionKey);
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
+                Log.d(TAG, "loadMessages: got " + messages.size() + " messages");
 
                 if (view != null) {
                     mainHandler.post(() -> {
                         view.hideLoading();
                         // 先加载历史消息
+                        Log.d(TAG, "loadMessages: calling onMessagesLoaded with " + messages.size() + " messages");
                         view.onMessagesLoaded(messages);
                         // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
                         // 这样可以避免 setMessages() 替换掉思考消息的问题

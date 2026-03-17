@@ -299,10 +299,15 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             sessionId = sessionKey.substring(7); // Remove "native:" prefix
         }
 
+        System.out.println("[NativeMobileAgentApi] getHistory: sessionKey=" + sessionKey + ", sessionId=" + sessionId + ", limit=" + maxMessages);
+
         // Call C++ to get messages from SQLite
         String jsonResult = NativeAgent.nativeGetHistory(sessionId, maxMessages);
 
+        System.out.println("[NativeMobileAgentApi] getHistory: jsonResult=" + jsonResult);
+
         if (jsonResult == null || jsonResult.isEmpty()) {
+            System.out.println("[NativeMobileAgentApi] getHistory: returning empty list");
             return new ArrayList<>();
         }
 
