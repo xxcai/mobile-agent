@@ -54,6 +54,15 @@ public class NativeAgent {
     public static native void nativeShutdown();
 
     /**
+     * Get recent messages from SQLite database
+     *
+     * @param sessionId The session identifier
+     * @param limit Maximum number of messages to return
+     * @return JSON array string of messages: [{"role": "user", "content": "...", "timestamp": "..."}, ...]
+     */
+    public static native String nativeGetHistory(String sessionId, int limit);
+
+    /**
      * Register an Android tool callback
      *
      * @param callback The callback implementation
