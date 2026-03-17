@@ -26,7 +26,8 @@ public class MainPresenter implements MainContract.Presenter {
 
     private static MainPresenter instance;
 
-    private MainContract.View view;
+    private MainContract.MessageListView messageListView;
+    private MainContract.StreamingView streamingView;
     private final MobileAgentApi mobileAgentApi;
     private final ExecutorService executor;
     private final ExecutorService loadMessagesExecutor;
@@ -82,8 +83,8 @@ public class MainPresenter implements MainContract.Presenter {
     @Override
     public void loadMessages() {
         Log.d(TAG, "loadMessages: start, sessionKey=" + sessionKey);
-        if (view != null) {
-            mainHandler.post(() -> view.showLoading());
+        if (messageListView != null) {
+            mainHandler.post(() -> messageListView.showLoading());
         }
 
         loadMessagesExecutor.execute(() -> {
@@ -95,25 +96,27 @@ public class MainPresenter implements MainContract.Presenter {
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
                 Log.d(TAG, "loadMessages: got " + messages.size() + " messages");
 
-                if (view != null) {
+                if (messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideLoading();
+                        messageListView.hideLoading();
                         // 先加载历史消息
                         Log.d(TAG, "loadMessages: calling onMessagesLoaded with " + messages.size() + " messages");
-                        view.onMessagesLoaded(messages);
+                        messageListView.onMessagesLoaded(messages);
                         // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
                         // 这样可以避免 setMessages() 替换掉思考消息的问题
-                        if (isThinking) {
-                            view.showThinking();
-                            view.showLoading();
+                        if (isThinking && streamingView != null) {
+                            streamingView.showThinking();
+                            if (messageListView != null) {
+                                messageListView.showLoading();
+                            }
                         }
                     });
                 }
             } catch (Exception e) {
-                if (view != null) {
+                if (messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideLoading();
-                        view.onError("加载消息失败: " + e.getMessage());
+                        messageListView.hideLoading();
+                        messageListView.onError("加载消息失败: " + e.getMessage());
                     });
                 }
             }
@@ -123,8 +126,8 @@ public class MainPresenter implements MainContract.Presenter {
     @Override
     public void sendMessage(String content) {
         if (content == null || content.trim().isEmpty()) {
-            if (view != null) {
-                mainHandler.post(() -> view.onError("消息不能为空"));
+            if (messageListView != null) {
+                mainHandler.post(() -> messageListView.onError("消息不能为空"));
             }
             return;
         }
@@ -136,17 +139,17 @@ public class MainPresenter implements MainContract.Presenter {
         userMessage.setTimestamp(System.currentTimeMillis());
 
         // 先通知 View 显示用户消息
-        if (view != null) {
-            mainHandler.post(() -> view.onUserMessageSent(userMessage));
+        if (messageListView != null) {
+            mainHandler.post(() -> messageListView.onUserMessageSent(userMessage));
         }
 
         // 显示思考中提示
-        if (view != null) {
-            mainHandler.post(() -> view.showThinking());
+        if (streamingView != null) {
+            mainHandler.post(() -> streamingView.showThinking());
         }
 
-        if (view != null) {
-            mainHandler.post(() -> view.showLoading());
+        if (messageListView != null) {
+            mainHandler.post(() -> messageListView.showLoading());
         }
 
         // 标记正在思考状态
@@ -156,22 +159,22 @@ public class MainPresenter implements MainContract.Presenter {
         AgentEventListener streamListener = new AgentEventListener() {
             @Override
             public void onTextDelta(String text) {
-                if (view != null) {
-                    mainHandler.post(() -> view.onStreamTextDelta(text));
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamTextDelta(text));
                 }
             }
 
             @Override
             public void onToolUse(String id, String name, String argumentsJson) {
-                if (view != null) {
-                    mainHandler.post(() -> view.onStreamToolUse(id, name, argumentsJson));
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamToolUse(id, name, argumentsJson));
                 }
             }
 
             @Override
             public void onToolResult(String id, String result) {
-                if (view != null) {
-                    mainHandler.post(() -> view.onStreamToolResult(id, result));
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamToolResult(id, result));
                 }
             }
 
@@ -179,11 +182,11 @@ public class MainPresenter implements MainContract.Presenter {
             public void onMessageEnd(String finishReason) {
                 // 清除思考状态
                 isThinking = false;
-                if (view != null) {
+                if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideThinking();
-                        view.hideLoading();
-                        view.onStreamMessageEnd(finishReason);
+                        streamingView.hideThinking();
+                        messageListView.hideLoading();
+                        streamingView.onStreamMessageEnd(finishReason);
                     });
                 }
             }
@@ -192,11 +195,11 @@ public class MainPresenter implements MainContract.Presenter {
             public void onError(String errorCode, String errorMessage) {
                 // 清除思考状态
                 isThinking = false;
-                if (view != null) {
+                if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideThinking();
-                        view.hideLoading();
-                        view.onStreamError(errorCode, errorMessage);
+                        streamingView.hideThinking();
+                        messageListView.hideLoading();
+                        streamingView.onStreamError(errorCode, errorMessage);
                     });
                 }
             }
@@ -215,18 +218,19 @@ public class MainPresenter implements MainContract.Presenter {
             com.hh.agent.library.NativeAgent.cancelStream();
             // 清除思考状态
             isThinking = false;
-            if (view != null) {
+            if (streamingView != null && messageListView != null) {
                 mainHandler.post(() -> {
-                    view.hideThinking();
-                    view.hideLoading();
+                    streamingView.hideThinking();
+                    messageListView.hideLoading();
                 });
             }
         }
     }
 
     @Override
-    public void attachView(MainContract.View view) {
-        this.view = view;
+    public void attachView(MainContract.MessageListView messageListView, MainContract.StreamingView streamingView) {
+        this.messageListView = messageListView;
+        this.streamingView = streamingView;
         // 重新 attach 时，检查并恢复状态
         restoreViewState();
     }
@@ -245,7 +249,8 @@ public class MainPresenter implements MainContract.Presenter {
 
     @Override
     public void detachView() {
-        this.view = null;
+        this.messageListView = null;
+        this.streamingView = null;
         // 注意：单例模式下不销毁 presenter，保留状态
     }
 
