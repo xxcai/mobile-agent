@@ -6,14 +6,13 @@ import android.os.Looper;
 import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
+import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 import com.hh.agent.library.model.Message;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * MainActivity 的 Presenter 实现
@@ -30,8 +29,6 @@ public class MainPresenter implements MainContract.Presenter {
     private MainContract.StreamingView streamingView;
     private final MobileAgentApi mobileAgentApi;
     private final StreamingManager streamingManager;
-    private final ExecutorService executor;
-    private final ExecutorService loadMessagesExecutor;
     private final Handler mainHandler;
     private final String sessionKey;
 
@@ -52,8 +49,6 @@ public class MainPresenter implements MainContract.Presenter {
     private MainPresenter() {
         this.mobileAgentApi = new NativeMobileAgentApiAdapter();
         this.streamingManager = new StreamingManager(mobileAgentApi);
-        this.executor = Executors.newSingleThreadExecutor();
-        this.loadMessagesExecutor = Executors.newSingleThreadExecutor();
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.sessionKey = "native:default";
     }
@@ -94,7 +89,7 @@ public class MainPresenter implements MainContract.Presenter {
             mainHandler.post(() -> messageListView.showLoading());
         }
 
-        loadMessagesExecutor.execute(() -> {
+        ThreadPoolManager.executeAgentIO(() -> {
             try {
                 // 确保会话存在
                 mobileAgentApi.getSession(sessionKey);
@@ -256,9 +251,8 @@ public class MainPresenter implements MainContract.Presenter {
      * 注意：单例模式下不真正销毁，只是解绑 view
      */
     public void destroy() {
-        // 关闭线程池
-        executor.shutdown();
-        loadMessagesExecutor.shutdown();
+        // 关闭统一线程池
+        ThreadPoolManager.shutdown();
         // 清理 Context 引用，避免内存泄漏
         if (mobileAgentApi instanceof NativeMobileAgentApiAdapter) {
             ((NativeMobileAgentApiAdapter) mobileAgentApi).clearContext();
