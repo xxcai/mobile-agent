@@ -254,18 +254,26 @@ nlohmann::json LLMProvider::build_request_body(const ChatCompletionRequest& requ
     
 ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& response) const {
     ChatCompletionResponse result;
-    
+
+    // Debug: log full response
+    ICRAW_LOG_DEBUG("[LLM] Full response: {}", response.dump(2));
+
     if (!response.contains("choices") || response["choices"].empty()) {
         result.finish_reason = "error";
         return result;
     }
-    
+
     const auto& choice = response["choices"][0];
     result.finish_reason = choice.value("finish_reason", "");
-    
+
     if (choice.contains("message")) {
         const auto& message = choice["message"];
-        
+
+        // Check for reasoning_content (o1 model)
+        if (message.contains("reasoning_content") && !message["reasoning_content"].is_null()) {
+            ICRAW_LOG_DEBUG("[LLM] Found reasoning_content: {}", message["reasoning_content"].get<std::string>());
+        }
+
         if (message.contains("content") && !message["content"].is_null()) {
             result.content = message["content"].get<std::string>();
         }
