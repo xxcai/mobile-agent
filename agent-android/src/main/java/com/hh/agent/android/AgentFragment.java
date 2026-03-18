@@ -355,13 +355,28 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     }
 
     @Override
-    public void onStreamMessageEnd(String finishReason) {
-        // 从 adapter 获取 thinking 消息内容
-        String thinkingContent = adapter.getThinkingMessageContent();
-        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", thinkingContent=" + thinkingContent);
+    public void onStreamMessageEnd(String status) {
+        Log.d("AgentFragment", "onStreamMessageEnd: status=" + status);
 
+        // 状态转换：正在响应 -> 历史响应
+        if ("completed".equals(status)) {
+            // 1. 删除 thinking 消息（不再需要显示）
+            adapter.removeThinkingMessage();
+
+            // 2. 更新 response 消息，隐藏工具区和 think 区
+            // 清除 toolCalls 列表会隐藏工具区
+            adapter.clearToolCallsInResponse();
+
+            // 刷新 RecyclerView 显示更新后的卡片
+            rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+
+            Log.d("AgentFragment", "onStreamMessageEnd: completed, updated response card to history state");
+            return;
+        }
+
+        // 以下是旧的异常处理逻辑（当 status = "error" 时）
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
-        if ("tool_calls".equals(finishReason)) {
+        if ("tool_calls".equals(status)) {
             Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping thinking message");
             return;
         }
@@ -369,10 +384,10 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 检查是否为错误类型的 finish_reason
         String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error"};
         for (String errorType : errorFinishReasons) {
-            if (errorType.equals(finishReason)) {
-                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + finishReason);
+            if (errorType.equals(status)) {
+                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + status);
                 // 显示错误消息
-                adapter.addErrorMessage(finishReason, "API 响应被截断或内容不符合要求");
+                adapter.addErrorMessage(status, "API 响应被截断或内容不符合要求");
                 // 隐藏 thinking 消息
                 hideThinking();
                 // 清除 AI 消息
@@ -381,19 +396,10 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             }
         }
 
-        // finish_reason 是 stop 时，才删除 thinking 并添加最终响应
-        // 1. 删除 thinking 消息
-        hideThinking();
-
-        // 2. 创建新的 AI 助手消息
-        Message assistantMessage = new Message();
-        assistantMessage.setRole("assistant");
-        assistantMessage.setContent(thinkingContent != null ? thinkingContent : "");
-        assistantMessage.setTimestamp(System.currentTimeMillis());
-
-        Log.d("AgentFragment", "onStreamMessageEnd: adding assistant message, content=" + assistantMessage.getContent());
-        // 3. 添加最终消息
-        onMessageReceived(assistantMessage);
+        // 默认按异常处理
+        Log.d("AgentFragment", "onStreamMessageEnd: unknown status=" + status + ", treating as error");
+        adapter.removeThinkingMessage();
+        adapter.removeAiMessages();
     }
 
     @Override

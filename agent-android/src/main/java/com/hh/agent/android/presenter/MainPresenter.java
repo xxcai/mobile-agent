@@ -284,7 +284,13 @@ public class MainPresenter implements MainContract.Presenter {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
                         messageListView.hideLoading();
-                        streamingView.onStreamMessageEnd(finishReason);
+                        // 状态转换：仅 stop 视为正常完成
+                        if ("stop".equals(finishReason)) {
+                            streamingView.onStreamMessageEnd("completed");
+                        } else {
+                            // error/cancel/null 按异常处理
+                            streamingView.onStreamMessageEnd("error");
+                        }
                     });
                 }
             }

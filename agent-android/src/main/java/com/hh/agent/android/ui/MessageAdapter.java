@@ -297,6 +297,22 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 清除响应卡片中的工具调用列表
+     * 用于状态转换：将"正在响应"转为"历史响应"时隐藏工具区
+     */
+    public void clearToolCallsInResponse() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                // 清除 toolCalls 列表，这样 bind 方法会隐藏工具区
+                msg.setToolCalls(null);
+                notifyItemChanged(i);
+                return;
+            }
+        }
+    }
+
+    /**
      * 获取思考消息的索引
      * @return thinking 消息的索引，不存在则返回 -1
      */
