@@ -268,7 +268,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     // 流式回调方法实现
     @Override
     public void onStreamMessageUpdate(Message message) {
-        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message);
+        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
             currentResponseMessage = message;
@@ -287,6 +287,12 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onStreamMessageEnd(Message message, String finishReason) {
         Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", message=" + message);
+
+        // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
+        if ("tool_calls".equals(finishReason)) {
+            Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping running");
+            return;
+        }
 
         // 更新最终消息
         if (message != null) {
@@ -308,17 +314,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             // 2. 更新 response 消息，隐藏工具区和 think 区
             // 清除 toolCalls 列表会隐藏工具区
             adapter.clearToolCallsInResponse();
+            // 清除 thinkContent 会隐藏思考区
+            adapter.clearThinkContentInResponse();
 
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
             Log.d("AgentFragment", "onStreamMessageEnd: stop, updated response card to history state");
-            return;
-        }
-
-        // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
-        if ("tool_calls".equals(finishReason)) {
-            Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping thinking message");
             return;
         }
 

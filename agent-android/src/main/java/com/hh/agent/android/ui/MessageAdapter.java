@@ -313,6 +313,21 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 用于状态转换：将"正在响应"转为"历史响应"时隐藏思考区
+     */
+    public void clearThinkContentInResponse() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                // 清除 thinkContent，这样 bind 方法会隐藏思考区
+                msg.setThinkContent(null);
+                notifyItemChanged(i);
+                return;
+            }
+        }
+    }
+
+    /**
      * 获取思考消息的索引
      * @return thinking 消息的索引，不存在则返回 -1
      */
