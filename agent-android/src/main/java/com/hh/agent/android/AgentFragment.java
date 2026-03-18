@@ -311,8 +311,8 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
         Log.d("AgentFragment", "onStreamToolUse: id=" + id + ", name=" + name + ", args=" + argumentsJson);
-        // 添加工具调用消息
-        adapter.addToolUseMessage(name, argumentsJson);
+        // 添加工具到响应卡片的工具区
+        adapter.addToolToToolArea(id, name, argumentsJson);
 
         // 自动滚动到最新消息
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
@@ -321,10 +321,8 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onStreamToolResult(String id, String result) {
         Log.d("AgentFragment", "onStreamToolResult: id=" + id + ", result=" + result);
-        // 添加工具结果消息
-        // 从消息列表中获取最后一个 tool_use 消息的工具名称
-        String toolName = getLastToolName();
-        adapter.addToolResultMessage(toolName, result);
+        // 更新工具状态为已完成
+        adapter.updateToolStatus(id, "completed");
 
         // 工具结果返回后，LLM 即将开始下一次响应
         // 清除旧的 thinking 消息，准备显示新的 thinking

@@ -1,16 +1,20 @@
 package com.hh.agent.library.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 消息实体类
  */
 public class Message {
     @SerializedName("id") private String id;
-    @SerializedName("role") private String role;        // "user", "assistant", "system", "thinking", "tool_use", "tool_result"
-    @SerializedName("name") private String name;         // tool name for tool_use and tool_result
-    @SerializedName("content") private String content;
+    @SerializedName("role") private String role;        // "user", "assistant", "system", "thinking", "tool_use", "tool_result", "response"
+    @SerializedName("name") private String name;         // tool name for tool_use and tool_result, or tool name for response card
+    @SerializedName("content") private String content;   // main content or tool status for response card
+    @SerializedName("think_content") private String thinkContent; // think block content for response card
     @SerializedName("timestamp") private long timestamp;
+    @SerializedName("tool_calls") private List<ToolCall> toolCalls; // 工具调用列表
 
     public Message() {
         this.timestamp = System.currentTimeMillis();
@@ -61,5 +65,38 @@ public class Message {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getThinkContent() {
+        return thinkContent;
+    }
+
+    public void setThinkContent(String thinkContent) {
+        this.thinkContent = thinkContent;
+    }
+
+    public List<ToolCall> getToolCalls() {
+        if (toolCalls == null) {
+            toolCalls = new ArrayList<>();
+        }
+        return toolCalls;
+    }
+
+    public void setToolCalls(List<ToolCall> toolCalls) {
+        this.toolCalls = toolCalls;
+    }
+
+    public void addToolCall(ToolCall toolCall) {
+        getToolCalls().add(toolCall);
+    }
+
+    public ToolCall getToolCall(String id) {
+        if (toolCalls == null) return null;
+        for (ToolCall tc : toolCalls) {
+            if (tc.getId().equals(id)) {
+                return tc;
+            }
+        }
+        return null;
     }
 }

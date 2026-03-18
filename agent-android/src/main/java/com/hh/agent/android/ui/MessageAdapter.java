@@ -5,12 +5,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.R;
 import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.ToolCall;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -233,6 +235,63 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 msg.setContent(content);
                 notifyItemChanged(i);
                 return;
+            }
+        }
+    }
+
+    /**
+     * 添加工具到响应卡片工具区
+     * @param toolId 工具调用 ID
+     * @param toolName 工具名称
+     * @param argumentsJson 工具参数 JSON
+     */
+    public void addToolToToolArea(String toolId, String toolName, String argumentsJson) {
+        // 找到或创建 response 消息
+        Message responseMsg = null;
+        int responseIndex = -1;
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                responseMsg = msg;
+                responseIndex = i;
+                break;
+            }
+        }
+
+        if (responseMsg == null) {
+            // 创建新的 response 消息
+            responseMsg = new Message();
+            responseMsg.setRole("response");
+            responseMsg.setTimestamp(System.currentTimeMillis());
+            messages.add(responseMsg);
+            responseIndex = messages.size() - 1;
+            notifyItemInserted(responseIndex);
+        }
+
+        // 添加工具调用
+        ToolCall toolCall = new ToolCall(toolId, toolName);
+        toolCall.setArguments(argumentsJson);
+        responseMsg.addToolCall(toolCall);
+
+        // 刷新显示
+        notifyItemChanged(responseIndex);
+    }
+
+    /**
+     * 更新工具状态
+     * @param toolId 工具调用 ID
+     * @param status 新状态 ("running" 或 "completed")
+     */
+    public void updateToolStatus(String toolId, String status) {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                ToolCall toolCall = msg.getToolCall(toolId);
+                if (toolCall != null) {
+                    toolCall.setStatus(status);
+                    notifyItemChanged(i);
+                    return;
+                }
             }
         }
     }
@@ -464,8 +523,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     static class ResponseCardViewHolder extends RecyclerView.ViewHolder {
 
         private final View toolArea;
-        private final ImageView ivToolIcon;
-        private final TextView tvToolStatus;
+        private final LinearLayout toolListContainer;
         private final View thinkArea;
         private final TextView tvThink;
         private final TextView tvContent;
@@ -473,6 +531,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final TextView tvRole;
         private final SimpleDateFormat timeFormat;
         private final Markwon markwon;
+        private Message currentMessage;
 
         ResponseCardViewHolder(@NonNull View itemView, SimpleDateFormat timeFormat, Markwon markwon) {
             super(itemView);
@@ -480,8 +539,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             this.markwon = markwon;
 
             toolArea = itemView.findViewById(R.id.toolArea);
-            ivToolIcon = itemView.findViewById(R.id.ivToolIcon);
-            tvToolStatus = itemView.findViewById(R.id.tvToolStatus);
+            toolListContainer = itemView.findViewById(R.id.toolListContainer);
             thinkArea = itemView.findViewById(R.id.thinkArea);
             tvThink = itemView.findViewById(R.id.tvThink);
             tvContent = itemView.findViewById(R.id.tvContent);
@@ -490,15 +548,16 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         void bind(Message message) {
+            this.currentMessage = message;
+
             // 设置时间戳
             tvTimestamp.setText(timeFormat.format(new Date(message.getTimestamp())));
             tvRole.setText("助手");
 
-            // 工具区：根据 message.getName() 显示工具名和状态
-            String toolName = message.getName();
-            String toolStatus = message.getContent(); // 这里用 content 暂存工具状态
-            if (toolName != null && !toolName.isEmpty()) {
-                showToolArea(toolName, toolStatus != null ? toolStatus : "工作中...");
+            // 工具区：显示工具调用列表
+            List<ToolCall> toolCalls = message.getToolCalls();
+            if (toolCalls != null && !toolCalls.isEmpty()) {
+                showToolAreaList(toolCalls);
             } else {
                 hideToolArea();
             }
@@ -523,9 +582,75 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
          * @param toolName 工具名称
          * @param status 状态文本（如"工作中..."、"完成"）
          */
-        void showToolArea(String toolName, String status) {
+        /**
+         * 显示工具列表
+         */
+        void showToolAreaList(List<ToolCall> toolCalls) {
             toolArea.setVisibility(View.VISIBLE);
-            tvToolStatus.setText(toolName + ": " + status);
+            toolListContainer.removeAllViews();
+
+            for (ToolCall toolCall : toolCalls) {
+                addToolView(toolCall);
+            }
+        }
+
+        /**
+         * 添加单个工具视图
+         */
+        private void addToolView(ToolCall toolCall) {
+            Context context = itemView.getContext();
+            LinearLayout toolItem = new LinearLayout(context);
+            toolItem.setOrientation(LinearLayout.HORIZONTAL);
+            toolItem.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
+            toolItem.setPadding(0, 4, 0, 4);
+
+            // 工具图标
+            ImageView ivIcon = new ImageView(context);
+            ivIcon.setImageResource(android.R.drawable.ic_menu_info_details);
+            ivIcon.setLayoutParams(new LinearLayout.LayoutParams(24, 24));
+            toolItem.addView(ivIcon);
+
+            // 工具状态文本
+            TextView tvStatus = new TextView(context);
+            String statusText;
+            if ("completed".equals(toolCall.getStatus())) {
+                statusText = toolCall.getName() + " 已完成调用";
+            } else {
+                statusText = "正在使用: " + toolCall.getName();
+            }
+            tvStatus.setText(statusText);
+            tvStatus.setTextSize(12);
+            tvStatus.setTextColor(0xFF666666);
+            LinearLayout.LayoutParams tvParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            tvParams.setMargins(8, 0, 0, 0);
+            tvStatus.setLayoutParams(tvParams);
+            tvStatus.setTag(toolCall.getId()); // 用 ID 作为 tag，方便后续更新
+            toolItem.addView(tvStatus);
+
+            toolListContainer.addView(toolItem);
+        }
+
+        /**
+         * 更新工具状态
+         */
+        void updateToolStatus(String toolId, String newStatus) {
+            if (currentMessage == null) return;
+
+            // 更新数据模型
+            ToolCall toolCall = currentMessage.getToolCall(toolId);
+            if (toolCall != null) {
+                toolCall.setStatus(newStatus);
+            }
+
+            // 刷新 UI
+            List<ToolCall> toolCalls = currentMessage.getToolCalls();
+            showToolAreaList(toolCalls);
         }
 
         /**
