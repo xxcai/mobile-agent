@@ -11,6 +11,7 @@ import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.ToolCall;
 
 import java.util.List;
 
@@ -220,6 +221,11 @@ public class MainPresenter implements MainContract.Presenter {
             messageListView.onUserMessageSent(userMessage);
         }
 
+        // 创建 assistant 消息对象，用于在整个流式过程中更新
+        Message assistantMessage = new Message();
+        assistantMessage.setRole("assistant");
+        assistantMessage.setTimestamp(System.currentTimeMillis());
+
         // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
         if (streamingView != null) {
             streamingView.showThinking();
@@ -241,17 +247,17 @@ public class MainPresenter implements MainContract.Presenter {
                     // 解析文本，区分 think 块和正文块（全量解析）
                     StreamTextParser.ParsedResult result = currentParser.parse(accumulatedText.toString());
 
-                    mainHandler.post(() -> {
-                        // 调用原有的 onStreamTextDelta 保持兼容
-                        streamingView.onStreamTextDelta(text);
+                    // 更新 Message 对象
+                    if (result.thinkContent != null && !result.thinkContent.isEmpty()) {
+                        assistantMessage.setThinkContent(result.thinkContent);
+                    }
+                    if (result.contentContent != null && !result.contentContent.isEmpty()) {
+                        assistantMessage.setContent(result.contentContent);
+                    }
 
-                        // 分别调用 think 和正文回调（全量内容）
-                        if (result.thinkContent != null && !result.thinkContent.isEmpty()) {
-                            streamingView.onStreamThinkDelta(result.thinkContent);
-                        }
-                        if (result.contentContent != null && !result.contentContent.isEmpty()) {
-                            streamingView.onStreamContentDelta(result.contentContent);
-                        }
+                    mainHandler.post(() -> {
+                        // 传递完整的 Message 对象给界面
+                        streamingView.onStreamMessageUpdate(assistantMessage);
                     });
                 }
             }
@@ -260,7 +266,14 @@ public class MainPresenter implements MainContract.Presenter {
             public void onToolUse(String id, String name, String argumentsJson) {
                 Log.d("MainPresenter", "onToolUse: id=" + id);
                 if (streamingView != null) {
-                    mainHandler.post(() -> streamingView.onStreamToolUse(id, name, argumentsJson));
+                    // 创建 ToolCall 对象并添加到 Message
+                    ToolCall toolCall = new ToolCall(id, name);
+                    toolCall.setArguments(argumentsJson);
+                    assistantMessage.addToolCall(toolCall);
+
+                    mainHandler.post(() -> {
+                        streamingView.onStreamMessageUpdate(assistantMessage);
+                    });
                 }
             }
 
@@ -268,7 +281,16 @@ public class MainPresenter implements MainContract.Presenter {
             public void onToolResult(String id, String result) {
                 Log.d("MainPresenter", "onToolResult: id=" + id);
                 if (streamingView != null) {
-                    mainHandler.post(() -> streamingView.onStreamToolResult(id, result));
+                    // 更新 ToolCall 的结果
+                    ToolCall toolCall = assistantMessage.getToolCall(id);
+                    if (toolCall != null) {
+                        toolCall.setResult(result);
+                        toolCall.setStatus("completed");
+                    }
+
+                    mainHandler.post(() -> {
+                        streamingView.onStreamMessageUpdate(assistantMessage);
+                    });
                 }
             }
 
@@ -279,8 +301,8 @@ public class MainPresenter implements MainContract.Presenter {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
                         messageListView.hideLoading();
-                        // 直接透传 finishReason，让界面根据状态响应
-                        streamingView.onStreamMessageEnd(finishReason);
+                        // 传递带有完成状态的 Message
+                        streamingView.onStreamMessageEnd(assistantMessage, finishReason);
                     });
                 }
             }

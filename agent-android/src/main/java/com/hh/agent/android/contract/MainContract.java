@@ -53,6 +53,11 @@ public interface MainContract {
      */
     interface StreamingView extends BaseView {
         /**
+         * 流式消息更新回调（传递完整的 Message 对象）
+         */
+        void onStreamMessageUpdate(Message message);
+
+        /**
          * 流式文本增量回调
          */
         void onStreamTextDelta(String textDelta);
@@ -79,8 +84,10 @@ public interface MainContract {
 
         /**
          * 流式消息结束回调
+         * @param message 最终的 Message 对象
+         * @param finishReason 结束原因：stop/error/cancel/tool_calls
          */
-        void onStreamMessageEnd(String finishReason);
+        void onStreamMessageEnd(Message message, String finishReason);
 
         /**
          * 流式错误回调

@@ -267,6 +267,24 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     // 流式回调方法实现
     @Override
+    public void onStreamMessageUpdate(Message message) {
+        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message);
+        // 第一次收到响应时，创建 response 消息
+        if (currentResponseMessage == null) {
+            currentResponseMessage = message;
+            adapter.addResponseMessage(message);
+        } else {
+            // 更新现有消息
+            currentResponseMessage = message;
+            adapter.updateResponseMessage(message);
+        }
+
+        // 强制刷新 RecyclerView
+        rvMessages.invalidate();
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
     public void onStreamTextDelta(String textDelta) {
         // 从 adapter 获取当前 thinking 消息内容并追加新文本
         String currentContent = adapter.getThinkingMessageContent();
@@ -391,14 +409,23 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     }
 
     @Override
-    public void onStreamMessageEnd(String status) {
-        Log.d("AgentFragment", "onStreamMessageEnd: status=" + status);
+    public void onStreamMessageEnd(Message message, String finishReason) {
+        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", message=" + message);
+
+        // 更新最终消息
+        if (message != null) {
+            if (currentResponseMessage == null) {
+                adapter.addResponseMessage(message);
+            } else {
+                adapter.updateResponseMessage(message);
+            }
+        }
 
         // 清理当前响应消息标记
         currentResponseMessage = null;
 
         // 状态转换：正在响应 -> 历史响应
-        if ("completed".equals(status)) {
+        if ("stop".equals(finishReason)) {
             // 1. 删除 thinking 消息（不再需要显示）
             adapter.removeThinkingMessage();
 
@@ -409,24 +436,23 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
-            Log.d("AgentFragment", "onStreamMessageEnd: completed, updated response card to history state");
+            Log.d("AgentFragment", "onStreamMessageEnd: stop, updated response card to history state");
             return;
         }
 
-        // 以下是旧的异常处理逻辑（当 status = "error" 时）
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
-        if ("tool_calls".equals(status)) {
+        if ("tool_calls".equals(finishReason)) {
             Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping thinking message");
             return;
         }
 
         // 检查是否为错误类型的 finish_reason
-        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error"};
+        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
         for (String errorType : errorFinishReasons) {
-            if (errorType.equals(status)) {
-                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + status);
+            if (errorType.equals(finishReason)) {
+                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + finishReason);
                 // 显示错误消息
-                adapter.addErrorMessage(status, "API 响应被截断或内容不符合要求");
+                adapter.addErrorMessage(finishReason, "API 响应被截断或内容不符合要求");
                 // 隐藏 thinking 消息
                 hideThinking();
                 // 清除 AI 消息
@@ -436,7 +462,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         }
 
         // 默认按异常处理
-        Log.d("AgentFragment", "onStreamMessageEnd: unknown status=" + status + ", treating as error");
+        Log.d("AgentFragment", "onStreamMessageEnd: unknown finishReason=" + finishReason + ", treating as error");
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
     }
