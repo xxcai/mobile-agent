@@ -58,31 +58,6 @@ public interface MainContract {
         void onStreamMessageUpdate(Message message);
 
         /**
-         * 流式文本增量回调
-         */
-        void onStreamTextDelta(String textDelta);
-
-        /**
-         * Think 块文本增量回调
-         */
-        void onStreamThinkDelta(String textDelta);
-
-        /**
-         * 正文内容增量回调
-         */
-        void onStreamContentDelta(String textDelta);
-
-        /**
-         * 工具调用开始回调
-         */
-        void onStreamToolUse(String id, String name, String argumentsJson);
-
-        /**
-         * 工具调用结果回调
-         */
-        void onStreamToolResult(String id, String result);
-
-        /**
          * 流式消息结束回调
          * @param message 最终的 Message 对象
          * @param finishReason 结束原因：stop/error/cancel/tool_calls
@@ -148,41 +123,6 @@ public interface MainContract {
          * 隐藏思考中提示
          */
         void hideThinking();
-
-        /**
-         * 流式文本增量回调
-         */
-        void onStreamTextDelta(String textDelta);
-
-        /**
-         * Think 块文本增量回调
-         */
-        void onStreamThinkDelta(String textDelta);
-
-        /**
-         * 正文内容增量回调
-         */
-        void onStreamContentDelta(String textDelta);
-
-        /**
-         * 工具调用开始回调
-         */
-        void onStreamToolUse(String id, String name, String argumentsJson);
-
-        /**
-         * 工具调用结果回调
-         */
-        void onStreamToolResult(String id, String result);
-
-        /**
-         * 流式消息结束回调
-         */
-        void onStreamMessageEnd(String finishReason);
-
-        /**
-         * 流式错误回调
-         */
-        void onStreamError(String errorCode, String errorMessage);
     }
 
     /**
