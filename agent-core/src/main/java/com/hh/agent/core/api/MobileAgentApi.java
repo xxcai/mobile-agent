@@ -1,8 +1,8 @@
-package com.hh.agent.library.api;
+package com.hh.agent.core.api;
 
-import com.hh.agent.library.AgentEventListener;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.Session;
+import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.Session;
 
 import java.util.List;
 

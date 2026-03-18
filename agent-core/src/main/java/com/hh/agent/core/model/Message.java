@@ -1,4 +1,4 @@
-package com.hh.agent.library.model;
+package com.hh.agent.core.model;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.ArrayList;

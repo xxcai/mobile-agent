@@ -1,4 +1,4 @@
-package com.hh.agent.library;
+package com.hh.agent.core;
 
 /**
  * Native agent JNI wrapper class

@@ -1,4 +1,4 @@
-package com.hh.agent.library.api;
+package com.hh.agent.core.api;
 
 import android.content.Context;
 import java.util.ArrayList;
@@ -6,11 +6,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
-import com.hh.agent.library.AgentEventListener;
-import com.hh.agent.library.AndroidToolCallback;
-import com.hh.agent.library.NativeAgent;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.Session;
+import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.AndroidToolCallback;
+import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.Session;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
