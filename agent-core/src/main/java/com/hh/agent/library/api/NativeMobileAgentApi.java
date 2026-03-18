@@ -55,103 +55,10 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
-     * 保存会话到 C++ 层 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeSaveSession() JNI 接口
-     * 当前只打印日志，不实际保存
-     *
-     * @param session 要保存的会话
+     * 保存会话（空实现）
      */
     public synchronized void saveSession(Session session) {
-        // TODO: 实现 C++ 持久化
-        System.out.println("[NativeMobileAgentApi] saveSession: Mock - session NOT persisted, sessionKey=" + (session != null ? session.getKey() : "null"));
-    }
-
-    /**
-     * 从 C++ 层加载会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadSession() JNI 接口
-     * 当前返回 null
-     *
-     * @param sessionKey 会话键
-     * @return 总是返回 null
-     */
-    public synchronized Session loadSession(String sessionKey) {
-        // TODO: 实现 C++ 持久化
-        // Mock 返回一个包含历史消息的 Session
-        Session session = new Session(sessionKey);
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! I'm your AI assistant.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        System.out.println("[NativeMobileAgentApi] loadSession: Mock returning session with " + session.getMessages().size() + " messages");
-        return session;
-    }
-
-    /**
-     * 从 C++ 层加载所有会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadAllSessions() JNI 接口
-     * 当前返回 0
-     *
-     * @return 总是返回 0
-     */
-    public synchronized int loadAllSessions() {
-        // TODO: 实现 C++ 持久化
-        // Mock: 加载假数据到 sessions map
-        Session session = new Session("native:default");
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! I'm your AI assistant.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        sessions.put("native:default", session);
-        System.out.println("[NativeMobileAgentApi] loadAllSessions: Mock loaded 1 session");
-        return 1;
-    }
-
-    /**
-     * 从 C++ 层加载会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadSession() JNI 接口
-     * 当前返回 null
-     *
-     * @param sessionKey 会话键
-     * @return 总是返回 null
-     */
-    public synchronized Session loadSessionFromCore(String sessionKey) {
-        // TODO: 实现 C++ 持久化
-        // Mock 返回一个包含历史消息的 Session
-        Session session = new Session(sessionKey);
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello from C++");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! This is loaded from C++ layer.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        System.out.println("[NativeMobileAgentApi] loadSessionFromCore: Mock returning session");
-        return session;
+        // Not implemented - session persistence handled by C++ layer
     }
 
     /**

@@ -29,7 +29,6 @@ public class App extends Application {
 
         // 初始化会话持久化（当前为 Mock，后续 C++ 实现）
         NativeMobileAgentApi.getInstance().initializeContext(this);
-        NativeMobileAgentApi.getInstance().loadAllSessions();
 
         // 初始化语音识别器（Mock 实现）
         VoiceRecognizerHolder.getInstance().setRecognizer(new MockVoiceRecognizer());
