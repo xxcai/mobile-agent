@@ -45,13 +45,6 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
     private Context context;
 
     /**
-     * 设置 Context（需要在 initialize 之前调用）
-     */
-    public void setContext(Context context) {
-        this.context = context;
-    }
-
-    /**
      * 清理 Context 引用，避免内存泄漏
      */
     public void clearContext() {
@@ -90,56 +83,16 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
         }
     }
 
-    /**
-     * 初始化 Native Agent
-     */
-    public void initialize(String configPath) {
-        try {
-            // 先尝试加载 native 库
-            System.loadLibrary("icraw");
-
-            // 初始化 workspace
-            if (context != null) {
-                WorkspaceManager workspaceManager = new WorkspaceManager(context);
-                String workspacePath = workspaceManager.initialize();
-                // 将 workspace 路径添加到配置中
-                // C++ expects "workspacePath" field
-                if (!workspacePath.isEmpty()) {
-                    // 尝试找到最后一个 } 来添加 workspacePath
-                    int lastBrace = configJson.lastIndexOf('}');
-                    if (lastBrace > 0) {
-                        String newField = ",\"workspacePath\":\"" + workspacePath + "\"";
-                        configJson = configJson.substring(0, lastBrace) + newField + configJson.substring(lastBrace);
-                    }
-                }
-            }
-
-            // Read tools.json from assets as JSON string and pass to agent
-            String toolsJson = null;
-            if (context != null) {
-                try {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(context.getAssets().open("tools.json")));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    reader.close();
-                    toolsJson = sb.toString();
-                } catch (Exception e) {
-                    System.out.println("[NativeMobileAgentApiAdapter] Failed to read tools.json: " + e.getMessage());
-                }
-            }
-            nativeApi.initialize(toolsJson, configJson);
-        } catch (UnsatisfiedLinkError e) {
-            throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
-        }
-    }
-
     @Override
     public Session createSession(String channel, String chatId) {
         // 不需要转换，返回 null 即可，getSession 会自动创建
         return null;
+    }
+
+    @Override
+    public Message sendMessage(String content, String sessionKey) {
+        // Not used - use sendMessageStream instead
+        throw new UnsupportedOperationException("Use sendMessageStream instead");
     }
 
     @Override
@@ -151,12 +104,6 @@ public class NativeMobileAgentApiAdapter implements MobileAgentApi {
         }
         // 将 AgentSession 转换为 lib Session
         return convertSession(agentSession, sessionKey);
-    }
-
-    @Override
-    public Message sendMessage(String content, String sessionKey) {
-        com.hh.agent.library.model.Message agentMessage = nativeApi.sendMessage(content, sessionKey);
-        return convertMessage(agentMessage);
     }
 
     @Override
