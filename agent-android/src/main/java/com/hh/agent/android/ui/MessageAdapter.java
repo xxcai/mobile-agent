@@ -433,8 +433,13 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 tvContent.setText(message.getContent());
             } else if ("assistant".equals(role)) {
                 tvRole.setText("助手");
-                // 使用 Markwon 渲染 Markdown
-                markwon.setMarkdown(tvContent, message.getContent());
+                // 使用 Markwon 渲染 Markdown，处理 null 情况
+                String content = message.getContent();
+                if (content != null) {
+                    markwon.setMarkdown(tvContent, content);
+                } else {
+                    tvContent.setText("");
+                }
             } else if ("system".equals(role)) {
                 tvRole.setText("系统");
                 tvContent.setText(message.getContent());

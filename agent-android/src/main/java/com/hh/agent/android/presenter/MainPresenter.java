@@ -223,7 +223,7 @@ public class MainPresenter implements MainContract.Presenter {
 
         // 创建 assistant 消息对象，用于在整个流式过程中更新
         Message assistantMessage = new Message();
-        assistantMessage.setRole("assistant");
+        assistantMessage.setRole("response");
         assistantMessage.setTimestamp(System.currentTimeMillis());
 
         // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
