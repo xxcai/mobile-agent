@@ -13,6 +13,8 @@ import com.hh.agent.library.model.Message;
 import com.hh.agent.library.model.ToolCall;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * MainActivity 的 Presenter 实现
@@ -42,37 +44,57 @@ public class MainPresenter implements MainContract.Presenter {
          * @return 解析结果，包含完整的 think 内容 和正文内容
          */
         ParsedResult parse(String text) {
-            Log.d(TAG, "StreamTextParser parse (full): text=" + text);
+            Log.d(TAG, "StreamTextParser parse (multi-think): text=" + text);
             ParsedResult result = new ParsedResult();
 
             if (text == null || text.isEmpty()) {
                 return result;
             }
 
-            // 查找第一个开始标签和结束标签
-            int thinkStart = text.indexOf("<think>");
-            int thinkEnd = text.indexOf("</think>");
+            // Step 1: 使用正则表达式捕获所有完整的 <think>...</think> 块
+            // Pattern: <think>(.*?)</think> 使用非贪婪匹配，re.DOTALL 让 . 匹配换行符
+            Pattern completePattern = Pattern.compile("<think>(.*?</think>)", Pattern.DOTALL);
+            Matcher completeMatcher = completePattern.matcher(text);
 
-            if (thinkStart >= 0 && thinkEnd > thinkStart) {
-                // 存在完整的 think 块
+            StringBuilder allThinkContent = new StringBuilder();
+            int lastEnd = 0;
+
+            while (completeMatcher.find()) {
+                // 提取块内容（去掉<think>和</think>标签），并去掉首尾空白
+                String blockContent = completeMatcher.group(1).trim();
+                if (!blockContent.isEmpty()) {
+                    if (allThinkContent.length() > 0) {
+                        allThinkContent.append("\n");
+                    }
+                    allThinkContent.append(blockContent);
+                }
+                lastEnd = completeMatcher.end();
                 result.hasThinkStart = true;
                 result.hasThinkEnd = true;
+            }
 
-                // 提取 think 内容（包含标签）
-                result.thinkContent = text.substring(thinkStart, thinkEnd + 8);
-                // 提取正文内容（think 块之后的部分）
-                result.contentContent = text.substring(thinkEnd + 8);
-            } else if (thinkStart >= 0 && thinkEnd < 0) {
-                // 只有开始标签，没有结束标签 - 正在 think 中
+            result.thinkContent = allThinkContent.length() > 0 ? allThinkContent.toString() : null;
+
+            // Step 2: 检查是否存在未完成的 <think> 块（没有对应的</think>）
+            // 在剩余文本中查找是否有 <think> 但没有培训学校
+            String remainingText = text.substring(lastEnd);
+            int unfinishedThinkStart = remainingText.indexOf("<think>");
+
+            if (unfinishedThinkStart >= 0) {
+                // 存在未完成的 think 块
                 result.hasThinkStart = true;
-                result.thinkContent = text.substring(thinkStart);
-            } else if (thinkStart < 0 && thinkEnd >= 0) {
-                // 有结束标签但没有开始标签 - 异常情况，当作正文处理
-                result.hasThinkEnd = true;
-                result.contentContent = text;
+                // 去掉开始的 <think> 标签，保留未完成的内容
+                String unfinishedThink = remainingText.substring(unfinishedThinkStart + 8).trim();
+                if (result.thinkContent == null) {
+                    result.thinkContent = unfinishedThink;
+                } else if (!unfinishedThink.isEmpty()) {
+                    result.thinkContent += "\n" + unfinishedThink;
+                }
+                // 剩余正文为未完成块之前的内容
+                result.contentContent = remainingText.substring(0, unfinishedThinkStart);
             } else {
-                // 没有 think 块，全部是正文
-                result.contentContent = text;
+                // 没有未完成的块，剩余全部作为正文
+                result.contentContent = remainingText.isEmpty() ? null : remainingText;
             }
 
             Log.d(TAG, "StreamTextParser result = " + result);
@@ -87,7 +109,7 @@ public class MainPresenter implements MainContract.Presenter {
         }
 
         static class ParsedResult {
-            String thinkContent;    // 完整的 think 内容（包含标签）
+            String thinkContent;    // think 内容（已去掉标签，多个块用换行拼接）
             String contentContent;  // 完整的正文内容
             boolean hasThinkStart;
             boolean hasThinkEnd;
