@@ -279,6 +279,36 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     }
 
     @Override
+    public void onStreamThinkDelta(String textDelta) {
+        // 获取当前 think 内容并追加
+        String currentContent = adapter.getThinkingMessageContent();
+        String newContent = (currentContent != null ? currentContent : "") + textDelta;
+        Log.d("AgentFragment", "onStreamThinkDelta: new='" + textDelta + "', accumulated='" + newContent + "'");
+
+        // 更新 think 消息内容（存储在 thinkContent 字段）
+        adapter.updateThinkContent(newContent);
+
+        // 刷新 RecyclerView
+        rvMessages.invalidate();
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
+    public void onStreamContentDelta(String textDelta) {
+        // 获取当前正文内容并追加
+        String currentContent = adapter.getContentMessageContent();
+        String newContent = (currentContent != null ? currentContent : "") + textDelta;
+        Log.d("AgentFragment", "onStreamContentDelta: new='" + textDelta + "', accumulated='" + newContent + "'");
+
+        // 更新正文消息内容
+        adapter.updateContentMessage(newContent);
+
+        // 刷新 RecyclerView
+        rvMessages.invalidate();
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
         Log.d("AgentFragment", "onStreamToolUse: id=" + id + ", name=" + name + ", args=" + argumentsJson);
         // 添加工具调用消息

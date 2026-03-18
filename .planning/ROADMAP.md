@@ -2,7 +2,7 @@
 
 ## Milestones
 
-- ⏳ **v2.10 待规划** — (planned)
+- ⏳ **v2.10 响应卡片改版** — Phases 8-11 (planned)
 - ✅ **v2.9 代码结构优化** — Phases 1-3 (shipped 2026-03-17)
 - ✅ **v2.8 历史消息加载** — Phases 1-2 (shipped 2026-03-17)
 - ✅ **v2.7 流式输出** — Phases 1 to 4 (shipped 2026-03-16)
@@ -114,6 +114,32 @@
 
 ---
 
-**v2.10 待规划**
+<details>
+<summary>⏳ v2.10 响应卡片改版 (Phases 8-11) — PLANNED</summary>
 
-待开始新的 milestone。
+- [ ] Phase 8: 响应卡片数据结构 (P0) — 大卡片布局
+  - [ ] v2.10-08-01-PLAN.md — 响应卡片统一为大卡片布局 (RESP-01)
+  - [ ] v2.10-08-02-PLAN.md — 工具区按需显示 (RESP-02)
+  - [ ] v2.10-08-03-PLAN.md — think区按需显示 (RESP-03)
+  - [ ] v2.10-08-04-PLAN.md — 正文区 Markdown 支持 (RESP-04)
+
+- [ ] Phase 9: 流式文本处理 (P0) — think块解析与展示
+  - [ ] v2.10-09-01-PLAN.md — 解析 onTextDelta 判断 think 块 (STREAM-01)
+  - [ ] v2.10-09-02-PLAN.md — think 内容增量追加 (STREAM-02)
+  - [ ] v2.10-09-03-PLAN.md — 正文内容增量追加 (STREAM-03)
+
+- [ ] Phase 10: 工具调用状态 (P0) — 工具状态展示
+  - [ ] v2.10-10-01-PLAN.md — onToolUse 展示工具 (TOOL-01)
+  - [ ] v2.10-10-02-PLAN.md — onToolResult 标记完成 (TOOL-02)
+
+- [ ] Phase 11: 状态管理与测试 (P1) — 状态转换与整合
+  - [ ] v2.10-11-01-PLAN.md — 状态转换逻辑 (STATE-01, STATE-02)
+  - [ ] v2.10-11-02-PLAN.md — 整合测试
+
+**Requirements:**
+- Phase 8: RESP-01, RESP-02, RESP-03, RESP-04 ⏳
+- Phase 9: STREAM-01, STREAM-02, STREAM-03 ⏳
+- Phase 10: TOOL-01, TOOL-02 ⏳
+- Phase 11: STATE-01, STATE-02 ⏳
+
+</details>

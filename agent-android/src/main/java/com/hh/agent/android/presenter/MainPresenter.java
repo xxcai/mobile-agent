@@ -30,6 +30,92 @@ public class MainPresenter implements MainContract.Presenter {
     private final String sessionKey;
 
     /**
+     * 流式文本解析器 - 用于区分 think 块和正文块
+     */
+    private static class StreamTextParser {
+        // 当前块类型
+        private BlockType currentBlockType = BlockType.CONTENT;
+        // 累积的 think 内容
+        private StringBuilder thinkContent = new StringBuilder();
+        // 累积的正文内容
+        private StringBuilder contentText = new StringBuilder();
+
+        enum BlockType {
+            THINK,   // think 块
+            CONTENT // 正文块
+        }
+
+        /**
+         * 解析文本，根据标签返回对应的增量
+         * @param text 输入的增量文本
+         * @return 解析结果，包含类型和实际内容
+         */
+        ParsedResult parse(String text) {
+            ParsedResult result = new ParsedResult();
+
+            // 检查是否包含开始标签
+            if (text.contains("<think>")) {
+                currentBlockType = BlockType.THINK;
+                result.hasThinkStart = true;
+            }
+
+            // 检查是否包含结束标签
+            if (text.contains("</think>")) {
+                // 遇到结束标签，think 块结束
+                result.hasThinkEnd = true;
+            }
+
+            // 处理文本
+            if (currentBlockType == BlockType.THINK) {
+                // 如果包含结束标签，需要拆分
+                if (result.hasThinkEnd) {
+                    // 分割文本
+                    int endIndex = text.indexOf("</think>");
+                    String thinkPart = text.substring(0, endIndex + 6); // 包含 </think> 标签
+                    String contentPart = text.substring(endIndex + 6);
+
+                    thinkContent.append(thinkPart);
+                    result.thinkDelta = thinkPart;
+                    result.contentDelta = contentPart;
+
+                    // think 结束，切换到正文
+                    currentBlockType = BlockType.CONTENT;
+                    thinkContent = new StringBuilder(); // 清空累积
+                } else {
+                    // 纯 think 内容
+                    thinkContent.append(text);
+                    result.thinkDelta = text;
+                }
+            } else {
+                // 正文块
+                contentText.append(text);
+                result.contentDelta = text;
+            }
+
+            return result;
+        }
+
+        /**
+         * 重置解析器状态
+         */
+        void reset() {
+            currentBlockType = BlockType.CONTENT;
+            thinkContent = new StringBuilder();
+            contentText = new StringBuilder();
+        }
+
+        static class ParsedResult {
+            String thinkDelta;
+            String contentDelta;
+            boolean hasThinkStart;
+            boolean hasThinkEnd;
+        }
+    }
+
+    // 每个流式请求创建一个解析器
+    private StreamTextParser currentParser = new StreamTextParser();
+
+    /**
      * 获取单例实例
      * 进程生命周期内只有一个 MainPresenter 实例
      */
@@ -157,7 +243,21 @@ public class MainPresenter implements MainContract.Presenter {
             public void onTextDelta(String text) {
                 Log.d("MainPresenter", "onTextDelta: text=" + text);
                 if (streamingView != null) {
-                    mainHandler.post(() -> streamingView.onStreamTextDelta(text));
+                    // 解析文本，区分 think 块和正文块
+                    StreamTextParser.ParsedResult result = currentParser.parse(text);
+
+                    mainHandler.post(() -> {
+                        // 调用原有的 onStreamTextDelta 保持兼容
+                        streamingView.onStreamTextDelta(text);
+
+                        // 分别调用 think 和正文回调
+                        if (result.thinkDelta != null && !result.thinkDelta.isEmpty()) {
+                            streamingView.onStreamThinkDelta(result.thinkDelta);
+                        }
+                        if (result.contentDelta != null && !result.contentDelta.isEmpty()) {
+                            streamingView.onStreamContentDelta(result.contentDelta);
+                        }
+                    });
                 }
             }
 
@@ -201,6 +301,9 @@ public class MainPresenter implements MainContract.Presenter {
                 }
             }
         });
+
+        // 重置文本解析器状态
+        currentParser.reset();
 
         // 使用 StreamingManager 发送流式消息
         streamingManager.sendMessageStream(content, sessionKey);

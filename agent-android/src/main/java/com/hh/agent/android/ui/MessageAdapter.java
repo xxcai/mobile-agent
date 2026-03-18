@@ -4,6 +4,7 @@ import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -33,6 +34,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int VIEW_TYPE_TOOL_USE = 3;
     public static final int VIEW_TYPE_TOOL_RESULT = 4;
     public static final int VIEW_TYPE_ERROR = 5;
+    public static final int VIEW_TYPE_RESPONSE = 6;
 
     private List<Message> messages = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -67,6 +69,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (viewType == VIEW_TYPE_ERROR) {
             View view = inflater.inflate(R.layout.item_error, parent, false);
             return new ErrorViewHolder(view);
+        } else if (viewType == VIEW_TYPE_RESPONSE) {
+            View view = inflater.inflate(R.layout.item_response_card, parent, false);
+            return new ResponseCardViewHolder(view, timeFormat, markwon);
         } else {
             View view = inflater.inflate(R.layout.item_message, parent, false);
             return new MessageViewHolder(view, timeFormat, markwon);
@@ -86,6 +91,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ((ErrorViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
+        } else if (holder instanceof ResponseCardViewHolder) {
+            ((ResponseCardViewHolder) holder).bind(message);
         }
     }
 
@@ -105,6 +112,8 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return VIEW_TYPE_TOOL_RESULT;
         } else if ("error".equals(role)) {
             return VIEW_TYPE_ERROR;
+        } else if ("response".equals(role)) {
+            return VIEW_TYPE_RESPONSE;
         } else {
             return VIEW_TYPE_ASSISTANT;
         }
@@ -176,6 +185,56 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
         }
         return null;
+    }
+
+    /**
+     * 更新 think 内容（存储在 thinkContent 字段）
+     * @param content think 文本内容
+     */
+    public void updateThinkContent(String content) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("thinking".equals(msg.getRole())) {
+                msg.setThinkContent(content);
+                notifyItemChanged(i);
+                return;
+            }
+        }
+    }
+
+    /**
+     * 获取正文消息的当前内容
+     * @return 正文消息的内容，不存在则返回 null
+     */
+    public String getContentMessageContent() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                return msg.getContent();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 更新正文消息内容
+     * @param content 正文文本内容
+     */
+    public void updateContentMessage(String content) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole())) {
+                msg.setContent(content);
+                notifyItemChanged(i);
+                return;
+            }
+        }
     }
 
     /**
@@ -396,6 +455,100 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void bind(String errorCode, String errorMessage) {
             tvErrorCode.setText(errorCode != null ? errorCode : "Error");
             tvErrorMessage.setText(errorMessage != null ? errorMessage : "Unknown error");
+        }
+    }
+
+    /**
+     * 统一响应卡片 ViewHolder：包含工具区、think区、正文区
+     */
+    static class ResponseCardViewHolder extends RecyclerView.ViewHolder {
+
+        private final View toolArea;
+        private final ImageView ivToolIcon;
+        private final TextView tvToolStatus;
+        private final View thinkArea;
+        private final TextView tvThink;
+        private final TextView tvContent;
+        private final TextView tvTimestamp;
+        private final TextView tvRole;
+        private final SimpleDateFormat timeFormat;
+        private final Markwon markwon;
+
+        ResponseCardViewHolder(@NonNull View itemView, SimpleDateFormat timeFormat, Markwon markwon) {
+            super(itemView);
+            this.timeFormat = timeFormat;
+            this.markwon = markwon;
+
+            toolArea = itemView.findViewById(R.id.toolArea);
+            ivToolIcon = itemView.findViewById(R.id.ivToolIcon);
+            tvToolStatus = itemView.findViewById(R.id.tvToolStatus);
+            thinkArea = itemView.findViewById(R.id.thinkArea);
+            tvThink = itemView.findViewById(R.id.tvThink);
+            tvContent = itemView.findViewById(R.id.tvContent);
+            tvTimestamp = itemView.findViewById(R.id.tvTimestamp);
+            tvRole = itemView.findViewById(R.id.tvRole);
+        }
+
+        void bind(Message message) {
+            // 设置时间戳
+            tvTimestamp.setText(timeFormat.format(new Date(message.getTimestamp())));
+            tvRole.setText("助手");
+
+            // 工具区：根据 message.getName() 显示工具名和状态
+            String toolName = message.getName();
+            String toolStatus = message.getContent(); // 这里用 content 暂存工具状态
+            if (toolName != null && !toolName.isEmpty()) {
+                showToolArea(toolName, toolStatus != null ? toolStatus : "工作中...");
+            } else {
+                hideToolArea();
+            }
+
+            // Think 区：从 message 的扩展字段获取 think 内容
+            String thinkContent = message.getThinkContent();
+            if (thinkContent != null && !thinkContent.isEmpty()) {
+                showThinkArea(thinkContent);
+            } else {
+                hideThinkArea();
+            }
+
+            // 正文区：使用 Markwon 渲染 Markdown
+            String content = message.getContent();
+            if (content != null) {
+                markwon.setMarkdown(tvContent, content);
+            }
+        }
+
+        /**
+         * 显示工具区
+         * @param toolName 工具名称
+         * @param status 状态文本（如"工作中..."、"完成"）
+         */
+        void showToolArea(String toolName, String status) {
+            toolArea.setVisibility(View.VISIBLE);
+            tvToolStatus.setText(toolName + ": " + status);
+        }
+
+        /**
+         * 隐藏工具区
+         */
+        void hideToolArea() {
+            toolArea.setVisibility(View.GONE);
+        }
+
+        /**
+         * 显示 think 区
+         * @param content think 内容
+         */
+        void showThinkArea(String content) {
+            thinkArea.setVisibility(View.VISIBLE);
+            tvThink.setText(content);
+        }
+
+        /**
+         * 隐藏 think 区
+         */
+        void hideThinkArea() {
+            thinkArea.setVisibility(View.GONE);
         }
     }
 

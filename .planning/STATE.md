@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.9
-milestone_name: milestone
-status: unknown
-last_updated: "2026-03-17T08:08:10.059Z"
+milestone: v2.10
+milestone_name: 响应卡片改版
+status: planning
+last_updated: "2026-03-17T12:35:00.000Z"
 progress:
-  total_phases: 7
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,7 +21,7 @@ progress:
 
 **Core Value:** 让用户通过自然对话，指挥手机自动完成日常任务。
 
-**Current Focus:** v2.9 代码结构优化 - Phase 1 Context Gathered
+**Current Focus:** v2.10 响应卡片改版 - Defining requirements
 
 ---
 
@@ -29,9 +29,9 @@ progress:
 
 | Field | Value |
 |-------|-------|
-| Milestone | v2.9 代码结构优化 |
-| Status | 🔄 In Progress |
-| Last activity: | 2026-03-17 — 添加 v2.9 里程碑: 优化agent-android代码结构 |
+| Milestone | v2.10 响应卡片改版 |
+| Status | 🔄 Defining requirements |
+| Last activity: | 2026-03-17 — 添加 v2.10 里程碑: 响应卡片改版 |
 
 ---
 
@@ -132,6 +132,17 @@ None
 | 2 | Java API 层 | STREAM-03 | ✅ Complete |
 | 3 | UI 流式交互 | UI-01~UI-06 | ✅ Complete |
 | 4 | 异常处理与取消 | ERROR-01~ERROR-04 | ✅ Complete |
+
+---
+
+## v2.10 进度
+
+| Phase | Name | Requirements | Status |
+|-------|------|--------------|--------|
+| 8 | 响应卡片数据结构 | RESP-01~RESP-04 | ⏳ Pending |
+| 9 | 流式文本处理 | STREAM-01~STREAM-03 | ⏳ Pending |
+| 10 | 工具调用状态 | TOOL-01, TOOL-02 | ⏳ Pending |
+| 11 | 状态管理与测试 | STATE-01, STATE-02 | ⏳ Pending |
 
 ---
 

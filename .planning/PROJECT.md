@@ -63,18 +63,20 @@
 - [ ] 异常处理与取消 — v2.7
 - [ ] Agent 启动时加载历史消息 — v2.8
 
-## Current Milestone: v2.8 历史消息加载
+## Current Milestone: v2.10 响应卡片改版
 
-**Goal:** Agent 界面启动时，从数据库加载历史消息并展示在聊天界面，实现会话连续性。
+**Goal:** 将当前 RecyclerView 中的多个小卡片合并为一张统一的大卡片，支持正在响应状态（工具区+think区+正文区）和历史响应状态（仅正文区）。
 
 **Target features:**
-- 启动时从 SQLite 加载历史消息
-- 消息展示在 UI（MessageAdapter）
-- 会话连续性（重启 App 后能看到之前的对话）
+- 响应卡片统一为大卡片展示
+- 正在响应状态：工具区、think区（灰色）、正文区按需显示
+- 历史响应状态：仅显示正文区
+- 流式文本增量更新（think块和正文区分开）
+- 工具调用状态展示
 
-**Last milestone completed:** v2.7 流式输出 (shipped 2026-03-16)
+**Last milestone completed:** v2.9 代码结构优化 (Phase 1-2)
 
-**Next milestone:** v2.8 (待规划)
+**Next milestone:** v2.10 (待规划)
 
 ## Context
 
@@ -125,4 +127,4 @@
 | Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-16 — v2.8 active*
+*Last updated: 2026-03-17 — v2.10 active*
