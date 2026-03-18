@@ -31,7 +31,7 @@ progress:
 |-------|-------|
 | Milestone | v2.10 响应卡片改版 |
 | Status | 🔄 Defining requirements |
-| Last activity: | 2026-03-17 — 添加 v2.10 里程碑: 响应卡片改版 |
+| Last activity: | 2026-03-18 — Phase 1 执行完成: 响应卡片数据结构 |
 
 ---
 
@@ -139,10 +139,10 @@ None
 
 | Phase | Name | Requirements | Status |
 |-------|------|--------------|--------|
-| 8 | 响应卡片数据结构 | RESP-01~RESP-04 | ⏳ Pending |
-| 9 | 流式文本处理 | STREAM-01~STREAM-03 | ⏳ Pending |
-| 10 | 工具调用状态 | TOOL-01, TOOL-02 | ⏳ Pending |
-| 11 | 状态管理与测试 | STATE-01, STATE-02 | ⏳ Pending |
+| 1 | 响应卡片数据结构 | RESP-01~RESP-04 | ⏳ Pending |
+| 2 | 流式文本处理 | STREAM-01~STREAM-03 | ⏳ Pending |
+| 3 | 工具调用状态 | TOOL-01, TOOL-02 | ⏳ Pending |
+| 4 | 状态管理与测试 | STATE-01, STATE-02 | ✅ Complete |
 
 ---
 

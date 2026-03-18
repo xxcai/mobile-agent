@@ -24,6 +24,7 @@ import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.ToolCall;
 
 import java.util.List;
 
@@ -47,6 +48,8 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private StreamingManager streamingManager;
     private boolean isRecording = false;
     private boolean permissionGranted = false;
+    // 当前正在更新的 response 消息，用于流式增量更新
+    private Message currentResponseMessage = null;
 
     @Nullable
     @Override
@@ -280,13 +283,23 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamThinkDelta(String textDelta) {
+        // 第一次收到响应时，创建 response 消息
+        if (currentResponseMessage == null) {
+            currentResponseMessage = new Message();
+            currentResponseMessage.setRole("response");
+            currentResponseMessage.setTimestamp(System.currentTimeMillis());
+            adapter.addMessage(currentResponseMessage);
+            Log.d("AgentFragment", "onStreamThinkDelta: created response message");
+        }
+
         // 获取当前 think 内容并追加
         String currentContent = adapter.getThinkingMessageContent();
         String newContent = (currentContent != null ? currentContent : "") + textDelta;
         Log.d("AgentFragment", "onStreamThinkDelta: new='" + textDelta + "', accumulated='" + newContent + "'");
 
-        // 更新 think 消息内容（存储在 thinkContent 字段）
-        adapter.updateThinkContent(newContent);
+        // 更新 response 消息的 thinkContent 字段
+        currentResponseMessage.setThinkContent(newContent);
+        adapter.notifyDataSetChanged();
 
         // 刷新 RecyclerView
         rvMessages.invalidate();
@@ -295,13 +308,23 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamContentDelta(String textDelta) {
+        // 第一次收到响应时，创建 response 消息
+        if (currentResponseMessage == null) {
+            currentResponseMessage = new Message();
+            currentResponseMessage.setRole("response");
+            currentResponseMessage.setTimestamp(System.currentTimeMillis());
+            adapter.addMessage(currentResponseMessage);
+            Log.d("AgentFragment", "onStreamContentDelta: created response message");
+        }
+
         // 获取当前正文内容并追加
         String currentContent = adapter.getContentMessageContent();
         String newContent = (currentContent != null ? currentContent : "") + textDelta;
         Log.d("AgentFragment", "onStreamContentDelta: new='" + textDelta + "', accumulated='" + newContent + "'");
 
-        // 更新正文消息内容
-        adapter.updateContentMessage(newContent);
+        // 更新 response 消息的 content 字段
+        currentResponseMessage.setContent(newContent);
+        adapter.notifyDataSetChanged();
 
         // 刷新 RecyclerView
         rvMessages.invalidate();
@@ -311,8 +334,21 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onStreamToolUse(String id, String name, String argumentsJson) {
         Log.d("AgentFragment", "onStreamToolUse: id=" + id + ", name=" + name + ", args=" + argumentsJson);
-        // 添加工具到响应卡片的工具区
-        adapter.addToolToToolArea(id, name, argumentsJson);
+
+        // 如果还没有 response 消息，先创建
+        if (currentResponseMessage == null) {
+            currentResponseMessage = new Message();
+            currentResponseMessage.setRole("response");
+            currentResponseMessage.setTimestamp(System.currentTimeMillis());
+            adapter.addMessage(currentResponseMessage);
+            Log.d("AgentFragment", "onStreamToolUse: created response message");
+        }
+
+        // 添加工具到 response 消息
+        ToolCall toolCall = new ToolCall(id, name);
+        toolCall.setArguments(argumentsJson);
+        currentResponseMessage.addToolCall(toolCall);
+        adapter.notifyDataSetChanged();
 
         // 自动滚动到最新消息
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
@@ -357,6 +393,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onStreamMessageEnd(String status) {
         Log.d("AgentFragment", "onStreamMessageEnd: status=" + status);
+
+        // 清理当前响应消息标记
+        currentResponseMessage = null;
 
         // 状态转换：正在响应 -> 历史响应
         if ("completed".equals(status)) {
@@ -404,6 +443,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamError(String errorCode, String errorMessage) {
+        // 清理当前响应消息标记
+        currentResponseMessage = null;
+
         // 流式错误 - 显示错误消息到消息列表
         adapter.addErrorMessage(errorCode, errorMessage);
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
