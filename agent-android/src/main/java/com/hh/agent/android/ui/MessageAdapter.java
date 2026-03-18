@@ -727,10 +727,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      * @param message 响应消息对象
      */
     public void updateResponseMessage(Message message) {
-        // 查找现有的 response 消息
+        // 根据时间戳查找当前正在更新的 response 消息
+        long timestamp = message.getTimestamp();
         for (int i = 0; i < messages.size(); i++) {
             Message msg = messages.get(i);
-            if ("response".equals(msg.getRole())) {
+            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
                 // 更新消息内容
                 msg.setContent(message.getContent());
                 msg.setThinkContent(message.getThinkContent());
