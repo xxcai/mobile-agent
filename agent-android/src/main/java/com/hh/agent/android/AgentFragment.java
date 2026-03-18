@@ -76,11 +76,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             setVoiceButtonVisible(true);
         }
 
-        // 加载 native agent 配置
-        if (getActivity() != null) {
-            com.hh.agent.android.presenter.NativeMobileAgentApiAdapter.loadConfigFromAssets(getActivity());
-        }
-
         // 初始化 Presenter，使用单例模式
         presenter = MainPresenter.getInstance();
         presenter.attachView(this, this);

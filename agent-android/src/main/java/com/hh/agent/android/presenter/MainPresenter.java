@@ -5,7 +5,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
-import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
 import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
@@ -123,7 +122,7 @@ public class MainPresenter implements MainContract.Presenter {
      * 私有构造函数
      */
     private MainPresenter() {
-        this.mobileAgentApi = new NativeMobileAgentApiAdapter();
+        this.mobileAgentApi = NativeMobileAgentApi.getInstance();
         this.streamingManager = new StreamingManager(mobileAgentApi);
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.sessionKey = "native:default";
@@ -363,10 +362,6 @@ public class MainPresenter implements MainContract.Presenter {
     public void destroy() {
         // 关闭统一线程池
         ThreadPoolManager.shutdown();
-        // 清理 Context 引用，避免内存泄漏
-        if (mobileAgentApi instanceof NativeMobileAgentApiAdapter) {
-            ((NativeMobileAgentApiAdapter) mobileAgentApi).clearContext();
-        }
         // 清除单例引用
         instance = null;
     }
