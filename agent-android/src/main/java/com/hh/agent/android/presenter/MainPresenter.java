@@ -71,7 +71,7 @@ public class MainPresenter implements MainContract.Presenter {
                 if (result.hasThinkEnd) {
                     // 分割文本
                     int endIndex = text.indexOf("</think>");
-                    String thinkPart = text.substring(0, endIndex + 6); // 包含 </think> 标签
+                    String thinkPart = text.substring(0, endIndex); // 包含 </think> 标签
                     String contentPart = text.substring(endIndex + 6);
 
                     thinkContent.append(thinkPart);
