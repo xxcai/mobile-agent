@@ -1,4 +1,4 @@
-package com.hh.agent.floating;
+package com.hh.agent.android.floating;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

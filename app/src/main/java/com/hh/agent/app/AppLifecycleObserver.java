@@ -5,7 +5,7 @@ import android.app.Application;
 import android.content.Intent;
 import android.util.Log;
 import com.hh.agent.MainActivity;
-import com.hh.agent.floating.FloatingBallManager;
+import com.hh.agent.android.floating.FloatingBallManager;
 
 /**
  * 应用生命周期观察者

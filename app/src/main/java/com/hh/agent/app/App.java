@@ -3,7 +3,7 @@ package com.hh.agent.app;
 import android.app.Application;
 import android.util.Log;
 import com.hh.agent.android.AgentInitializer;
-import com.hh.agent.floating.FloatingBallManager;
+import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
