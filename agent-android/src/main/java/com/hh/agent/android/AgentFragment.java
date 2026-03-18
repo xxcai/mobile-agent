@@ -533,6 +533,8 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
      * 重置流式响应状态
      */
     private void resetStreamingState() {
+        // 清理当前响应消息引用，避免新消息触发旧回调
+        currentResponseMessage = null;
         resetSendButton();
     }
 
