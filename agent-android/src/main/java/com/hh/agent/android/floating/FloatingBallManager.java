@@ -1,4 +1,4 @@
-package com.hh.agent.floating;
+package com.hh.agent.android.floating;
 
 import android.app.Activity;
 import android.content.Context;

@@ -1,4 +1,4 @@
-package com.hh.agent.floating;
+package com.hh.agent.android.floating;
 
 import com.hh.agent.android.AgentFragment;
 import com.hh.agent.android.R;

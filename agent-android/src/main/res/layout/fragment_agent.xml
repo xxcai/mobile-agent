@@ -72,8 +72,7 @@
             android:background="@drawable/bg_send_button"
             android:contentDescription="语音输入"
             android:scaleType="centerInside"
-            android:padding="12dp"
-            android:tint="@android:color/white" />
+            android:padding="12dp"/>
 
         <!-- 发送按钮 -->
         <ImageButton
@@ -81,12 +80,11 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_marginStart="8dp"
-            android:src="@android:drawable/ic_menu_send"
+            android:src="@drawable/ic_sent"
             android:background="@drawable/bg_send_button"
             android:contentDescription="发送"
             android:scaleType="centerInside"
-            android:padding="12dp"
-            android:tint="@android:color/white" />
+            android:padding="12dp" />
 
     </LinearLayout>
 
@@ -116,7 +114,7 @@
                 android:id="@+id/ivRecordingAnimation"
                 android:layout_width="120dp"
                 android:layout_height="120dp"
-                android:src="@drawable/ic_voice_recording_anim" />
+                android:src="@drawable/ic_mic" />
 
             <!-- 提示文字 -->
             <TextView

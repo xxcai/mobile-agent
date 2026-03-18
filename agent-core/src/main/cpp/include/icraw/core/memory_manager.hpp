@@ -8,6 +8,7 @@
 #include <optional>
 #include "icraw/types.hpp"
 #include "icraw/config.hpp"
+#include "icraw/core/logger.hpp"
 
 // Forward declaration
 struct sqlite3;
@@ -157,7 +158,13 @@ public:
     // Get recent messages
     std::vector<MemoryEntry> get_recent_messages(int limit = 50,
                                                    const std::string& session_id = "default") const;
-    
+
+    // Get recent messages filtered by roles
+    std::vector<MemoryEntry> get_recent_messages_by_roles(
+        int limit,
+        const std::vector<std::string>& roles,
+        const std::string& session_id = "default") const;
+
     // Get all messages
     std::vector<MemoryEntry> get_all_messages(const std::string& session_id = "default") const;
     

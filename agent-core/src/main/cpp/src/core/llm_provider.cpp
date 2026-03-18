@@ -148,7 +148,15 @@ std::vector<ToolCall> OpenAIStreamParser::get_accumulated_tool_calls() {
 }
 
 bool OpenAIStreamParser::is_stream_end(const std::string& sse_event) const {
-    return sse_event.find("data: [DONE]") != std::string::npos;
+    // Check for explicit [DONE] marker
+    if (sse_event.find("data: [DONE]") != std::string::npos) {
+        return true;
+    }
+    // Check for finish_reason in the JSON - indicates stream is ending
+    if (sse_event.find("finish_reason") != std::string::npos) {
+        return true;
+    }
+    return false;
 }
 
 bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
@@ -156,13 +164,10 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
     if (sse_event.empty()) {
         return false;
     }
-    
-    if (is_stream_end(sse_event)) {
-        response.is_stream_end = true;
-        response.tool_calls = get_accumulated_tool_calls();
-        return true;
-    }
-    
+
+    // Don't return early on stream end - we need to parse finish_reason from JSON
+    // The is_stream_end check is done after JSON parsing below
+
     if (sse_event.find("data:") != 0) {
         return false;
     }
@@ -182,17 +187,17 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
     
     try {
         nlohmann::json chunk_json = nlohmann::json::parse(json_str);
-        
+
         if (!chunk_json.contains("choices") || chunk_json["choices"].empty()) {
             return false;
         }
-        
+
         const auto& choice = chunk_json["choices"][0];
         response.finish_reason = choice.value("finish_reason", "");
-        
+
         if (choice.contains("delta")) {
             const auto& delta = choice["delta"];
-            
+
             if (delta.contains("content") && !delta["content"].is_null()) {
                 response.content = delta["content"].get<std::string>();
             }
@@ -206,6 +211,8 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
         
         if (!response.finish_reason.empty()) {
             response.tool_calls = get_accumulated_tool_calls();
+            // Stream ends when we receive a finish_reason (stop, tool_calls, etc.)
+            response.is_stream_end = true;
         }
         
         return true;
@@ -247,18 +254,28 @@ nlohmann::json LLMProvider::build_request_body(const ChatCompletionRequest& requ
     
 ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& response) const {
     ChatCompletionResponse result;
-    
+
+    // Debug: log full response using printf to ensure visibility
+    printf("[LLM] Full response: %s\n", response.dump(2).c_str());
+    fflush(stdout);
+
     if (!response.contains("choices") || response["choices"].empty()) {
         result.finish_reason = "error";
         return result;
     }
-    
+
     const auto& choice = response["choices"][0];
     result.finish_reason = choice.value("finish_reason", "");
-    
+
     if (choice.contains("message")) {
         const auto& message = choice["message"];
-        
+
+        // Check for reasoning_content (o1 model)
+        if (message.contains("reasoning_content") && !message["reasoning_content"].is_null()) {
+            printf("[LLM] Found reasoning_content: %s\n", message["reasoning_content"].get<std::string>().c_str());
+            fflush(stdout);
+        }
+
         if (message.contains("content") && !message["content"].is_null()) {
             result.content = message["content"].get<std::string>();
         }
@@ -479,6 +496,7 @@ void OpenAICompatibleProvider::chat_completion_stream(
     
     // Create SSE callback using stream parser
     auto sse_callback = [&](const std::string& sse_event) -> bool {
+        ICRAW_LOG_DEBUG("[LLM_STREAM] SSE event received: {}", sse_event);
         ChatCompletionResponse response;
         
         if (stream_parser_->parse_chunk(sse_event, response)) {

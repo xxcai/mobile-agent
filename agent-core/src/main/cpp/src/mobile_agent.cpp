@@ -123,6 +123,12 @@ std::string MobileAgent::chat(const std::string& message) {
 }
 
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
+    // Save user message to SQLite first
+    if (!message.empty()) {
+        auto result = memory_manager_->add_message("user", message, "default", nlohmann::json{});
+        ICRAW_LOG_DEBUG("[CHAT_STREAM] Saved user message, result={}", result);
+    }
+
     ICRAW_LOG_DEBUG("[CHAT_STREAM] Starting process_message_stream");
     auto new_messages = agent_loop_->process_message_stream(
         message, history_, system_prompt_, callback);
@@ -136,6 +142,10 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
         if (!msg.content.empty()) {
             std::string content;
             for (const auto& block : msg.content) {
+                // Skip thinking content - it's internal reasoning, not actual response
+                if (block.type == "thinking") {
+                    continue;
+                }
                 if (!block.text.empty()) {
                     content += block.text + " ";
                 }
@@ -146,7 +156,8 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                 if (!msg.content.empty() && msg.content[0].type == "tool_use") {
                     metadata["is_tool_call"] = true;
                 }
-                memory_manager_->add_message(msg.role, content, "default", metadata);
+                auto result = memory_manager_->add_message(msg.role, content, "default", metadata);
+                ICRAW_LOG_DEBUG("[CHAT_STREAM] add_message result: {}", result);
             }
         }
     }

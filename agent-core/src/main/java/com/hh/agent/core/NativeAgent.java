@@ -1,4 +1,4 @@
-package com.hh.agent.library;
+package com.hh.agent.core;
 
 /**
  * Native agent JNI wrapper class
@@ -8,6 +8,9 @@ public class NativeAgent {
 
     // Callback instance registered by Java layer
     private static AndroidToolCallback sCallback;
+
+    // Stream event listener for streaming responses
+    private static AgentEventListener sStreamListener;
 
     static {
         System.loadLibrary("icraw");
@@ -51,6 +54,15 @@ public class NativeAgent {
     public static native void nativeShutdown();
 
     /**
+     * Get recent messages from SQLite database
+     *
+     * @param sessionId The session identifier
+     * @param limit Maximum number of messages to return
+     * @return JSON array string of messages: [{"role": "user", "content": "...", "timestamp": "..."}, ...]
+     */
+    public static native String nativeGetHistory(String sessionId, int limit);
+
+    /**
      * Register an Android tool callback
      *
      * @param callback The callback implementation
@@ -82,4 +94,32 @@ public class NativeAgent {
      * @param schemaJson JSON string containing tools schema
      */
     public static native void nativeSetToolsSchema(String schemaJson);
+
+    /**
+     * Send a message with streaming event callback
+     *
+     * @param message The message to send
+     * @param listener The event listener to receive stream events
+     */
+    public static void sendMessageStream(String message, AgentEventListener listener) {
+        sStreamListener = listener;
+        nativeSendMessageStream(message, listener);
+    }
+
+    /**
+     * Native method to send message with streaming callback
+     */
+    private static native void nativeSendMessageStream(String message, AgentEventListener listener);
+
+    /**
+     * Cancel the current streaming request
+     */
+    public static void cancelStream() {
+        nativeCancelStream();
+    }
+
+    /**
+     * Native method to cancel streaming request
+     */
+    private static native void nativeCancelStream();
 }

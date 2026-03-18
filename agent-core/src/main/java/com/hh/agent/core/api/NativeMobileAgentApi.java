@@ -1,11 +1,17 @@
-package com.hh.agent.library.api;
+package com.hh.agent.core.api;
 
 import android.content.Context;
 import java.util.ArrayList;
-import com.hh.agent.library.AndroidToolCallback;
-import com.hh.agent.library.NativeAgent;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.Session;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.AndroidToolCallback;
+import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.Session;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,6 +28,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
     private AndroidToolCallback toolCallback;
+    private static final Gson gson = new Gson();
 
     private NativeMobileAgentApi() {
     }
@@ -48,103 +55,10 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
-     * 保存会话到 C++ 层 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeSaveSession() JNI 接口
-     * 当前只打印日志，不实际保存
-     *
-     * @param session 要保存的会话
+     * 保存会话（空实现）
      */
     public synchronized void saveSession(Session session) {
-        // TODO: 实现 C++ 持久化
-        System.out.println("[NativeMobileAgentApi] saveSession: Mock - session NOT persisted, sessionKey=" + (session != null ? session.getKey() : "null"));
-    }
-
-    /**
-     * 从 C++ 层加载会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadSession() JNI 接口
-     * 当前返回 null
-     *
-     * @param sessionKey 会话键
-     * @return 总是返回 null
-     */
-    public synchronized Session loadSession(String sessionKey) {
-        // TODO: 实现 C++ 持久化
-        // Mock 返回一个包含历史消息的 Session
-        Session session = new Session(sessionKey);
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! I'm your AI assistant.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        System.out.println("[NativeMobileAgentApi] loadSession: Mock returning session with " + session.getMessages().size() + " messages");
-        return session;
-    }
-
-    /**
-     * 从 C++ 层加载所有会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadAllSessions() JNI 接口
-     * 当前返回 0
-     *
-     * @return 总是返回 0
-     */
-    public synchronized int loadAllSessions() {
-        // TODO: 实现 C++ 持久化
-        // Mock: 加载假数据到 sessions map
-        Session session = new Session("native:default");
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! I'm your AI assistant.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        sessions.put("native:default", session);
-        System.out.println("[NativeMobileAgentApi] loadAllSessions: Mock loaded 1 session");
-        return 1;
-    }
-
-    /**
-     * 从 C++ 层加载会话 - Mock 空实现
-     *
-     * TODO: 后续 C++ 模块开发时，实现 nativeLoadSession() JNI 接口
-     * 当前返回 null
-     *
-     * @param sessionKey 会话键
-     * @return 总是返回 null
-     */
-    public synchronized Session loadSessionFromCore(String sessionKey) {
-        // TODO: 实现 C++ 持久化
-        // Mock 返回一个包含历史消息的 Session
-        Session session = new Session(sessionKey);
-        Message msg1 = new Message();
-        msg1.setRole("user");
-        msg1.setContent("Hello from C++");
-        msg1.setTimestamp(System.currentTimeMillis() - 10000);
-        session.addMessage(msg1);
-
-        Message msg2 = new Message();
-        msg2.setRole("assistant");
-        msg2.setContent("Hi! This is loaded from C++ layer.");
-        msg2.setTimestamp(System.currentTimeMillis() - 5000);
-        session.addMessage(msg2);
-
-        System.out.println("[NativeMobileAgentApi] loadSessionFromCore: Mock returning session");
-        return session;
+        // Not implemented - session persistence handled by C++ layer
     }
 
     /**
@@ -266,18 +180,90 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     @Override
-    public List<Message> getHistory(String sessionKey, int maxMessages) {
+    public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
+        // 确保会话存在
         Session session = sessions.get(sessionKey);
         if (session == null) {
+            session = new Session(sessionKey);
+            sessions.put(sessionKey, session);
+        }
+
+        // 添加用户消息
+        Message userMessage = new Message();
+        userMessage.setRole("user");
+        userMessage.setContent(content);
+        session.addMessage(userMessage);
+
+        // 调用 Native Agent 流式接口
+        NativeAgent.sendMessageStream(content, listener);
+    }
+
+    @Override
+    public List<Message> getHistory(String sessionKey, int maxMessages) {
+        // Convert sessionKey to C++ session_id format (e.g., "native:default" -> "default")
+        String sessionId = sessionKey;
+        if (sessionKey != null && sessionKey.startsWith("native:")) {
+            sessionId = sessionKey.substring(7); // Remove "native:" prefix
+        }
+
+        System.out.println("[NativeMobileAgentApi] getHistory: sessionKey=" + sessionKey + ", sessionId=" + sessionId + ", limit=" + maxMessages);
+
+        // Call C++ to get messages from SQLite
+        String jsonResult = NativeAgent.nativeGetHistory(sessionId, maxMessages);
+
+        System.out.println("[NativeMobileAgentApi] getHistory: jsonResult=" + jsonResult);
+
+        if (jsonResult == null || jsonResult.isEmpty()) {
+            System.out.println("[NativeMobileAgentApi] getHistory: returning empty list");
             return new ArrayList<>();
         }
 
-        List<Message> messages = session.getMessages();
-        if (messages.size() <= maxMessages) {
-            return new ArrayList<>(messages);
-        }
+        try {
+            Type listType = new TypeToken<List<JsonObject>>(){}.getType();
+            List<JsonObject> jsonMessages = gson.fromJson(jsonResult, listType);
 
-        return new ArrayList<>(messages.subList(messages.size() - maxMessages, messages.size()));
+            List<Message> messages = new ArrayList<>();
+            for (JsonObject jsonMsg : jsonMessages) {
+                Message msg = new Message();
+                msg.setRole(jsonMsg.get("role").getAsString());
+                msg.setContent(jsonMsg.get("content").getAsString());
+
+                // Parse ISO 8601 timestamp to milliseconds
+                String timestampStr = jsonMsg.get("timestamp").getAsString();
+                msg.setTimestamp(parseTimestamp(timestampStr));
+
+                messages.add(msg);
+            }
+
+            return messages;
+        } catch (Exception e) {
+            System.err.println("[NativeMobileAgentApi] getHistory: Failed to parse messages: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Parse ISO 8601 timestamp string to milliseconds
+     */
+    private long parseTimestamp(String timestampStr) {
+        try {
+            // Format: "2026-03-16T10:30:00.123Z"
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            java.time.Instant instant = java.time.ZonedDateTime.parse(timestampStr,
+                java.time.format.DateTimeFormatter.ISO_DATE_TIME).toInstant();
+            return instant.toEpochMilli();
+        } catch (Exception e) {
+            // Fallback: try simpler parsing or use current time
+            try {
+                // Try without milliseconds
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+                java.time.Instant instant = java.time.ZonedDateTime.parse(timestampStr,
+                    java.time.format.DateTimeFormatter.ISO_DATE_TIME).toInstant();
+                return instant.toEpochMilli();
+            } catch (Exception e2) {
+                return System.currentTimeMillis();
+            }
+        }
     }
 
     /**

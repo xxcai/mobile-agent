@@ -493,11 +493,16 @@ std::string MemoryManager::read_tools_file() const {
 
 // --- Conversation History ---
 
-int64_t MemoryManager::add_message(const std::string& role, 
+int64_t MemoryManager::add_message(const std::string& role,
                                     const std::string& content,
                                     const std::string& session_id,
                                     const nlohmann::json& metadata) {
-    if (!db_ || !db_->is_open()) {
+    if (!db_) {
+        ICRAW_LOG_ERROR("add_message: db_ is null");
+        return -1;
+    }
+    if (!db_->is_open()) {
+        ICRAW_LOG_ERROR("add_message: db is not open");
         return -1;
     }
     
@@ -507,23 +512,32 @@ int64_t MemoryManager::add_message(const std::string& role,
     // Estimate token count for this message
     int token_count = estimate_tokens(content) + 4;  // +4 for role and formatting overhead
     
+    // Check if messages_fts exists, if not we may need to handle FTS trigger issues
+    auto fts_check = db_->query_string("SELECT name FROM sqlite_master WHERE type='table' AND name='messages_fts';");
+    if (!fts_check) {
+        // Drop any orphan triggers that reference messages_fts
+        db_->execute("DROP TRIGGER IF EXISTS messages_ai;");
+        db_->execute("DROP TRIGGER IF EXISTS messages_ad;");
+        db_->execute("DROP TRIGGER IF EXISTS messages_au;");
+    }
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "INSERT INTO messages (role, content, timestamp, session_id, metadata, token_count) VALUES (?, ?, ?, ?, ?, ?);";
-    
+
     if (!db_->prepare(sql)) {
         return -1;
     }
-    
+
     db_->bind(1, role);
     db_->bind(2, content);
     db_->bind(3, timestamp);
     db_->bind(4, session_id);
     db_->bind(5, metadata_str);
     db_->bind(6, static_cast<int64_t>(token_count));
-    
+
     // Execute
     db_->step_exec();
-    
+
     int64_t id = db_->last_insert_rowid();
     
     // Update token stats (async-friendly: just invalidate cache)
@@ -543,6 +557,59 @@ int64_t MemoryManager::add_message(const std::string& role,
     }
     
     return id;
+}
+
+std::vector<MemoryEntry> MemoryManager::get_recent_messages_by_roles(
+        int limit,
+        const std::vector<std::string>& roles,
+        const std::string& session_id) const {
+    std::vector<MemoryEntry> messages;
+
+    if (!db_ || !db_->is_open()) {
+        return messages;
+    }
+
+    // Build role filter: role IN ('user', 'assistant')
+    std::string role_filter;
+    for (size_t i = 0; i < roles.size(); ++i) {
+        if (i > 0) role_filter += ", ";
+        role_filter += "'" + roles[i] + "'";
+    }
+
+    std::string sql = "SELECT id, role, content, timestamp, session_id, metadata, token_count, consolidated FROM messages "
+                      "WHERE session_id = ? AND role IN (" + role_filter + ") "
+                      "ORDER BY timestamp DESC LIMIT ?;";
+
+    if (!db_->prepare(sql)) {
+        return messages;
+    }
+
+    db_->bind(1, session_id);
+    db_->bind(2, static_cast<int64_t>(limit));
+
+    while (db_->step()) {
+        MemoryEntry entry;
+        entry.id = db_->get_column_int(0);
+        entry.role = db_->get_column_string(1);
+        entry.content = db_->get_column_string(2);
+        entry.timestamp = db_->get_column_string(3);
+        entry.session_id = db_->get_column_string(4);
+        std::string metadata_str = db_->get_column_string(5);
+        if (!metadata_str.empty()) {
+            try {
+                entry.metadata = nlohmann::json::parse(metadata_str);
+            } catch (...) {}
+        }
+        entry.token_count = static_cast<int>(db_->get_column_int(6));
+        entry.consolidated = db_->get_column_int(7) != 0;
+        messages.push_back(std::move(entry));
+    }
+
+    db_->reset();
+
+    // Reverse to get chronological order (oldest first)
+    std::reverse(messages.begin(), messages.end());
+    return messages;
 }
 
 std::vector<MemoryEntry> MemoryManager::get_recent_messages(int limit,

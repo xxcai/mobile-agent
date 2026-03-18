@@ -1,4 +1,4 @@
-package com.hh.agent.library;
+package com.hh.agent.core;
 
 /**
  * Callback interface for Android tools.

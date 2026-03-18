@@ -56,27 +56,27 @@
 
 ### Active
 
-暂无
+- [ ] JNI 层流式桥接 (nativeSendMessageStream) — v2.7
+- [ ] Java API 层流式接口 (sendMessageStream) — v2.7
+- [ ] UI 流式请求支持 — v2.7
+- [ ] 消息增量更新 — v2.7
+- [ ] 异常处理与取消 — v2.7
+- [ ] Agent 启动时加载历史消息 — v2.8
 
-## Current Milestone: Planning
+## Current Milestone: v2.10 响应卡片改版
 
-**Last milestone completed:** v2.6 主界面重构 (shipped 2026-03-13)
+**Goal:** 将当前 RecyclerView 中的多个小卡片合并为一张统一的大卡片，支持正在响应状态（工具区+think区+正文区）和历史响应状态（仅正文区）。
 
-**Next milestone:** 待规划
+**Target features:**
+- 响应卡片统一为大卡片展示
+- 正在响应状态：工具区、think区（灰色）、正文区按需显示
+- 历史响应状态：仅显示正文区
+- 流式文本增量更新（think块和正文区分开）
+- 工具调用状态展示
 
-## v2.6 Summary (Archived)
+**Last milestone completed:** v2.9 代码结构优化 (Phase 1-2)
 
-**Shipped:** 2026-03-13
-**Phases:** 6
-**Plans:** 6
-
-Key achievements:
-- floating-ball 模块合并到 android-agent
-- MainActivity 启动页 + ActivityLifecycleCallbacks 悬浮球控制
-- Fragment 容器化（AgentFragment + ContainerActivity）
-- 会话持久化（SharedPreferences + Gson）
-- 界面优化（圆角、不透明背景、底部输入框修复）
-- 6 项功能整合测试通过
+**Next milestone:** v2.10 (待规划)
 
 ## Context
 
@@ -127,4 +127,4 @@ Key achievements:
 | Fragment 容器化方案 | AgentFragment 嵌入 ContainerActivity | ✓ v2.6 shipped |
 
 ---
-*Last updated: 2026-03-13 — v2.6 completed*
+*Last updated: 2026-03-17 — v2.10 active*

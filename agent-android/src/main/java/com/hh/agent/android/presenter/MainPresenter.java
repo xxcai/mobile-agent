@@ -3,37 +3,131 @@ package com.hh.agent.android.presenter;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
-import com.hh.agent.android.presenter.NativeMobileAgentApiAdapter;
+import com.hh.agent.android.thread.ThreadPoolManager;
+import com.hh.agent.library.AgentEventListener;
 import com.hh.agent.library.api.MobileAgentApi;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.ToolCall;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * MainActivity 的 Presenter 实现
  * 使用 Native C++ Agent
- *
- * TODO: isThinking 状态目前保存在 Presenter 层
- * 后续应该迁移到底层 C++ 实现，实现真正的异步消息处理
  */
 public class MainPresenter implements MainContract.Presenter {
 
     private static MainPresenter instance;
 
-    private MainContract.View view;
+    private MainContract.MessageListView messageListView;
+    private MainContract.StreamingView streamingView;
     private final MobileAgentApi mobileAgentApi;
-    private final ExecutorService executor;
-    private final ExecutorService loadMessagesExecutor;
+    private final StreamingManager streamingManager;
     private final Handler mainHandler;
     private final String sessionKey;
+    // 累积文本，用于全量解析
+    private StringBuilder accumulatedText = new StringBuilder();
 
-    // TODO: 后续迁移到 C++ 层实现
-    // 标记当前是否正在等待 Agent 响应（正在思考）
-    private boolean isThinking = false;
+    /**
+     * 流式文本解析器 - 用于区分 think 块和正文块（全量解析）
+     * 每次 parse 调用时传入累积的所有文本，从中解析出 thinking 和正文部分
+     */
+    private static class StreamTextParser {
+        /**
+         * 解析文本，根据标签返回对应的内容（全量解析）
+         * @param text 累积的所有文本
+         * @return 解析结果，包含完整的 think 内容 和正文内容
+         */
+        ParsedResult parse(String text) {
+            Log.d(TAG, "StreamTextParser parse (multi-think): text=" + text);
+            ParsedResult result = new ParsedResult();
+
+            if (text == null || text.isEmpty()) {
+                return result;
+            }
+
+            // Step 1: 使用正则表达式捕获所有完整的 <think>...</think> 块
+            // Pattern: <think>(.*?)</think> 使用非贪婪匹配，re.DOTALL 让 . 匹配换行符
+            Pattern completePattern = Pattern.compile("<think>(.*?</think>)", Pattern.DOTALL);
+            Matcher completeMatcher = completePattern.matcher(text);
+
+            StringBuilder allThinkContent = new StringBuilder();
+            int lastEnd = 0;
+
+            while (completeMatcher.find()) {
+                // 提取块内容（去掉<think>和</think>标签），并去掉首尾空白
+                String blockContent = completeMatcher.group(1).trim();
+                if (!blockContent.isEmpty()) {
+                    if (allThinkContent.length() > 0) {
+                        allThinkContent.append("\n");
+                    }
+                    allThinkContent.append(blockContent);
+                }
+                lastEnd = completeMatcher.end();
+                result.hasThinkStart = true;
+                result.hasThinkEnd = true;
+            }
+
+            result.thinkContent = allThinkContent.length() > 0 ? allThinkContent.toString() : null;
+
+            // Step 2: 检查是否存在未完成的 <think> 块（没有对应的</think>）
+            // 在剩余文本中查找是否有 <think> 但没有培训学校
+            String remainingText = text.substring(lastEnd);
+            int unfinishedThinkStart = remainingText.indexOf("<think>");
+
+            if (unfinishedThinkStart >= 0) {
+                // 存在未完成的 think 块
+                result.hasThinkStart = true;
+                // 去掉开始的 <think> 标签，保留未完成的内容
+                String unfinishedThink = remainingText.substring(unfinishedThinkStart + 8).trim();
+                if (result.thinkContent == null) {
+                    result.thinkContent = unfinishedThink;
+                } else if (!unfinishedThink.isEmpty()) {
+                    result.thinkContent += "\n" + unfinishedThink;
+                }
+                // 剩余正文为未完成块之前的内容
+                result.contentContent = remainingText.substring(0, unfinishedThinkStart);
+            } else {
+                // 没有未完成的块，剩余全部作为正文
+                result.contentContent = remainingText.isEmpty() ? null : remainingText;
+            }
+
+            Log.d(TAG, "StreamTextParser result = " + result);
+            return result;
+        }
+
+        /**
+         * 重置解析器状态（新消息开始时调用）
+         */
+        void reset() {
+            // 全量解析不需要维护状态，无需重置
+        }
+
+        static class ParsedResult {
+            String thinkContent;    // think 内容（已去掉标签，多个块用换行拼接）
+            String contentContent;  // 完整的正文内容
+            boolean hasThinkStart;
+            boolean hasThinkEnd;
+
+            @Override
+            public String toString() {
+                return "ParsedResult{" +
+                        "thinkContent='" + thinkContent + '\'' +
+                        ", contentContent='" + contentContent + '\'' +
+                        ", hasThinkStart=" + hasThinkStart +
+                        ", hasThinkEnd=" + hasThinkEnd +
+                        '}';
+            }
+        }
+    }
+
+    // 每个流式请求创建一个解析器
+    private StreamTextParser currentParser = new StreamTextParser();
 
     /**
      * 获取单例实例
@@ -50,9 +144,8 @@ public class MainPresenter implements MainContract.Presenter {
      * 私有构造函数
      */
     private MainPresenter() {
-        this.mobileAgentApi = new NativeMobileAgentApiAdapter();
-        this.executor = Executors.newSingleThreadExecutor();
-        this.loadMessagesExecutor = Executors.newSingleThreadExecutor();
+        this.mobileAgentApi = NativeMobileAgentApi.getInstance();
+        this.streamingManager = new StreamingManager(mobileAgentApi);
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.sessionKey = "native:default";
     }
@@ -75,37 +168,54 @@ public class MainPresenter implements MainContract.Presenter {
         this();
     }
 
+    /**
+     * 获取 MobileAgentApi 实例
+     *
+     * @return MobileAgentApi 实例
+     */
+    public MobileAgentApi getMobileAgentApi() {
+        return mobileAgentApi;
+    }
+
+    private static final String TAG = "MainPresenter";
+
     @Override
     public void loadMessages() {
-        if (view != null) {
-            mainHandler.post(() -> view.showLoading());
+        Log.d(TAG, "loadMessages: start, sessionKey=" + sessionKey);
+        if (messageListView != null) {
+            mainHandler.post(() -> messageListView.showLoading());
         }
 
-        loadMessagesExecutor.execute(() -> {
+        ThreadPoolManager.executeAgentIO(() -> {
             try {
                 // 确保会话存在
                 mobileAgentApi.getSession(sessionKey);
 
+                Log.d(TAG, "loadMessages: calling getHistory, sessionKey=" + sessionKey);
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
+                Log.d(TAG, "loadMessages: got " + messages.size() + " messages");
 
-                if (view != null) {
+                if (messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideLoading();
+                        messageListView.hideLoading();
                         // 先加载历史消息
-                        view.onMessagesLoaded(messages);
+                        Log.d(TAG, "loadMessages: calling onMessagesLoaded with " + messages.size() + " messages");
+                        messageListView.onMessagesLoaded(messages);
                         // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
                         // 这样可以避免 setMessages() 替换掉思考消息的问题
-                        if (isThinking) {
-                            view.showThinking();
-                            view.showLoading();
+                        if (streamingManager.isStreaming() && streamingView != null) {
+                            streamingView.showThinking();
+                            if (messageListView != null) {
+                                messageListView.showLoading();
+                            }
                         }
                     });
                 }
             } catch (Exception e) {
-                if (view != null) {
+                if (messageListView != null) {
                     mainHandler.post(() -> {
-                        view.hideLoading();
-                        view.onError("加载消息失败: " + e.getMessage());
+                        messageListView.hideLoading();
+                        messageListView.onError("加载消息失败: " + e.getMessage());
                     });
                 }
             }
@@ -115,8 +225,8 @@ public class MainPresenter implements MainContract.Presenter {
     @Override
     public void sendMessage(String content) {
         if (content == null || content.trim().isEmpty()) {
-            if (view != null) {
-                mainHandler.post(() -> view.onError("消息不能为空"));
+            if (messageListView != null) {
+                mainHandler.post(() -> messageListView.onError("消息不能为空"));
             }
             return;
         }
@@ -127,85 +237,144 @@ public class MainPresenter implements MainContract.Presenter {
         userMessage.setContent(content);
         userMessage.setTimestamp(System.currentTimeMillis());
 
-        // 先通知 View 显示用户消息
-        if (view != null) {
-            mainHandler.post(() -> view.onUserMessageSent(userMessage));
+        // 先通知 View 显示用户消息（同步执行，确保 UI 立即更新）
+        if (messageListView != null) {
+            messageListView.onUserMessageSent(userMessage);
         }
 
-        // 显示思考中提示
-        if (view != null) {
-            mainHandler.post(() -> view.showThinking());
+        // 创建 assistant 消息对象，用于在整个流式过程中更新
+        Message assistantMessage = new Message();
+        assistantMessage.setRole("response");
+        assistantMessage.setTimestamp(System.currentTimeMillis());
+
+        // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
+        if (streamingView != null) {
+            streamingView.showThinking();
         }
 
-        if (view != null) {
-            mainHandler.post(() -> view.showLoading());
+        if (messageListView != null) {
+            messageListView.showLoading();
         }
 
-        // 标记正在思考状态
-        // TODO: 后续迁移到 C++ 层实现
-        isThinking = true;
+        // 设置 StreamingManager 回调，将事件转发到 streamingView
+        streamingManager.setCallback(new StreamingManager.StreamingCallback() {
+            @Override
+            public void onTextDelta(String text) {
+                Log.d("MainPresenter", "onTextDelta: text=" + text);
+                if (streamingView != null) {
+                    // 累积所有文本，用于全量解析
+                    accumulatedText.append(text);
 
-        executor.execute(() -> {
-            try {
-                // 发送消息，获取回复
-                Message response = mobileAgentApi.sendMessage(content, sessionKey);
+                    // 解析文本，区分 think 块和正文块（全量解析）
+                    StreamTextParser.ParsedResult result = currentParser.parse(accumulatedText.toString());
 
-                // 清除思考状态
-                isThinking = false;
+                    // 更新 Message 对象
+                    if (result.thinkContent != null && !result.thinkContent.isEmpty()) {
+                        assistantMessage.setThinkContent(result.thinkContent);
+                    }
+                    if (result.contentContent != null && !result.contentContent.isEmpty()) {
+                        assistantMessage.setContent(result.contentContent);
+                    }
 
-                if (view != null) {
                     mainHandler.post(() -> {
-                        view.hideThinking();
-                        view.hideLoading();
-                        view.onMessageReceived(response);
+                        // 传递完整的 Message 对象给界面
+                        streamingView.onStreamMessageUpdate(assistantMessage);
                     });
                 }
-            } catch (Exception e) {
-                // 清除思考状态
-                isThinking = false;
+            }
 
-                if (view != null) {
+            @Override
+            public void onToolUse(String id, String name, String argumentsJson) {
+                Log.d("MainPresenter", "onToolUse: id=" + id);
+                if (streamingView != null) {
+                    // 创建 ToolCall 对象并添加到 Message
+                    ToolCall toolCall = new ToolCall(id, name);
+                    toolCall.setArguments(argumentsJson);
+                    assistantMessage.addToolCall(toolCall);
+
                     mainHandler.post(() -> {
-                        view.hideThinking();
-                        view.hideLoading();
-                        view.onError("发送消息失败: " + e.getMessage());
+                        streamingView.onStreamMessageUpdate(assistantMessage);
+                    });
+                }
+            }
+
+            @Override
+            public void onToolResult(String id, String result) {
+                Log.d("MainPresenter", "onToolResult: id=" + id);
+                if (streamingView != null) {
+                    // 更新 ToolCall 的结果
+                    ToolCall toolCall = assistantMessage.getToolCall(id);
+                    if (toolCall != null) {
+                        toolCall.setResult(result);
+                        toolCall.setStatus("completed");
+                    }
+
+                    mainHandler.post(() -> {
+                        streamingView.onStreamMessageUpdate(assistantMessage);
+                    });
+                }
+            }
+
+            @Override
+            public void onMessageEnd(String finishReason) {
+                Log.d("MainPresenter", "onMessageEnd: finishReason=" + finishReason);
+                if (streamingView != null && messageListView != null) {
+                    mainHandler.post(() -> {
+                        streamingView.hideThinking();
+                        messageListView.hideLoading();
+                        // 传递带有完成状态的 Message
+                        streamingView.onStreamMessageEnd(assistantMessage, finishReason);
+                    });
+                }
+            }
+
+            @Override
+            public void onError(String errorCode, String errorMessage) {
+                Log.d("MainPresenter", "onError: errorCode=" + errorCode + ", errorMessage=" +errorMessage);
+                if (streamingView != null && messageListView != null) {
+                    mainHandler.post(() -> {
+                        streamingView.hideThinking();
+                        messageListView.hideLoading();
+                        streamingView.onStreamError(errorCode, errorMessage);
                     });
                 }
             }
         });
+
+        // 重置文本解析器状态
+        currentParser.reset();
+        // 清空累积文本
+        accumulatedText.setLength(0);
+
+        // 使用 StreamingManager 发送流式消息
+        streamingManager.sendMessageStream(content, sessionKey);
     }
 
     @Override
-    public void attachView(MainContract.View view) {
-        this.view = view;
-        // 重新 attach 时，检查并恢复状态
-        restoreViewState();
+    public void cancelStream() {
+        if (streamingManager.isStreaming()) {
+            // 使用 StreamingManager 取消流式请求
+            streamingManager.cancel();
+            if (streamingView != null && messageListView != null) {
+                mainHandler.post(() -> {
+                    streamingView.hideThinking();
+                    messageListView.hideLoading();
+                });
+            }
+        }
     }
 
-    /**
-     * 恢复 View 状态
-     * 当页面重新打开时，根据 isThinking 状态恢复 UI
-     *
-     * 注意：thinking 状态的 UI 恢复现在统一在 loadMessages() 完成后处理，
-     * 这样可以避免 setMessages() 替换掉思考消息的问题
-     */
-    private void restoreViewState() {
-        // thinking 状态的 UI 恢复现在移到了 loadMessages() 完成后
-        // 详见 loadMessages() 中的 onMessagesLoaded 回调
+    @Override
+    public void attachView(MainContract.MessageListView messageListView, MainContract.StreamingView streamingView) {
+        this.messageListView = messageListView;
+        this.streamingView = streamingView;
     }
 
     @Override
     public void detachView() {
-        this.view = null;
+        this.messageListView = null;
+        this.streamingView = null;
         // 注意：单例模式下不销毁 presenter，保留状态
-    }
-
-    /**
-     * 获取当前思考状态
-     * TODO: 后续迁移到 C++ 层实现
-     */
-    public boolean isThinking() {
-        return isThinking;
     }
 
     /**
@@ -213,13 +382,8 @@ public class MainPresenter implements MainContract.Presenter {
      * 注意：单例模式下不真正销毁，只是解绑 view
      */
     public void destroy() {
-        // 关闭线程池
-        executor.shutdown();
-        loadMessagesExecutor.shutdown();
-        // 清理 Context 引用，避免内存泄漏
-        if (mobileAgentApi instanceof NativeMobileAgentApiAdapter) {
-            ((NativeMobileAgentApiAdapter) mobileAgentApi).clearContext();
-        }
+        // 关闭统一线程池
+        ThreadPoolManager.shutdown();
         // 清除单例引用
         instance = null;
     }

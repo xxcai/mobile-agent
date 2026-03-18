@@ -1,6 +1,7 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -18,10 +19,12 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.presenter.MainPresenter;
+import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.library.model.Message;
+import com.hh.agent.library.model.ToolCall;
 
 import java.util.List;
 
@@ -29,7 +32,7 @@ import java.util.List;
  * Agent Fragment - 从 AgentActivity 抽取的 UI 逻辑
  * 用于嵌入到 ContainerActivity 中显示
  */
-public class AgentFragment extends Fragment implements MainContract.View {
+public class AgentFragment extends Fragment implements MainContract.MessageListView, MainContract.StreamingView {
 
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static boolean sPermissionGranted = false;
@@ -42,8 +45,11 @@ public class AgentFragment extends Fragment implements MainContract.View {
     private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
+    private StreamingManager streamingManager;
     private boolean isRecording = false;
     private boolean permissionGranted = false;
+    // 当前正在更新的 response 消息，用于流式增量更新
+    private Message currentResponseMessage = null;
 
     @Nullable
     @Override
@@ -70,14 +76,12 @@ public class AgentFragment extends Fragment implements MainContract.View {
             setVoiceButtonVisible(true);
         }
 
-        // 加载 native agent 配置
-        if (getActivity() != null) {
-            com.hh.agent.android.presenter.NativeMobileAgentApiAdapter.loadConfigFromAssets(getActivity());
-        }
-
         // 初始化 Presenter，使用单例模式
         presenter = MainPresenter.getInstance();
-        presenter.attachView(this);
+        presenter.attachView(this, this);
+
+        // 初始化 StreamingManager
+        streamingManager = new StreamingManager(presenter.getMobileAgentApi());
 
         // 加载历史消息
         presenter.loadMessages();
@@ -125,10 +129,21 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
         // 设置发送按钮点击事件
         btnSend.setOnClickListener(v -> {
-            String content = etMessage.getText().toString().trim();
-            if (!content.isEmpty()) {
-                presenter.sendMessage(content);
-                etMessage.setText("");
+            if (streamingManager.isStreaming()) {
+                // 取消流式响应
+                presenter.cancelStream();
+                // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
+                adapter.removeThinkingMessage();
+                adapter.removeAiMessages();
+                // 重置状态（按钮恢复，用户输入保留在 etMessage）
+                resetStreamingState();
+            } else {
+                // 发送消息
+                String content = etMessage.getText().toString().trim();
+                if (!content.isEmpty()) {
+                    presenter.sendMessage(content);
+                    etMessage.setText("");
+                }
             }
         });
     }
@@ -227,6 +242,7 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void onMessageReceived(Message message) {
+        Log.d("AgentFragment", "onMessageReceived: role=" + message.getRole() + ", content=" + message.getContent());
         adapter.addMessage(message);
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
@@ -242,6 +258,103 @@ public class AgentFragment extends Fragment implements MainContract.View {
         if (getContext() != null) {
             Toast.makeText(getContext(), error, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // 流式回调方法实现
+    @Override
+    public void onStreamMessageUpdate(Message message) {
+        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
+        // 第一次收到响应时，创建 response 消息
+        if (currentResponseMessage == null) {
+            currentResponseMessage = message;
+            adapter.addResponseMessage(message);
+        } else {
+            // 更新现有消息
+            currentResponseMessage = message;
+            adapter.updateResponseMessage(message);
+        }
+
+        // 强制刷新 RecyclerView
+        rvMessages.invalidate();
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+    }
+
+    @Override
+    public void onStreamMessageEnd(Message message, String finishReason) {
+        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", message=" + message);
+
+        // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
+        if ("tool_calls".equals(finishReason)) {
+            Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping running");
+            return;
+        }
+
+        // 更新最终消息
+        if (message != null) {
+            if (currentResponseMessage == null) {
+                adapter.addResponseMessage(message);
+            } else {
+                adapter.updateResponseMessage(message);
+            }
+        }
+
+        // 清理当前响应消息标记
+        currentResponseMessage = null;
+
+        // 状态转换：正在响应 -> 历史响应
+        if ("stop".equals(finishReason)) {
+            // 1. 删除 thinking 消息（不再需要显示）
+            adapter.removeThinkingMessage();
+
+            // 2. 更新 response 消息，隐藏工具区和 think 区
+            // 清除 toolCalls 列表会隐藏工具区
+            adapter.clearToolCallsInResponse(message.getTimestamp());
+            // 清除 thinkContent 会隐藏思考区
+            adapter.clearThinkContentInResponse(message.getTimestamp());
+
+            // 刷新 RecyclerView 显示更新后的卡片
+            rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+
+            Log.d("AgentFragment", "onStreamMessageEnd: stop, updated response card to history state");
+            return;
+        }
+
+        // 检查是否为错误类型的 finish_reason
+        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
+        for (String errorType : errorFinishReasons) {
+            if (errorType.equals(finishReason)) {
+                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + finishReason);
+                // 显示错误消息
+                adapter.addErrorMessage(finishReason, "API 响应被截断或内容不符合要求");
+                // 隐藏 thinking 消息
+                hideThinking();
+                // 清除 AI 消息
+                adapter.removeAiMessages();
+                return;
+            }
+        }
+
+        // 默认按异常处理
+        Log.d("AgentFragment", "onStreamMessageEnd: unknown finishReason=" + finishReason + ", treating as error");
+        adapter.removeThinkingMessage();
+        adapter.removeAiMessages();
+    }
+
+    @Override
+    public void onStreamError(String errorCode, String errorMessage) {
+        // 清理当前响应消息标记
+        currentResponseMessage = null;
+
+        // 流式错误 - 显示错误消息到消息列表
+        adapter.addErrorMessage(errorCode, errorMessage);
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+
+        // 清除 AI 相关消息（thinking, tool_use, tool_result, assistant）
+        adapter.removeThinkingMessage();
+        adapter.removeAiMessages();
+
+        // 重置流式状态和按钮
+        resetStreamingState();
     }
 
     @Override
@@ -260,6 +373,10 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void showThinking() {
+        // 切换按钮为取消状态
+        btnSend.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        btnSend.setContentDescription(getString(R.string.cancel_button));
+
         Message thinkingMsg = new Message();
         thinkingMsg.setRole("thinking");
         thinkingMsg.setContent("MobileAgent 正在思考...");
@@ -270,7 +387,28 @@ public class AgentFragment extends Fragment implements MainContract.View {
 
     @Override
     public void hideThinking() {
+        Log.d("AgentFragment", "hideThinking: removing thinking message");
         adapter.removeThinkingMessage();
+        // 恢复按钮为发送状态
+        resetSendButton();
+    }
+
+    /**
+     * 重置发送按钮为正常状态
+     */
+    private void resetSendButton() {
+        btnSend.setEnabled(true);
+        btnSend.setImageResource(android.R.drawable.ic_menu_send);
+        btnSend.setContentDescription(getString(R.string.send_button));
+    }
+
+    /**
+     * 重置流式响应状态
+     */
+    private void resetStreamingState() {
+        // 清理当前响应消息引用，避免新消息触发旧回调
+        currentResponseMessage = null;
+        resetSendButton();
     }
 
     @Override
