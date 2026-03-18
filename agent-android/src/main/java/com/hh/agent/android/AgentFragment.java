@@ -263,7 +263,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     // 流式回调方法实现
     @Override
     public void onStreamMessageUpdate(Message message) {
-        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message + ", currentResponseMessage = " + currentResponseMessage);
+        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
             currentResponseMessage = message;
@@ -308,9 +308,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
             // 2. 更新 response 消息，隐藏工具区和 think 区
             // 清除 toolCalls 列表会隐藏工具区
-            adapter.clearToolCallsInResponse();
+            adapter.clearToolCallsInResponse(message.getTimestamp());
             // 清除 thinkContent 会隐藏思考区
-            adapter.clearThinkContentInResponse();
+            adapter.clearThinkContentInResponse(message.getTimestamp());
 
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);

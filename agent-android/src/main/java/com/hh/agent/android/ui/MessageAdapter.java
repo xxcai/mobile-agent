@@ -1,6 +1,7 @@
 package com.hh.agent.android.ui;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -28,6 +29,7 @@ import io.noties.markwon.ext.tasklist.TaskListPlugin;
  * 消息列表的 RecyclerView 适配器
  */
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+    private static String TAG = "MessageAdapter";
 
     public static final int VIEW_TYPE_USER = 0;
     public static final int VIEW_TYPE_THINKING = 1;
@@ -143,11 +145,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     /**
      * 清除响应卡片中的工具调用列表
      * 用于状态转换：将"正在响应"转为"历史响应"时隐藏工具区
+     * @param timestamp 消息时间戳，用于精确匹配
      */
-    public void clearToolCallsInResponse() {
+    public void clearToolCallsInResponse(long timestamp) {
         for (int i = 0; i < messages.size(); i++) {
             Message msg = messages.get(i);
-            if ("response".equals(msg.getRole())) {
+            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
                 // 清除 toolCalls 列表，这样 bind 方法会隐藏工具区
                 msg.setToolCalls(null);
                 notifyItemChanged(i);
@@ -157,12 +160,14 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 清除响应卡片中的思考内容
      * 用于状态转换：将"正在响应"转为"历史响应"时隐藏思考区
+     * @param timestamp 消息时间戳，用于精确匹配
      */
-    public void clearThinkContentInResponse() {
+    public void clearThinkContentInResponse(long timestamp) {
         for (int i = 0; i < messages.size(); i++) {
             Message msg = messages.get(i);
-            if ("response".equals(msg.getRole())) {
+            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
                 // 清除 thinkContent，这样 bind 方法会隐藏思考区
                 msg.setThinkContent(null);
                 notifyItemChanged(i);
@@ -321,7 +326,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             // 正文区：使用 Markwon 渲染 Markdown
             String content = message.getContent();
             if (content != null) {
+                Log.d(TAG, "ResponseCardViewHolder bind content: text = " + content);
                 markwon.setMarkdown(tvContent, content);
+            } else {
+                markwon.setMarkdown(tvContent, "");
             }
         }
 

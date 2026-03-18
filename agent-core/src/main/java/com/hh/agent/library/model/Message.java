@@ -99,4 +99,17 @@ public class Message {
         }
         return null;
     }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "id='" + id + '\'' +
+                ", role='" + role + '\'' +
+                ", name='" + name + '\'' +
+                ", content='" + content + '\'' +
+                ", thinkContent='" + thinkContent + '\'' +
+                ", timestamp=" + timestamp +
+                ", toolCalls=" + toolCalls +
+                '}';
+    }
 }
