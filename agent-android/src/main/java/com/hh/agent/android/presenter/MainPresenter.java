@@ -28,87 +28,79 @@ public class MainPresenter implements MainContract.Presenter {
     private final StreamingManager streamingManager;
     private final Handler mainHandler;
     private final String sessionKey;
+    // 累积文本，用于全量解析
+    private StringBuilder accumulatedText = new StringBuilder();
 
     /**
-     * 流式文本解析器 - 用于区分 think 块和正文块
+     * 流式文本解析器 - 用于区分 think 块和正文块（全量解析）
+     * 每次 parse 调用时传入累积的所有文本，从中解析出 thinking 和正文部分
      */
     private static class StreamTextParser {
-        // 当前块类型
-        private BlockType currentBlockType = BlockType.CONTENT;
-        // 累积的 think 内容
-        private StringBuilder thinkContent = new StringBuilder();
-        // 累积的正文内容
-        private StringBuilder contentText = new StringBuilder();
-
-        enum BlockType {
-            THINK,   // think 块
-            CONTENT // 正文块
-        }
-
         /**
-         * 解析文本，根据标签返回对应的增量
-         * @param text 输入的增量文本
-         * @return 解析结果，包含类型和实际内容
+         * 解析文本，根据标签返回对应的内容（全量解析）
+         * @param text 累积的所有文本
+         * @return 解析结果，包含完整的 think 内容 和正文内容
          */
         ParsedResult parse(String text) {
+            Log.d(TAG, "StreamTextParser parse (full): text=" + text);
             ParsedResult result = new ParsedResult();
 
-            // 检查是否包含开始标签
-            if (text.contains("<think>")) {
-                currentBlockType = BlockType.THINK;
+            if (text == null || text.isEmpty()) {
+                return result;
+            }
+
+            // 查找第一个开始标签和结束标签
+            int thinkStart = text.indexOf("<think>");
+            int thinkEnd = text.indexOf("</think>");
+
+            if (thinkStart >= 0 && thinkEnd > thinkStart) {
+                // 存在完整的 think 块
                 result.hasThinkStart = true;
-            }
-
-            // 检查是否包含结束标签
-            if (text.contains("</think>")) {
-                // 遇到结束标签，think 块结束
                 result.hasThinkEnd = true;
-            }
 
-            // 处理文本
-            if (currentBlockType == BlockType.THINK) {
-                // 如果包含结束标签，需要拆分
-                if (result.hasThinkEnd) {
-                    // 分割文本
-                    int endIndex = text.indexOf("</think>");
-                    String thinkPart = text.substring(0, endIndex + 6); // 包含 </think> 标签
-                    String contentPart = text.substring(endIndex + 6);
-
-                    thinkContent.append(thinkPart);
-                    result.thinkDelta = thinkPart;
-                    result.contentDelta = contentPart;
-
-                    // think 结束，切换到正文
-                    currentBlockType = BlockType.CONTENT;
-                    thinkContent = new StringBuilder(); // 清空累积
-                } else {
-                    // 纯 think 内容
-                    thinkContent.append(text);
-                    result.thinkDelta = text;
-                }
+                // 提取 think 内容（包含标签）
+                result.thinkContent = text.substring(thinkStart, thinkEnd + 8);
+                // 提取正文内容（think 块之后的部分）
+                result.contentContent = text.substring(thinkEnd + 8);
+            } else if (thinkStart >= 0 && thinkEnd < 0) {
+                // 只有开始标签，没有结束标签 - 正在 think 中
+                result.hasThinkStart = true;
+                result.thinkContent = text.substring(thinkStart);
+            } else if (thinkStart < 0 && thinkEnd >= 0) {
+                // 有结束标签但没有开始标签 - 异常情况，当作正文处理
+                result.hasThinkEnd = true;
+                result.contentContent = text;
             } else {
-                // 正文块
-                contentText.append(text);
-                result.contentDelta = text;
+                // 没有 think 块，全部是正文
+                result.contentContent = text;
             }
 
+            Log.d(TAG, "StreamTextParser result = " + result);
             return result;
         }
 
         /**
-         * 重置解析器状态
+         * 重置解析器状态（新消息开始时调用）
          */
         void reset() {
-            currentBlockType = BlockType.CONTENT;
-            thinkContent = new StringBuilder();
-            contentText = new StringBuilder();
+            // 全量解析不需要维护状态，无需重置
         }
 
         static class ParsedResult {
-            String thinkDelta;
-            String contentDelta;
+            String thinkContent;    // 完整的 think 内容（包含标签）
+            String contentContent;  // 完整的正文内容
             boolean hasThinkStart;
             boolean hasThinkEnd;
+
+            @Override
+            public String toString() {
+                return "ParsedResult{" +
+                        "thinkContent='" + thinkContent + '\'' +
+                        ", contentContent='" + contentContent + '\'' +
+                        ", hasThinkStart=" + hasThinkStart +
+                        ", hasThinkEnd=" + hasThinkEnd +
+                        '}';
+            }
         }
     }
 
@@ -243,19 +235,22 @@ public class MainPresenter implements MainContract.Presenter {
             public void onTextDelta(String text) {
                 Log.d("MainPresenter", "onTextDelta: text=" + text);
                 if (streamingView != null) {
-                    // 解析文本，区分 think 块和正文块
-                    StreamTextParser.ParsedResult result = currentParser.parse(text);
+                    // 累积所有文本，用于全量解析
+                    accumulatedText.append(text);
+
+                    // 解析文本，区分 think 块和正文块（全量解析）
+                    StreamTextParser.ParsedResult result = currentParser.parse(accumulatedText.toString());
 
                     mainHandler.post(() -> {
                         // 调用原有的 onStreamTextDelta 保持兼容
                         streamingView.onStreamTextDelta(text);
 
-                        // 分别调用 think 和正文回调
-                        if (result.thinkDelta != null && !result.thinkDelta.isEmpty()) {
-                            streamingView.onStreamThinkDelta(result.thinkDelta);
+                        // 分别调用 think 和正文回调（全量内容）
+                        if (result.thinkContent != null && !result.thinkContent.isEmpty()) {
+                            streamingView.onStreamThinkDelta(result.thinkContent);
                         }
-                        if (result.contentDelta != null && !result.contentDelta.isEmpty()) {
-                            streamingView.onStreamContentDelta(result.contentDelta);
+                        if (result.contentContent != null && !result.contentContent.isEmpty()) {
+                            streamingView.onStreamContentDelta(result.contentContent);
                         }
                     });
                 }
@@ -310,6 +305,8 @@ public class MainPresenter implements MainContract.Presenter {
 
         // 重置文本解析器状态
         currentParser.reset();
+        // 清空累积文本
+        accumulatedText.setLength(0);
 
         // 使用 StreamingManager 发送流式消息
         streamingManager.sendMessageStream(content, sessionKey);
