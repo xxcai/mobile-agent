@@ -6,7 +6,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -31,12 +30,9 @@ import io.noties.markwon.ext.tasklist.TaskListPlugin;
 public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     public static final int VIEW_TYPE_USER = 0;
-    public static final int VIEW_TYPE_ASSISTANT = 1;
-    public static final int VIEW_TYPE_THINKING = 2;
-    public static final int VIEW_TYPE_TOOL_USE = 3;
-    public static final int VIEW_TYPE_TOOL_RESULT = 4;
-    public static final int VIEW_TYPE_ERROR = 5;
-    public static final int VIEW_TYPE_RESPONSE = 6;
+    public static final int VIEW_TYPE_THINKING = 1;
+    public static final int VIEW_TYPE_ERROR = 2;
+    public static final int VIEW_TYPE_RESPONSE = 3;
 
     private List<Message> messages = new ArrayList<>();
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -62,12 +58,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (viewType == VIEW_TYPE_THINKING) {
             View view = inflater.inflate(R.layout.item_thinking, parent, false);
             return new ThinkingViewHolder(view);
-        } else if (viewType == VIEW_TYPE_TOOL_USE) {
-            View view = inflater.inflate(R.layout.item_tool_use, parent, false);
-            return new ToolUseViewHolder(view);
-        } else if (viewType == VIEW_TYPE_TOOL_RESULT) {
-            View view = inflater.inflate(R.layout.item_tool_result, parent, false);
-            return new ToolResultViewHolder(view);
         } else if (viewType == VIEW_TYPE_ERROR) {
             View view = inflater.inflate(R.layout.item_error, parent, false);
             return new ErrorViewHolder(view);
@@ -85,10 +75,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         Message message = messages.get(position);
         if (holder instanceof ThinkingViewHolder) {
             ((ThinkingViewHolder) holder).bindMessage(message);
-        } else if (holder instanceof ToolUseViewHolder) {
-            ((ToolUseViewHolder) holder).bind(message.getName(), message.getContent());
-        } else if (holder instanceof ToolResultViewHolder) {
-            ((ToolResultViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof ErrorViewHolder) {
             ((ErrorViewHolder) holder).bind(message.getName(), message.getContent());
         } else if (holder instanceof MessageViewHolder) {
@@ -108,16 +94,14 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             return VIEW_TYPE_USER;
         } else if ("sending".equals(role)) {
             return VIEW_TYPE_THINKING;  // 复用 thinking 样式显示发送中
-        } else if ("tool_use".equals(role)) {
-            return VIEW_TYPE_TOOL_USE;
-        } else if ("tool_result".equals(role)) {
-            return VIEW_TYPE_TOOL_RESULT;
         } else if ("error".equals(role)) {
             return VIEW_TYPE_ERROR;
-        } else if ("response".equals(role)) {
+        } else if ("response".equals(role) || "assistant".equals(role)) {
+            // response: 流式响应消息
+            // assistant: 历史消息（需要用 ResponseCardViewHolder 统一展示）
             return VIEW_TYPE_RESPONSE;
         } else {
-            return VIEW_TYPE_ASSISTANT;
+            return VIEW_TYPE_USER; // 默认使用用户消息样式
         }
     }
 
@@ -258,46 +242,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 content = "";
             }
             tvThinking.setText(content);
-        }
-    }
-
-    /**
-     * 工具调用 ViewHolder
-     */
-    static class ToolUseViewHolder extends RecyclerView.ViewHolder {
-
-        private final TextView tvToolName;
-        private final TextView tvToolInput;
-
-        ToolUseViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvToolName = itemView.findViewById(R.id.tvToolName);
-            tvToolInput = itemView.findViewById(R.id.tvToolInput);
-        }
-
-        void bind(String toolName, String toolInput) {
-            tvToolName.setText(toolName);
-            tvToolInput.setText(toolInput);
-        }
-    }
-
-    /**
-     * 工具结果 ViewHolder
-     */
-    static class ToolResultViewHolder extends RecyclerView.ViewHolder {
-
-        private final TextView tvToolName;
-        private final TextView tvToolResult;
-
-        ToolResultViewHolder(@NonNull View itemView) {
-            super(itemView);
-            tvToolName = itemView.findViewById(R.id.tvToolName);
-            tvToolResult = itemView.findViewById(R.id.tvToolResult);
-        }
-
-        void bind(String toolName, String toolResult) {
-            tvToolName.setText(toolName + " Result");
-            tvToolResult.setText(toolResult);
         }
     }
 
@@ -528,7 +472,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
-     * 移除所有 AI 相关消息（thinking, tool_use, tool_result, assistant）
+     * 移除所有 AI 相关消息（thinking, response）
      * 保留用户消息
      */
     public void removeAiMessages() {
@@ -536,8 +480,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message msg = messages.get(i);
             String role = msg.getRole();
-            if ("thinking".equals(role) || "tool_use".equals(role) ||
-                "tool_result".equals(role) || "assistant".equals(role)) {
+            if ("thinking".equals(role) || "response".equals(role)) {
                 messages.remove(i);
                 removed = true;
             }
