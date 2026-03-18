@@ -1,14 +1,13 @@
 package com.hh.agent.android;
 
 import android.content.Context;
+import com.hh.agent.floating.FloatingBallManager;
+import com.hh.agent.floating.ContainerActivity;
 import com.hh.agent.android.WorkspaceManager;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.library.api.NativeMobileAgentApi;
 
-import java.io.BufferedReader;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -23,7 +22,7 @@ public class AgentInitializer {
      * 初始化 Agent
      * @param application Application Context
      * @param tools 要注册的工具 Map
-     * @param callback 初始化完成回调
+     * @param callback 初始化完成回调（Agent 核心初始化完成后调用）
      */
     public static void initialize(Context application,
                                   Map<String, ToolExecutor> tools,
@@ -64,6 +63,34 @@ public class AgentInitializer {
 
         // 6. 回调
         callback.run();
+    }
+
+    /**
+     * 初始化悬浮球
+     * 必须在 Agent 核心初始化完成后调用
+     * @param application Application Context
+     */
+    public static void initializeFloatingBall(Context application) {
+        // 初始化悬浮球
+        FloatingBallManager floatingBallManager = FloatingBallManager.getInstance(application);
+        floatingBallManager.initialize();
+
+        // 检查权限并尝试显示悬浮球
+        if (floatingBallManager.checkOverlayPermission()) {
+            floatingBallManager.show();
+        } else {
+            floatingBallManager.showPermissionTip();
+        }
+
+        // 设置悬浮球点击事件（启动容器Activity）
+        floatingBallManager.setOnClickListener(v -> {
+            // 隐藏悬浮球
+            floatingBallManager.hide();
+            // 启动容器Activity
+            android.content.Intent intent = new android.content.Intent(application, ContainerActivity.class);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            application.startActivity(intent);
+        });
     }
 
     /**

@@ -1,11 +1,9 @@
 package com.hh.agent.app;
 
 import android.app.Application;
-import android.content.Intent;
 import android.util.Log;
 import com.hh.agent.android.AgentInitializer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
-import com.hh.agent.floating.ContainerActivity;
 import com.hh.agent.floating.FloatingBallManager;
 import com.hh.agent.library.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
@@ -45,31 +43,12 @@ public class App extends Application {
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
 
-        // 初始化 Agent（必须在悬浮球之前完成）
+        // 初始化 Agent
         AgentInitializer.initialize(this, tools, () -> {
             Log.d(TAG, "Agent initialized successfully");
-        });
 
-        // 初始化悬浮球
-        floatingBallManager = FloatingBallManager.getInstance(this);
-        floatingBallManager.initialize();
-
-        // 检查权限并尝试显示悬浮球
-        if (floatingBallManager.checkOverlayPermission()) {
-            floatingBallManager.show();
-        } else {
-            floatingBallManager.showPermissionTip();
-        }
-
-        // 设置悬浮球点击事件（启动容器Activity）
-        floatingBallManager.setOnClickListener(v -> {
-            Log.d(TAG, "Floating ball clicked - launching container activity");
-            // 隐藏悬浮球
-            floatingBallManager.hide();
-            // 启动容器Activity
-            Intent intent = new Intent(this, ContainerActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+            // 初始化悬浮球
+            AgentInitializer.initializeFloatingBall(App.this);
         });
 
         // 注册生命周期观察者
