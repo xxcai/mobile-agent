@@ -239,7 +239,28 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         assistant_msg.role = "assistant";
         
         if (!accumulated_text.empty()) {
-            assistant_msg.content.push_back(ContentBlock::make_text(accumulated_text));
+            // 判断是否为 thinking 内容（被<think_stop></think_stop>标签包裹）
+            // 先去除前后空白字符
+            auto trim_whitespace = [](const std::string& s) -> std::string {
+                size_t start = s.find_first_not_of(" \t\n\r");
+                if (start == std::string::npos) return "";
+                size_t end = s.find_last_not_of(" \t\n\r");
+                return s.substr(start, end - start + 1);
+            };
+
+            std::string trimmed = trim_whitespace(accumulated_text);
+            const std::string think_start = "<think>";
+            const std::string think_end = "</think>";
+
+            bool is_thinking = trimmed.length() > think_start.length() + think_end.length() &&
+                               trimmed.substr(0, think_start.length()) == think_start &&
+                               trimmed.substr(trimmed.length() - think_end.length()) == think_end;
+
+            if (is_thinking) {
+                assistant_msg.content.push_back(ContentBlock::make_think(accumulated_text));
+            } else {
+                assistant_msg.content.push_back(ContentBlock::make_text(accumulated_text));
+            }
         }
         
         // Process tool calls - StreamParser already accumulated and validated them
@@ -296,7 +317,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             event.data["input"] = tc.arguments;
             callback(event);
         }
-        
+
+        // 打印 assistant_msg 内容
+        std::string assistant_content;
+        for (const auto& block : assistant_msg.content) {
+            assistant_content += "[type=" + block.type + ", text=" + block.text + "] ";
+        }
+        ICRAW_LOG_DEBUG("[AGENT_LOOP] Adding assistant_msg: role={}, content={}, tool_calls_size={}",
+            assistant_msg.role, assistant_content, assistant_msg.tool_calls.size());
+
         new_messages.push_back(assistant_msg);
         request.messages.push_back(assistant_msg);
         
@@ -318,7 +347,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             } catch (...) {
                 // If not valid JSON, use as-is
             }
-            
+
             std::pair<std::string, std::string> signature = {tc.name, args_str};
             
             if (seen_tool_signatures.find(signature) == seen_tool_signatures.end()) {

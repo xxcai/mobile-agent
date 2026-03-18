@@ -83,6 +83,13 @@ struct ContentBlock {
         block.text = text;
         return block;
     }
+
+    static ContentBlock make_think(const std::string& text) {
+        ContentBlock block;
+        block.type = "thinking";
+        block.text = text;
+        return block;
+    }
     
     static ContentBlock make_tool_use(const std::string& id, 
                                        const std::string& name, 
