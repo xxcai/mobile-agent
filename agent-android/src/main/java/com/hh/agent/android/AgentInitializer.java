@@ -1,6 +1,8 @@
 package com.hh.agent.android;
 
 import android.content.Context;
+import com.hh.agent.android.voice.IVoiceRecognizer;
+import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.floating.FloatingBallManager;
 import com.hh.agent.floating.ContainerActivity;
 import com.hh.agent.android.WorkspaceManager;
@@ -21,12 +23,17 @@ public class AgentInitializer {
     /**
      * 初始化 Agent
      * @param application Application Context
+     * @param voiceRecognizer 语音识别器实现（可传入 null 使用默认实现）
      * @param tools 要注册的工具 Map
      * @param callback 初始化完成回调（Agent 核心初始化完成后调用）
      */
     public static void initialize(Context application,
+                                  IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
                                   Runnable callback) {
+        // 0. 设置语音识别器
+        VoiceRecognizerHolder.getInstance().setRecognizer(voiceRecognizer);
+
         // 1. 创建 AndroidToolManager
         AndroidToolManager toolManager = new AndroidToolManager(application);
 
