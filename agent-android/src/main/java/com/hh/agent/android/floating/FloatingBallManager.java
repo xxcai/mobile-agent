@@ -87,11 +87,11 @@ public class FloatingBallManager {
         mFloatingBallView = new FloatingBallView(mContext);
         mFloatingBallView.setOnTouchListener(mFloatingBallView.getDragTouchListener());
 
-        // 设置点击事件：跳转到 ContainerActivity（Fragment 容器）
+        // 点击行为由外部注入，Manager 只负责转发单击事件
         mFloatingBallView.setOnSingleTapListener(v -> {
-            Intent intent = new Intent(mContext, ContainerActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            mContext.startActivity(intent);
+            if (mOnClickListener != null) {
+                mOnClickListener.onClick(v);
+            }
         });
 
         // 创建LayoutParams
