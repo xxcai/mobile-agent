@@ -31,6 +31,7 @@ public class FloatingBallManager {
     private FloatingBallView mFloatingBallView;
     private View.OnClickListener mOnClickListener;
     private ValueAnimator mSnapAnimator;
+    private boolean mIsWorking = false;
     private boolean mIsShowing = false;
 
     private FloatingBallManager(Context context) {
@@ -83,6 +84,7 @@ public class FloatingBallManager {
 
         // 创建悬浮球View
         mFloatingBallView = new FloatingBallView(mContext);
+        mFloatingBallView.setWorking(mIsWorking);
         mFloatingBallView.setOnTouchListener(mFloatingBallView.getDragTouchListener());
 
         // 点击行为由外部注入，Manager 只负责转发单击事件
@@ -166,6 +168,27 @@ public class FloatingBallManager {
      */
     public void setOnClickListener(View.OnClickListener listener) {
         mOnClickListener = listener;
+    }
+
+    /**
+     * 设置当前 Agent 是否正在工作
+     */
+    public void setWorking(boolean isWorking) {
+        if (mIsWorking == isWorking) {
+            return;
+        }
+
+        mIsWorking = isWorking;
+        if (mFloatingBallView != null) {
+            mFloatingBallView.setWorking(isWorking);
+        }
+    }
+
+    /**
+     * 当前 Agent 是否正在工作
+     */
+    public boolean isWorking() {
+        return mIsWorking;
     }
 
     /**

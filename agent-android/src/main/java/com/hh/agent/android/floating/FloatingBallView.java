@@ -17,6 +17,7 @@ import android.widget.ImageView;
 public class FloatingBallView extends ImageView {
 
     private boolean isDragging = false;
+    private boolean isWorking = false;
     private GestureDetector gestureDetector;
     private OnClickListener onSingleTapListener;
     private final int touchSlop;
@@ -95,6 +96,18 @@ public class FloatingBallView extends ImageView {
      */
     public void setOnSingleTapListener(View.OnClickListener listener) {
         this.onSingleTapListener = listener;
+    }
+
+    /**
+     * 设置当前 Agent 是否正在工作
+     * 第一步只记录状态，动画在后续步骤接入
+     */
+    public void setWorking(boolean isWorking) {
+        this.isWorking = isWorking;
+    }
+
+    public boolean isWorking() {
+        return isWorking;
     }
 
     /**
