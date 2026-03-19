@@ -42,11 +42,6 @@ public class AndroidToolManager implements AndroidToolCallback {
         // Register callback with NativeMobileAgentApi
         NativeMobileAgentApi.getInstance().setToolCallback(this);
         Log.i("AndroidToolManager", "Registered AndroidToolCallback with NativeMobileAgentApi");
-
-        // Generate and set tools.json dynamically
-        String toolsJson = generateToolsJson();
-        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
-        Log.i("AndroidToolManager", "Generated and set tools.json to native layer");
     }
 
     /**
@@ -74,11 +69,6 @@ public class AndroidToolManager implements AndroidToolCallback {
         // Add the tool to the registry
         tools.put(toolName, executor);
         Log.i("AndroidToolManager", "Registered tool: " + toolName);
-
-        // Generate and push updated tools.json to native layer
-        String toolsJson = generateToolsJson();
-        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
-        Log.i("AndroidToolManager", "Generated and pushed tools.json after registering: " + toolName);
     }
 
     /**
@@ -109,11 +99,6 @@ public class AndroidToolManager implements AndroidToolCallback {
 
         tools.remove(toolName);
         Log.i("AndroidToolManager", "Unregistered tool: " + toolName);
-
-        // Generate and push updated tools.json to native layer
-        String toolsJson = generateToolsJson();
-        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
-        Log.i("AndroidToolManager", "Generated and pushed tools.json after unregistering: " + toolName);
 
         return true;
     }
@@ -159,11 +144,6 @@ public class AndroidToolManager implements AndroidToolCallback {
             Log.i("AndroidToolManager", "Registered tool (batch): " + toolName);
         }
 
-        // Generate and push updated tools.json to native layer (single push)
-        String toolsJson = generateToolsJson();
-        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
-        Log.i("AndroidToolManager", "Generated and pushed tools.json after batch registering " + toolsToRegister.size() + " tools");
-
         return true;
     }
 
@@ -199,11 +179,6 @@ public class AndroidToolManager implements AndroidToolCallback {
             tools.remove(toolName);
             Log.i("AndroidToolManager", "Unregistered tool (batch): " + toolName);
         }
-
-        // Generate and push updated tools.json to native layer (single push)
-        String toolsJson = generateToolsJson();
-        NativeMobileAgentApi.getInstance().setToolsJson(toolsJson);
-        Log.i("AndroidToolManager", "Generated and pushed tools.json after batch unregistering " + toolNames.size() + " tools");
 
         return true;
     }
