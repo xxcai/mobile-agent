@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
@@ -26,15 +28,18 @@ public class FloatingBallManager {
     private static FloatingBallManager sInstance;
 
     private final Context mContext;
+    private final Handler mMainHandler;
     private final WindowManager mWindowManager;
     private WindowManager.LayoutParams mLayoutParams;
     private FloatingBallView mFloatingBallView;
     private View.OnClickListener mOnClickListener;
     private ValueAnimator mSnapAnimator;
+    private boolean mIsWorking = false;
     private boolean mIsShowing = false;
 
     private FloatingBallManager(Context context) {
         mContext = context.getApplicationContext();
+        mMainHandler = new Handler(Looper.getMainLooper());
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
     }
 
@@ -49,6 +54,13 @@ public class FloatingBallManager {
                 }
             }
         }
+        return sInstance;
+    }
+
+    /**
+     * 获取已初始化的单例实例
+     */
+    public static FloatingBallManager getInstance() {
         return sInstance;
     }
 
@@ -83,6 +95,7 @@ public class FloatingBallManager {
 
         // 创建悬浮球View
         mFloatingBallView = new FloatingBallView(mContext);
+        mFloatingBallView.setWorking(mIsWorking);
         mFloatingBallView.setOnTouchListener(mFloatingBallView.getDragTouchListener());
 
         // 点击行为由外部注入，Manager 只负责转发单击事件
@@ -166,6 +179,36 @@ public class FloatingBallManager {
      */
     public void setOnClickListener(View.OnClickListener listener) {
         mOnClickListener = listener;
+    }
+
+    /**
+     * 设置当前 Agent 是否正在工作
+     */
+    public void setWorking(boolean isWorking) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mMainHandler.post(() -> applyWorkingState(isWorking));
+            return;
+        }
+
+        applyWorkingState(isWorking);
+    }
+
+    private void applyWorkingState(boolean isWorking) {
+        if (mIsWorking == isWorking) {
+            return;
+        }
+
+        mIsWorking = isWorking;
+        if (mFloatingBallView != null) {
+            mFloatingBallView.setWorking(isWorking);
+        }
+    }
+
+    /**
+     * 当前 Agent 是否正在工作
+     */
+    public boolean isWorking() {
+        return mIsWorking;
     }
 
     /**

@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.api.MobileAgentApi;
@@ -323,6 +324,10 @@ public class MainPresenter implements MainContract.Presenter {
             @Override
             public void onMessageEnd(String finishReason) {
                 Log.d("MainPresenter", "onMessageEnd: finishReason=" + finishReason);
+                FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
+                if (floatingBallManager != null) {
+                    floatingBallManager.setWorking(false);
+                }
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
@@ -336,6 +341,10 @@ public class MainPresenter implements MainContract.Presenter {
             @Override
             public void onError(String errorCode, String errorMessage) {
                 Log.d("MainPresenter", "onError: errorCode=" + errorCode + ", errorMessage=" +errorMessage);
+                FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
+                if (floatingBallManager != null) {
+                    floatingBallManager.setWorking(false);
+                }
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
                         streamingView.hideThinking();
@@ -352,6 +361,10 @@ public class MainPresenter implements MainContract.Presenter {
         accumulatedText.setLength(0);
 
         // 使用 StreamingManager 发送流式消息
+        FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
+        if (floatingBallManager != null) {
+            floatingBallManager.setWorking(true);
+        }
         streamingManager.sendMessageStream(content, sessionKey);
     }
 
@@ -360,6 +373,10 @@ public class MainPresenter implements MainContract.Presenter {
         if (streamingManager.isStreaming()) {
             // 使用 StreamingManager 取消流式请求
             streamingManager.cancel();
+            FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
+            if (floatingBallManager != null) {
+                floatingBallManager.setWorking(false);
+            }
             if (streamingView != null && messageListView != null) {
                 mainHandler.post(() -> {
                     streamingView.hideThinking();
