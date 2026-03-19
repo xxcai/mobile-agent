@@ -8,6 +8,7 @@ import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -49,13 +50,6 @@ public class FloatingBallManager {
             }
         }
         return sInstance;
-    }
-
-    /**
-     * 设置上下文（用于启动Activity）
-     */
-    public void setContext(Context context) {
-        // 保持对ApplicationContext的引用
     }
 
     /**
@@ -126,7 +120,7 @@ public class FloatingBallManager {
                 mWindowManager.addView(mFloatingBallView, mLayoutParams);
                 mIsShowing = true;
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Failed to show floating ball", e);
             }
         }
     }
@@ -141,7 +135,7 @@ public class FloatingBallManager {
                 mWindowManager.removeView(mFloatingBallView);
                 mIsShowing = false;
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Failed to hide floating ball", e);
             }
         }
     }
