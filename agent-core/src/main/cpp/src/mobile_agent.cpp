@@ -10,6 +10,32 @@
 
 namespace icraw {
 
+static std::string trim_whitespace(const std::string& text) {
+    const size_t start = text.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) {
+        return "";
+    }
+    const size_t end = text.find_last_not_of(" \t\n\r");
+    return text.substr(start, end - start + 1);
+}
+
+static bool should_persist_message(const std::vector<Message>& messages, size_t index) {
+    const Message& current = messages[index];
+    if (current.role != "assistant") {
+        return true;
+    }
+
+    if (index + 1 >= messages.size()) {
+        return true;
+    }
+
+    const Message& next = messages[index + 1];
+    // 只展示最终结果：
+    // 如果 assistant 后面紧跟 tool，说明它只是“准备调用工具”的过渡话术，
+    // 应该只在流式过程中临时展示，不应该进入历史消息，否则会拆成两张卡片。
+    return next.role != "tool";
+}
+
 // MobileAgent implementation
 MobileAgent::MobileAgent(const IcrawConfig& config)
     : config_(config) {
@@ -135,8 +161,14 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
     ICRAW_LOG_DEBUG("[CHAT_STREAM] process_message_stream returned, messages={}", new_messages.size());
     
     // Add new messages to history and memory
-    for (const auto& msg : new_messages) {
+    for (size_t i = 0; i < new_messages.size(); ++i) {
+        const auto& msg = new_messages[i];
         history_.push_back(msg);
+
+        if (!should_persist_message(new_messages, i)) {
+            ICRAW_LOG_DEBUG("[CHAT_STREAM] Skip persisting intermediate assistant message at index={}", i);
+            continue;
+        }
         
         // Save to memory manager
         if (!msg.content.empty()) {
@@ -150,6 +182,11 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                     content += block.text + " ";
                 }
             }
+            // 这里必须先 trim 再决定是否落库：
+            // 某些 assistant 回合只有 think + 工具调用，中间夹带的 text block 可能只剩换行/空格。
+            // 如果直接用 !content.empty() 判断，会把“看起来空白”的伪消息写进 messages 表，
+            // 历史加载后就会出现一条空白消息卡片。
+            content = trim_whitespace(content);
             if (!content.empty()) {
                 nlohmann::json metadata;
                 // Store tool calls if present

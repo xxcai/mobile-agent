@@ -29,6 +29,59 @@ static std::string generate_tool_id() {
     return id;
 }
 
+static std::string trim_whitespace(const std::string& text) {
+    const size_t start = text.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) {
+        return "";
+    }
+    const size_t end = text.find_last_not_of(" \t\n\r");
+    return text.substr(start, end - start + 1);
+}
+
+static void append_text_block_if_not_empty(std::vector<ContentBlock>& blocks,
+                                           const std::string& text) {
+    if (!text.empty()) {
+        blocks.push_back(ContentBlock::make_text(text));
+    }
+}
+
+static std::vector<ContentBlock> parse_mixed_response_blocks(const std::string& raw_text) {
+    std::vector<ContentBlock> blocks;
+    const std::string think_start = "<think>";
+    const std::string think_end = "</think>";
+
+    size_t cursor = 0;
+    while (cursor < raw_text.size()) {
+        const size_t think_start_pos = raw_text.find(think_start, cursor);
+        if (think_start_pos == std::string::npos) {
+            append_text_block_if_not_empty(blocks, raw_text.substr(cursor));
+            break;
+        }
+
+        if (think_start_pos > cursor) {
+            append_text_block_if_not_empty(blocks, raw_text.substr(cursor, think_start_pos - cursor));
+        }
+
+        const size_t think_content_start = think_start_pos + think_start.size();
+        const size_t think_end_pos = raw_text.find(think_end, think_content_start);
+        if (think_end_pos == std::string::npos) {
+            // Preserve incomplete tags as visible text on finalization rather than dropping content.
+            append_text_block_if_not_empty(blocks, raw_text.substr(think_start_pos));
+            break;
+        }
+
+        const std::string think_content = trim_whitespace(
+            raw_text.substr(think_content_start, think_end_pos - think_content_start));
+        if (!think_content.empty()) {
+            blocks.push_back(ContentBlock::make_think(think_content));
+        }
+
+        cursor = think_end_pos + think_end.size();
+    }
+
+    return blocks;
+}
+
 AgentLoop::AgentLoop(std::shared_ptr<MemoryManager> memory_manager,
                      std::shared_ptr<SkillLoader> skill_loader,
                      std::shared_ptr<ToolRegistry> tool_registry,
@@ -239,28 +292,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         assistant_msg.role = "assistant";
         
         if (!accumulated_text.empty()) {
-            // 判断是否为 thinking 内容（被<think_stop></think_stop>标签包裹）
-            // 先去除前后空白字符
-            auto trim_whitespace = [](const std::string& s) -> std::string {
-                size_t start = s.find_first_not_of(" \t\n\r");
-                if (start == std::string::npos) return "";
-                size_t end = s.find_last_not_of(" \t\n\r");
-                return s.substr(start, end - start + 1);
-            };
-
-            std::string trimmed = trim_whitespace(accumulated_text);
-            const std::string think_start = "<think>";
-            const std::string think_end = "</think>";
-
-            bool is_thinking = trimmed.length() > think_start.length() + think_end.length() &&
-                               trimmed.substr(0, think_start.length()) == think_start &&
-                               trimmed.substr(trimmed.length() - think_end.length()) == think_end;
-
-            if (is_thinking) {
-                assistant_msg.content.push_back(ContentBlock::make_think(accumulated_text));
-            } else {
-                assistant_msg.content.push_back(ContentBlock::make_text(accumulated_text));
-            }
+            assistant_msg.content = parse_mixed_response_blocks(accumulated_text);
         }
         
         // Process tool calls - StreamParser already accumulated and validated them
