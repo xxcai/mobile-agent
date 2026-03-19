@@ -150,12 +150,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             sessions.put(sessionKey, session);
         }
 
-        // 添加用户消息
-        Message userMessage = new Message();
-        userMessage.setRole("user");
-        userMessage.setContent(content);
-        session.addMessage(userMessage);
-
         // 调用 Native Agent
         String response;
         try {
@@ -168,10 +162,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         Message assistantMessage = new Message();
         assistantMessage.setRole("assistant");
         assistantMessage.setContent(response);
-        session.addMessage(assistantMessage);
-
-        // TODO: C++ 持久化
-        saveSession(session);
 
         return assistantMessage;
     }
@@ -184,12 +174,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             session = new Session(sessionKey);
             sessions.put(sessionKey, session);
         }
-
-        // 添加用户消息
-        Message userMessage = new Message();
-        userMessage.setRole("user");
-        userMessage.setContent(content);
-        session.addMessage(userMessage);
 
         // 调用 Native Agent 流式接口
         NativeAgent.sendMessageStream(content, listener);
