@@ -188,9 +188,6 @@ public class MainPresenter implements MainContract.Presenter {
 
         ThreadPoolManager.executeAgentIO(() -> {
             try {
-                // 确保会话存在
-                mobileAgentApi.getSession(sessionKey);
-
                 Log.d(TAG, "loadMessages: calling getHistory, sessionKey=" + sessionKey);
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
                 Log.d(TAG, "loadMessages: got " + messages.size() + " messages");

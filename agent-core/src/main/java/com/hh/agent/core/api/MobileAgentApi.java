@@ -2,7 +2,6 @@ package com.hh.agent.core.api;
 
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.model.Message;
-import com.hh.agent.core.model.Session;
 
 import java.util.List;
 
@@ -10,23 +9,6 @@ import java.util.List;
  * MobileAgent API 接口
  */
 public interface MobileAgentApi {
-
-    /**
-     * 创建新会话
-     *
-     * @param channel 渠道（如 cli, telegram, discord）
-     * @param chatId 聊天 ID
-     * @return 会话对象
-     */
-    Session createSession(String channel, String chatId);
-
-    /**
-     * 获取会话
-     *
-     * @param sessionKey 会话密钥 (channel:chatId)
-     * @return 会话对象，如果不存在返回 null
-     */
-    Session getSession(String sessionKey);
 
     /**
      * 发送消息（同步）

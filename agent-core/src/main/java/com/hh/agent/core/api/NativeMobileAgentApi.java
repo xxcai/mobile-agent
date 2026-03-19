@@ -9,11 +9,8 @@ import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.NativeAgent;
 import com.hh.agent.core.model.Message;
-import com.hh.agent.core.model.Session;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * NativeMobileAgentApi 实现
@@ -24,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NativeMobileAgentApi implements MobileAgentApi {
 
     private static NativeMobileAgentApi instance;
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
     private static final Gson gson = new Gson();
 
@@ -50,13 +46,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     public synchronized void initializeContext(Context context) {
         // TODO: 后续 C++ 持久化需要 Context
         System.out.println("[NativeMobileAgentApi] initializeContext: Mock - session persistence not implemented");
-    }
-
-    /**
-     * 保存会话（空实现）
-     */
-    public synchronized void saveSession(Session session) {
-        // Not implemented - session persistence handled by C++ layer
     }
 
     /**
@@ -128,28 +117,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     @Override
-    public Session createSession(String channel, String chatId) {
-        String sessionKey = channel + ":" + chatId;
-        Session session = new Session(sessionKey);
-        sessions.put(sessionKey, session);
-        return session;
-    }
-
-    @Override
-    public Session getSession(String sessionKey) {
-        return sessions.get(sessionKey);
-    }
-
-    @Override
     public Message sendMessage(String content, String sessionKey) {
-        // 确保会话存在
-        Session session = sessions.get(sessionKey);
-        if (session == null) {
-            // 自动创建会话，直接使用传入的 sessionKey
-            session = new Session(sessionKey);
-            sessions.put(sessionKey, session);
-        }
-
         // 调用 Native Agent
         String response;
         try {
@@ -168,13 +136,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     @Override
     public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
-        // 确保会话存在
-        Session session = sessions.get(sessionKey);
-        if (session == null) {
-            session = new Session(sessionKey);
-            sessions.put(sessionKey, session);
-        }
-
         // 调用 Native Agent 流式接口
         NativeAgent.sendMessageStream(content, listener);
     }
@@ -257,7 +218,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             } catch (Exception e) {
                 // Ignore shutdown errors
             }
-            sessions.clear();
             initialized = false;
         }
     }
