@@ -23,8 +23,8 @@ import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.ToolCall;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.ToolCall;
 
 import java.util.List;
 

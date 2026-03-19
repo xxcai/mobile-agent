@@ -1,6 +1,6 @@
 package com.hh.agent.tool;
 
-import com.hh.agent.library.ToolExecutor;
+import com.hh.agent.core.ToolExecutor;
 
 /**
  * SearchContacts tool implementation.

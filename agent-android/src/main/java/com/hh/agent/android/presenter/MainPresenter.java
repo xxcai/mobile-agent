@@ -6,11 +6,11 @@ import android.os.Looper;
 import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.thread.ThreadPoolManager;
-import com.hh.agent.library.AgentEventListener;
-import com.hh.agent.library.api.MobileAgentApi;
-import com.hh.agent.library.api.NativeMobileAgentApi;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.ToolCall;
+import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.api.MobileAgentApi;
+import com.hh.agent.core.api.NativeMobileAgentApi;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.ToolCall;
 
 import java.util.List;
 import java.util.regex.Matcher;

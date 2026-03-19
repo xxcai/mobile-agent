@@ -1,8 +1,8 @@
 package com.hh.agent.android.presenter;
 
-import com.hh.agent.library.AgentEventListener;
-import com.hh.agent.library.NativeAgent;
-import com.hh.agent.library.api.MobileAgentApi;
+import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.api.MobileAgentApi;
 import com.hh.agent.android.thread.ThreadPoolManager;
 
 import java.util.concurrent.atomic.AtomicBoolean;

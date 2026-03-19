@@ -6,8 +6,8 @@ import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.WorkspaceManager;
-import com.hh.agent.library.ToolExecutor;
-import com.hh.agent.library.api.NativeMobileAgentApi;
+import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.api.NativeMobileAgentApi;
 
 import java.io.InputStream;
 import java.util.Map;
