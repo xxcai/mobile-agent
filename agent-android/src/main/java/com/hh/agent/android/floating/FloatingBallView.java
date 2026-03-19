@@ -21,14 +21,15 @@ import android.widget.ImageView;
  */
 public class FloatingBallView extends ImageView {
 
-    private static final long WORKING_ANIMATION_DURATION_MS = 1400L;
-    private static final float WORKING_SWEEP_ANGLE = 80f;
+    private static final long WORKING_ANIMATION_DURATION_MS = 1100L;
+    private static final float WORKING_SWEEP_ANGLE = 110f;
 
     private boolean isDragging = false;
     private boolean isWorking = false;
     private GestureDetector gestureDetector;
     private OnClickListener onSingleTapListener;
     private final int touchSlop;
+    private final Paint workingTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint workingRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF workingRingBounds = new RectF();
     private ValueAnimator workingAnimator;
@@ -51,10 +52,10 @@ public class FloatingBallView extends ImageView {
         int size48dp = dpToPx(48);
         setLayoutParams(new android.view.ViewGroup.LayoutParams(size48dp, size48dp));
 
-        // 创建圆形背景：50%透明度的浅灰色 #80CCCCCC
+        // 使用偏科技感的冷色底色，便于衬托工作态环形动画
         ShapeDrawable background = new ShapeDrawable(new OvalShape());
         Paint paint = background.getPaint();
-        paint.setColor(0x80CCCCCC);
+        paint.setColor(0xD01A2A44);
         paint.setStyle(Paint.Style.FILL);
         setBackground(background);
         setWillNotDraw(false);
@@ -98,10 +99,15 @@ public class FloatingBallView extends ImageView {
             }
         });
 
+        workingTrackPaint.setStyle(Paint.Style.STROKE);
+        workingTrackPaint.setStrokeCap(Paint.Cap.ROUND);
+        workingTrackPaint.setColor(Color.argb(90, 120, 210, 255));
+        workingTrackPaint.setStrokeWidth(dpToPx(2.2f));
+
         workingRingPaint.setStyle(Paint.Style.STROKE);
         workingRingPaint.setStrokeCap(Paint.Cap.ROUND);
-        workingRingPaint.setColor(Color.argb(180, 255, 255, 255));
-        workingRingPaint.setStrokeWidth(dpToPx(1.5f));
+        workingRingPaint.setColor(Color.argb(245, 151, 238, 255));
+        workingRingPaint.setStrokeWidth(dpToPx(2.4f));
     }
 
     private int dpToPx(float dp) {
@@ -145,8 +151,9 @@ public class FloatingBallView extends ImageView {
             return;
         }
 
-        float inset = dpToPx(5f);
+        float inset = dpToPx(6f);
         workingRingBounds.set(inset, inset, getWidth() - inset, getHeight() - inset);
+        canvas.drawArc(workingRingBounds, 0f, 360f, false, workingTrackPaint);
         canvas.drawArc(workingRingBounds, workingStartAngle, WORKING_SWEEP_ANGLE, false, workingRingPaint);
     }
 
