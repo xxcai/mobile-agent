@@ -3,7 +3,6 @@ package com.hh.agent.core.api;
 import android.content.Context;
 import java.util.ArrayList;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.hh.agent.core.AgentEventListener;
@@ -27,7 +26,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     private static NativeMobileAgentApi instance;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
-    private AndroidToolCallback toolCallback;
     private static final Gson gson = new Gson();
 
     private NativeMobileAgentApi() {
@@ -68,7 +66,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
      * @param callback 实现 AndroidToolCallback 接口的实例
      */
     public synchronized void setToolCallback(AndroidToolCallback callback) {
-        this.toolCallback = callback;
         // Forward to NativeAgent to register with C++ layer
         NativeAgent.registerAndroidToolCallback(callback);
     }

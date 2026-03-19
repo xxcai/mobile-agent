@@ -14,8 +14,7 @@
 // Global MobileAgent instance
 static std::unique_ptr<icraw::MobileAgent> g_agent;
 
-// Global JNI environment for callback invocations
-static JavaVM* g_jvm = nullptr;
+// Global callback object reference for Android tool invocations
 static jobject g_callback_object = nullptr;
 
 extern "C" {
@@ -28,9 +27,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
     }
-
-    // Store JavaVM reference for callback invocations
-    g_jvm = vm;
 
     // Initialize curl globally (required before using curl_easy_init)
     CURLcode curl_res = curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -183,44 +179,6 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(
         g_agent.reset();
         icraw::Logger::get_instance().logger()->info("MobileAgent destroyed");
     }
-}
-
-/**
- * Call an Android tool
- * Returns JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
- */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeCallAndroidTool(
-        JNIEnv* env,
-        jclass /* clazz */,
-        jstring toolName,
-        jstring argsJson) {
-    const char* tool_name = env->GetStringUTFChars(toolName, nullptr);
-    const char* args_json = env->GetStringUTFChars(argsJson, nullptr);
-
-    std::string result;
-
-    if (!tool_name || !args_json) {
-        nlohmann::json error_result;
-        error_result["success"] = false;
-        error_result["error"] = "invalid_arguments";
-        result = error_result.dump();
-    } else {
-        try {
-            auto args = nlohmann::json::parse(args_json);
-            result = icraw::g_android_tools.call_tool(tool_name, args);
-        } catch (const std::exception& e) {
-            nlohmann::json error_result;
-            error_result["success"] = false;
-            error_result["error"] = "invalid_args";
-            error_result["message"] = e.what();
-            result = error_result.dump();
-        }
-    }
-
-    env->ReleaseStringUTFChars(toolName, tool_name);
-    env->ReleaseStringUTFChars(argsJson, args_json);
-
-    return env->NewStringUTF(result.c_str());
 }
 
 /**
