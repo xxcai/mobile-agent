@@ -11,17 +11,6 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
-        <!-- 悬浮球相关组件 -->
-        <receiver
-            android:name="com.hh.agent.android.floating.FloatingBallReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.hh.agent.action.APP_FOREGROUND" />
-                <action android:name="com.hh.agent.action.APP_BACKGROUND" />
-                <action android:name="com.hh.agent.action.SHOW_FLOATING_BALL" />
-            </intent-filter>
-        </receiver>
-
         <activity
             android:name="com.hh.agent.android.floating.ContainerActivity"
             android:launchMode="singleTop"

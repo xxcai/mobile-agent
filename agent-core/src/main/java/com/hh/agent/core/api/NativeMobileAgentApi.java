@@ -3,18 +3,14 @@ package com.hh.agent.core.api;
 import android.content.Context;
 import java.util.ArrayList;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.NativeAgent;
 import com.hh.agent.core.model.Message;
-import com.hh.agent.core.model.Session;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * NativeMobileAgentApi 实现
@@ -23,11 +19,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * 注意：会话持久化为 Mock 实现，后续 C++ 模块开发时实现
  */
 public class NativeMobileAgentApi implements MobileAgentApi {
+    private static final String THINK_START = "<think>";
+    private static final String THINK_END = "</think>";
 
     private static NativeMobileAgentApi instance;
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private boolean initialized = false;
-    private AndroidToolCallback toolCallback;
     private static final Gson gson = new Gson();
 
     private NativeMobileAgentApi() {
@@ -55,20 +51,12 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
-     * 保存会话（空实现）
-     */
-    public synchronized void saveSession(Session session) {
-        // Not implemented - session persistence handled by C++ layer
-    }
-
-    /**
      * 设置 Android Tool 回调实现
      * 由 app 模块调用，注册 AndroidToolManager 实例
      *
      * @param callback 实现 AndroidToolCallback 接口的实例
      */
     public synchronized void setToolCallback(AndroidToolCallback callback) {
-        this.toolCallback = callback;
         // Forward to NativeAgent to register with C++ layer
         NativeAgent.registerAndroidToolCallback(callback);
     }
@@ -131,34 +119,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     @Override
-    public Session createSession(String channel, String chatId) {
-        String sessionKey = channel + ":" + chatId;
-        Session session = new Session(sessionKey);
-        sessions.put(sessionKey, session);
-        return session;
-    }
-
-    @Override
-    public Session getSession(String sessionKey) {
-        return sessions.get(sessionKey);
-    }
-
-    @Override
     public Message sendMessage(String content, String sessionKey) {
-        // 确保会话存在
-        Session session = sessions.get(sessionKey);
-        if (session == null) {
-            // 自动创建会话，直接使用传入的 sessionKey
-            session = new Session(sessionKey);
-            sessions.put(sessionKey, session);
-        }
-
-        // 添加用户消息
-        Message userMessage = new Message();
-        userMessage.setRole("user");
-        userMessage.setContent(content);
-        session.addMessage(userMessage);
-
         // 调用 Native Agent
         String response;
         try {
@@ -171,29 +132,12 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         Message assistantMessage = new Message();
         assistantMessage.setRole("assistant");
         assistantMessage.setContent(response);
-        session.addMessage(assistantMessage);
-
-        // TODO: C++ 持久化
-        saveSession(session);
 
         return assistantMessage;
     }
 
     @Override
     public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
-        // 确保会话存在
-        Session session = sessions.get(sessionKey);
-        if (session == null) {
-            session = new Session(sessionKey);
-            sessions.put(sessionKey, session);
-        }
-
-        // 添加用户消息
-        Message userMessage = new Message();
-        userMessage.setRole("user");
-        userMessage.setContent(content);
-        session.addMessage(userMessage);
-
         // 调用 Native Agent 流式接口
         NativeAgent.sendMessageStream(content, listener);
     }
@@ -232,6 +176,8 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 String timestampStr = jsonMsg.get("timestamp").getAsString();
                 msg.setTimestamp(parseTimestamp(timestampStr));
 
+                sanitizePersistedAssistantContent(msg);
+
                 messages.add(msg);
             }
 
@@ -266,6 +212,68 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         }
     }
 
+    private void sanitizePersistedAssistantContent(Message message) {
+        if (message == null || !"assistant".equals(message.getRole())) {
+            return;
+        }
+
+        String content = message.getContent();
+        if (content == null || !content.contains(THINK_START)) {
+            return;
+        }
+
+        StringBuilder thinkBuilder = new StringBuilder();
+        StringBuilder contentBuilder = new StringBuilder();
+        int cursor = 0;
+
+        while (cursor < content.length()) {
+            int thinkStart = content.indexOf(THINK_START, cursor);
+            if (thinkStart < 0) {
+                appendIfNotEmpty(contentBuilder, content.substring(cursor));
+                break;
+            }
+
+            appendIfNotEmpty(contentBuilder, content.substring(cursor, thinkStart));
+
+            int thinkContentStart = thinkStart + THINK_START.length();
+            int thinkEnd = content.indexOf(THINK_END, thinkContentStart);
+            if (thinkEnd < 0) {
+                appendIfNotEmpty(contentBuilder, content.substring(thinkContentStart));
+                break;
+            }
+
+            appendThinkIfNotEmpty(thinkBuilder, content.substring(thinkContentStart, thinkEnd));
+            cursor = thinkEnd + THINK_END.length();
+        }
+
+        message.setThinkContent(toNullableString(thinkBuilder));
+        message.setContent(toNullableString(contentBuilder));
+    }
+
+    private static void appendIfNotEmpty(StringBuilder builder, String text) {
+        if (text != null && !text.isEmpty()) {
+            builder.append(text);
+        }
+    }
+
+    private static void appendThinkIfNotEmpty(StringBuilder builder, String text) {
+        if (text == null) {
+            return;
+        }
+        String trimmed = text.trim();
+        if (trimmed.isEmpty()) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append("\n");
+        }
+        builder.append(trimmed);
+    }
+
+    private static String toNullableString(StringBuilder builder) {
+        return builder.length() == 0 ? null : builder.toString();
+    }
+
     /**
      * 关闭并清理资源
      */
@@ -276,7 +284,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             } catch (Exception e) {
                 // Ignore shutdown errors
             }
-            sessions.clear();
             initialized = false;
         }
     }

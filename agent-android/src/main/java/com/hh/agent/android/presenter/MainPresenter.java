@@ -13,8 +13,6 @@ import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
 
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * MainActivity 的 Presenter 实现
@@ -38,6 +36,9 @@ public class MainPresenter implements MainContract.Presenter {
      * 每次 parse 调用时传入累积的所有文本，从中解析出 thinking 和正文部分
      */
     private static class StreamTextParser {
+        private static final String THINK_START = "<think>";
+        private static final String THINK_END = "</think>";
+
         /**
          * 解析文本，根据标签返回对应的内容（全量解析）
          * @param text 累积的所有文本
@@ -51,51 +52,34 @@ public class MainPresenter implements MainContract.Presenter {
                 return result;
             }
 
-            // Step 1: 使用正则表达式捕获所有完整的 <think>...</think> 块
-            // Pattern: <think>(.*?)</think> 使用非贪婪匹配，re.DOTALL 让 . 匹配换行符
-            Pattern completePattern = Pattern.compile("<think>(.*?</think>)", Pattern.DOTALL);
-            Matcher completeMatcher = completePattern.matcher(text);
+            int cursor = 0;
+            StringBuilder thinkBuilder = new StringBuilder();
+            StringBuilder contentBuilder = new StringBuilder();
 
-            StringBuilder allThinkContent = new StringBuilder();
-            int lastEnd = 0;
-
-            while (completeMatcher.find()) {
-                // 提取块内容（去掉<think>和</think>标签），并去掉首尾空白
-                String blockContent = completeMatcher.group(1).trim();
-                if (!blockContent.isEmpty()) {
-                    if (allThinkContent.length() > 0) {
-                        allThinkContent.append("\n");
-                    }
-                    allThinkContent.append(blockContent);
+            while (cursor < text.length()) {
+                int thinkStart = text.indexOf(THINK_START, cursor);
+                if (thinkStart < 0) {
+                    appendIfNotEmpty(contentBuilder, text.substring(cursor));
+                    break;
                 }
-                lastEnd = completeMatcher.end();
+
                 result.hasThinkStart = true;
+                appendIfNotEmpty(contentBuilder, text.substring(cursor, thinkStart));
+
+                int thinkContentStart = thinkStart + THINK_START.length();
+                int thinkEnd = text.indexOf(THINK_END, thinkContentStart);
+                if (thinkEnd < 0) {
+                    appendThinkIfNotEmpty(thinkBuilder, text.substring(thinkContentStart));
+                    break;
+                }
+
                 result.hasThinkEnd = true;
+                appendThinkIfNotEmpty(thinkBuilder, text.substring(thinkContentStart, thinkEnd));
+                cursor = thinkEnd + THINK_END.length();
             }
 
-            result.thinkContent = allThinkContent.length() > 0 ? allThinkContent.toString() : null;
-
-            // Step 2: 检查是否存在未完成的 <think> 块（没有对应的</think>）
-            // 在剩余文本中查找是否有 <think> 但没有培训学校
-            String remainingText = text.substring(lastEnd);
-            int unfinishedThinkStart = remainingText.indexOf("<think>");
-
-            if (unfinishedThinkStart >= 0) {
-                // 存在未完成的 think 块
-                result.hasThinkStart = true;
-                // 去掉开始的 <think> 标签，保留未完成的内容
-                String unfinishedThink = remainingText.substring(unfinishedThinkStart + 8).trim();
-                if (result.thinkContent == null) {
-                    result.thinkContent = unfinishedThink;
-                } else if (!unfinishedThink.isEmpty()) {
-                    result.thinkContent += "\n" + unfinishedThink;
-                }
-                // 剩余正文为未完成块之前的内容
-                result.contentContent = remainingText.substring(0, unfinishedThinkStart);
-            } else {
-                // 没有未完成的块，剩余全部作为正文
-                result.contentContent = remainingText.isEmpty() ? null : remainingText;
-            }
+            result.thinkContent = toNullableString(thinkBuilder);
+            result.contentContent = toNullableString(contentBuilder);
 
             Log.d(TAG, "StreamTextParser result = " + result);
             return result;
@@ -106,6 +90,30 @@ public class MainPresenter implements MainContract.Presenter {
          */
         void reset() {
             // 全量解析不需要维护状态，无需重置
+        }
+
+        private static void appendIfNotEmpty(StringBuilder builder, String text) {
+            if (text != null && !text.isEmpty()) {
+                builder.append(text);
+            }
+        }
+
+        private static void appendThinkIfNotEmpty(StringBuilder builder, String text) {
+            if (text == null) {
+                return;
+            }
+            String trimmed = text.trim();
+            if (trimmed.isEmpty()) {
+                return;
+            }
+            if (builder.length() > 0) {
+                builder.append("\n");
+            }
+            builder.append(trimmed);
+        }
+
+        private static String toNullableString(StringBuilder builder) {
+            return builder.length() == 0 ? null : builder.toString();
         }
 
         static class ParsedResult {
@@ -188,9 +196,6 @@ public class MainPresenter implements MainContract.Presenter {
 
         ThreadPoolManager.executeAgentIO(() -> {
             try {
-                // 确保会话存在
-                mobileAgentApi.getSession(sessionKey);
-
                 Log.d(TAG, "loadMessages: calling getHistory, sessionKey=" + sessionKey);
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
                 Log.d(TAG, "loadMessages: got " + messages.size() + " messages");
