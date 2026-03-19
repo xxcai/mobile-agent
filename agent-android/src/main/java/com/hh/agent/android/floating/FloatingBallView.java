@@ -7,6 +7,7 @@ import android.graphics.drawable.shapes.OvalShape;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.ImageView;
 
 /**
@@ -18,6 +19,7 @@ public class FloatingBallView extends ImageView {
     private boolean isDragging = false;
     private GestureDetector gestureDetector;
     private OnClickListener onSingleTapListener;
+    private final int touchSlop;
 
     // 记录按下时的初始位置
     private float mInitialTouchX;
@@ -27,6 +29,7 @@ public class FloatingBallView extends ImageView {
 
     public FloatingBallView(Context context) {
         super(context);
+        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         init();
     }
 
@@ -62,12 +65,15 @@ public class FloatingBallView extends ImageView {
             // 拖拽滚动
             @Override
             public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-                isDragging = true;
-                FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
-
                 // 计算相对于初始按下的偏移
                 float offsetX = e2.getRawX() - mInitialTouchX;
                 float offsetY = e2.getRawY() - mInitialTouchY;
+                if (!isDragging && Math.hypot(offsetX, offsetY) < touchSlop) {
+                    return false;
+                }
+
+                isDragging = true;
+                FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
 
                 // 新位置 = 初始球位置 + 手指偏移
                 int newX = mInitialBallX + (int) offsetX;
@@ -75,14 +81,6 @@ public class FloatingBallView extends ImageView {
 
                 manager.updatePosition(newX, newY);
                 return true;
-            }
-
-            // 拖拽结束
-            @Override
-            public void onLongPress(MotionEvent e) {
-                isDragging = false;
-                FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
-                manager.snapToEdge();
             }
         });
     }
@@ -107,6 +105,7 @@ public class FloatingBallView extends ImageView {
             // 记录按下时的初始位置
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
+                isDragging = false;
                 mInitialTouchX = event.getRawX();
                 mInitialTouchY = event.getRawY();
                 mInitialBallX = manager.getX();
@@ -117,7 +116,8 @@ public class FloatingBallView extends ImageView {
             gestureDetector.onTouchEvent(event);
 
             // 拖拽结束时吸附到边缘
-            if (event.getAction() == MotionEvent.ACTION_UP && isDragging) {
+            if ((event.getAction() == MotionEvent.ACTION_UP
+                    || event.getAction() == MotionEvent.ACTION_CANCEL) && isDragging) {
                 isDragging = false;
                 FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
                 manager.snapToEdge();
