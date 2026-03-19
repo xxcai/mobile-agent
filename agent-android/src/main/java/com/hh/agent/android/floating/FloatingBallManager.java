@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
@@ -26,6 +28,7 @@ public class FloatingBallManager {
     private static FloatingBallManager sInstance;
 
     private final Context mContext;
+    private final Handler mMainHandler;
     private final WindowManager mWindowManager;
     private WindowManager.LayoutParams mLayoutParams;
     private FloatingBallView mFloatingBallView;
@@ -36,6 +39,7 @@ public class FloatingBallManager {
 
     private FloatingBallManager(Context context) {
         mContext = context.getApplicationContext();
+        mMainHandler = new Handler(Looper.getMainLooper());
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
     }
 
@@ -50,6 +54,13 @@ public class FloatingBallManager {
                 }
             }
         }
+        return sInstance;
+    }
+
+    /**
+     * 获取已初始化的单例实例
+     */
+    public static FloatingBallManager getInstance() {
         return sInstance;
     }
 
@@ -174,6 +185,15 @@ public class FloatingBallManager {
      * 设置当前 Agent 是否正在工作
      */
     public void setWorking(boolean isWorking) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mMainHandler.post(() -> applyWorkingState(isWorking));
+            return;
+        }
+
+        applyWorkingState(isWorking);
+    }
+
+    private void applyWorkingState(boolean isWorking) {
         if (mIsWorking == isWorking) {
             return;
         }
