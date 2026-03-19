@@ -8,8 +8,6 @@ import com.hh.agent.core.api.NativeMobileAgentApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +20,6 @@ public class AndroidToolManager implements AndroidToolCallback {
 
     private Context context;
     private final Map<String, ToolExecutor> tools = new HashMap<>();
-    private int configVersion = 0;
 
     public AndroidToolManager(Context context) {
         this.context = context;
@@ -34,10 +31,6 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public void initialize() {
         Log.i("AndroidToolManager", "Initializing AndroidToolManager");
-
-        // Load tools.json from assets
-        loadToolsConfig();
-        Log.i("AndroidToolManager", "Loaded tools config, version: " + configVersion);
 
         // Register callback with NativeMobileAgentApi
         NativeMobileAgentApi.getInstance().setToolCallback(this);
@@ -279,31 +272,6 @@ public class AndroidToolManager implements AndroidToolCallback {
         this.context = null;
     }
 
-    private void loadToolsConfig() {
-        try {
-            InputStream is = context.getAssets().open("tools.json");
-            byte[] buffer = new byte[1024];
-            int bytesRead = is.read(buffer);
-            String jsonStr = new String(buffer, 0, bytesRead);
-            is.close();
-
-            JSONObject config = new JSONObject(jsonStr);
-            configVersion = config.optInt("version", 1);
-
-            // Load tool configurations from JSON (for future validation)
-            JSONArray toolsArray = config.optJSONArray("tools");
-            if (toolsArray != null) {
-                for (int i = 0; i < toolsArray.length(); i++) {
-                    JSONObject tool = toolsArray.getJSONObject(i);
-                    // Currently we only support built-in tools
-                    // Future: dynamic tool loading
-                }
-            }
-        } catch (Exception e) {
-            // If tools.json not found, use built-in tools only
-        }
-    }
-
     @Override
     public String callTool(String toolName, String argsJson) {
         try {
@@ -338,10 +306,4 @@ public class AndroidToolManager implements AndroidToolCallback {
         }
     }
 
-    /**
-     * Get the configuration version.
-     */
-    public int getConfigVersion() {
-        return configVersion;
-    }
 }
