@@ -105,6 +105,7 @@ public class FloatingBallView extends ImageView {
             // 记录按下时的初始位置
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 FloatingBallManager manager = FloatingBallManager.getInstance(getContext());
+                manager.cancelSnapAnimation();
                 isDragging = false;
                 mInitialTouchX = event.getRawX();
                 mInitialTouchY = event.getRawY();

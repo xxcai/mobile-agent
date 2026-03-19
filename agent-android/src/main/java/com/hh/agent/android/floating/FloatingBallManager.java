@@ -1,5 +1,6 @@
 package com.hh.agent.android.floating;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Toast;
 
 /**
@@ -19,6 +21,7 @@ import android.widget.Toast;
 public class FloatingBallManager {
 
     private static final String TAG = "FloatingBallManager";
+    private static final long SNAP_ANIMATION_DURATION_MS = 200L;
     private static FloatingBallManager sInstance;
 
     private final Context mContext;
@@ -26,6 +29,7 @@ public class FloatingBallManager {
     private WindowManager.LayoutParams mLayoutParams;
     private FloatingBallView mFloatingBallView;
     private View.OnClickListener mOnClickListener;
+    private ValueAnimator mSnapAnimator;
     private boolean mIsShowing = false;
 
     private FloatingBallManager(Context context) {
@@ -133,6 +137,7 @@ public class FloatingBallManager {
     public void hide() {
         if (mIsShowing && mFloatingBallView != null) {
             try {
+                cancelSnapAnimation();
                 mWindowManager.removeView(mFloatingBallView);
                 mIsShowing = false;
             } catch (Exception e) {
@@ -238,6 +243,16 @@ public class FloatingBallManager {
     }
 
     /**
+     * 取消吸附动画
+     */
+    public void cancelSnapAnimation() {
+        if (mSnapAnimator != null) {
+            mSnapAnimator.cancel();
+            mSnapAnimator = null;
+        }
+    }
+
+    /**
      * 边缘吸附
      */
     public void snapToEdge() {
@@ -253,15 +268,39 @@ public class FloatingBallManager {
         int centerX = mLayoutParams.x + ballSize / 2;
 
         // 根据中心点位置吸附到最近边缘
+        int targetX;
         if (centerX < screenWidth / 2) {
-            mLayoutParams.x = 0;
+            targetX = 0;
         } else {
-            mLayoutParams.x = rightEdge;
+            targetX = rightEdge;
         }
 
-        if (mIsShowing) {
-            mWindowManager.updateViewLayout(mFloatingBallView, mLayoutParams);
+        if (!mIsShowing) {
+            mLayoutParams.x = targetX;
+            return;
         }
+
+        startSnapAnimation(targetX);
+    }
+
+    private void startSnapAnimation(int targetX) {
+        cancelSnapAnimation();
+
+        int startX = mLayoutParams.x;
+        if (startX == targetX) {
+            return;
+        }
+
+        mSnapAnimator = ValueAnimator.ofInt(startX, targetX);
+        mSnapAnimator.setDuration(SNAP_ANIMATION_DURATION_MS);
+        mSnapAnimator.setInterpolator(new DecelerateInterpolator());
+        mSnapAnimator.addUpdateListener(animation -> {
+            mLayoutParams.x = (int) animation.getAnimatedValue();
+            if (mIsShowing) {
+                mWindowManager.updateViewLayout(mFloatingBallView, mLayoutParams);
+            }
+        });
+        mSnapAnimator.start();
     }
 
     private int dpToPx(int dp) {
