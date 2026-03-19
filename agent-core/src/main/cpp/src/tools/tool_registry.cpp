@@ -278,6 +278,20 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
         return;
     }
 
+    // 这里只清理通过 register_tools_from_schema 注册进来的动态工具，
+    // 不影响内置工具。这样上层重复下发同名工具时表现为“覆盖更新”，
+    // 而不是在 tool_schemas_ 中不断追加重复项。
+    for (const auto& tool_name : dynamic_tool_names_) {
+        tools_.erase(tool_name);
+    }
+    tool_schemas_.erase(
+        std::remove_if(tool_schemas_.begin(), tool_schemas_.end(),
+            [this](const ToolSchema& tool_schema) {
+                return dynamic_tool_names_.find(tool_schema.name) != dynamic_tool_names_.end();
+            }),
+        tool_schemas_.end());
+    dynamic_tool_names_.clear();
+
     const auto& tools = schema["tools"];
     for (const auto& tool : tools) {
         if (!tool.contains("type") || !tool.contains("function")) {
@@ -337,6 +351,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
         };
 
         tool_schemas_.push_back(std::move(tool_schema));
+        dynamic_tool_names_.insert(tool_schema.name);
         ICRAW_LOG_INFO("[TOOL] register_tools_from_schema: Registered tool '{}'", tool_schema.name);
     }
 }

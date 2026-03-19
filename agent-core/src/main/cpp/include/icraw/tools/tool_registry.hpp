@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <memory>
 #include "icraw/types.hpp"
@@ -55,6 +56,7 @@ private:
 
     std::unordered_map<std::string, std::function<std::string(const nlohmann::json&)>> tools_;
     std::vector<ToolSchema> tool_schemas_;
+    std::unordered_set<std::string> dynamic_tool_names_;
     std::string base_path_;
 };
 
