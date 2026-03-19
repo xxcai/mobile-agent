@@ -11,8 +11,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.R;
-import com.hh.agent.library.model.Message;
-import com.hh.agent.library.model.ToolCall;
+import com.hh.agent.core.model.Message;
+import com.hh.agent.core.model.ToolCall;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;

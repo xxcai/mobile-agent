@@ -47,7 +47,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
 /**
  * Get the native agent version
  */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeGetVersion(
+JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetVersion(
         JNIEnv* env,
         jclass /* clazz */) {
     std::string version = "1.0.0-native";
@@ -58,7 +58,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeGetVersion
  * Initialize the native agent
  * Returns: 0 on success, -1 on failure
  */
-JNIEXPORT jint JNICALL Java_com_hh_agent_library_NativeAgent_nativeInitialize(
+JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
         JNIEnv* env,
         jclass /* clazz */,
         jstring configJsonStr) {
@@ -137,7 +137,7 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_library_NativeAgent_nativeInitialize(
 /**
  * Send a message to the agent and get a response
  */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessage(
+JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
         JNIEnv* env,
         jclass /* clazz */,
         jstring message) {
@@ -172,7 +172,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessag
 /**
  * Shutdown the native agent
  */
-JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeShutdown(
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(
         JNIEnv* env,
         jclass /* clazz */) {
     icraw::Logger::get_instance().logger()->info("Shutting down NativeAgent");
@@ -189,7 +189,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeShutdown(
  * Call an Android tool
  * Returns JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
  */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeCallAndroidTool(
+JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeCallAndroidTool(
         JNIEnv* env,
         jclass /* clazz */,
         jstring toolName,
@@ -227,7 +227,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeCallAndroi
  * Register Android tool callback from Java
  * This creates a JNI callback that delegates to the Java AndroidToolCallback interface
  */
-JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndroidToolCallback(
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidToolCallback(
         JNIEnv* env,
         jclass /* clazz */,
         jobject callback) {
@@ -335,7 +335,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeRegisterAndro
  * Set tools schema from Java (JSON format)
  * This allows Java to pass tools.json content to C++ for tool registration
  */
-JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSetToolsSchema(
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
         JNIEnv* env,
         jclass /* clazz */,
         jstring schemaJson) {
@@ -377,7 +377,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSetToolsSchem
  * Send a message with streaming callback to Java layer
  * This implements the stream event channel from C++ to Java
  */
-JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageStream(
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStream(
         JNIEnv* env,
         jclass /* clazz */,
         jstring message,
@@ -574,7 +574,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeSendMessageSt
 /**
  * Cancel the current streaming request
  */
-JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeCancelStream(
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeCancelStream(
         JNIEnv* env,
         jclass /* clazz */) {
 
@@ -594,7 +594,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_library_NativeAgent_nativeCancelStream(
  * Get recent messages from SQLite database filtered by roles
  * Returns JSON array of messages: [{"role": "user", "content": "...", "timestamp": "..."}, ...]
  */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_library_NativeAgent_nativeGetHistory(
+JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
         JNIEnv* env,
         jclass /* clazz */,
         jstring sessionId,

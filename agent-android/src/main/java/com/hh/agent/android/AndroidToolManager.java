@@ -2,9 +2,9 @@ package com.hh.agent.android;
 
 import android.content.Context;
 import android.util.Log;
-import com.hh.agent.library.AndroidToolCallback;
-import com.hh.agent.library.ToolExecutor;
-import com.hh.agent.library.api.NativeMobileAgentApi;
+import com.hh.agent.core.AndroidToolCallback;
+import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.api.NativeMobileAgentApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
