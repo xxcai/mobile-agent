@@ -1,13 +1,18 @@
 package com.hh.agent.android.floating;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
 
 /**
@@ -16,11 +21,18 @@ import android.widget.ImageView;
  */
 public class FloatingBallView extends ImageView {
 
+    private static final long WORKING_ANIMATION_DURATION_MS = 1400L;
+    private static final float WORKING_SWEEP_ANGLE = 80f;
+
     private boolean isDragging = false;
     private boolean isWorking = false;
     private GestureDetector gestureDetector;
     private OnClickListener onSingleTapListener;
     private final int touchSlop;
+    private final Paint workingRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF workingRingBounds = new RectF();
+    private ValueAnimator workingAnimator;
+    private float workingStartAngle = -90f;
 
     // 记录按下时的初始位置
     private float mInitialTouchX;
@@ -45,6 +57,7 @@ public class FloatingBallView extends ImageView {
         paint.setColor(0x80CCCCCC);
         paint.setStyle(Paint.Style.FILL);
         setBackground(background);
+        setWillNotDraw(false);
 
         setScaleType(ScaleType.CENTER);
 
@@ -84,9 +97,14 @@ public class FloatingBallView extends ImageView {
                 return true;
             }
         });
+
+        workingRingPaint.setStyle(Paint.Style.STROKE);
+        workingRingPaint.setStrokeCap(Paint.Cap.ROUND);
+        workingRingPaint.setColor(Color.argb(180, 255, 255, 255));
+        workingRingPaint.setStrokeWidth(dpToPx(1.5f));
     }
 
-    private int dpToPx(int dp) {
+    private int dpToPx(float dp) {
         float density = getContext().getResources().getDisplayMetrics().density;
         return Math.round(dp * density);
     }
@@ -100,14 +118,58 @@ public class FloatingBallView extends ImageView {
 
     /**
      * 设置当前 Agent 是否正在工作
-     * 第一步只记录状态，动画在后续步骤接入
      */
     public void setWorking(boolean isWorking) {
+        if (this.isWorking == isWorking) {
+            return;
+        }
+
         this.isWorking = isWorking;
+        if (isWorking) {
+            startWorkingAnimation();
+        } else {
+            stopWorkingAnimation();
+        }
+        invalidate();
     }
 
     public boolean isWorking() {
         return isWorking;
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        if (!isWorking) {
+            return;
+        }
+
+        float inset = dpToPx(5f);
+        workingRingBounds.set(inset, inset, getWidth() - inset, getHeight() - inset);
+        canvas.drawArc(workingRingBounds, workingStartAngle, WORKING_SWEEP_ANGLE, false, workingRingPaint);
+    }
+
+    private void startWorkingAnimation() {
+        stopWorkingAnimation();
+
+        workingAnimator = ValueAnimator.ofFloat(0f, 360f);
+        workingAnimator.setDuration(WORKING_ANIMATION_DURATION_MS);
+        workingAnimator.setInterpolator(new LinearInterpolator());
+        workingAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        workingAnimator.addUpdateListener(animation -> {
+            workingStartAngle = -90f + (float) animation.getAnimatedValue();
+            invalidate();
+        });
+        workingAnimator.start();
+    }
+
+    private void stopWorkingAnimation() {
+        if (workingAnimator != null) {
+            workingAnimator.cancel();
+            workingAnimator = null;
+        }
+        workingStartAngle = -90f;
     }
 
     /**
