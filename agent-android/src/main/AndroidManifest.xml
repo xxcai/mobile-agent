@@ -15,6 +15,7 @@
             android:name="com.hh.agent.android.floating.ContainerActivity"
             android:launchMode="singleTop"
             android:theme="@style/ContainerActivityTheme"
+            android:windowSoftInputMode="adjustNothing"
             android:exported="false" />
     </application>
 

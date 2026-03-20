@@ -7,18 +7,18 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
@@ -28,10 +28,14 @@ import androidx.fragment.app.FragmentTransaction;
  */
 public class ContainerActivity extends AppCompatActivity {
 
-    private static final String TAG = "ContainerActivity";
+    private static final long ENTER_ANIMATION_DURATION_MS = 220L;
+    private static final long EXIT_ANIMATION_DURATION_MS = 180L;
 
-    private LinearLayout mRootLayout;
+    private FrameLayout mRootLayout;
+    private View mScrimView;
+    private LinearLayout mCardLayout;
     private FloatingBallManager mFloatingBallManager;
+    private boolean mIsClosing;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -60,14 +64,12 @@ public class ContainerActivity extends AppCompatActivity {
      * 设置Window为半透明
      */
     private void setupWindow() {
-        // 窗口半透明已在主题中通过windowIsTranslucent设置
-        // 此处不再需要FLAG_TRANSLUCENT_STATUS，避免与底部定位窗口冲突
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // 设置窗口高度为屏幕75%
         WindowManager.LayoutParams params = getWindow().getAttributes();
-        int screenHeight = getResources().getDisplayMetrics().heightPixels;
-        params.height = (int) (screenHeight * 0.75);
-        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        params.width = WindowManager.LayoutParams.MATCH_PARENT;
+        params.height = WindowManager.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.FILL;
 
         // 设置标志位监听窗口外部触摸事件
         // FLAG_NOT_TOUCH_MODAL: 让触摸事件传递给下层窗口
@@ -82,29 +84,45 @@ public class ContainerActivity extends AppCompatActivity {
      * 创建布局
      */
     private void setupLayout() {
-        // 创建根布局 - 使用LinearLayout简化垂直布局
-        mRootLayout = new LinearLayout(this);
-        mRootLayout.setOrientation(LinearLayout.VERTICAL);
-        mRootLayout.setBackgroundColor(0xFFFFFFFF); // 纯白色背景
+        mRootLayout = new FrameLayout(this);
+        mRootLayout.setBackgroundColor(0x00000000);
 
-        // 设置布局参数
-        LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
+        FrameLayout.LayoutParams rootParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
         );
-        rootParams.gravity = Gravity.BOTTOM;
-        // 顶部/左右保持16dp，底部为导航栏高度
-        rootParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
         mRootLayout.setLayoutParams(rootParams);
 
+        mScrimView = new View(this);
+        mScrimView.setBackgroundColor(0x66000000);
+        mScrimView.setAlpha(0f);
+        mScrimView.setOnClickListener(v -> finish());
+        mRootLayout.addView(mScrimView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+
+        mCardLayout = new LinearLayout(this);
+        mCardLayout.setOrientation(LinearLayout.VERTICAL);
+        mCardLayout.setBackgroundColor(0xFFFFFFFF);
+
+        int screenHeight = getResources().getDisplayMetrics().heightPixels;
+        FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                (int) (screenHeight * 0.75f),
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL
+        );
+        cardParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+        mCardLayout.setLayoutParams(cardParams);
+
         // 设置圆角 outline（使窗口呈现圆角）
-        mRootLayout.setOutlineProvider(new ViewOutlineProvider() {
+        mCardLayout.setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dpToPx(24));
             }
         });
-        mRootLayout.setClipToOutline(true);
+        mCardLayout.setClipToOutline(true);
 
         // 创建内容区域容器 (填充剩余空间)
         FrameLayout contentContainer = new FrameLayout(this);
@@ -113,18 +131,71 @@ public class ContainerActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
         );
-        mRootLayout.addView(contentContainer, contentParams);
+        mCardLayout.addView(contentContainer, contentParams);
+        mRootLayout.addView(mCardLayout);
 
         // 设置容器内部点击不关闭（移除原来的OnClickListener）
         // 外部点击通过 FLAG_WATCH_OUTSIDE_TOUCH 机制处理
 
         setContentView(mRootLayout);
+        setupInsetsHandling();
 
         // 加载 AgentFragment 到内容区域
         loadAgentFragment(contentContainer.getId());
 
-        // 设置进入和退出动画
-        overridePendingTransition(R.anim.slide_in_bottom, R.anim.slide_out_bottom);
+        startEnterAnimation();
+    }
+
+    private void setupInsetsHandling() {
+        ViewCompat.setOnApplyWindowInsetsListener(mRootLayout, (view, windowInsets) -> {
+            Insets systemBarsInsets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            boolean imeVisible = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
+
+            FrameLayout.LayoutParams cardParams = (FrameLayout.LayoutParams) mCardLayout.getLayoutParams();
+            int horizontalMargin = dpToPx(16);
+            int topMargin = dpToPx(16) + systemBarsInsets.top;
+            int baseBottomMargin = dpToPx(16) + systemBarsInsets.bottom;
+            int imeLift = imeVisible ? Math.max(0, imeInsets.bottom - systemBarsInsets.bottom) : 0;
+
+            // Keep the card above the IME by moving its bottom margin up by the keyboard overlap.
+            // This avoids relying on window resize/pan for the translucent activity.
+            int bottomMargin = baseBottomMargin + imeLift;
+
+            // Compute the normal 75% card height from the available viewport without the IME.
+            // When the keyboard is visible, cap the card height so the top edge stays on-screen
+            // while the bottom edge remains anchored above the keyboard.
+            int availableHeight = view.getHeight() - topMargin - baseBottomMargin;
+            if (availableHeight > 0) {
+                int baseCardHeight = Math.round(availableHeight * 0.75f);
+                int maxCardHeightWhenImeVisible = Math.max(0, availableHeight - imeLift);
+                cardParams.height = imeVisible
+                        ? Math.min(baseCardHeight, maxCardHeightWhenImeVisible)
+                        : baseCardHeight;
+            }
+            cardParams.setMargins(horizontalMargin, topMargin, horizontalMargin, bottomMargin);
+            mCardLayout.setLayoutParams(cardParams);
+            return windowInsets;
+        });
+
+        ViewCompat.requestApplyInsets(mRootLayout);
+    }
+
+    private void startEnterAnimation() {
+        mRootLayout.post(() -> {
+            if (mCardLayout == null || mScrimView == null) {
+                return;
+            }
+            mCardLayout.setTranslationY(mCardLayout.getHeight() + dpToPx(24));
+            mCardLayout.animate()
+                    .translationY(0f)
+                    .setDuration(ENTER_ANIMATION_DURATION_MS)
+                    .start();
+            mScrimView.animate()
+                    .alpha(1f)
+                    .setDuration(ENTER_ANIMATION_DURATION_MS)
+                    .start();
+        });
     }
 
     /**
@@ -140,64 +211,36 @@ public class ContainerActivity extends AppCompatActivity {
         transaction.commit();
     }
 
-    /**
-     * 创建标题栏
-     */
-    private View createTitleBar() {
-        // 使用FrameLayout作为标题栏容器，可以方便地定位子元素
-        FrameLayout titleBar = new FrameLayout(this);
-        titleBar.setBackgroundColor(0xE6FFFFFF); // 90%不透明的白色背景
-
-        // 标题文字 - 居中显示
-        TextView titleText = new TextView(this);
-        titleText.setText("容器");
-        titleText.setTextSize(18);
-        titleText.setTextColor(0xFF333333);
-        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        titleParams.gravity = Gravity.CENTER;
-        titleText.setLayoutParams(titleParams);
-        titleBar.addView(titleText);
-
-        // 关闭按钮 - 靠右显示
-        ImageButton closeButton = new ImageButton(this);
-        closeButton.setBackgroundResource(android.R.drawable.ic_menu_close_clear_cancel);
-        closeButton.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(
-                dpToPx(36),
-                dpToPx(36)
-        );
-        closeParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
-        closeParams.rightMargin = dpToPx(12);
-        closeButton.setLayoutParams(closeParams);
-        closeButton.setOnClickListener(v -> finish());
-        titleBar.addView(closeButton);
-
-        // 底部分割线
-        View divider = new View(this);
-        divider.setBackgroundColor(0xFFDDDDDD);
-        FrameLayout.LayoutParams dividerParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(1)
-        );
-        dividerParams.gravity = Gravity.BOTTOM;
-        divider.setLayoutParams(dividerParams);
-        titleBar.addView(divider);
-
-        return titleBar;
-    }
-
     @Override
     public void finish() {
+        if (mIsClosing) {
+            return;
+        }
+        mIsClosing = true;
+
         // 显示悬浮球
         if (mFloatingBallManager != null) {
             mFloatingBallManager.show();
         }
-        super.finish();
-        // 设置退出动画
-        overridePendingTransition(0, R.anim.slide_out_bottom);
+
+        if (mCardLayout == null || mScrimView == null) {
+            super.finish();
+            overridePendingTransition(0, 0);
+            return;
+        }
+
+        mScrimView.animate()
+                .alpha(0f)
+                .setDuration(EXIT_ANIMATION_DURATION_MS)
+                .start();
+        mCardLayout.animate()
+                .translationY(mCardLayout.getHeight() + dpToPx(24))
+                .setDuration(EXIT_ANIMATION_DURATION_MS)
+                .withEndAction(() -> {
+                    super.finish();
+                    overridePendingTransition(0, 0);
+                })
+                .start();
     }
 
     @Override
