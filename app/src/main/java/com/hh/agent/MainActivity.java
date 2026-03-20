@@ -32,6 +32,15 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView outputView;
 
+    private static final class SchemaSummary {
+        boolean containsLegacyChannel;
+        boolean containsGestureChannel;
+        String legacyDescription = "";
+        String legacyFunctionDescription = "";
+        String legacyArgsDescription = "";
+        String gestureDescription = "";
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,12 +56,11 @@ public class MainActivity extends AppCompatActivity {
         int padding = dp(16);
         container.setPadding(padding, padding, padding, padding);
 
-        Button runButton = new Button(this);
-        runButton.setText("Run Tool Channel Tests");
-        runButton.setOnClickListener(v -> runToolChannelTests());
-        container.addView(runButton, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
+        addActionButton(container, "Run All", v -> runAllSections());
+        addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
+        addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
+        addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
+        addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
 
         outputView = new TextView(this);
         outputView.setTextIsSelectable(true);
@@ -69,82 +77,77 @@ public class MainActivity extends AppCompatActivity {
         return scrollView;
     }
 
-    private void runToolChannelTests() {
+    private void addActionButton(LinearLayout container, String text, android.view.View.OnClickListener listener) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setOnClickListener(listener);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.bottomMargin = dp(8);
+        container.addView(button, params);
+    }
+
+    // 点击后执行完整回归：包含通道摘要、意图映射、skill 兼容性和运行用例。
+    private void runAllSections() {
         StringBuilder report = new StringBuilder();
 
         try {
             AndroidToolManager manager = buildTestToolManager();
-            appendChannelSummary(report, manager);
-            appendIntentMappingChecks(report, manager);
+            SchemaSummary summary = buildSchemaSummary(manager);
+            appendChannelSummary(report, manager, summary);
+            appendIntentMappingChecks(report, summary);
             appendImSenderCompatibilityNote(report);
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 1: legacy call_android_tool success",
-                    "call_android_tool",
-                    new JSONObject()
-                            .put("function", "search_contacts")
-                            .put("args", new JSONObject().put("query", "李四")),
-                    "success");
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 2: legacy call_android_tool missing function",
-                    "call_android_tool",
-                    new JSONObject().put("args", new JSONObject()),
-                    "invalid_args");
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 3: legacy call_android_tool inner tool not found",
-                    "call_android_tool",
-                    new JSONObject()
-                            .put("function", "not_exists")
-                            .put("args", new JSONObject()),
-                    "tool_not_found");
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 4: gesture channel tap mock result",
-                    "android_gesture_tool",
-                    new JSONObject()
-                            .put("action", "tap")
-                            .put("x", 100)
-                            .put("y", 200),
-                    "success");
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 5: gesture channel swipe mock result",
-                    "android_gesture_tool",
-                    new JSONObject()
-                            .put("action", "swipe")
-                            .put("startX", 10)
-                            .put("startY", 20)
-                            .put("endX", 300)
-                            .put("endY", 400)
-                            .put("duration", 500),
-                    "success");
-
-            runCase(
-                    report,
-                    manager,
-                    "Case 6: gesture channel invalid swipe params",
-                    "android_gesture_tool",
-                    new JSONObject()
-                            .put("action", "swipe")
-                            .put("startX", 10)
-                            .put("startY", 20),
-                    "invalid_args");
+            appendRuntimeCases(report, manager);
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
 
+        outputView.setText(report.toString());
+    }
+
+    // 点击后只检查通道注册和 schema 摘要，确认当前暴露给模型的顶层工具定义。
+    private void runChannelSummarySection() {
+        StringBuilder report = new StringBuilder();
+        try {
+            AndroidToolManager manager = buildTestToolManager();
+            SchemaSummary summary = buildSchemaSummary(manager);
+            appendChannelSummary(report, manager, summary);
+        } catch (Exception e) {
+            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
+        }
+        outputView.setText(report.toString());
+    }
+
+    // 点击后只展示典型用户意图与预期 channel/tool 的映射，用于人工判断提示是否清晰。
+    private void runIntentMappingSection() {
+        StringBuilder report = new StringBuilder();
+        try {
+            AndroidToolManager manager = buildTestToolManager();
+            SchemaSummary summary = buildSchemaSummary(manager);
+            appendIntentMappingChecks(report, summary);
+        } catch (Exception e) {
+            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
+        }
+        outputView.setText(report.toString());
+    }
+
+    // 点击后只检查现有 skill 的兼容性说明，确认既有 skill 仍能沿旧通道工作。
+    private void runSkillCompatibilitySection() {
+        StringBuilder report = new StringBuilder();
+        appendImSenderCompatibilityNote(report);
+        outputView.setText(report.toString());
+    }
+
+    // 点击后只运行实际调用 case，验证兼容通道和手势通道的执行结果是否符合预期。
+    private void runRuntimeCasesSection() {
+        StringBuilder report = new StringBuilder();
+        try {
+            AndroidToolManager manager = buildTestToolManager();
+            appendRuntimeCases(report, manager);
+        } catch (Exception e) {
+            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
+        }
         outputView.setText(report.toString());
     }
 
@@ -158,6 +161,38 @@ public class MainActivity extends AppCompatActivity {
         manager.registerTools(tools);
         manager.initialize();
         return manager;
+    }
+
+    private SchemaSummary buildSchemaSummary(AndroidToolManager manager) throws Exception {
+        SchemaSummary summary = new SchemaSummary();
+        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
+        JSONArray tools = schema.getJSONArray("tools");
+        for (int i = 0; i < tools.length(); i++) {
+            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
+            if ("call_android_tool".equals(function.optString("name"))) {
+                summary.containsLegacyChannel = true;
+                summary.legacyDescription = function.optString("description");
+                JSONObject parameters = function.optJSONObject("parameters");
+                if (parameters != null) {
+                    JSONObject properties = parameters.optJSONObject("properties");
+                    if (properties != null) {
+                        JSONObject functionProperty = properties.optJSONObject("function");
+                        JSONObject argsProperty = properties.optJSONObject("args");
+                        summary.legacyFunctionDescription = functionProperty != null
+                                ? functionProperty.optString("description")
+                                : "";
+                        summary.legacyArgsDescription = argsProperty != null
+                                ? argsProperty.optString("description")
+                                : "";
+                    }
+                }
+            }
+            if ("android_gesture_tool".equals(function.optString("name"))) {
+                summary.containsGestureChannel = true;
+                summary.gestureDescription = function.optString("description");
+            }
+        }
+        return summary;
     }
 
     private void runCase(StringBuilder report,
@@ -179,130 +214,72 @@ public class MainActivity extends AppCompatActivity {
         report.append("status: ").append(matched ? "PASS" : "FAIL").append("\n\n");
     }
 
-    private void appendChannelSummary(StringBuilder report, AndroidToolManager manager) throws Exception {
+    private void appendChannelSummary(StringBuilder report,
+                                      AndroidToolManager manager,
+                                      SchemaSummary summary) {
+        appendSectionHeader(report, "Channel Summary");
         report.append("Registered channels: ").append(manager.getRegisteredChannels().keySet()).append('\n');
         report.append("Gesture executor: ")
                 .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())
                 .append('\n');
-
-        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
-        JSONArray tools = schema.getJSONArray("tools");
-        boolean containsLegacyChannel = false;
-        boolean containsGestureChannel = false;
-        String legacyDescription = "";
-        String gestureDescription = "";
-        String legacyFunctionDescription = "";
-        String legacyArgsDescription = "";
-        for (int i = 0; i < tools.length(); i++) {
-            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
-            if ("call_android_tool".equals(function.optString("name"))) {
-                containsLegacyChannel = true;
-                legacyDescription = function.optString("description");
-                JSONObject parameters = function.optJSONObject("parameters");
-                if (parameters != null) {
-                    JSONObject properties = parameters.optJSONObject("properties");
-                    if (properties != null) {
-                        legacyFunctionDescription = properties.optJSONObject("function") != null
-                                ? properties.optJSONObject("function").optString("description")
-                                : "";
-                        legacyArgsDescription = properties.optJSONObject("args") != null
-                                ? properties.optJSONObject("args").optString("description")
-                                : "";
-                    }
-                }
-            }
-            if ("android_gesture_tool".equals(function.optString("name"))) {
-                containsGestureChannel = true;
-                gestureDescription = function.optString("description");
-            }
-        }
-
         report.append("Schema contains call_android_tool: ")
-                .append(containsLegacyChannel ? "PASS" : "FAIL")
+                .append(summary.containsLegacyChannel ? "PASS" : "FAIL")
                 .append('\n');
         report.append("Schema contains android_gesture_tool: ")
-                .append(containsGestureChannel ? "PASS" : "FAIL")
+                .append(summary.containsGestureChannel ? "PASS" : "FAIL")
                 .append('\n');
         report.append("call_android_tool description: ")
-                .append(legacyDescription)
+                .append(summary.legacyDescription)
                 .append('\n');
         report.append("call_android_tool.function description: ")
-                .append(legacyFunctionDescription)
+                .append(summary.legacyFunctionDescription)
                 .append('\n');
         report.append("call_android_tool.args description: ")
-                .append(legacyArgsDescription)
+                .append(summary.legacyArgsDescription)
                 .append('\n');
         report.append("android_gesture_tool description: ")
-                .append(gestureDescription)
+                .append(summary.gestureDescription)
                 .append("\n\n");
     }
 
-    private void appendIntentMappingChecks(StringBuilder report, AndroidToolManager manager) throws Exception {
-        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
-        JSONArray tools = schema.getJSONArray("tools");
-
-        String legacyFunctionDescription = "";
-        String legacyArgsDescription = "";
-        String gestureDescription = "";
-        for (int i = 0; i < tools.length(); i++) {
-            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
-            if ("call_android_tool".equals(function.optString("name"))) {
-                JSONObject parameters = function.optJSONObject("parameters");
-                if (parameters != null) {
-                    JSONObject properties = parameters.optJSONObject("properties");
-                    if (properties != null) {
-                        legacyFunctionDescription = properties.optJSONObject("function") != null
-                                ? properties.optJSONObject("function").optString("description")
-                                : "";
-                        legacyArgsDescription = properties.optJSONObject("args") != null
-                                ? properties.optJSONObject("args").optString("description")
-                                : "";
-                    }
-                }
-            }
-            if ("android_gesture_tool".equals(function.optString("name"))) {
-                gestureDescription = function.optString("description");
-            }
-        }
-
-        report.append("Intent Mapping Checks").append('\n');
-        report.append("---------------------").append('\n');
+    private void appendIntentMappingChecks(StringBuilder report, SchemaSummary summary) {
+        appendSectionHeader(report, "Intent Mapping");
 
         appendIntentCheck(report,
                 "给李四发消息说明天开会",
                 "call_android_tool",
                 "send_im_message",
-                legacyFunctionDescription,
-                legacyArgsDescription);
+                summary.legacyFunctionDescription,
+                summary.legacyArgsDescription);
         appendIntentCheck(report,
                 "查一下张三是不是联系人",
                 "call_android_tool",
                 "search_contacts",
-                legacyFunctionDescription,
-                legacyArgsDescription);
+                summary.legacyFunctionDescription,
+                summary.legacyArgsDescription);
         appendIntentCheck(report,
                 "看看剪贴板里是什么",
                 "call_android_tool",
                 "read_clipboard",
-                legacyFunctionDescription,
-                legacyArgsDescription);
+                summary.legacyFunctionDescription,
+                summary.legacyArgsDescription);
         appendIntentCheck(report,
                 "弹一个通知提醒我开会",
                 "call_android_tool",
                 "display_notification",
-                legacyFunctionDescription,
-                legacyArgsDescription);
+                summary.legacyFunctionDescription,
+                summary.legacyArgsDescription);
         appendIntentCheck(report,
                 "点击屏幕右下角按钮",
                 "android_gesture_tool",
                 "tap",
-                gestureDescription,
+                summary.gestureDescription,
                 "tap 需要 x/y；swipe 需要 startX/startY/endX/endY");
         appendIntentCheck(report,
                 "从屏幕底部往上滑",
                 "android_gesture_tool",
                 "swipe",
-                gestureDescription,
+                summary.gestureDescription,
                 "tap 需要 x/y；swipe 需要 startX/startY/endX/endY");
 
         report.append('\n');
@@ -322,13 +299,88 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void appendImSenderCompatibilityNote(StringBuilder report) {
-        report.append("IM Sender Compatibility").append('\n');
-        report.append("-----------------------").append('\n');
+        appendSectionHeader(report, "IM Sender Compatibility");
         report.append("Skill path: app/src/main/assets/workspace/skills/im_sender/SKILL.md").append('\n');
         report.append("Expected channel: call_android_tool").append('\n');
         report.append("Expected functions: search_contacts, send_im_message").append('\n');
         report.append("Status: current schema still exposes both functions under call_android_tool, so the existing skill path remains valid.")
                 .append("\n\n");
+    }
+
+    private void appendRuntimeCases(StringBuilder report, AndroidToolManager manager) throws Exception {
+        appendSectionHeader(report, "Runtime Cases");
+
+        runCase(
+                report,
+                manager,
+                "Legacy success: search_contacts",
+                "call_android_tool",
+                new JSONObject()
+                        .put("function", "search_contacts")
+                        .put("args", new JSONObject().put("query", "李四")),
+                "success");
+
+        runCase(
+                report,
+                manager,
+                "Legacy invalid args: missing function",
+                "call_android_tool",
+                new JSONObject().put("args", new JSONObject()),
+                "invalid_args");
+
+        runCase(
+                report,
+                manager,
+                "Legacy missing tool",
+                "call_android_tool",
+                new JSONObject()
+                        .put("function", "not_exists")
+                        .put("args", new JSONObject()),
+                "tool_not_found");
+
+        runCase(
+                report,
+                manager,
+                "Gesture mock success: tap",
+                "android_gesture_tool",
+                new JSONObject()
+                        .put("action", "tap")
+                        .put("x", 100)
+                        .put("y", 200),
+                "success");
+
+        runCase(
+                report,
+                manager,
+                "Gesture mock success: swipe",
+                "android_gesture_tool",
+                new JSONObject()
+                        .put("action", "swipe")
+                        .put("startX", 10)
+                        .put("startY", 20)
+                        .put("endX", 300)
+                        .put("endY", 400)
+                        .put("duration", 500),
+                "success");
+
+        runCase(
+                report,
+                manager,
+                "Gesture invalid args: missing end coordinates",
+                "android_gesture_tool",
+                new JSONObject()
+                        .put("action", "swipe")
+                        .put("startX", 10)
+                        .put("startY", 20),
+                "invalid_args");
+    }
+
+    private void appendSectionHeader(StringBuilder report, String title) {
+        report.append(title).append('\n');
+        for (int i = 0; i < title.length(); i++) {
+            report.append('-');
+        }
+        report.append("\n");
     }
 
     private int dp(int value) {
