@@ -5,14 +5,5 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowAnimationStyle">@style/ContainerActivityAnimation</item>
-    </style>
-
-    <!-- 容器Activity动画样式 -->
-    <style name="ContainerActivityAnimation">
-        <item name="android:activityOpenEnterAnimation">@anim/slide_in_bottom</item>
-        <item name="android:activityOpenExitAnimation">@anim/slide_out_bottom</item>
-        <item name="android:activityCloseEnterAnimation">@anim/slide_in_bottom</item>
-        <item name="android:activityCloseExitAnimation">@anim/slide_out_bottom</item>
     </style>
 </resources>
