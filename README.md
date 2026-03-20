@@ -184,6 +184,52 @@ AgentInitializer.initialize(
 );
 ```
 
+如果需要启用默认悬浮球入口，可在初始化完成后调用：
+
+```java
+AgentInitializer.initialize(
+        applicationContext,
+        voiceRecognizer,
+        tools,
+        () -> AgentInitializer.initializeFloatingBall(
+                (Application) applicationContext,
+                null
+        )
+);
+```
+
+`initializeFloatingBall(...)` 现在会自动注册默认的 `ActivityLifecycleCallbacks`，默认规则如下：
+
+- `ContainerActivity` 展示时隐藏悬浮球
+- 宿主 App 在前台时显示悬浮球
+- 宿主 App 退到后台时隐藏悬浮球
+
+如果宿主还需要额外指定某些页面隐藏悬浮球，可直接传入这些页面的完整类名列表：
+
+```java
+AgentInitializer.initialize(
+        applicationContext,
+        voiceRecognizer,
+        tools,
+        () -> AgentInitializer.initializeFloatingBall(
+                (Application) applicationContext,
+                Arrays.asList(
+                        "com.example.YourHiddenActivity",
+                        "com.example.OtherHiddenActivity"
+                )
+        )
+);
+```
+
+当前只保留一个公开入口：
+
+- `initializeFloatingBall(Application application, List<String> hiddenActivityClassNames)`
+
+调用约定：
+
+- 传 `null` 表示只使用默认规则
+- 传 `List<String>` 表示额外追加需要隐藏悬浮球的 Activity 完整类名列表
+
 ### 4. 嵌入对话界面
 
 `agent-android` 提供了 `AgentFragment`，宿主应用可直接嵌入该 Fragment 作为默认对话 UI。

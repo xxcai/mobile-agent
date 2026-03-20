@@ -23,6 +23,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".FloatingBallVisibleActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".FloatingBallHiddenActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

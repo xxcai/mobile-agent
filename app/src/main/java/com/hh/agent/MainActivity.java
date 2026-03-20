@@ -1,5 +1,6 @@
 package com.hh.agent;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.view.ViewGroup;
@@ -61,6 +62,10 @@ public class MainActivity extends AppCompatActivity {
         addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
         addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
+        addActionButton(container, "Open Visible Activity", v ->
+                startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
+        addActionButton(container, "Open Hidden Activity", v ->
+                startActivity(new Intent(this, FloatingBallHiddenActivity.class)));
 
         outputView = new TextView(this);
         outputView.setTextIsSelectable(true);
