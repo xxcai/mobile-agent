@@ -17,6 +17,7 @@ import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;
 import com.hh.agent.tool.SendImMessageTool;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.HashMap;
@@ -46,8 +47,8 @@ public class MainActivity extends AppCompatActivity {
         container.setPadding(padding, padding, padding, padding);
 
         Button runButton = new Button(this);
-        runButton.setText("Run Step 1 App-Level Tests");
-        runButton.setOnClickListener(v -> runStep1Tests());
+        runButton.setText("Run Tool Channel Tests");
+        runButton.setOnClickListener(v -> runToolChannelTests());
         container.addView(runButton, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -67,11 +68,12 @@ public class MainActivity extends AppCompatActivity {
         return scrollView;
     }
 
-    private void runStep1Tests() {
+    private void runToolChannelTests() {
         StringBuilder report = new StringBuilder();
 
         try {
             AndroidToolManager manager = buildTestToolManager();
+            appendChannelSummary(report, manager);
 
             runCase(
                     report,
@@ -147,6 +149,25 @@ public class MainActivity extends AppCompatActivity {
         report.append("result: ").append(result).append('\n');
         report.append("expected: ").append(expectedMarker).append('\n');
         report.append("status: ").append(matched ? "PASS" : "FAIL").append("\n\n");
+    }
+
+    private void appendChannelSummary(StringBuilder report, AndroidToolManager manager) throws Exception {
+        report.append("Registered channels: ").append(manager.getRegisteredChannels().keySet()).append('\n');
+
+        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
+        JSONArray tools = schema.getJSONArray("tools");
+        boolean containsLegacyChannel = false;
+        for (int i = 0; i < tools.length(); i++) {
+            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
+            if ("call_android_tool".equals(function.optString("name"))) {
+                containsLegacyChannel = true;
+                break;
+            }
+        }
+
+        report.append("Schema contains call_android_tool: ")
+                .append(containsLegacyChannel ? "PASS" : "FAIL")
+                .append("\n\n");
     }
 
     private int dp(int value) {
