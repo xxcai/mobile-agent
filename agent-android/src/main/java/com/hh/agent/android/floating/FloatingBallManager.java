@@ -154,6 +154,23 @@ public class FloatingBallManager {
     }
 
     /**
+     * 按当前状态更新悬浮球可见性。
+     */
+    public void updateVisibility(boolean appInForeground, boolean blockedByCurrentActivity) {
+        if (!checkOverlayPermission()) {
+            hide();
+            return;
+        }
+
+        if (!appInForeground || blockedByCurrentActivity) {
+            hide();
+            return;
+        }
+
+        show();
+    }
+
+    /**
      * 是否正在显示
      */
     public boolean isShowing() {

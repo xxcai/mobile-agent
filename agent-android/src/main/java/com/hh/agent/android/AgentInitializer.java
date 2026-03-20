@@ -1,15 +1,18 @@
 package com.hh.agent.android;
 
+import android.app.Application;
 import android.content.Context;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.floating.ContainerActivity;
+import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.android.WorkspaceManager;
 import com.hh.agent.core.ToolExecutor;
 import com.hh.agent.core.api.NativeMobileAgentApi;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -73,11 +76,19 @@ public class AgentInitializer {
     }
 
     /**
-     * 初始化悬浮球
+     * 初始化悬浮球和生命周期控制。
      * 必须在 Agent 核心初始化完成后调用
-     * @param application Application Context
+     * 调用方应传入宿主 Application。
+     * hiddenActivityClassNames 传 null 时使用默认规则：
+     * 1. ContainerActivity 显示时隐藏悬浮球
+     * 2. 宿主 App 在前台时显示，退到后台时隐藏
+     * 如需追加隐藏页面，可传入不展示悬浮球的 Activity 完整类名列表。
+     * @param application 宿主 Application
+     * @param hiddenActivityClassNames 需要隐藏悬浮球的 Activity 完整类名列表，可为 null
      */
-    public static void initializeFloatingBall(Context application) {
+    public static void initializeFloatingBall(Application application,
+                                              List<String> hiddenActivityClassNames) {
+
         // 初始化悬浮球
         FloatingBallManager floatingBallManager = FloatingBallManager.getInstance(application);
         floatingBallManager.initialize();
@@ -98,6 +109,10 @@ public class AgentInitializer {
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
             application.startActivity(intent);
         });
+
+        application.registerActivityLifecycleCallbacks(
+                new FloatingBallLifecycleCallbacks(application, hiddenActivityClassNames)
+        );
     }
 
     /**
