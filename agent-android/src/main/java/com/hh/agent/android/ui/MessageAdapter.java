@@ -371,12 +371,11 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // 工具状态文本
             TextView tvStatus = new TextView(context);
-            String toolDisplayName = getToolDisplayName(toolCall);
             String statusText;
             if ("completed".equals(toolCall.getStatus())) {
-                statusText = toolDisplayName + " 已完成调用";
+                statusText = toolCall.getName() + " 已完成调用";
             } else {
-                statusText = "正在使用: " + toolDisplayName;
+                statusText = "正在使用: " + toolCall.getName();
             }
             tvStatus.setText(statusText);
             tvStatus.setTextSize(12);
@@ -391,18 +390,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             toolItem.addView(tvStatus);
 
             toolListContainer.addView(toolItem);
-        }
-
-        private String getToolDisplayName(ToolCall toolCall) {
-            if (toolCall == null) {
-                return "";
-            }
-            String displayName = toolCall.getDisplayName();
-            if (displayName != null && !displayName.trim().isEmpty()) {
-                return displayName.trim();
-            }
-            String rawName = toolCall.getName();
-            return rawName != null ? rawName : "";
         }
 
         /**
