@@ -3,6 +3,7 @@ package com.hh.agent.android;
 import android.content.Context;
 import android.util.Log;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
+import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.LegacyAndroidToolChannel;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.ToolExecutor;
@@ -27,6 +28,7 @@ public class AndroidToolManager implements AndroidToolCallback {
     public AndroidToolManager(Context context) {
         this.context = context;
         registerChannel(new LegacyAndroidToolChannel(tools));
+        registerChannel(new GestureToolChannel());
     }
 
     /**

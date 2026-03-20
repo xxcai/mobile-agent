@@ -106,13 +106,24 @@ public class MainActivity extends AppCompatActivity {
             runCase(
                     report,
                     manager,
-                    "Case 4: unsupported outer channel",
+                    "Case 4: gesture channel tap mock result",
                     "android_gesture_tool",
                     new JSONObject()
                             .put("action", "tap")
                             .put("x", 100)
                             .put("y", 200),
-                    "unsupported_tool_channel");
+                    "success");
+
+            runCase(
+                    report,
+                    manager,
+                    "Case 5: gesture channel invalid swipe params",
+                    "android_gesture_tool",
+                    new JSONObject()
+                            .put("action", "swipe")
+                            .put("startX", 10)
+                            .put("startY", 20),
+                    "invalid_args");
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
@@ -157,16 +168,22 @@ public class MainActivity extends AppCompatActivity {
         JSONObject schema = new JSONObject(manager.generateToolsJsonString());
         JSONArray tools = schema.getJSONArray("tools");
         boolean containsLegacyChannel = false;
+        boolean containsGestureChannel = false;
         for (int i = 0; i < tools.length(); i++) {
             JSONObject function = tools.getJSONObject(i).getJSONObject("function");
             if ("call_android_tool".equals(function.optString("name"))) {
                 containsLegacyChannel = true;
-                break;
+            }
+            if ("android_gesture_tool".equals(function.optString("name"))) {
+                containsGestureChannel = true;
             }
         }
 
         report.append("Schema contains call_android_tool: ")
                 .append(containsLegacyChannel ? "PASS" : "FAIL")
+                .append('\n');
+        report.append("Schema contains android_gesture_tool: ")
+                .append(containsGestureChannel ? "PASS" : "FAIL")
                 .append("\n\n");
     }
 
