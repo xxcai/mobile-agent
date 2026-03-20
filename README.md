@@ -96,6 +96,14 @@ agent-android/
 
 ### 构建项目
 
+构建 `agent-core` 前，先在 `agent-core/` 目录准备 Android C++ 依赖：
+
+```bash
+cd agent-core
+conan install . -pr android.profile -s arch=armv8 --build missing
+cd ..
+```
+
 构建全部模块：
 
 ```bash
