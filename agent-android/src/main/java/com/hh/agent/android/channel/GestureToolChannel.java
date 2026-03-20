@@ -1,5 +1,9 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.gesture.AndroidGestureExecutor;
+import com.hh.agent.android.gesture.GestureExecutionResult;
+import com.hh.agent.android.gesture.GestureExecutorRegistry;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -69,38 +73,27 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                 return buildError("invalid_args", "android_gesture_tool requires a non-empty 'action' field");
             }
 
+            AndroidGestureExecutor executor = GestureExecutorRegistry.getExecutor();
+            GestureExecutionResult result;
             switch (action) {
                 case "tap":
                     if (!params.has("x") || !params.has("y")) {
                         return buildError("invalid_args", "tap requires integer fields 'x' and 'y'");
                     }
-                    return buildMockResult("tap", params);
+                    result = executor.tap(params);
+                    return result.toJsonString(CHANNEL_NAME);
                 case "swipe":
                     if (!params.has("startX") || !params.has("startY")
                             || !params.has("endX") || !params.has("endY")) {
                         return buildError("invalid_args", "swipe requires 'startX', 'startY', 'endX', and 'endY'");
                     }
-                    return buildMockResult("swipe", params);
+                    result = executor.swipe(params);
+                    return result.toJsonString(CHANNEL_NAME);
                 default:
                     return buildError("invalid_args", "Unsupported gesture action '" + action + "'");
             }
         } catch (Exception e) {
             return buildError("execution_failed", e.getMessage());
-        }
-    }
-
-    private String buildMockResult(String action, JSONObject params) {
-        try {
-            return new JSONObject()
-                    .put("success", true)
-                    .put("mock", true)
-                    .put("channel", CHANNEL_NAME)
-                    .put("action", action)
-                    .put("result", "not_implemented")
-                    .put("params", new JSONObject(params.toString()))
-                    .toString();
-        } catch (Exception ignored) {
-            return "{\"success\":true,\"mock\":true,\"result\":\"not_implemented\"}";
         }
     }
 

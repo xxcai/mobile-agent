@@ -11,6 +11,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
+import com.hh.agent.android.gesture.GestureExecutorRegistry;
 import com.hh.agent.core.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
@@ -117,7 +118,21 @@ public class MainActivity extends AppCompatActivity {
             runCase(
                     report,
                     manager,
-                    "Case 5: gesture channel invalid swipe params",
+                    "Case 5: gesture channel swipe mock result",
+                    "android_gesture_tool",
+                    new JSONObject()
+                            .put("action", "swipe")
+                            .put("startX", 10)
+                            .put("startY", 20)
+                            .put("endX", 300)
+                            .put("endY", 400)
+                            .put("duration", 500),
+                    "success");
+
+            runCase(
+                    report,
+                    manager,
+                    "Case 6: gesture channel invalid swipe params",
                     "android_gesture_tool",
                     new JSONObject()
                             .put("action", "swipe")
@@ -164,6 +179,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void appendChannelSummary(StringBuilder report, AndroidToolManager manager) throws Exception {
         report.append("Registered channels: ").append(manager.getRegisteredChannels().keySet()).append('\n');
+        report.append("Gesture executor: ")
+                .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())
+                .append('\n');
 
         JSONObject schema = new JSONObject(manager.generateToolsJsonString());
         JSONArray tools = schema.getJSONArray("tools");
