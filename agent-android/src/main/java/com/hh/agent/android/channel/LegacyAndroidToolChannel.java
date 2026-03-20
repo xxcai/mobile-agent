@@ -29,32 +29,22 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     @Override
     public JSONObject buildToolDefinition() throws Exception {
-        StringBuilder descriptionBuilder = new StringBuilder();
-        descriptionBuilder.append("调用宿主 App 已注册的业务工具和设备功能。")
-                .append("适合联系人搜索、发送消息、读取剪贴板、展示通知等 App 级任务。")
-                .append("不要用这个通道做坐标点击、滑动等手势操作；这类动作应使用 android_gesture_tool。")
-                .append("调用格式固定为 {\"function\":\"工具名\",\"args\":{...}}。")
-                .append("可用功能如下:\n");
         JSONArray toolNames = new JSONArray();
+        String functionChoicesDescription = buildFunctionChoicesDescription();
+        String argsDescription = buildArgsDescription();
 
         for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
             ToolExecutor executor = entry.getValue();
             String toolName = executor.getName();
-            ToolDefinition toolDefinition = executor.getDefinition();
             toolNames.put(toolName);
-
-            descriptionBuilder.append("- ").append(toolName).append(": ")
-                    .append(toolDefinition.getSummary())
-                    .append(", 示例意图: ")
-                    .append(String.join(" / ", toolDefinition.getIntentExamples()))
-                    .append(", 示例参数: ")
-                    .append(toolDefinition.getArgsExample())
-                    .append("\n");
         }
 
         JSONObject functionObj = new JSONObject();
         functionObj.put("name", CHANNEL_NAME);
-        functionObj.put("description", descriptionBuilder.toString().trim());
+        functionObj.put("description",
+                "调用宿主 App 已注册的业务工具。适用于联系人、消息、通知、剪贴板等业务能力。"
+                        + "协议固定为 {\"function\":\"工具名\",\"args\":{...}}。"
+                        + "不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。");
 
         JSONObject params = new JSONObject();
         params.put("type", "object");
@@ -63,13 +53,13 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
         JSONObject functionParam = new JSONObject();
         functionParam.put("type", "string");
-        functionParam.put("description", "要调用的业务工具名称。仅能从 enum 列表中选择，例如 search_contacts、send_im_message。");
+        functionParam.put("description", functionChoicesDescription);
         functionParam.put("enum", toolNames);
         properties.put("function", functionParam);
 
         JSONObject argsParam = new JSONObject();
         argsParam.put("type", "object");
-        argsParam.put("description", "传给 function 的 JSON 参数对象。字段结构取决于具体工具，例如 search_contacts 需要 {\"query\":\"张三\"}。");
+        argsParam.put("description", argsDescription);
         properties.put("args", argsParam);
 
         params.put("properties", properties);
@@ -84,6 +74,43 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         return new JSONObject()
                 .put("type", "function")
                 .put("function", functionObj);
+    }
+
+    private String buildFunctionChoicesDescription() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("要调用的业务工具名称，只能从 enum 列表中选择。")
+                .append("按用户意图选择最匹配的工具：\n");
+
+        for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
+            String toolName = entry.getKey();
+            ToolDefinition definition = entry.getValue().getDefinition();
+            builder.append("- ").append(toolName)
+                    .append(": ").append(definition.getSummary())
+                    .append("；常见意图：")
+                    .append(String.join(" / ", definition.getIntentExamples()))
+                    .append('\n');
+        }
+
+        return builder.toString().trim();
+    }
+
+    private String buildArgsDescription() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("传给 function 的 JSON 参数对象。args 的字段结构由所选 function 决定。")
+                .append("最小可用样例如下：\n");
+
+        for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
+            String toolName = entry.getKey();
+            ToolDefinition definition = entry.getValue().getDefinition();
+            builder.append("- ").append(toolName)
+                    .append(": schema=")
+                    .append(definition.getArgsSchema())
+                    .append("；example=")
+                    .append(definition.getArgsExample())
+                    .append('\n');
+        }
+
+        return builder.toString().trim();
     }
 
     @Override

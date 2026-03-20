@@ -189,11 +189,25 @@ public class MainActivity extends AppCompatActivity {
         boolean containsGestureChannel = false;
         String legacyDescription = "";
         String gestureDescription = "";
+        String legacyFunctionDescription = "";
+        String legacyArgsDescription = "";
         for (int i = 0; i < tools.length(); i++) {
             JSONObject function = tools.getJSONObject(i).getJSONObject("function");
             if ("call_android_tool".equals(function.optString("name"))) {
                 containsLegacyChannel = true;
                 legacyDescription = function.optString("description");
+                JSONObject parameters = function.optJSONObject("parameters");
+                if (parameters != null) {
+                    JSONObject properties = parameters.optJSONObject("properties");
+                    if (properties != null) {
+                        legacyFunctionDescription = properties.optJSONObject("function") != null
+                                ? properties.optJSONObject("function").optString("description")
+                                : "";
+                        legacyArgsDescription = properties.optJSONObject("args") != null
+                                ? properties.optJSONObject("args").optString("description")
+                                : "";
+                    }
+                }
             }
             if ("android_gesture_tool".equals(function.optString("name"))) {
                 containsGestureChannel = true;
@@ -209,6 +223,12 @@ public class MainActivity extends AppCompatActivity {
                 .append('\n');
         report.append("call_android_tool description: ")
                 .append(legacyDescription)
+                .append('\n');
+        report.append("call_android_tool.function description: ")
+                .append(legacyFunctionDescription)
+                .append('\n');
+        report.append("call_android_tool.args description: ")
+                .append(legacyArgsDescription)
                 .append('\n');
         report.append("android_gesture_tool description: ")
                 .append(gestureDescription)
