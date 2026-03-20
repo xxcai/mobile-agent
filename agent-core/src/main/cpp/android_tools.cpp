@@ -18,12 +18,12 @@ std::string AndroidTools::call_tool(const std::string& tool_name, const nlohmann
     }
 
     try {
-        Logger::get_instance().logger()->debug("Calling Android tool: {} with args: {}", tool_name, args.dump());
+        Logger::get_instance().logger()->debug("Calling Android tool channel: {} with params: {}", tool_name, args.dump());
         std::string result = callback_->call_tool(tool_name, args);
-        Logger::get_instance().logger()->debug("Android tool result: {}", result);
+        Logger::get_instance().logger()->debug("Android tool channel result: {}", result);
         return result;
     } catch (const std::exception& e) {
-        Logger::get_instance().logger()->error("Android tool {} failed: {}", tool_name, e.what());
+        Logger::get_instance().logger()->error("Android tool channel {} failed: {}", tool_name, e.what());
         nlohmann::json result;
         result["success"] = false;
         result["error"] = "execution_failed";

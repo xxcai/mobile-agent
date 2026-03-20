@@ -1,6 +1,11 @@
 package com.hh.agent.tool;
 
+import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+
+import org.json.JSONObject;
+
+import java.util.Arrays;
 
 /**
  * SearchContacts tool implementation.
@@ -18,7 +23,27 @@ public class SearchContactsTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(org.json.JSONObject args) {
+    public ToolDefinition getDefinition() {
+        try {
+            return new ToolDefinition(
+                    "按联系人姓名或关键字搜索联系人",
+                    Arrays.asList("查找张三", "搜索联系人李四", "找一下王五是不是联系人"),
+                    new JSONObject()
+                            .put("type", "object")
+                            .put("properties", new JSONObject()
+                                    .put("query", new JSONObject()
+                                            .put("type", "string")
+                                            .put("description", "联系人姓名或搜索关键字")))
+                            .put("required", new org.json.JSONArray().put("query")),
+                    new JSONObject().put("query", "张三")
+            );
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build tool definition for search_contacts", e);
+        }
+    }
+
+    @Override
+    public String execute(JSONObject args) {
         try {
             if (!args.has("query")) {
                 return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"query\"}";
@@ -60,20 +85,5 @@ public class SearchContactsTool implements ToolExecutor {
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "搜索联系人";
-    }
-
-    @Override
-    public String getArgsDescription() {
-        return "query: 搜索关键字";
-    }
-
-    @Override
-    public String getArgsSchema() {
-        return "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"搜索关键字\"}},\"required\":[\"query\"]}";
     }
 }

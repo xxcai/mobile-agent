@@ -9,16 +9,16 @@ namespace icraw {
 
 /**
  * Android Tool Callback interface
- * Used by C++ agent to call Android platform features
+ * Used by C++ agent to call Java-side Android tool channels
  */
 class AndroidToolCallback {
 public:
     virtual ~AndroidToolCallback() = default;
 
     /**
-     * Call an Android tool with the given name and arguments
-     * @param tool_name The name of the tool to call
-     * @param args JSON object containing tool arguments
+     * Call an Android tool channel with the given name and raw parameters
+     * @param tool_name The outer tool channel name
+     * @param args JSON object containing the original tool parameters
      * @return JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
      */
     virtual std::string call_tool(const std::string& tool_name, const nlohmann::json& args) = 0;
@@ -26,7 +26,7 @@ public:
 
 /**
  * Android tools manager
- * Provides call_android_tool function that delegates to registered callback
+ * Delegates dynamic Android tool-channel calls to the registered callback
  */
 class AndroidTools {
 public:
@@ -39,9 +39,9 @@ public:
     void register_callback(std::unique_ptr<AndroidToolCallback> callback);
 
     /**
-     * Call an Android tool
-     * @param tool_name The name of the tool to call
-     * @param args JSON object containing tool arguments
+     * Call an Android tool channel
+     * @param tool_name The outer tool channel name
+     * @param args JSON object containing the original tool parameters
      * @return JSON string with result
      */
     std::string call_tool(const std::string& tool_name, const nlohmann::json& args);

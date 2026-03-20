@@ -1,6 +1,11 @@
 package com.hh.agent.tool;
 
+import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+
+import org.json.JSONObject;
+
+import java.util.Arrays;
 
 /**
  * SendImMessage tool implementation.
@@ -15,7 +20,32 @@ public class SendImMessageTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(org.json.JSONObject args) {
+    public ToolDefinition getDefinition() {
+        try {
+            return new ToolDefinition(
+                    "向指定联系人发送即时消息",
+                    Arrays.asList("给李四发消息说明天开会", "告诉张三下午三点来会议室"),
+                    new JSONObject()
+                            .put("type", "object")
+                            .put("properties", new JSONObject()
+                                    .put("contact_id", new JSONObject()
+                                            .put("type", "string")
+                                            .put("description", "联系人ID"))
+                                    .put("message", new JSONObject()
+                                            .put("type", "string")
+                                            .put("description", "消息内容")))
+                            .put("required", new org.json.JSONArray().put("contact_id").put("message")),
+                    new JSONObject()
+                            .put("contact_id", "003")
+                            .put("message", "明天下午3点开会")
+            );
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build tool definition for send_im_message", e);
+        }
+    }
+
+    @Override
+    public String execute(JSONObject args) {
         try {
             // Validate required params
             if (!args.has("contact_id")) {
@@ -33,20 +63,5 @@ public class SendImMessageTool implements ToolExecutor {
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "发送即时消息";
-    }
-
-    @Override
-    public String getArgsDescription() {
-        return "contact_id: 联系人ID, message: 消息内容";
-    }
-
-    @Override
-    public String getArgsSchema() {
-        return "{\"type\":\"object\",\"properties\":{\"contact_id\":{\"type\":\"string\",\"description\":\"联系人ID\"},\"message\":{\"type\":\"string\",\"description\":\"消息内容\"}},\"required\":[\"contact_id\",\"message\"]}";
     }
 }

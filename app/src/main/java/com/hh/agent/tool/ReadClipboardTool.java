@@ -3,8 +3,12 @@ package com.hh.agent.tool;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.Arrays;
 
 /**
  * ReadClipboard tool implementation.
@@ -21,6 +25,23 @@ public class ReadClipboardTool implements ToolExecutor {
     @Override
     public String getName() {
         return "read_clipboard";
+    }
+
+    @Override
+    public ToolDefinition getDefinition() {
+        try {
+            return new ToolDefinition(
+                    "读取当前剪贴板中的文本内容",
+                    Arrays.asList("看看剪贴板里是什么", "读取当前复制的内容"),
+                    new JSONObject()
+                            .put("type", "object")
+                            .put("properties", new JSONObject())
+                            .put("required", new JSONArray()),
+                    new JSONObject()
+            );
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to build tool definition for read_clipboard", e);
+        }
     }
 
     @Override
@@ -58,20 +79,5 @@ public class ReadClipboardTool implements ToolExecutor {
                 .replace("\n", "\\n")
                 .replace("\r", "\\r")
                 .replace("\t", "\\t");
-    }
-
-    @Override
-    public String getDescription() {
-        return "读取剪贴板内容";
-    }
-
-    @Override
-    public String getArgsDescription() {
-        return "无参数";
-    }
-
-    @Override
-    public String getArgsSchema() {
-        return "{\"type\":\"object\",\"properties\":{}}";
     }
 }

@@ -116,7 +116,16 @@ Skill 正文没有强制格式，但建议至少包含：
 
 ## 与 Tool 的关系
 
-当前 Android 侧并不是把每个 Tool 单独暴露给模型，而是通过统一的 `call_android_tool` 包装调用。
+当前 Android 侧已经支持多通道工具，但宿主应用中注册的业务 Tool 仍然通过统一的 `call_android_tool` 包装调用。
+
+当前通道包括：
+
+- `call_android_tool`
+  用于宿主 App 业务工具，例如联系人、消息、通知、剪贴板
+- `android_gesture_tool`
+  用于点击、滑动等坐标级手势
+
+其中 `android_gesture_tool` 当前仍是 mock 运行时框架，适合验证通道选择和参数结构，不执行真实点击/滑动。
 
 因此在 Skill 中，调用方式应写成：
 
@@ -130,6 +139,31 @@ Skill 正文没有强制格式，但建议至少包含：
 ```
 
 而不是直接写成“调用 `search_contacts` function”。
+
+如果后续某个 Skill 需要明确驱动点击或滑动，可以单独使用 `android_gesture_tool`，例如：
+
+```json
+{
+  "action": "tap",
+  "x": 120,
+  "y": 340
+}
+```
+
+或：
+
+```json
+{
+  "action": "swipe",
+  "startX": 100,
+  "startY": 500,
+  "endX": 400,
+  "endY": 500,
+  "duration": 300
+}
+```
+
+但在当前工程状态下，这类调用只会得到 mock 结果。
 
 ## 现有示例
 
@@ -155,4 +189,5 @@ Skill 不是热更新注册的。通常需要：
 - 先确保 Skill 文件最终被打进应用 assets
 - 检查 workspace 目录下是否真的存在 `skills/<name>/SKILL.md`
 - 确保 Skill 中引用的工具名和 `ToolExecutor#getName()` 返回值一致
+- 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的摘要、意图示例和参数样例来写调用
 - 如果 Skill 依赖 `requiredBins` / `requiredEnvs` / `os`，确认运行环境满足要求

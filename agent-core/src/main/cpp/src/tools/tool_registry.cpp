@@ -324,30 +324,10 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
             continue;
         }
 
-        // Register tool with Android callback execution
-        // For call_android_tool: extract function name and args from parameters
+        // Register dynamic outer tool channel. The native layer does not interpret
+        // channel-specific parameters; it forwards the original params JSON to Java.
         tools_[tool_schema.name] = [tool_schema_name = tool_schema.name](const nlohmann::json& params) -> std::string {
-            // For call_android_tool, params contains {"function": "tool_name", "args": {...}}
-            // Extract function name and arguments
-            std::string function_name;
-            nlohmann::json tool_args;
-
-            if (params.is_object()) {
-                function_name = params.value("function", "");
-                if (params.contains("args") && params["args"].is_object()) {
-                    tool_args = params["args"];
-                }
-            }
-
-            if (function_name.empty()) {
-                nlohmann::json result;
-                result["success"] = false;
-                result["error"] = "function parameter is required";
-                return result.dump();
-            }
-
-            // Call Android tool via global callback
-            return icraw::g_android_tools.call_tool(function_name, tool_args);
+            return icraw::g_android_tools.call_tool(tool_schema_name, params);
         };
 
         tool_schemas_.push_back(std::move(tool_schema));
