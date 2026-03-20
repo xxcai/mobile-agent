@@ -7,6 +7,7 @@ import android.util.Log;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.thread.ThreadPoolManager;
+import com.hh.agent.android.ui.ToolDisplayNameResolver;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.api.MobileAgentApi;
 import com.hh.agent.core.api.NativeMobileAgentApi;
@@ -296,6 +297,7 @@ public class MainPresenter implements MainContract.Presenter {
                     // 创建 ToolCall 对象并添加到 Message
                     ToolCall toolCall = new ToolCall(id, name);
                     toolCall.setArguments(argumentsJson);
+                    toolCall.setDisplayName(ToolDisplayNameResolver.resolve(name, argumentsJson));
                     assistantMessage.addToolCall(toolCall);
 
                     mainHandler.post(() -> {
