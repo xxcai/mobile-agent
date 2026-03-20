@@ -10,6 +10,8 @@ import java.util.List;
 public class ToolCall {
     @SerializedName("id") private String id;
     @SerializedName("name") private String name;
+    @SerializedName("display_name") private String displayName;
+    @SerializedName("visible_in_tool_ui") private boolean visibleInToolUi;
     @SerializedName("status") private String status;  // "running" or "completed"
     @SerializedName("arguments") private String arguments;
     @SerializedName("result") private String result;
@@ -36,6 +38,22 @@ public class ToolCall {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public boolean isVisibleInToolUi() {
+        return visibleInToolUi;
+    }
+
+    public void setVisibleInToolUi(boolean visibleInToolUi) {
+        this.visibleInToolUi = visibleInToolUi;
     }
 
     public String getStatus() {

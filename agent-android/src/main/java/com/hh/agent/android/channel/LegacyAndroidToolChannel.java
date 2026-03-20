@@ -7,6 +7,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Backward-compatible channel that keeps the existing call_android_tool protocol:
@@ -15,6 +17,8 @@ import java.util.Map;
 public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     public static final String CHANNEL_NAME = "call_android_tool";
+    private static final Pattern FUNCTION_PATTERN =
+            Pattern.compile("\"function\"\\s*:\\s*\"([^\"]+)\"");
 
     private final Map<String, ToolExecutor> tools;
 
@@ -135,6 +139,28 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         } catch (Exception e) {
             return buildError("execution_failed", e.getMessage());
         }
+    }
+
+    @Override
+    public boolean shouldExposeInnerToolInToolUi() {
+        return true;
+    }
+
+    @Override
+    public String resolveInnerToolDisplayName(String argumentsJson) {
+        if (argumentsJson == null || argumentsJson.trim().isEmpty()) {
+            return null;
+        }
+        Matcher matcher = FUNCTION_PATTERN.matcher(argumentsJson);
+        if (!matcher.find()) {
+            return null;
+        }
+        String functionName = matcher.group(1);
+        if (functionName == null) {
+            return null;
+        }
+        String normalized = functionName.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private String buildError(String errorCode, String message) {

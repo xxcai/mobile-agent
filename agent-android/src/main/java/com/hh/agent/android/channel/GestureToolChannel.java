@@ -97,6 +97,11 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
         }
     }
 
+    @Override
+    public boolean shouldExposeInnerToolInToolUi() {
+        return false;
+    }
+
     private String buildError(String errorCode, String message) {
         try {
             return new JSONObject()

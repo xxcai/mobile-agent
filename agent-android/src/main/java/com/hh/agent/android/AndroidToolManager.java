@@ -5,6 +5,8 @@ import android.util.Log;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.LegacyAndroidToolChannel;
+import com.hh.agent.android.ui.ToolUiDecision;
+import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.ToolExecutor;
 import com.hh.agent.core.api.NativeMobileAgentApi;
@@ -20,6 +22,8 @@ import java.util.Map;
  * Loads tools configuration and routes tool calls to implementations.
  */
 public class AndroidToolManager implements AndroidToolCallback {
+
+    private static AndroidToolManager activeInstance;
 
     private Context context;
     private final Map<String, ToolExecutor> tools = new HashMap<>();
@@ -37,10 +41,18 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public void initialize() {
         Log.i("AndroidToolManager", "Initializing AndroidToolManager");
+        activeInstance = this;
 
         // Register callback with NativeMobileAgentApi
         NativeMobileAgentApi.getInstance().setToolCallback(this);
         Log.i("AndroidToolManager", "Registered AndroidToolCallback with NativeMobileAgentApi");
+    }
+
+    public static ToolUiDecision resolveToolUiDecision(String toolName, String argumentsJson) {
+        if (activeInstance == null) {
+            return ToolUiDecision.hidden();
+        }
+        return activeInstance.buildToolUiPolicyResolver().resolve(toolName, argumentsJson);
     }
 
     /**
@@ -107,6 +119,10 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public Map<String, AndroidToolChannelExecutor> getRegisteredChannels() {
         return new HashMap<>(channels);
+    }
+
+    public ToolUiPolicyResolver buildToolUiPolicyResolver() {
+        return new ToolUiPolicyResolver(getRegisteredChannels());
     }
 
     /**
@@ -250,6 +266,9 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public void clearContext() {
         this.context = null;
+        if (activeInstance == this) {
+            activeInstance = null;
+        }
     }
 
     @Override

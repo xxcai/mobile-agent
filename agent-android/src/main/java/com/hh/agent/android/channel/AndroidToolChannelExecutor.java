@@ -21,4 +21,19 @@ public interface AndroidToolChannelExecutor {
      * Executes a channel call using the raw params passed from native.
      */
     String execute(JSONObject params);
+
+    /**
+     * Whether concrete tools under this channel may appear in the response-card tool UI.
+     */
+    default boolean shouldExposeInnerToolInToolUi() {
+        return false;
+    }
+
+    /**
+     * Resolves the user-facing concrete tool name from the raw arguments.
+     * Returns null when this channel should stay hidden or the name cannot be resolved.
+     */
+    default String resolveInnerToolDisplayName(String argumentsJson) {
+        return null;
+    }
 }
