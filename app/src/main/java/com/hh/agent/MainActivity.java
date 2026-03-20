@@ -187,13 +187,17 @@ public class MainActivity extends AppCompatActivity {
         JSONArray tools = schema.getJSONArray("tools");
         boolean containsLegacyChannel = false;
         boolean containsGestureChannel = false;
+        String legacyDescription = "";
+        String gestureDescription = "";
         for (int i = 0; i < tools.length(); i++) {
             JSONObject function = tools.getJSONObject(i).getJSONObject("function");
             if ("call_android_tool".equals(function.optString("name"))) {
                 containsLegacyChannel = true;
+                legacyDescription = function.optString("description");
             }
             if ("android_gesture_tool".equals(function.optString("name"))) {
                 containsGestureChannel = true;
+                gestureDescription = function.optString("description");
             }
         }
 
@@ -202,6 +206,12 @@ public class MainActivity extends AppCompatActivity {
                 .append('\n');
         report.append("Schema contains android_gesture_tool: ")
                 .append(containsGestureChannel ? "PASS" : "FAIL")
+                .append('\n');
+        report.append("call_android_tool description: ")
+                .append(legacyDescription)
+                .append('\n');
+        report.append("android_gesture_tool description: ")
+                .append(gestureDescription)
                 .append("\n\n");
     }
 
