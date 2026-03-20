@@ -148,10 +148,11 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     @Override
     public String resolveInnerToolDisplayName(String argumentsJson) {
-        if (argumentsJson == null || argumentsJson.trim().isEmpty()) {
+        String normalizedArguments = normalizeArgumentsJson(argumentsJson);
+        if (normalizedArguments == null || normalizedArguments.isEmpty()) {
             return null;
         }
-        Matcher matcher = FUNCTION_PATTERN.matcher(argumentsJson);
+        Matcher matcher = FUNCTION_PATTERN.matcher(normalizedArguments);
         if (!matcher.find()) {
             return null;
         }
@@ -161,6 +162,24 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         }
         String normalized = functionName.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeArgumentsJson(String argumentsJson) {
+        if (argumentsJson == null) {
+            return null;
+        }
+        String normalized = argumentsJson.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() >= 2
+                && normalized.startsWith("\"")
+                && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+        }
+        return normalized;
     }
 
     private String buildError(String errorCode, String message) {

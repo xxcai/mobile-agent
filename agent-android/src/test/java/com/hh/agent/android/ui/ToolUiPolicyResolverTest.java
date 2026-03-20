@@ -31,6 +31,19 @@ public class ToolUiPolicyResolverTest {
     }
 
     @Test
+    public void exposesConcreteToolNameForQuotedLegacyArguments() {
+        ToolUiPolicyResolver resolver = new ToolUiPolicyResolver(buildChannels());
+
+        ToolUiDecision decision = resolver.resolve(
+                "call_android_tool",
+                "\"{\\\"function\\\":\\\"send_im_message\\\",\\\"args\\\":{\\\"message\\\":\\\"hi\\\"}}\""
+        );
+
+        assertTrue(decision.isVisible());
+        assertEquals("send_im_message", decision.getDisplayName());
+    }
+
+    @Test
     public void hidesGestureChannelTools() {
         ToolUiPolicyResolver resolver = new ToolUiPolicyResolver(buildChannels());
 

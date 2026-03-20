@@ -266,10 +266,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
+            adapter.hideToolUiForAllResponseCards();
+            message.setShowToolUi(true);
             currentResponseMessage = message;
             adapter.addResponseMessage(message);
         } else {
             // 更新现有消息
+            message.setShowToolUi(true);
             currentResponseMessage = message;
             adapter.updateResponseMessage(message);
         }
@@ -291,6 +294,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         // 更新最终消息
         if (message != null) {
+            message.setShowToolUi("stop".equals(finishReason));
             if (currentResponseMessage == null) {
                 adapter.addResponseMessage(message);
             } else {
@@ -306,16 +310,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             // 1. 删除 thinking 消息（不再需要显示）
             adapter.removeThinkingMessage();
 
-            // 2. 更新 response 消息，隐藏工具区和 think 区
-            // 清除 toolCalls 列表会隐藏工具区
-            adapter.clearToolCallsInResponse(message.getTimestamp());
-            // 清除 thinkContent 会隐藏思考区
+            // 2. 保留当前最后一个卡片的工具区，只隐藏 think 区
             adapter.clearThinkContentInResponse(message.getTimestamp());
 
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
-            Log.d("AgentFragment", "onStreamMessageEnd: stop, updated response card to history state");
+            Log.d("AgentFragment", "onStreamMessageEnd: stop, kept tool UI on latest response card");
             return;
         }
 

@@ -143,23 +143,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
-     * 清除响应卡片中的工具调用列表
-     * 用于状态转换：将"正在响应"转为"历史响应"时隐藏工具区
-     * @param timestamp 消息时间戳，用于精确匹配
-     */
-    public void clearToolCallsInResponse(long timestamp) {
-        for (int i = 0; i < messages.size(); i++) {
-            Message msg = messages.get(i);
-            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
-                // 清除 toolCalls 列表，这样 bind 方法会隐藏工具区
-                msg.setToolCalls(null);
-                notifyItemChanged(i);
-                return;
-            }
-        }
-    }
-
-    /**
      * 清除响应卡片中的思考内容
      * 用于状态转换：将"正在响应"转为"历史响应"时隐藏思考区
      * @param timestamp 消息时间戳，用于精确匹配
@@ -308,9 +291,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvRole.setText("助手");
 
             // 工具区：显示工具调用列表
-            List<ToolCall> toolCalls = message.getToolCalls();
-            if (toolCalls != null && !toolCalls.isEmpty()) {
-                showToolAreaList(toolCalls);
+            List<ToolCall> visibleToolCalls = getVisibleToolCalls(message);
+            if (message.isShowToolUi() && !visibleToolCalls.isEmpty()) {
+                showToolAreaList(visibleToolCalls);
             } else {
                 hideToolArea();
             }
@@ -371,11 +354,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // 工具状态文本
             TextView tvStatus = new TextView(context);
+            String toolDisplayName = getToolDisplayName(toolCall);
             String statusText;
             if ("completed".equals(toolCall.getStatus())) {
-                statusText = toolCall.getName() + " 已完成调用";
+                statusText = toolDisplayName + " 已完成调用";
             } else {
-                statusText = "正在使用: " + toolCall.getName();
+                statusText = "正在使用: " + toolDisplayName;
             }
             tvStatus.setText(statusText);
             tvStatus.setTextSize(12);
@@ -392,6 +376,35 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             toolListContainer.addView(toolItem);
         }
 
+        private String getToolDisplayName(ToolCall toolCall) {
+            if (toolCall == null) {
+                return "";
+            }
+            String displayName = toolCall.getDisplayName();
+            if (displayName != null && !displayName.trim().isEmpty()) {
+                return displayName.trim();
+            }
+            String rawName = toolCall.getName();
+            return rawName != null ? rawName : "";
+        }
+
+        private List<ToolCall> getVisibleToolCalls(Message message) {
+            List<ToolCall> visibleToolCalls = new ArrayList<>();
+            if (message == null) {
+                return visibleToolCalls;
+            }
+            List<ToolCall> toolCalls = message.getToolCalls();
+            if (toolCalls == null || toolCalls.isEmpty()) {
+                return visibleToolCalls;
+            }
+            for (ToolCall toolCall : toolCalls) {
+                if (toolCall != null && toolCall.isVisibleInToolUi()) {
+                    visibleToolCalls.add(toolCall);
+                }
+            }
+            return visibleToolCalls;
+        }
+
         /**
          * 更新工具状态
          */
@@ -405,8 +418,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
 
             // 刷新 UI
-            List<ToolCall> toolCalls = currentMessage.getToolCalls();
-            showToolAreaList(toolCalls);
+            List<ToolCall> visibleToolCalls = getVisibleToolCalls(currentMessage);
+            if (currentMessage.isShowToolUi() && !visibleToolCalls.isEmpty()) {
+                showToolAreaList(visibleToolCalls);
+            } else {
+                hideToolArea();
+            }
         }
 
         /**
@@ -470,6 +487,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 // 更新消息内容
                 msg.setContent(message.getContent());
                 msg.setThinkContent(message.getThinkContent());
+                msg.setShowToolUi(message.isShowToolUi());
                 msg.setToolCalls(message.getToolCalls());
                 notifyItemChanged(i);
                 return;
@@ -497,4 +515,16 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             notifyDataSetChanged();
         }
     }
+
+    public void hideToolUiForAllResponseCards() {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            String role = msg.getRole();
+            if (("response".equals(role) || "assistant".equals(role)) && msg.isShowToolUi()) {
+                msg.setShowToolUi(false);
+                notifyItemChanged(i);
+            }
+        }
+    }
+
 }

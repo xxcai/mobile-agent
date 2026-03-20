@@ -14,6 +14,7 @@ public class Message {
     @SerializedName("content") private String content;   // main content or tool status for response card
     @SerializedName("think_content") private String thinkContent; // think block content for response card
     @SerializedName("timestamp") private long timestamp;
+    @SerializedName("show_tool_ui") private boolean showToolUi;
     @SerializedName("tool_calls") private List<ToolCall> toolCalls; // 工具调用列表
 
     public Message() {
@@ -67,6 +68,14 @@ public class Message {
         this.timestamp = timestamp;
     }
 
+    public boolean isShowToolUi() {
+        return showToolUi;
+    }
+
+    public void setShowToolUi(boolean showToolUi) {
+        this.showToolUi = showToolUi;
+    }
+
     public String getThinkContent() {
         return thinkContent;
     }
@@ -109,6 +118,7 @@ public class Message {
                 ", content='" + content + '\'' +
                 ", thinkContent='" + thinkContent + '\'' +
                 ", timestamp=" + timestamp +
+                ", showToolUi=" + showToolUi +
                 ", toolCalls=" + toolCalls +
                 '}';
     }
