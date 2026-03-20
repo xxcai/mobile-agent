@@ -275,14 +275,39 @@ public class AndroidToolManager implements AndroidToolCallback {
     @Override
     public String callTool(String toolName, String argsJson) {
         try {
-            JSONObject args = new JSONObject(argsJson);
+            if (!"call_android_tool".equals(toolName)) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "unsupported_tool_channel");
+                error.put("message", "Tool channel '" + toolName + "' is not supported");
+                return error.toString();
+            }
 
-            ToolExecutor executor = tools.get(toolName);
+            JSONObject params = new JSONObject(argsJson);
+            String functionName = params.optString("function", "").trim();
+            if (functionName.isEmpty()) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "invalid_args");
+                error.put("message", "call_android_tool requires a non-empty 'function' field");
+                return error.toString();
+            }
+
+            JSONObject args = params.optJSONObject("args");
+            if (args == null) {
+                JSONObject error = new JSONObject();
+                error.put("success", false);
+                error.put("error", "invalid_args");
+                error.put("message", "call_android_tool requires an 'args' object");
+                return error.toString();
+            }
+
+            ToolExecutor executor = tools.get(functionName);
             if (executor == null) {
                 JSONObject error = new JSONObject();
                 error.put("success", false);
                 error.put("error", "tool_not_found");
-                error.put("message", "Tool '" + toolName + "' not found");
+                error.put("message", "Tool '" + functionName + "' not found");
                 return error.toString();
             }
 
