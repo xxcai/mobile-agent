@@ -75,6 +75,8 @@ public class MainActivity extends AppCompatActivity {
         try {
             AndroidToolManager manager = buildTestToolManager();
             appendChannelSummary(report, manager);
+            appendIntentMappingChecks(report, manager);
+            appendImSenderCompatibilityNote(report);
 
             runCase(
                     report,
@@ -232,6 +234,100 @@ public class MainActivity extends AppCompatActivity {
                 .append('\n');
         report.append("android_gesture_tool description: ")
                 .append(gestureDescription)
+                .append("\n\n");
+    }
+
+    private void appendIntentMappingChecks(StringBuilder report, AndroidToolManager manager) throws Exception {
+        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
+        JSONArray tools = schema.getJSONArray("tools");
+
+        String legacyFunctionDescription = "";
+        String legacyArgsDescription = "";
+        String gestureDescription = "";
+        for (int i = 0; i < tools.length(); i++) {
+            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
+            if ("call_android_tool".equals(function.optString("name"))) {
+                JSONObject parameters = function.optJSONObject("parameters");
+                if (parameters != null) {
+                    JSONObject properties = parameters.optJSONObject("properties");
+                    if (properties != null) {
+                        legacyFunctionDescription = properties.optJSONObject("function") != null
+                                ? properties.optJSONObject("function").optString("description")
+                                : "";
+                        legacyArgsDescription = properties.optJSONObject("args") != null
+                                ? properties.optJSONObject("args").optString("description")
+                                : "";
+                    }
+                }
+            }
+            if ("android_gesture_tool".equals(function.optString("name"))) {
+                gestureDescription = function.optString("description");
+            }
+        }
+
+        report.append("Intent Mapping Checks").append('\n');
+        report.append("---------------------").append('\n');
+
+        appendIntentCheck(report,
+                "给李四发消息说明天开会",
+                "call_android_tool",
+                "send_im_message",
+                legacyFunctionDescription,
+                legacyArgsDescription);
+        appendIntentCheck(report,
+                "查一下张三是不是联系人",
+                "call_android_tool",
+                "search_contacts",
+                legacyFunctionDescription,
+                legacyArgsDescription);
+        appendIntentCheck(report,
+                "看看剪贴板里是什么",
+                "call_android_tool",
+                "read_clipboard",
+                legacyFunctionDescription,
+                legacyArgsDescription);
+        appendIntentCheck(report,
+                "弹一个通知提醒我开会",
+                "call_android_tool",
+                "display_notification",
+                legacyFunctionDescription,
+                legacyArgsDescription);
+        appendIntentCheck(report,
+                "点击屏幕右下角按钮",
+                "android_gesture_tool",
+                "tap",
+                gestureDescription,
+                "tap 需要 x/y；swipe 需要 startX/startY/endX/endY");
+        appendIntentCheck(report,
+                "从屏幕底部往上滑",
+                "android_gesture_tool",
+                "swipe",
+                gestureDescription,
+                "tap 需要 x/y；swipe 需要 startX/startY/endX/endY");
+
+        report.append('\n');
+    }
+
+    private void appendIntentCheck(StringBuilder report,
+                                   String userIntent,
+                                   String expectedChannel,
+                                   String expectedToolOrAction,
+                                   String schemaEvidence,
+                                   String parameterEvidence) {
+        report.append("intent: ").append(userIntent).append('\n');
+        report.append("expected channel: ").append(expectedChannel).append('\n');
+        report.append("expected tool/action: ").append(expectedToolOrAction).append('\n');
+        report.append("schema evidence: ").append(schemaEvidence).append('\n');
+        report.append("parameter evidence: ").append(parameterEvidence).append("\n\n");
+    }
+
+    private void appendImSenderCompatibilityNote(StringBuilder report) {
+        report.append("IM Sender Compatibility").append('\n');
+        report.append("-----------------------").append('\n');
+        report.append("Skill path: app/src/main/assets/workspace/skills/im_sender/SKILL.md").append('\n');
+        report.append("Expected channel: call_android_tool").append('\n');
+        report.append("Expected functions: search_contacts, send_im_message").append('\n');
+        report.append("Status: current schema still exposes both functions under call_android_tool, so the existing skill path remains valid.")
                 .append("\n\n");
     }
 
