@@ -2,6 +2,8 @@ package com.hh.agent.android;
 
 import android.app.Application;
 import android.content.Context;
+import com.hh.agent.android.log.AgentLogger;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.android.floating.FloatingBallManager;
@@ -22,6 +24,22 @@ import java.util.Map;
 public class AgentInitializer {
 
     private static String configJson = "";
+
+    /**
+     * 设置 Agent logger。
+     * 本方法只建立注入入口；未设置时仍使用默认 Android logger。
+     * 传入 null 时恢复默认实现。
+     */
+    public static void setLogger(AgentLogger logger) {
+        AgentLogs.setLogger(logger);
+    }
+
+    /**
+     * 获取当前生效的 Agent logger。
+     */
+    public static AgentLogger getLogger() {
+        return AgentLogs.getLogger();
+    }
 
     /**
      * 初始化 Agent
