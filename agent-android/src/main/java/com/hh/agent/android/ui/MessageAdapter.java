@@ -37,6 +37,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int VIEW_TYPE_RESPONSE = 3;
 
     private List<Message> messages = new ArrayList<>();
+    private Long activeToolUiResponseTimestamp = null;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private final Markwon markwon;
 
@@ -82,7 +83,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
         } else if (holder instanceof ResponseCardViewHolder) {
-            ((ResponseCardViewHolder) holder).bind(message);
+            ((ResponseCardViewHolder) holder).bind(message, shouldShowToolUi(message));
         }
     }
 
@@ -117,6 +118,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     public void setMessages(List<Message> messages) {
         this.messages = new ArrayList<>(messages);
+        activeToolUiResponseTimestamp = null;
         notifyDataSetChanged();
     }
 
@@ -283,7 +285,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvRole = itemView.findViewById(R.id.tvRole);
         }
 
-        void bind(Message message) {
+        void bind(Message message, boolean shouldShowToolUi) {
             this.currentMessage = message;
 
             // 设置时间戳
@@ -292,7 +294,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // 工具区：显示工具调用列表
             List<ToolCall> visibleToolCalls = getVisibleToolCalls(message);
-            if (message.isShowToolUi() && !visibleToolCalls.isEmpty()) {
+            if (shouldShowToolUi && !visibleToolCalls.isEmpty()) {
                 showToolAreaList(visibleToolCalls);
             } else {
                 hideToolArea();
@@ -419,7 +421,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
             // 刷新 UI
             List<ToolCall> visibleToolCalls = getVisibleToolCalls(currentMessage);
-            if (currentMessage.isShowToolUi() && !visibleToolCalls.isEmpty()) {
+            if (!visibleToolCalls.isEmpty()) {
                 showToolAreaList(visibleToolCalls);
             } else {
                 hideToolArea();
@@ -503,6 +505,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     public void removeAiMessages() {
         boolean removed = false;
+        activeToolUiResponseTimestamp = null;
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message msg = messages.get(i);
             String role = msg.getRole();
@@ -516,15 +519,31 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
     }
 
-    public void hideToolUiForAllResponseCards() {
-        for (int i = 0; i < messages.size(); i++) {
-            Message msg = messages.get(i);
-            String role = msg.getRole();
-            if (("response".equals(role) || "assistant".equals(role)) && msg.isShowToolUi()) {
-                msg.setShowToolUi(false);
-                notifyItemChanged(i);
-            }
+    public void setActiveToolUiResponse(long timestamp) {
+        if (activeToolUiResponseTimestamp != null && activeToolUiResponseTimestamp == timestamp) {
+            return;
         }
+        activeToolUiResponseTimestamp = timestamp;
+        notifyDataSetChanged();
+    }
+
+    public void clearActiveToolUiResponse() {
+        if (activeToolUiResponseTimestamp == null) {
+            return;
+        }
+        activeToolUiResponseTimestamp = null;
+        notifyDataSetChanged();
+    }
+
+    private boolean shouldShowToolUi(Message message) {
+        if (message == null || !message.isShowToolUi()) {
+            return false;
+        }
+        if (!"response".equals(message.getRole())) {
+            return false;
+        }
+        return activeToolUiResponseTimestamp != null
+                && activeToolUiResponseTimestamp == message.getTimestamp();
     }
 
 }

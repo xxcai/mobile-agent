@@ -237,6 +237,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onMessagesLoaded(List<Message> messages) {
         adapter.setMessages(messages);
+        adapter.clearActiveToolUiResponse();
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
@@ -266,7 +267,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
-            adapter.hideToolUiForAllResponseCards();
             message.setShowToolUi(true);
             currentResponseMessage = message;
             adapter.addResponseMessage(message);
@@ -276,6 +276,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             currentResponseMessage = message;
             adapter.updateResponseMessage(message);
         }
+        adapter.setActiveToolUiResponse(message.getTimestamp());
 
         // 强制刷新 RecyclerView
         rvMessages.invalidate();
@@ -331,6 +332,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
                 hideThinking();
                 // 清除 AI 消息
                 adapter.removeAiMessages();
+                adapter.clearActiveToolUiResponse();
                 return;
             }
         }
@@ -339,6 +341,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         Log.d("AgentFragment", "onStreamMessageEnd: unknown finishReason=" + finishReason + ", treating as error");
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
+        adapter.clearActiveToolUiResponse();
     }
 
     @Override
@@ -353,6 +356,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 清除 AI 相关消息（thinking, tool_use, tool_result, assistant）
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
+        adapter.clearActiveToolUiResponse();
 
         // 重置流式状态和按钮
         resetStreamingState();
