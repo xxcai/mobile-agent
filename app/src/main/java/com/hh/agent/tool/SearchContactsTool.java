@@ -6,8 +6,6 @@ import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
 
-import java.util.Arrays;
-
 /**
  * SearchContacts tool implementation.
  * Searches for contacts by name query.
@@ -25,23 +23,10 @@ public class SearchContactsTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "查找联系人",
-                    "按姓名或关键字搜索联系人",
-                    Arrays.asList("查找张三", "搜索联系人李四", "找一下王五是不是联系人"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject()
-                                    .put("query", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "联系人姓名或搜索关键字")))
-                            .put("required", new org.json.JSONArray().put("query")),
-                    new JSONObject().put("query", "张三")
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition for search_contacts", e);
-        }
+        return ToolDefinition.builder("查找联系人", "按姓名或关键字搜索联系人")
+                .intentExamples("查找张三", "搜索联系人李四", "找一下王五是不是联系人")
+                .stringParam("query", "联系人姓名或搜索关键字", true, "张三")
+                .build();
     }
 
     @Override

@@ -6,8 +6,6 @@ import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
 
-import java.util.Arrays;
-
 /**
  * SendImMessage tool implementation.
  * Sends an instant message to a contact.
@@ -22,28 +20,11 @@ public class SendImMessageTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "发送消息",
-                    "向指定联系人或会话发送文本消息",
-                    Arrays.asList("给李四发消息说明天开会", "告诉张三下午三点来会议室"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject()
-                                    .put("contact_id", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "联系人ID"))
-                                    .put("message", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "消息内容")))
-                            .put("required", new org.json.JSONArray().put("contact_id").put("message")),
-                    new JSONObject()
-                            .put("contact_id", "003")
-                            .put("message", "明天下午3点开会")
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition for send_im_message", e);
-        }
+        return ToolDefinition.builder("发送消息", "向指定联系人或会话发送文本消息")
+                .intentExamples("给李四发消息说明天开会", "告诉张三下午三点来会议室")
+                .stringParam("contact_id", "联系人ID", true, "003")
+                .stringParam("message", "消息内容", true, "明天下午3点开会")
+                .build();
     }
 
     @Override

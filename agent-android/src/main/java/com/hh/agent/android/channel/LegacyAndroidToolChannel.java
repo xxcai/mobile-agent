@@ -94,10 +94,12 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
                     ? definition.getDescription()
                     : definition.getTitle();
             builder.append("- ").append(toolName)
-                    .append(": ").append(toolDescription)
-                    .append("；常见意图：")
-                    .append(String.join(" / ", definition.getIntentExamples()))
-                    .append('\n');
+                    .append(": ").append(toolDescription);
+            if (!definition.getIntentExamples().isEmpty()) {
+                builder.append("；常见意图：")
+                        .append(String.join(" / ", definition.getIntentExamples()));
+            }
+            builder.append('\n');
         }
 
         return builder.toString().trim();
