@@ -31,6 +31,6 @@ public final class ToolUiPolicyResolver {
             return ToolUiDecision.hidden();
         }
 
-        return ToolUiDecision.visible(channel.resolveInnerToolDisplayName(argumentsJson));
+        return channel.resolveInnerToolUiDecision(argumentsJson);
     }
 }

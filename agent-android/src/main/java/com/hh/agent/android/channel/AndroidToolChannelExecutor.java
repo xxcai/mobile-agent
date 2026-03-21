@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.ui.ToolUiDecision;
 import org.json.JSONObject;
 
 /**
@@ -30,10 +31,10 @@ public interface AndroidToolChannelExecutor {
     }
 
     /**
-     * Resolves the user-facing concrete tool name from the raw arguments.
-     * Returns null when this channel should stay hidden or the name cannot be resolved.
+     * Resolves the user-facing concrete tool metadata from the raw arguments.
+     * Returns hidden when this channel should stay hidden or the tool cannot be resolved.
      */
-    default String resolveInnerToolDisplayName(String argumentsJson) {
-        return null;
+    default ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        return ToolUiDecision.hidden();
     }
 }

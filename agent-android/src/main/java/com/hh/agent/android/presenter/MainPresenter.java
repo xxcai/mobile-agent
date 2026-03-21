@@ -299,7 +299,8 @@ public class MainPresenter implements MainContract.Presenter {
                     ToolCall toolCall = new ToolCall(id, name);
                     toolCall.setArguments(argumentsJson);
                     ToolUiDecision toolUiDecision = AndroidToolManager.resolveToolUiDecision(name, argumentsJson);
-                    toolCall.setDisplayName(toolUiDecision.getDisplayName());
+                    toolCall.setTitle(toolUiDecision.getTitle());
+                    toolCall.setDescription(toolUiDecision.getDescription());
                     toolCall.setVisibleInToolUi(toolUiDecision.isVisible());
                     assistantMessage.addToolCall(toolCall);
 

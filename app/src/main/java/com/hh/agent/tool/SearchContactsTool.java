@@ -26,7 +26,8 @@ public class SearchContactsTool implements ToolExecutor {
     public ToolDefinition getDefinition() {
         try {
             return new ToolDefinition(
-                    "按联系人姓名或关键字搜索联系人",
+                    "查找联系人",
+                    "按姓名或关键字搜索联系人",
                     Arrays.asList("查找张三", "搜索联系人李四", "找一下王五是不是联系人"),
                     new JSONObject()
                             .put("type", "object")

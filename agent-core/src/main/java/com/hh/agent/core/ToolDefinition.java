@@ -11,17 +11,19 @@ import java.util.List;
  */
 public final class ToolDefinition {
 
-    private final String summary;
+    private final String title;
+    private final String description;
     private final List<String> intentExamples;
     private final JSONObject argsSchema;
     private final JSONObject argsExample;
 
-    public ToolDefinition(String summary,
+    public ToolDefinition(String title,
+                          String description,
                           List<String> intentExamples,
                           JSONObject argsSchema,
                           JSONObject argsExample) {
-        if (summary == null || summary.trim().isEmpty()) {
-            throw new IllegalArgumentException("summary cannot be null or empty");
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("title cannot be null or empty");
         }
         if (intentExamples == null || intentExamples.isEmpty()) {
             throw new IllegalArgumentException("intentExamples cannot be null or empty");
@@ -33,14 +35,19 @@ public final class ToolDefinition {
             throw new IllegalArgumentException("argsExample cannot be null");
         }
 
-        this.summary = summary;
+        this.title = title.trim();
+        this.description = normalizeNullableText(description);
         this.intentExamples = Collections.unmodifiableList(new ArrayList<>(intentExamples));
         this.argsSchema = copyJson(argsSchema);
         this.argsExample = copyJson(argsExample);
     }
 
-    public String getSummary() {
-        return summary;
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
     }
 
     public List<String> getIntentExamples() {
@@ -61,5 +68,13 @@ public final class ToolDefinition {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to copy JSONObject", e);
         }
+    }
+
+    private static String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

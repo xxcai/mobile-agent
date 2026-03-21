@@ -5,32 +5,42 @@ package com.hh.agent.android.ui;
  */
 public final class ToolUiDecision {
 
-    private static final ToolUiDecision HIDDEN = new ToolUiDecision(false, null);
+    private static final ToolUiDecision HIDDEN = new ToolUiDecision(false, null, null);
 
     private final boolean visible;
-    private final String displayName;
+    private final String title;
+    private final String description;
 
-    private ToolUiDecision(boolean visible, String displayName) {
+    private ToolUiDecision(boolean visible, String title, String description) {
         this.visible = visible;
-        this.displayName = displayName;
+        this.title = title;
+        this.description = description;
     }
 
     public static ToolUiDecision hidden() {
         return HIDDEN;
     }
 
-    public static ToolUiDecision visible(String displayName) {
-        if (displayName == null || displayName.trim().isEmpty()) {
+    public static ToolUiDecision visible(String title, String description) {
+        if (title == null || title.trim().isEmpty()) {
             return HIDDEN;
         }
-        return new ToolUiDecision(true, displayName.trim());
+        String normalizedDescription = null;
+        if (description != null && !description.trim().isEmpty()) {
+            normalizedDescription = description.trim();
+        }
+        return new ToolUiDecision(true, title.trim(), normalizedDescription);
     }
 
     public boolean isVisible() {
         return visible;
     }
 
-    public String getDisplayName() {
-        return displayName;
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }

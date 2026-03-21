@@ -354,40 +354,63 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ivIcon.setLayoutParams(new LinearLayout.LayoutParams(24, 24));
             toolItem.addView(ivIcon);
 
-            // 工具状态文本
+            LinearLayout textContainer = new LinearLayout(context);
+            textContainer.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams textContainerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            textContainerParams.setMargins(8, 0, 0, 0);
+            textContainer.setLayoutParams(textContainerParams);
+
             TextView tvStatus = new TextView(context);
-            String toolDisplayName = getToolDisplayName(toolCall);
+            String toolTitle = getToolTitle(toolCall);
             String statusText;
             if ("completed".equals(toolCall.getStatus())) {
-                statusText = toolDisplayName + " 已完成调用";
+                statusText = "已完成 " + toolTitle;
             } else {
-                statusText = "正在使用: " + toolDisplayName;
+                statusText = "正在使用 " + toolTitle;
             }
             tvStatus.setText(statusText);
             tvStatus.setTextSize(12);
             tvStatus.setTextColor(0xFF666666);
-            LinearLayout.LayoutParams tvParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            tvParams.setMargins(8, 0, 0, 0);
-            tvStatus.setLayoutParams(tvParams);
-            tvStatus.setTag(toolCall.getId()); // 用 ID 作为 tag，方便后续更新
-            toolItem.addView(tvStatus);
+            tvStatus.setTag(toolCall.getId());
+            textContainer.addView(tvStatus);
+
+            String description = getToolDescription(toolCall);
+            if (!description.isEmpty()) {
+                TextView tvDescription = new TextView(context);
+                tvDescription.setText(description);
+                tvDescription.setTextSize(11);
+                tvDescription.setTextColor(0xFF888888);
+                textContainer.addView(tvDescription);
+            }
+
+            toolItem.addView(textContainer);
 
             toolListContainer.addView(toolItem);
         }
 
-        private String getToolDisplayName(ToolCall toolCall) {
+        private String getToolTitle(ToolCall toolCall) {
             if (toolCall == null) {
                 return "";
             }
-            String displayName = toolCall.getDisplayName();
-            if (displayName != null && !displayName.trim().isEmpty()) {
-                return displayName.trim();
+            String title = toolCall.getTitle();
+            if (title != null && !title.trim().isEmpty()) {
+                return title.trim();
             }
-            String rawName = toolCall.getName();
-            return rawName != null ? rawName : "";
+            return "";
+        }
+
+        private String getToolDescription(ToolCall toolCall) {
+            if (toolCall == null) {
+                return "";
+            }
+            String description = toolCall.getDescription();
+            if (description != null && !description.trim().isEmpty()) {
+                return description.trim();
+            }
+            return "";
         }
 
         private List<ToolCall> getVisibleToolCalls(Message message) {

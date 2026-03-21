@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
 
@@ -88,8 +89,11 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
             String toolName = entry.getKey();
             ToolDefinition definition = entry.getValue().getDefinition();
+            String toolDescription = definition.getDescription() != null
+                    ? definition.getDescription()
+                    : definition.getTitle();
             builder.append("- ").append(toolName)
-                    .append(": ").append(definition.getSummary())
+                    .append(": ").append(toolDescription)
                     .append("；常见意图：")
                     .append(String.join(" / ", definition.getIntentExamples()))
                     .append('\n');
@@ -147,12 +151,28 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
     }
 
     @Override
-    public String resolveInnerToolDisplayName(String argumentsJson) {
-        String normalizedArguments = normalizeArgumentsJson(argumentsJson);
-        if (normalizedArguments == null || normalizedArguments.isEmpty()) {
+    public ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        String functionName = extractFunctionName(argumentsJson);
+        if (functionName == null || functionName.isEmpty()) {
+            return ToolUiDecision.hidden();
+        }
+        ToolExecutor executor = tools.get(functionName);
+        if (executor == null) {
+            return ToolUiDecision.hidden();
+        }
+        ToolDefinition definition = executor.getDefinition();
+        if (definition == null) {
+            return ToolUiDecision.hidden();
+        }
+        return ToolUiDecision.visible(definition.getTitle(), definition.getDescription());
+    }
+
+    private String extractFunctionName(String argumentsJson) {
+        String normalized = normalizeArgumentsJson(argumentsJson);
+        if (normalized == null || normalized.isEmpty()) {
             return null;
         }
-        Matcher matcher = FUNCTION_PATTERN.matcher(normalizedArguments);
+        Matcher matcher = FUNCTION_PATTERN.matcher(normalized);
         if (!matcher.find()) {
             return null;
         }
@@ -160,8 +180,8 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         if (functionName == null) {
             return null;
         }
-        String normalized = functionName.trim();
-        return normalized.isEmpty() ? null : normalized;
+        String trimmed = functionName.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String normalizeArgumentsJson(String argumentsJson) {

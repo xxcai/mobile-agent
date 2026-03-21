@@ -23,7 +23,8 @@ public class SendImMessageTool implements ToolExecutor {
     public ToolDefinition getDefinition() {
         try {
             return new ToolDefinition(
-                    "向指定联系人发送即时消息",
+                    "发送消息",
+                    "向指定联系人或会话发送文本消息",
                     Arrays.asList("给李四发消息说明天开会", "告诉张三下午三点来会议室"),
                     new JSONObject()
                             .put("type", "object")

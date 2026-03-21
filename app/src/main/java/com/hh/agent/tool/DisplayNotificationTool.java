@@ -53,6 +53,7 @@ public class DisplayNotificationTool implements ToolExecutor {
     public ToolDefinition getDefinition() {
         try {
             return new ToolDefinition(
+                    "显示通知",
                     "在设备上展示一条系统通知",
                     Arrays.asList("弹一个通知提醒我开会", "显示通知标题为待办，内容为下午三点开会"),
                     new JSONObject()

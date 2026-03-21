@@ -31,6 +31,7 @@ public class ReadClipboardTool implements ToolExecutor {
     public ToolDefinition getDefinition() {
         try {
             return new ToolDefinition(
+                    "读取剪贴板",
                     "读取当前剪贴板中的文本内容",
                     Arrays.asList("看看剪贴板里是什么", "读取当前复制的内容"),
                     new JSONObject()
