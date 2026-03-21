@@ -189,5 +189,5 @@ Skill 不是热更新注册的。通常需要：
 - 先确保 Skill 文件最终被打进应用 assets
 - 检查 workspace 目录下是否真的存在 `skills/<name>/SKILL.md`
 - 确保 Skill 中引用的工具名和 `ToolExecutor#getName()` 返回值一致
-- 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的摘要、意图示例和参数样例来写调用
+- 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的描述、意图示例和参数样例来写调用
 - 如果 Skill 依赖 `requiredBins` / `requiredEnvs` / `os`，确认运行环境满足要求

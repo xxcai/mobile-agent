@@ -61,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
         addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
         addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
         addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
+        addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Open Visible Activity", v ->
                 startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
@@ -103,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
             appendChannelSummary(report, manager, summary);
             appendIntentMappingChecks(report, summary);
             appendImSenderCompatibilityNote(report);
+            appendContractChecks(report, manager);
             appendRuntimeCases(report, manager);
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
@@ -141,6 +143,18 @@ public class MainActivity extends AppCompatActivity {
     private void runSkillCompatibilitySection() {
         StringBuilder report = new StringBuilder();
         appendImSenderCompatibilityNote(report);
+        outputView.setText(report.toString());
+    }
+
+    // 点击后检查 ToolDefinition / ToolResult 收紧后的接入契约信息。
+    private void runContractChecksSection() {
+        StringBuilder report = new StringBuilder();
+        try {
+            AndroidToolManager manager = buildTestToolManager();
+            appendContractChecks(report, manager);
+        } catch (Exception e) {
+            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
+        }
         outputView.setText(report.toString());
     }
 
@@ -310,6 +324,25 @@ public class MainActivity extends AppCompatActivity {
         report.append("Expected functions: search_contacts, send_im_message").append('\n');
         report.append("Status: current schema still exposes both functions under call_android_tool, so the existing skill path remains valid.")
                 .append("\n\n");
+    }
+
+    private void appendContractChecks(StringBuilder report, AndroidToolManager manager) {
+        appendSectionHeader(report, "Contract Checks");
+        for (Map.Entry<String, ToolExecutor> entry : manager.getRegisteredTools().entrySet()) {
+            String toolName = entry.getKey();
+            com.hh.agent.core.ToolDefinition definition = entry.getValue().getDefinition();
+            boolean hasTitle = definition.getTitle() != null && !definition.getTitle().trim().isEmpty();
+            boolean hasDescription = definition.getDescription() != null && !definition.getDescription().trim().isEmpty();
+
+            report.append("tool: ").append(toolName).append('\n');
+            report.append("title: ").append(definition.getTitle()).append('\n');
+            report.append("description: ").append(definition.getDescription()).append('\n');
+            report.append("intent examples: ").append(definition.getIntentExamples().size()).append('\n');
+            report.append("schema: ").append(definition.getArgsSchemaJsonString()).append('\n');
+            report.append("example: ").append(definition.getArgsExampleJsonString()).append('\n');
+            report.append("title status: ").append(hasTitle ? "PASS" : "FAIL").append('\n');
+            report.append("description status: ").append(hasDescription ? "PASS" : "FAIL").append("\n\n");
+        }
     }
 
     private void appendRuntimeCases(StringBuilder report, AndroidToolManager manager) throws Exception {

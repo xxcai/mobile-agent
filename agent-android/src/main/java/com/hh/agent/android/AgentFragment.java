@@ -237,6 +237,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onMessagesLoaded(List<Message> messages) {
         adapter.setMessages(messages);
+        adapter.clearActiveToolUiResponse();
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 
@@ -266,13 +267,16 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
+            message.setShowToolUi(true);
             currentResponseMessage = message;
             adapter.addResponseMessage(message);
         } else {
             // 更新现有消息
+            message.setShowToolUi(true);
             currentResponseMessage = message;
             adapter.updateResponseMessage(message);
         }
+        adapter.setActiveToolUiResponse(message.getTimestamp());
 
         // 强制刷新 RecyclerView
         rvMessages.invalidate();
@@ -291,6 +295,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         // 更新最终消息
         if (message != null) {
+            message.setShowToolUi("stop".equals(finishReason));
             if (currentResponseMessage == null) {
                 adapter.addResponseMessage(message);
             } else {
@@ -306,16 +311,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             // 1. 删除 thinking 消息（不再需要显示）
             adapter.removeThinkingMessage();
 
-            // 2. 更新 response 消息，隐藏工具区和 think 区
-            // 清除 toolCalls 列表会隐藏工具区
-            adapter.clearToolCallsInResponse(message.getTimestamp());
-            // 清除 thinkContent 会隐藏思考区
+            // 2. 保留当前最后一个卡片的工具区，只隐藏 think 区
             adapter.clearThinkContentInResponse(message.getTimestamp());
 
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
-            Log.d("AgentFragment", "onStreamMessageEnd: stop, updated response card to history state");
+            Log.d("AgentFragment", "onStreamMessageEnd: stop, kept tool UI on latest response card");
             return;
         }
 
@@ -330,6 +332,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
                 hideThinking();
                 // 清除 AI 消息
                 adapter.removeAiMessages();
+                adapter.clearActiveToolUiResponse();
                 return;
             }
         }
@@ -338,6 +341,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         Log.d("AgentFragment", "onStreamMessageEnd: unknown finishReason=" + finishReason + ", treating as error");
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
+        adapter.clearActiveToolUiResponse();
     }
 
     @Override
@@ -352,6 +356,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 清除 AI 相关消息（thinking, tool_use, tool_result, assistant）
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
+        adapter.clearActiveToolUiResponse();
 
         // 重置流式状态和按钮
         resetStreamingState();

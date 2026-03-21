@@ -2,10 +2,9 @@ package com.hh.agent.tool;
 
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
-
-import java.util.Arrays;
 
 /**
  * SearchContacts tool implementation.
@@ -24,32 +23,23 @@ public class SearchContactsTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "按联系人姓名或关键字搜索联系人",
-                    Arrays.asList("查找张三", "搜索联系人李四", "找一下王五是不是联系人"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject()
-                                    .put("query", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "联系人姓名或搜索关键字")))
-                            .put("required", new org.json.JSONArray().put("query")),
-                    new JSONObject().put("query", "张三")
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition for search_contacts", e);
-        }
+        return ToolDefinition.builder("查找联系人", "按姓名或关键字搜索联系人")
+                .intentExamples("查找张三", "搜索联系人李四", "找一下王五是不是联系人")
+                .stringParam("query", "联系人姓名或搜索关键字", true, "张三")
+                .build();
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             if (!args.has("query")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"query\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "query");
             }
 
             String query = args.getString("query");
+
+            Thread.sleep(5000);
 
             // Mock data: duplicate names and unique name scenarios
             if ("张三".equals(query)) {
@@ -67,7 +57,7 @@ public class SearchContactsTool implements ToolExecutor {
                 contact2.put("department", "市场部");
                 contacts.put(contact2);
 
-                return "{\"success\": true, \"result\": " + contacts.toString() + "}";
+                return ToolResult.success().withJson("result", contacts.toString());
             } else if ("李四".equals(query)) {
                 // Scenario 2: Single match - use directly
                 org.json.JSONArray contacts = new org.json.JSONArray();
@@ -77,13 +67,13 @@ public class SearchContactsTool implements ToolExecutor {
                 contact.put("department", "产品部");
                 contacts.put(contact);
 
-                return "{\"success\": true, \"result\": " + contacts.toString() + "}";
+                return ToolResult.success().withJson("result", contacts.toString());
             } else {
                 // No matches
-                return "{\"success\": true, \"result\": []}";
+                return ToolResult.success().withJson("result", "[]");
             }
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }

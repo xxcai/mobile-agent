@@ -7,10 +7,8 @@ import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
-import org.json.JSONArray;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
-
-import java.util.Arrays;
 
 /**
  * DisplayNotification tool implementation.
@@ -51,37 +49,23 @@ public class DisplayNotificationTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "在设备上展示一条系统通知",
-                    Arrays.asList("弹一个通知提醒我开会", "显示通知标题为待办，内容为下午三点开会"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject()
-                                    .put("title", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "通知标题"))
-                                    .put("content", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "通知内容")))
-                            .put("required", new JSONArray().put("title").put("content")),
-                    new JSONObject()
-                            .put("title", "会议提醒")
-                            .put("content", "下午3点开会")
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition for display_notification", e);
-        }
+        return ToolDefinition.builder("显示通知", "在设备上展示一条系统通知")
+                .intentExamples("弹一个通知提醒我开会", "显示通知标题为待办，内容为下午三点开会")
+                .stringParam("title", "通知标题", true, "会议提醒")
+                .stringParam("content", "通知内容", true, "下午3点开会")
+                .build();
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             if (!args.has("title")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"title\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "title");
             }
             if (!args.has("content")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"content\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "content");
             }
 
             String title = args.getString("title");
@@ -91,7 +75,7 @@ public class DisplayNotificationTool implements ToolExecutor {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
 
             if (notificationManager == null) {
-                return "{\"success\": false, \"error\": \"notification_manager_unavailable\"}";
+                return ToolResult.error("notification_manager_unavailable");
             }
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
@@ -103,9 +87,9 @@ public class DisplayNotificationTool implements ToolExecutor {
 
             notificationManager.notify(NOTIFICATION_ID, builder.build());
 
-            return "{\"success\": true, \"result\": \"notification_shown\"}";
+            return ToolResult.success().with("result", "notification_shown");
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }

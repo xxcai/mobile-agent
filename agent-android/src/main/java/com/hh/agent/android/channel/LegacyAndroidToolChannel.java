@@ -1,12 +1,16 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Backward-compatible channel that keeps the existing call_android_tool protocol:
@@ -15,6 +19,8 @@ import java.util.Map;
 public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     public static final String CHANNEL_NAME = "call_android_tool";
+    private static final Pattern FUNCTION_PATTERN =
+            Pattern.compile("\"function\"\\s*:\\s*\"([^\"]+)\"");
 
     private final Map<String, ToolExecutor> tools;
 
@@ -84,11 +90,16 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
             String toolName = entry.getKey();
             ToolDefinition definition = entry.getValue().getDefinition();
+            String toolDescription = definition.getDescription() != null
+                    ? definition.getDescription()
+                    : definition.getTitle();
             builder.append("- ").append(toolName)
-                    .append(": ").append(definition.getSummary())
-                    .append("；常见意图：")
-                    .append(String.join(" / ", definition.getIntentExamples()))
-                    .append('\n');
+                    .append(": ").append(toolDescription);
+            if (!definition.getIntentExamples().isEmpty()) {
+                builder.append("；常见意图：")
+                        .append(String.join(" / ", definition.getIntentExamples()));
+            }
+            builder.append('\n');
         }
 
         return builder.toString().trim();
@@ -114,7 +125,7 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
     }
 
     @Override
-    public String execute(JSONObject params) {
+    public ToolResult execute(JSONObject params) {
         try {
             String functionName = params.optString("function", "").trim();
             if (functionName.isEmpty()) {
@@ -137,15 +148,64 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         }
     }
 
-    private String buildError(String errorCode, String message) {
-        try {
-            return new JSONObject()
-                    .put("success", false)
-                    .put("error", errorCode)
-                    .put("message", message)
-                    .toString();
-        } catch (Exception ignored) {
-            return "{\"success\":false,\"error\":\"execution_failed\"}";
+    @Override
+    public boolean shouldExposeInnerToolInToolUi() {
+        return true;
+    }
+
+    @Override
+    public ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        String functionName = extractFunctionName(argumentsJson);
+        if (functionName == null || functionName.isEmpty()) {
+            return ToolUiDecision.hidden();
         }
+        ToolExecutor executor = tools.get(functionName);
+        if (executor == null) {
+            return ToolUiDecision.hidden();
+        }
+        ToolDefinition definition = executor.getDefinition();
+        if (definition == null) {
+            return ToolUiDecision.hidden();
+        }
+        return ToolUiDecision.visible(definition.getTitle(), definition.getDescription());
+    }
+
+    private String extractFunctionName(String argumentsJson) {
+        String normalized = normalizeArgumentsJson(argumentsJson);
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        Matcher matcher = FUNCTION_PATTERN.matcher(normalized);
+        if (!matcher.find()) {
+            return null;
+        }
+        String functionName = matcher.group(1);
+        if (functionName == null) {
+            return null;
+        }
+        String trimmed = functionName.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String normalizeArgumentsJson(String argumentsJson) {
+        if (argumentsJson == null) {
+            return null;
+        }
+        String normalized = argumentsJson.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() >= 2
+                && normalized.startsWith("\"")
+                && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+        }
+        return normalized;
+    }
+
+    private ToolResult buildError(String errorCode, String message) {
+        return ToolResult.error(errorCode, message);
     }
 }

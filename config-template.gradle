@@ -1,48 +1,30 @@
-// config-template.gradle
-// Task to copy config.json.template to assets
-// For library modules, assets go to library_assets/debug/packageDebugAssets/out/
-// For application modules, assets go to assets/{variantName}/merge{VariantName}Assets/out
+// Generate config.json from config.json.template and add it as a normal assets source.
+// Writing directly into AGP intermediates (for example mergeAssets outputs) is unstable
+// because those directories are task outputs managed and recreated by the Android plugin.
 
-ext.configTemplateFile = "${rootProject.projectDir}/config.json.template"
+ext.configTemplateFile = rootProject.file('config.json.template')
 
-project.afterEvaluate {
-    // Handle library variants (for library modules like :agent)
-    if (project.plugins.hasPlugin('com.android.library')) {
-        android.libraryVariants.all { variant ->
-            def variantName = variant.name
-            def capitalizeVariant = variantName.capitalize()
-            def destDir = "${project.buildDir}/intermediates/library_assets/${variantName}/package${capitalizeVariant}Assets/out"
-
-            def copyTask = project.tasks.create(name: "copyConfigTemplate${capitalizeVariant}", type: Copy) {
-                from "${rootProject.projectDir}/config.json.template"
-                into destDir
-                rename 'config.json.template', 'config.json'
-            }
-
-            def packageAssetsTask = project.tasks.findByName("package${capitalizeVariant}Assets")
-            if (packageAssetsTask) {
-                packageAssetsTask.dependsOn copyTask
-            }
-        }
+def configureConfigTemplateAssets = { Project targetProject ->
+    if (!configTemplateFile.exists()) {
+        targetProject.logger.warn("config.json.template not found at ${configTemplateFile}")
+        return
     }
 
-    // Handle application variants (for app modules)
-    if (project.plugins.hasPlugin('com.android.application')) {
-        android.applicationVariants.all { variant ->
-            def variantName = variant.name
-            def capitalizeVariant = variantName.capitalize()
-            def destDir = "${project.buildDir}/intermediates/assets/${variantName}/merge${capitalizeVariant}Assets"
+    def generatedAssetsDir = targetProject.file("${targetProject.buildDir}/generated/assets/configTemplate")
+    def copyTask = targetProject.tasks.register('copyConfigTemplate', Copy) {
+        from(configTemplateFile)
+        into(generatedAssetsDir)
+        rename('config.json.template', 'config.json')
+    }
 
-            def copyTask = project.tasks.create(name: "copyConfigTemplate${capitalizeVariant}", type: Copy) {
-                from "${rootProject.projectDir}/config.json.template"
-                into destDir
-                rename 'config.json.template', 'config.json'
-            }
+    targetProject.android.sourceSets.main.assets.srcDir(generatedAssetsDir)
+    targetProject.tasks.named('preBuild').configure {
+        dependsOn(copyTask)
+    }
+}
 
-            def mergeAssetsTask = project.tasks.findByName("merge${capitalizeVariant}Assets")
-            if (mergeAssetsTask) {
-                mergeAssetsTask.dependsOn copyTask
-            }
-        }
+project.afterEvaluate {
+    if (project.plugins.hasPlugin('com.android.application') || project.plugins.hasPlugin('com.android.library')) {
+        configureConfigTemplateAssets(project)
     }
 }

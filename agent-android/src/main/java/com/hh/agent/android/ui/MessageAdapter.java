@@ -5,9 +5,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.R;
@@ -37,6 +40,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     public static final int VIEW_TYPE_RESPONSE = 3;
 
     private List<Message> messages = new ArrayList<>();
+    private Long activeToolUiResponseTimestamp = null;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
     private final Markwon markwon;
 
@@ -82,7 +86,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         } else if (holder instanceof MessageViewHolder) {
             ((MessageViewHolder) holder).bind(message);
         } else if (holder instanceof ResponseCardViewHolder) {
-            ((ResponseCardViewHolder) holder).bind(message);
+            ((ResponseCardViewHolder) holder).bind(message, shouldShowToolUi(message));
         }
     }
 
@@ -117,6 +121,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     public void setMessages(List<Message> messages) {
         this.messages = new ArrayList<>(messages);
+        activeToolUiResponseTimestamp = null;
         notifyDataSetChanged();
     }
 
@@ -137,23 +142,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             if ("thinking".equals(msg.getRole())) {
                 messages.remove(i);
                 notifyItemRemoved(i);
-                return;
-            }
-        }
-    }
-
-    /**
-     * 清除响应卡片中的工具调用列表
-     * 用于状态转换：将"正在响应"转为"历史响应"时隐藏工具区
-     * @param timestamp 消息时间戳，用于精确匹配
-     */
-    public void clearToolCallsInResponse(long timestamp) {
-        for (int i = 0; i < messages.size(); i++) {
-            Message msg = messages.get(i);
-            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
-                // 清除 toolCalls 列表，这样 bind 方法会隐藏工具区
-                msg.setToolCalls(null);
-                notifyItemChanged(i);
                 return;
             }
         }
@@ -284,12 +272,14 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final TextView tvRole;
         private final SimpleDateFormat timeFormat;
         private final Markwon markwon;
+        private final LayoutInflater layoutInflater;
         private Message currentMessage;
 
         ResponseCardViewHolder(@NonNull View itemView, SimpleDateFormat timeFormat, Markwon markwon) {
             super(itemView);
             this.timeFormat = timeFormat;
             this.markwon = markwon;
+            this.layoutInflater = LayoutInflater.from(itemView.getContext());
 
             toolArea = itemView.findViewById(R.id.toolArea);
             toolListContainer = itemView.findViewById(R.id.toolListContainer);
@@ -300,7 +290,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvRole = itemView.findViewById(R.id.tvRole);
         }
 
-        void bind(Message message) {
+        void bind(Message message, boolean shouldShowToolUi) {
             this.currentMessage = message;
 
             // 设置时间戳
@@ -308,9 +298,9 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             tvRole.setText("助手");
 
             // 工具区：显示工具调用列表
-            List<ToolCall> toolCalls = message.getToolCalls();
-            if (toolCalls != null && !toolCalls.isEmpty()) {
-                showToolAreaList(toolCalls);
+            List<ToolCall> visibleToolCalls = getVisibleToolCalls(message);
+            if (shouldShowToolUi && !visibleToolCalls.isEmpty()) {
+                showToolAreaList(visibleToolCalls);
             } else {
                 hideToolArea();
             }
@@ -355,41 +345,84 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
          */
         private void addToolView(ToolCall toolCall) {
             Context context = itemView.getContext();
-            LinearLayout toolItem = new LinearLayout(context);
-            toolItem.setOrientation(LinearLayout.HORIZONTAL);
-            toolItem.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
-            toolItem.setPadding(0, 4, 0, 4);
+            String toolTitle = getToolTitle(toolCall);
+            View toolItem = layoutInflater.inflate(R.layout.item_tool_status, toolListContainer, false);
+            LinearLayout toolItemRoot = toolItem.findViewById(R.id.toolItemRoot);
+            FrameLayout toolIconContainer = toolItem.findViewById(R.id.toolIconContainer);
+            ImageView ivStatusIcon = toolItem.findViewById(R.id.ivToolStatusIcon);
+            TextView tvStatus = toolItem.findViewById(R.id.tvToolStatus);
+            TextView tvTitle = toolItem.findViewById(R.id.tvToolTitle);
+            TextView tvDescription = toolItem.findViewById(R.id.tvToolDescription);
 
-            // 工具图标
-            ImageView ivIcon = new ImageView(context);
-            ivIcon.setImageResource(android.R.drawable.ic_menu_info_details);
-            ivIcon.setLayoutParams(new LinearLayout.LayoutParams(24, 24));
-            toolItem.addView(ivIcon);
+            boolean completed = "completed".equals(toolCall.getStatus());
+            tvStatus.setTag(toolCall.getId());
+            tvStatus.setText(completed ? "已完成" : "执行中");
+            tvTitle.setText(toolTitle);
 
-            // 工具状态文本
-            TextView tvStatus = new TextView(context);
-            String statusText;
-            if ("completed".equals(toolCall.getStatus())) {
-                statusText = toolCall.getName() + " 已完成调用";
+            String description = getToolDescription(toolCall);
+            if (description.isEmpty()) {
+                tvDescription.setVisibility(View.GONE);
             } else {
-                statusText = "正在使用: " + toolCall.getName();
+                tvDescription.setVisibility(View.VISIBLE);
+                tvDescription.setText(description);
             }
-            tvStatus.setText(statusText);
-            tvStatus.setTextSize(12);
-            tvStatus.setTextColor(0xFF666666);
-            LinearLayout.LayoutParams tvParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            tvParams.setMargins(8, 0, 0, 0);
-            tvStatus.setLayoutParams(tvParams);
-            tvStatus.setTag(toolCall.getId()); // 用 ID 作为 tag，方便后续更新
-            toolItem.addView(tvStatus);
 
+            bindToolVisualState(context, toolItemRoot, toolIconContainer, ivStatusIcon, tvStatus, completed);
             toolListContainer.addView(toolItem);
+        }
+
+        private void bindToolVisualState(
+                Context context,
+                LinearLayout toolItemRoot,
+                FrameLayout toolIconContainer,
+                ImageView ivStatusIcon,
+                TextView tvStatus,
+                boolean completed
+        ) {
+            toolIconContainer.clearAnimation();
+            toolIconContainer.setAlpha(1f);
+            toolIconContainer.setScaleX(1f);
+            toolIconContainer.setScaleY(1f);
+            if (completed) {
+                toolItemRoot.setBackgroundResource(R.drawable.bg_tool_result);
+                toolIconContainer.setBackgroundResource(R.drawable.bg_tool_icon_result);
+                ivStatusIcon.setImageResource(R.drawable.ic_result);
+                tvStatus.setTextColor(0xFF5F6B76);
+                return;
+            }
+
+            toolItemRoot.setBackgroundResource(R.drawable.bg_tool_use);
+            toolIconContainer.setBackgroundResource(R.drawable.bg_tool_icon_active);
+            ivStatusIcon.setImageResource(R.drawable.ic_tool);
+            tvStatus.setTextColor(0xFF1E6FB8);
+            Animation activeAnimation = AnimationUtils.loadAnimation(context, R.anim.tool_status_active);
+            toolIconContainer.startAnimation(activeAnimation);
+        }
+
+        private String getToolTitle(ToolCall toolCall) {
+            if (toolCall == null) {
+                return "";
+            }
+            String title = toolCall.getTitle();
+            if (title != null && !title.trim().isEmpty()) {
+                return title.trim();
+            }
+            return "";
+        }
+
+        private String getToolDescription(ToolCall toolCall) {
+            if (toolCall == null) {
+                return "";
+            }
+            String description = toolCall.getDescription();
+            if (description != null && !description.trim().isEmpty()) {
+                return description.trim();
+            }
+            return "";
+        }
+
+        private List<ToolCall> getVisibleToolCalls(Message message) {
+            return filterVisibleToolCalls(message);
         }
 
         /**
@@ -405,8 +438,12 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             }
 
             // 刷新 UI
-            List<ToolCall> toolCalls = currentMessage.getToolCalls();
-            showToolAreaList(toolCalls);
+            List<ToolCall> visibleToolCalls = getVisibleToolCalls(currentMessage);
+            if (!visibleToolCalls.isEmpty()) {
+                showToolAreaList(visibleToolCalls);
+            } else {
+                hideToolArea();
+            }
         }
 
         /**
@@ -414,6 +451,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
          */
         void hideToolArea() {
             toolArea.setVisibility(View.GONE);
+            toolListContainer.removeAllViews();
         }
 
         /**
@@ -470,6 +508,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 // 更新消息内容
                 msg.setContent(message.getContent());
                 msg.setThinkContent(message.getThinkContent());
+                msg.setShowToolUi(message.isShowToolUi());
                 msg.setToolCalls(message.getToolCalls());
                 notifyItemChanged(i);
                 return;
@@ -485,6 +524,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
      */
     public void removeAiMessages() {
         boolean removed = false;
+        activeToolUiResponseTimestamp = null;
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message msg = messages.get(i);
             String role = msg.getRole();
@@ -497,4 +537,53 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             notifyDataSetChanged();
         }
     }
+
+    public void setActiveToolUiResponse(long timestamp) {
+        if (activeToolUiResponseTimestamp != null && activeToolUiResponseTimestamp == timestamp) {
+            return;
+        }
+        activeToolUiResponseTimestamp = timestamp;
+        notifyDataSetChanged();
+    }
+
+    public void clearActiveToolUiResponse() {
+        if (activeToolUiResponseTimestamp == null) {
+            return;
+        }
+        activeToolUiResponseTimestamp = null;
+        notifyDataSetChanged();
+    }
+
+    private boolean shouldShowToolUi(Message message) {
+        return shouldShowToolUi(message, activeToolUiResponseTimestamp);
+    }
+
+    static boolean shouldShowToolUi(Message message, Long activeToolUiResponseTimestamp) {
+        if (message == null || !message.isShowToolUi()) {
+            return false;
+        }
+        if (!"response".equals(message.getRole())) {
+            return false;
+        }
+        return activeToolUiResponseTimestamp != null
+                && activeToolUiResponseTimestamp == message.getTimestamp();
+    }
+
+    static List<ToolCall> filterVisibleToolCalls(Message message) {
+        List<ToolCall> visibleToolCalls = new ArrayList<>();
+        if (message == null) {
+            return visibleToolCalls;
+        }
+        List<ToolCall> toolCalls = message.getToolCalls();
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return visibleToolCalls;
+        }
+        for (ToolCall toolCall : toolCalls) {
+            if (toolCall != null && toolCall.isVisibleInToolUi()) {
+                visibleToolCalls.add(toolCall);
+            }
+        }
+        return visibleToolCalls;
+    }
+
 }

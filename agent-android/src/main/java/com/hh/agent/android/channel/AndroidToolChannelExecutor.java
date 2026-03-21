@@ -1,5 +1,7 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.ui.ToolUiDecision;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
 
 /**
@@ -20,5 +22,20 @@ public interface AndroidToolChannelExecutor {
     /**
      * Executes a channel call using the raw params passed from native.
      */
-    String execute(JSONObject params);
+    ToolResult execute(JSONObject params);
+
+    /**
+     * Whether concrete tools under this channel may appear in the response-card tool UI.
+     */
+    default boolean shouldExposeInnerToolInToolUi() {
+        return false;
+    }
+
+    /**
+     * Resolves the user-facing concrete tool metadata from the raw arguments.
+     * Returns hidden when this channel should stay hidden or the tool cannot be resolved.
+     */
+    default ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        return ToolUiDecision.hidden();
+    }
 }

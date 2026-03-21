@@ -5,10 +5,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
-import org.json.JSONArray;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
-
-import java.util.Arrays;
 
 /**
  * ReadClipboard tool implementation.
@@ -29,55 +27,36 @@ public class ReadClipboardTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "读取当前剪贴板中的文本内容",
-                    Arrays.asList("看看剪贴板里是什么", "读取当前复制的内容"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject())
-                            .put("required", new JSONArray()),
-                    new JSONObject()
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition for read_clipboard", e);
-        }
+        return ToolDefinition.builder("读取剪贴板", "读取当前剪贴板中的文本内容")
+                .intentExamples("看看剪贴板里是什么", "读取当前复制的内容")
+                .build();
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             ClipboardManager clipboardManager = (ClipboardManager)
                 context.getSystemService(Context.CLIPBOARD_SERVICE);
 
             if (clipboardManager == null) {
-                return "{\"success\": false, \"error\": \"clipboard_unavailable\"}";
+                return ToolResult.error("clipboard_unavailable");
             }
 
             if (!clipboardManager.hasPrimaryClip()) {
-                return "{\"success\": true, \"content\": \"\"}";
+                return ToolResult.success().with("content", "");
             }
 
             ClipData clip = clipboardManager.getPrimaryClip();
             if (clip == null || clip.getItemCount() == 0) {
-                return "{\"success\": true, \"content\": \"\"}";
+                return ToolResult.success().with("content", "");
             }
 
             CharSequence text = clip.getItemAt(0).getText();
             String content = (text != null) ? text.toString() : "";
 
-            return "{\"success\": true, \"content\": \"" + escapeJson(content) + "\"}";
+            return ToolResult.success().with("content", content);
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
-    }
-
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 }
