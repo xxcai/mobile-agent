@@ -45,11 +45,10 @@ app/src/main/java/com/hh/agent/tool/MyTool.java
 ```java
 package com.hh.agent.tool;
 
-import com.hh.agent.core.ToolExecutor;
 import com.hh.agent.core.ToolDefinition;
+import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
-
-import java.util.Arrays;
 
 public class MyTool implements ToolExecutor {
 
@@ -60,30 +59,19 @@ public class MyTool implements ToolExecutor {
 
     @Override
     public ToolDefinition getDefinition() {
-        try {
-            return new ToolDefinition(
-                    "执行示例业务动作",
-                    Arrays.asList("执行 demo 工具", "调用 my_tool 处理一个值"),
-                    new JSONObject()
-                            .put("type", "object")
-                            .put("properties", new JSONObject()
-                                    .put("value", new JSONObject()
-                                            .put("type", "string")
-                                            .put("description", "示例参数"))),
-                    new JSONObject().put("value", "demo")
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to build tool definition", e);
-        }
+        return ToolDefinition.builder("执行示例业务动作", "处理一个字符串值并返回结果")
+                .intentExamples("执行 demo 工具", "调用 my_tool 处理一个值")
+                .stringParam("value", "示例参数", true, "demo")
+                .build();
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             String value = args.optString("value", "");
-            return "{\"success\": true, \"result\": \"done: " + value + "\"}";
+            return ToolResult.success().with("result", "done: " + value);
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }
@@ -94,13 +82,15 @@ public class MyTool implements ToolExecutor {
 - 接口包名是 `com.hh.agent.core.ToolExecutor`，不是旧文档中的 `com.hh.agent.library.ToolExecutor`
 - `getName()` 返回值要和注册到 `Map` 里的 key 保持一致
 - `getDefinition()` 负责提供模型选择工具所需的结构化信息
-- `ToolDefinition` 当前至少包含：
-  - `summary`
-  - `intentExamples`
-  - `argsSchema`
-  - `argsExample`
+- `ToolDefinition` 当前通过 builder/DSL 构建，核心字段包括：
+  - `title`
+  - `description`
+  - `intentExamples`（可选）
+  - 参数定义及其 example
+- `description` 建议认真填写，它会直接进入传给 LLM 的工具说明文本，影响工具匹配质量
 - `execute(...)` 的入参类型是 `org.json.JSONObject`
-- 返回值是 JSON 字符串，供 native 层继续处理
+- `execute(...)` 的返回值是 `ToolResult`
+- JSON 字符串序列化由 Android tool routing 边界统一完成，不需要工具实现自己手写结果 JSON
 
 ## 步骤 2: 在应用初始化时注册
 
@@ -142,12 +132,28 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## 返回格式约定
 
-建议遵循现有工具实现风格：
+当前推荐统一返回 `ToolResult`：
 
-- 成功: `{"success": true, "result": "..."}`
-- 失败: `{"success": false, "error": "error_code", "message": "..."}`
+```java
+return ToolResult.success()
+        .with("result", "done: " + value);
+```
 
-如果返回的不是标准 JSON，后续工具结果展示和 Agent 推理会更难处理。
+```java
+return ToolResult.error("missing_required_param")
+        .with("param", "value");
+```
+
+```java
+return ToolResult.error("execution_failed", e.getMessage());
+```
+
+最终序列化后的基础结构约定仍然是：
+
+- 成功: `{"success": true, ...}`
+- 失败: `{"success": false, "error": "error_code", "message": "...", ...}`
+
+因此工具实现只需要返回结构化结果，不需要自己拼 JSON 字符串。
 
 ## 工具如何暴露给 Agent
 
@@ -173,8 +179,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 当前 `call_android_tool` 的 schema 会自动聚合每个工具的：
 
-- 工具摘要
-- 常见意图示例
+- 工具描述
+- 常见意图示例（如果提供）
 - 参数 schema
 - 最小参数样例
 
@@ -192,3 +198,34 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - `app/src/main/java/com/hh/agent/tool/SendImMessageTool.java`
 
 可以直接按这些实现的结构新增。
+
+## 最小接入模板
+
+如果你只需要一个最小可运行模板，可以直接套下面这段：
+
+```java
+public class MyTool implements ToolExecutor {
+
+    @Override
+    public String getName() {
+        return "my_tool";
+    }
+
+    @Override
+    public ToolDefinition getDefinition() {
+        return ToolDefinition.builder("执行示例业务动作", "处理一个字符串值并返回结果")
+                .stringParam("value", "示例参数", true, "demo")
+                .build();
+    }
+
+    @Override
+    public ToolResult execute(JSONObject args) {
+        if (!args.has("value")) {
+            return ToolResult.error("missing_required_param")
+                    .with("param", "value");
+        }
+        return ToolResult.success()
+                .with("result", "done: " + args.optString("value", ""));
+    }
+}
+```

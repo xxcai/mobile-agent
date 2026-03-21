@@ -172,7 +172,7 @@ dependencies {
 典型流程：
 
 1. 准备可选的语音识别实现 `IVoiceRecognizer`
-2. 准备业务侧工具映射 `Map<String, ToolExecutor>`
+2. 准备业务侧工具映射 `Map<String, ToolExecutor>`，其中每个 Tool 使用 `ToolDefinition.builder(...)` 定义 schema，并返回 `ToolResult`
 3. 调用 `AgentInitializer.initialize(...)`
 4. 在初始化完成后按需调用 `initializeFloatingBall(...)`
 
