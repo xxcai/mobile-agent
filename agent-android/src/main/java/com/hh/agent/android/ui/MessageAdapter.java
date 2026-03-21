@@ -5,9 +5,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.R;
@@ -269,12 +272,14 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         private final TextView tvRole;
         private final SimpleDateFormat timeFormat;
         private final Markwon markwon;
+        private final LayoutInflater layoutInflater;
         private Message currentMessage;
 
         ResponseCardViewHolder(@NonNull View itemView, SimpleDateFormat timeFormat, Markwon markwon) {
             super(itemView);
             this.timeFormat = timeFormat;
             this.markwon = markwon;
+            this.layoutInflater = LayoutInflater.from(itemView.getContext());
 
             toolArea = itemView.findViewById(R.id.toolArea);
             toolListContainer = itemView.findViewById(R.id.toolListContainer);
@@ -340,55 +345,58 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
          */
         private void addToolView(ToolCall toolCall) {
             Context context = itemView.getContext();
-            LinearLayout toolItem = new LinearLayout(context);
-            toolItem.setOrientation(LinearLayout.HORIZONTAL);
-            toolItem.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
-            toolItem.setPadding(0, 4, 0, 4);
-
-            // 工具图标
-            ImageView ivIcon = new ImageView(context);
-            ivIcon.setImageResource(android.R.drawable.ic_menu_info_details);
-            ivIcon.setLayoutParams(new LinearLayout.LayoutParams(24, 24));
-            toolItem.addView(ivIcon);
-
-            LinearLayout textContainer = new LinearLayout(context);
-            textContainer.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams textContainerParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            textContainerParams.setMargins(8, 0, 0, 0);
-            textContainer.setLayoutParams(textContainerParams);
-
-            TextView tvStatus = new TextView(context);
             String toolTitle = getToolTitle(toolCall);
-            String statusText;
-            if ("completed".equals(toolCall.getStatus())) {
-                statusText = "已完成 " + toolTitle;
-            } else {
-                statusText = "正在使用 " + toolTitle;
-            }
-            tvStatus.setText(statusText);
-            tvStatus.setTextSize(12);
-            tvStatus.setTextColor(0xFF666666);
+            View toolItem = layoutInflater.inflate(R.layout.item_tool_status, toolListContainer, false);
+            LinearLayout toolItemRoot = toolItem.findViewById(R.id.toolItemRoot);
+            FrameLayout toolIconContainer = toolItem.findViewById(R.id.toolIconContainer);
+            ImageView ivStatusIcon = toolItem.findViewById(R.id.ivToolStatusIcon);
+            TextView tvStatus = toolItem.findViewById(R.id.tvToolStatus);
+            TextView tvTitle = toolItem.findViewById(R.id.tvToolTitle);
+            TextView tvDescription = toolItem.findViewById(R.id.tvToolDescription);
+
+            boolean completed = "completed".equals(toolCall.getStatus());
             tvStatus.setTag(toolCall.getId());
-            textContainer.addView(tvStatus);
+            tvStatus.setText(completed ? "已完成" : "执行中");
+            tvTitle.setText(toolTitle);
 
             String description = getToolDescription(toolCall);
-            if (!description.isEmpty()) {
-                TextView tvDescription = new TextView(context);
+            if (description.isEmpty()) {
+                tvDescription.setVisibility(View.GONE);
+            } else {
+                tvDescription.setVisibility(View.VISIBLE);
                 tvDescription.setText(description);
-                tvDescription.setTextSize(11);
-                tvDescription.setTextColor(0xFF888888);
-                textContainer.addView(tvDescription);
             }
 
-            toolItem.addView(textContainer);
-
+            bindToolVisualState(context, toolItemRoot, toolIconContainer, ivStatusIcon, tvStatus, completed);
             toolListContainer.addView(toolItem);
+        }
+
+        private void bindToolVisualState(
+                Context context,
+                LinearLayout toolItemRoot,
+                FrameLayout toolIconContainer,
+                ImageView ivStatusIcon,
+                TextView tvStatus,
+                boolean completed
+        ) {
+            toolIconContainer.clearAnimation();
+            toolIconContainer.setAlpha(1f);
+            toolIconContainer.setScaleX(1f);
+            toolIconContainer.setScaleY(1f);
+            if (completed) {
+                toolItemRoot.setBackgroundResource(R.drawable.bg_tool_result);
+                toolIconContainer.setBackgroundResource(R.drawable.bg_tool_icon_result);
+                ivStatusIcon.setImageResource(R.drawable.ic_result);
+                tvStatus.setTextColor(0xFF5F6B76);
+                return;
+            }
+
+            toolItemRoot.setBackgroundResource(R.drawable.bg_tool_use);
+            toolIconContainer.setBackgroundResource(R.drawable.bg_tool_icon_active);
+            ivStatusIcon.setImageResource(R.drawable.ic_tool);
+            tvStatus.setTextColor(0xFF1E6FB8);
+            Animation activeAnimation = AnimationUtils.loadAnimation(context, R.anim.tool_status_active);
+            toolIconContainer.startAnimation(activeAnimation);
         }
 
         private String getToolTitle(ToolCall toolCall) {
@@ -456,6 +464,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
          */
         void hideToolArea() {
             toolArea.setVisibility(View.GONE);
+            toolListContainer.removeAllViews();
         }
 
         /**

@@ -59,6 +59,8 @@ public class SendImMessageTool implements ToolExecutor {
             String contactId = args.getString("contact_id");
             String message = args.getString("message");
 
+            Thread.sleep(5000);
+
             // Mock: Simply return success with formatted message
             return "{\"success\": true, \"result\": \"消息已发送给 " + contactId + ": " + message + "\"}";
         } catch (Exception e) {

@@ -52,6 +52,8 @@ public class SearchContactsTool implements ToolExecutor {
 
             String query = args.getString("query");
 
+            Thread.sleep(5000);
+
             // Mock data: duplicate names and unique name scenarios
             if ("张三".equals(query)) {
                 // Scenario 1: Multiple matches - return all for user selection
