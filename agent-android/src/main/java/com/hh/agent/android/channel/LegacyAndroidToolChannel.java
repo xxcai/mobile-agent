@@ -3,6 +3,7 @@ package com.hh.agent.android.channel;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -122,7 +123,7 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
     }
 
     @Override
-    public String execute(JSONObject params) {
+    public ToolResult execute(JSONObject params) {
         try {
             String functionName = params.optString("function", "").trim();
             if (functionName.isEmpty()) {
@@ -202,15 +203,7 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
         return normalized;
     }
 
-    private String buildError(String errorCode, String message) {
-        try {
-            return new JSONObject()
-                    .put("success", false)
-                    .put("error", errorCode)
-                    .put("message", message)
-                    .toString();
-        } catch (Exception ignored) {
-            return "{\"success\":false,\"error\":\"execution_failed\"}";
-        }
+    private ToolResult buildError(String errorCode, String message) {
+        return ToolResult.error(errorCode, message);
     }
 }

@@ -11,7 +11,7 @@ public interface AndroidToolCallback {
      *
      * @param toolName The outer tool channel name (e.g., "call_android_tool")
      * @param argsJson JSON string containing the original tool parameters
-     * @return JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
+     * @return JSON string serialized from the structured tool result
      */
     String callTool(String toolName, String argsJson);
 }

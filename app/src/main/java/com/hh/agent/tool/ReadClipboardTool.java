@@ -5,6 +5,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -46,39 +47,30 @@ public class ReadClipboardTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             ClipboardManager clipboardManager = (ClipboardManager)
                 context.getSystemService(Context.CLIPBOARD_SERVICE);
 
             if (clipboardManager == null) {
-                return "{\"success\": false, \"error\": \"clipboard_unavailable\"}";
+                return ToolResult.error("clipboard_unavailable");
             }
 
             if (!clipboardManager.hasPrimaryClip()) {
-                return "{\"success\": true, \"content\": \"\"}";
+                return ToolResult.success().with("content", "");
             }
 
             ClipData clip = clipboardManager.getPrimaryClip();
             if (clip == null || clip.getItemCount() == 0) {
-                return "{\"success\": true, \"content\": \"\"}";
+                return ToolResult.success().with("content", "");
             }
 
             CharSequence text = clip.getItemAt(0).getText();
             String content = (text != null) ? text.toString() : "";
 
-            return "{\"success\": true, \"content\": \"" + escapeJson(content) + "\"}";
+            return ToolResult.success().with("content", content);
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
-    }
-
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 }

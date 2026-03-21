@@ -2,6 +2,7 @@ package com.hh.agent.android.ui;
 
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.GestureToolChannel;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
 import org.junit.Test;
@@ -101,8 +102,8 @@ public class ToolUiPolicyResolverTest {
             }
 
             @Override
-            public String execute(JSONObject params) {
-                return "{}";
+            public ToolResult execute(JSONObject params) {
+                return ToolResult.success();
             }
 
             @Override
@@ -171,8 +172,8 @@ public class ToolUiPolicyResolverTest {
             }
 
             @Override
-            public String execute(JSONObject params) {
-                return "{}";
+            public ToolResult execute(JSONObject params) {
+                return ToolResult.success();
             }
 
             @Override

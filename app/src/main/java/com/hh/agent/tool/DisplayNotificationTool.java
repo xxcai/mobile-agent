@@ -7,6 +7,7 @@ import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -76,13 +77,15 @@ public class DisplayNotificationTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             if (!args.has("title")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"title\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "title");
             }
             if (!args.has("content")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"content\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "content");
             }
 
             String title = args.getString("title");
@@ -92,7 +95,7 @@ public class DisplayNotificationTool implements ToolExecutor {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
 
             if (notificationManager == null) {
-                return "{\"success\": false, \"error\": \"notification_manager_unavailable\"}";
+                return ToolResult.error("notification_manager_unavailable");
             }
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
@@ -104,9 +107,9 @@ public class DisplayNotificationTool implements ToolExecutor {
 
             notificationManager.notify(NOTIFICATION_ID, builder.build());
 
-            return "{\"success\": true, \"result\": \"notification_shown\"}";
+            return ToolResult.success().with("result", "notification_shown");
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }

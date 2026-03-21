@@ -1,5 +1,6 @@
 package com.hh.agent.android.gesture;
 
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
 
 /**
@@ -36,27 +37,21 @@ public class GestureExecutionResult {
         return new GestureExecutionResult(false, error, message, action, false, null);
     }
 
-    public String toJsonString(String channelName) {
-        try {
-            JSONObject result = new JSONObject();
-            result.put("success", success);
-            result.put("channel", channelName);
-            if (action != null) {
-                result.put("action", action);
-            }
-            if (success) {
-                result.put("mock", mock);
-                result.put("result", "not_implemented");
-                if (payload != null) {
-                    result.put("params", new JSONObject(payload.toString()));
-                }
-            } else {
-                result.put("error", error);
-                result.put("message", message);
-            }
-            return result.toString();
-        } catch (Exception ignored) {
-            return "{\"success\":false,\"error\":\"execution_failed\"}";
+    public ToolResult toToolResult(String channelName) {
+        ToolResult result = success
+                ? ToolResult.success()
+                : ToolResult.error(error, message);
+        result.with("channel", channelName);
+        if (action != null) {
+            result.with("action", action);
         }
+        if (success) {
+            result.with("mock", mock);
+            result.with("result", "not_implemented");
+            if (payload != null) {
+                result.withJson("params", payload.toString());
+            }
+        }
+        return result;
     }
 }

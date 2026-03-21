@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.ui.ToolUiDecision;
+import com.hh.agent.core.ToolResult;
 import org.json.JSONObject;
 
 /**
@@ -21,7 +22,7 @@ public interface AndroidToolChannelExecutor {
     /**
      * Executes a channel call using the raw params passed from native.
      */
-    String execute(JSONObject params);
+    ToolResult execute(JSONObject params);
 
     /**
      * Whether concrete tools under this channel may appear in the response-card tool UI.

@@ -2,6 +2,7 @@ package com.hh.agent.tool;
 
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
 
@@ -44,10 +45,11 @@ public class SearchContactsTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             if (!args.has("query")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"query\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "query");
             }
 
             String query = args.getString("query");
@@ -70,7 +72,7 @@ public class SearchContactsTool implements ToolExecutor {
                 contact2.put("department", "市场部");
                 contacts.put(contact2);
 
-                return "{\"success\": true, \"result\": " + contacts.toString() + "}";
+                return ToolResult.success().withJson("result", contacts.toString());
             } else if ("李四".equals(query)) {
                 // Scenario 2: Single match - use directly
                 org.json.JSONArray contacts = new org.json.JSONArray();
@@ -80,13 +82,13 @@ public class SearchContactsTool implements ToolExecutor {
                 contact.put("department", "产品部");
                 contacts.put(contact);
 
-                return "{\"success\": true, \"result\": " + contacts.toString() + "}";
+                return ToolResult.success().withJson("result", contacts.toString());
             } else {
                 // No matches
-                return "{\"success\": true, \"result\": []}";
+                return ToolResult.success().withJson("result", "[]");
             }
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }

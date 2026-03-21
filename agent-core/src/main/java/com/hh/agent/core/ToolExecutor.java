@@ -24,7 +24,7 @@ public interface ToolExecutor {
      * Execute the tool with given arguments.
      *
      * @param args JSON object containing tool arguments
-     * @return JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
+     * @return structured tool result serialized later at the Android tool boundary
      */
-    String execute(org.json.JSONObject args);
+    ToolResult execute(org.json.JSONObject args);
 }

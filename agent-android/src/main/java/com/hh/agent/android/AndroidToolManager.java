@@ -9,6 +9,7 @@ import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 import com.hh.agent.core.api.NativeMobileAgentApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -276,31 +277,18 @@ public class AndroidToolManager implements AndroidToolCallback {
         try {
             AndroidToolChannelExecutor channelExecutor = channels.get(toolName);
             if (channelExecutor == null) {
-                JSONObject error = new JSONObject();
-                error.put("success", false);
-                error.put("error", "unsupported_tool_channel");
-                error.put("message", "Tool channel '" + toolName + "' is not supported");
-                return error.toString();
+                return ToolResult.error(
+                        "unsupported_tool_channel",
+                        "Tool channel '" + toolName + "' is not supported"
+                ).toJsonString();
             }
 
             JSONObject params = new JSONObject(argsJson);
-            return channelExecutor.execute(params);
+            return channelExecutor.execute(params).toJsonString();
         } catch (org.json.JSONException e) {
-            JSONObject error = new JSONObject();
-            try {
-                error.put("success", false);
-                error.put("error", "invalid_args");
-                error.put("message", e.getMessage());
-            } catch (org.json.JSONException ignored) {}
-            return error.toString();
+            return ToolResult.error("invalid_args", e.getMessage()).toJsonString();
         } catch (Exception e) {
-            JSONObject error = new JSONObject();
-            try {
-                error.put("success", false);
-                error.put("error", "execution_failed");
-                error.put("message", e.getMessage());
-            } catch (org.json.JSONException ignored) {}
-            return error.toString();
+            return ToolResult.error("execution_failed", e.getMessage()).toJsonString();
         }
     }
 

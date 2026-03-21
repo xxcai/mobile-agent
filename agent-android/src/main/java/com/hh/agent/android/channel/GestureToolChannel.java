@@ -3,6 +3,7 @@ package com.hh.agent.android.channel;
 import com.hh.agent.android.gesture.AndroidGestureExecutor;
 import com.hh.agent.android.gesture.GestureExecutionResult;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -66,7 +67,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     }
 
     @Override
-    public String execute(JSONObject params) {
+    public ToolResult execute(JSONObject params) {
         try {
             String action = params.optString("action", "").trim();
             if (action.isEmpty()) {
@@ -81,14 +82,14 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                         return buildError("invalid_args", "tap requires integer fields 'x' and 'y'");
                     }
                     result = executor.tap(params);
-                    return result.toJsonString(CHANNEL_NAME);
+                    return result.toToolResult(CHANNEL_NAME);
                 case "swipe":
                     if (!params.has("startX") || !params.has("startY")
                             || !params.has("endX") || !params.has("endY")) {
                         return buildError("invalid_args", "swipe requires 'startX', 'startY', 'endX', and 'endY'");
                     }
                     result = executor.swipe(params);
-                    return result.toJsonString(CHANNEL_NAME);
+                    return result.toToolResult(CHANNEL_NAME);
                 default:
                     return buildError("invalid_args", "Unsupported gesture action '" + action + "'");
             }
@@ -102,15 +103,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
         return false;
     }
 
-    private String buildError(String errorCode, String message) {
-        try {
-            return new JSONObject()
-                    .put("success", false)
-                    .put("error", errorCode)
-                    .put("message", message)
-                    .toString();
-        } catch (Exception ignored) {
-            return "{\"success\":false,\"error\":\"execution_failed\"}";
-        }
+    private ToolResult buildError(String errorCode, String message) {
+        return ToolResult.error(errorCode, message);
     }
 }

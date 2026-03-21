@@ -2,6 +2,7 @@ package com.hh.agent.tool;
 
 import com.hh.agent.core.ToolDefinition;
 import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.ToolResult;
 
 import org.json.JSONObject;
 
@@ -46,14 +47,16 @@ public class SendImMessageTool implements ToolExecutor {
     }
 
     @Override
-    public String execute(JSONObject args) {
+    public ToolResult execute(JSONObject args) {
         try {
             // Validate required params
             if (!args.has("contact_id")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"contact_id\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "contact_id");
             }
             if (!args.has("message")) {
-                return "{\"success\": false, \"error\": \"missing_required_param\", \"param\": \"message\"}";
+                return ToolResult.error("missing_required_param")
+                        .with("param", "message");
             }
 
             String contactId = args.getString("contact_id");
@@ -62,9 +65,10 @@ public class SendImMessageTool implements ToolExecutor {
             Thread.sleep(5000);
 
             // Mock: Simply return success with formatted message
-            return "{\"success\": true, \"result\": \"消息已发送给 " + contactId + ": " + message + "\"}";
+            return ToolResult.success()
+                    .with("result", "消息已发送给 " + contactId + ": " + message);
         } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"execution_failed\", \"message\": \"" + e.getMessage() + "\"}";
+            return ToolResult.error("execution_failed", e.getMessage());
         }
     }
 }
