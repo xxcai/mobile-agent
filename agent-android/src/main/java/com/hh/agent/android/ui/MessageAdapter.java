@@ -422,20 +422,7 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
 
         private List<ToolCall> getVisibleToolCalls(Message message) {
-            List<ToolCall> visibleToolCalls = new ArrayList<>();
-            if (message == null) {
-                return visibleToolCalls;
-            }
-            List<ToolCall> toolCalls = message.getToolCalls();
-            if (toolCalls == null || toolCalls.isEmpty()) {
-                return visibleToolCalls;
-            }
-            for (ToolCall toolCall : toolCalls) {
-                if (toolCall != null && toolCall.isVisibleInToolUi()) {
-                    visibleToolCalls.add(toolCall);
-                }
-            }
-            return visibleToolCalls;
+            return filterVisibleToolCalls(message);
         }
 
         /**
@@ -568,6 +555,10 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     private boolean shouldShowToolUi(Message message) {
+        return shouldShowToolUi(message, activeToolUiResponseTimestamp);
+    }
+
+    static boolean shouldShowToolUi(Message message, Long activeToolUiResponseTimestamp) {
         if (message == null || !message.isShowToolUi()) {
             return false;
         }
@@ -576,6 +567,23 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         }
         return activeToolUiResponseTimestamp != null
                 && activeToolUiResponseTimestamp == message.getTimestamp();
+    }
+
+    static List<ToolCall> filterVisibleToolCalls(Message message) {
+        List<ToolCall> visibleToolCalls = new ArrayList<>();
+        if (message == null) {
+            return visibleToolCalls;
+        }
+        List<ToolCall> toolCalls = message.getToolCalls();
+        if (toolCalls == null || toolCalls.isEmpty()) {
+            return visibleToolCalls;
+        }
+        for (ToolCall toolCall : toolCalls) {
+            if (toolCall != null && toolCall.isVisibleInToolUi()) {
+                visibleToolCalls.add(toolCall);
+            }
+        }
+        return visibleToolCalls;
     }
 
 }
