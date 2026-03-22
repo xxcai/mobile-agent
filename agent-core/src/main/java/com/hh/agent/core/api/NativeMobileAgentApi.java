@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.log.AgentLogger;
 import com.hh.agent.core.log.AgentLogs;
 import com.hh.agent.core.model.Message;
 import java.lang.reflect.Type;
@@ -61,6 +62,15 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     public synchronized void setToolCallback(AndroidToolCallback callback) {
         // Forward to NativeAgent to register with C++ layer
         NativeAgent.registerAndroidToolCallback(callback);
+    }
+
+    /**
+     * 设置当前生效 logger，并同步到 native 层。
+     * 供 agent-android 初始化链路透传当前 logger 使用。
+     */
+    public synchronized void setLogger(AgentLogger logger) {
+        NativeAgent.setLogger(logger);
+        debug("logger_synced", "logger_null=" + (logger == null));
     }
 
     /**
