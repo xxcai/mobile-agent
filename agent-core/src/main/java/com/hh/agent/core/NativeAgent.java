@@ -94,6 +94,15 @@ public class NativeAgent {
     private static native void nativeSetLogger(AgentLogger logger);
 
     /**
+     * Set native log level explicitly from Java.
+     */
+    public static void setNativeLogLevel(String level) {
+        nativeSetLogLevel(level);
+    }
+
+    private static native void nativeSetLogLevel(String level);
+
+    /**
      * Send a message with streaming event callback
      *
      * @param message The message to send

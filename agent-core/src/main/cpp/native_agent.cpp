@@ -210,9 +210,6 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
                 if (json.contains("agent") && json["agent"].contains("model")) {
                     config.agent.model = json["agent"]["model"].get<std::string>();
                 }
-                if (json.contains("logging") && json["logging"].contains("level")) {
-                    config.logging.level = json["logging"]["level"].get<std::string>();
-                }
                 // Parse workspace path from JSON
                 if (json.contains("workspacePath")) {
                     config.workspace_path = json["workspacePath"].get<std::string>();
@@ -223,34 +220,21 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
                     config.workspace_path = default_config.workspace_path;
                 }
 
-                if (config.logging.level.empty()) {
-                    config.logging.level = "debug";
-                }
-                g_native_log_level = icraw::parse_log_level(config.logging.level);
                 icraw::Logger::get_instance().set_level(g_native_log_level);
 
-                ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} workspace={} log_level={}",
+                ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} workspace={} log_level_source=java",
                         !config.provider.api_key.empty(),
                         config.provider.base_url,
                         config.agent.model,
-                        config.workspace_path.string(),
-                        config.logging.level);
+                        config.workspace_path.string());
             } catch (const std::exception& e) {
                 ICRAW_LOG_WARN("[NativeAgentJni][config_parse_failed] message={}", e.what());
                 config = icraw::IcrawConfig::load_default();
-                if (config.logging.level.empty()) {
-                    config.logging.level = "debug";
-                }
-                g_native_log_level = icraw::parse_log_level(config.logging.level);
                 icraw::Logger::get_instance().set_level(g_native_log_level);
             }
         } else {
             ICRAW_LOG_INFO("[NativeAgentJni][config_default_used]");
             config = icraw::IcrawConfig::load_default();
-            if (config.logging.level.empty()) {
-                config.logging.level = "debug";
-            }
-            g_native_log_level = icraw::parse_log_level(config.logging.level);
             icraw::Logger::get_instance().set_level(g_native_log_level);
         }
 
@@ -327,6 +311,27 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogger(
             error_method);
     icraw::Logger::get_instance().set_backend(std::move(backend), g_native_log_level);
     ICRAW_LOG_INFO("[NativeAgentJni][logger_bridge_enabled]");
+}
+
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogLevel(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring levelStr) {
+    (void) env;
+    std::string level = "debug";
+    if (levelStr != nullptr) {
+        const char* raw_level = env->GetStringUTFChars(levelStr, nullptr);
+        if (raw_level != nullptr && std::strlen(raw_level) > 0) {
+            level = raw_level;
+        }
+        if (raw_level != nullptr) {
+            env->ReleaseStringUTFChars(levelStr, raw_level);
+        }
+    }
+
+    g_native_log_level = icraw::parse_log_level(level);
+    icraw::Logger::get_instance().set_level(g_native_log_level);
+    ICRAW_LOG_INFO("[NativeAgentJni][log_level_updated] level={}", level);
 }
 
 /**

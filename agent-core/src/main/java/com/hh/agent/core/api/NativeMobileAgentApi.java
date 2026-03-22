@@ -74,6 +74,15 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
+     * 显式设置 native logger level。
+     * level 由 Java 层决定并下传，不再依赖 config.json 中的 logging.level。
+     */
+    public synchronized void setNativeLogLevel(String level) {
+        NativeAgent.setNativeLogLevel(level);
+        debug("native_log_level_synced", "level=" + nullToEmpty(level));
+    }
+
+    /**
      * 设置动态生成的 tools.json
      * 由 AndroidToolManager 在初始化时调用，传递动态生成的工具描述
      *
