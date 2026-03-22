@@ -5,6 +5,8 @@ project(icraw)
 set(ICRAW_SOURCES
         src/config.cpp
         src/logger.cpp
+        src/logger_backend_android.cpp
+        src/logger_backend_spdlog.cpp
         src/core/content_block.cpp
         src/core/memory_manager.cpp
         src/core/skill_loader.cpp
@@ -33,7 +35,6 @@ set(ICRAW_HEADERS
         include/icraw/core/token_utils.hpp
         include/icraw/core/mcp_client.hpp
         include/icraw/tools/tool_registry.hpp
-        include/icraw/tools/android_log_sink.hpp
         include/icraw/config.hpp
         include/icraw/mobile_agent.hpp
         include/icraw/types.hpp
@@ -46,8 +47,9 @@ target_include_directories(icraw PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Define ICRAW_ANDROID for Android-specific code paths
-add_compile_definitions(ICRAW_ANDROID)
+if(ANDROID)
+    add_compile_definitions(ICRAW_ANDROID)
+endif()
 
 # Conan dependencies via find_package (from agent/build/armv8/Release/generators)
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -64,5 +66,8 @@ target_link_libraries(icraw PUBLIC
         spdlog::spdlog_header_only
         ZLIB::ZLIB
         SQLite::SQLite3
-        log
 )
+
+if(ANDROID)
+    target_link_libraries(icraw PUBLIC log)
+endif()

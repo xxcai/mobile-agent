@@ -24,6 +24,7 @@ import java.util.Map;
 public class AgentInitializer {
 
     private static final String TAG = "AgentInitializer";
+    private static final String DEFAULT_NATIVE_LOG_LEVEL = "debug";
     private static String configJson = "";
 
     /**
@@ -33,6 +34,7 @@ public class AgentInitializer {
      */
     public static void setLogger(AgentLogger logger) {
         AgentLogs.setLogger(logger);
+        NativeMobileAgentApi.getInstance().setLogger(AgentLogs.getLogger());
     }
 
     /**
@@ -96,6 +98,8 @@ public class AgentInitializer {
         String toolsJson = toolManager.generateToolsJsonString();
         try {
             System.loadLibrary("icraw");
+            NativeMobileAgentApi.getInstance().setLogger(AgentLogs.getLogger());
+            NativeMobileAgentApi.getInstance().setNativeLogLevel(DEFAULT_NATIVE_LOG_LEVEL);
             NativeMobileAgentApi.getInstance().initialize(toolsJson, configJson);
             AgentLogs.info(TAG, "native_initialize_complete", "tools_json_length=" + toolsJson.length());
         } catch (UnsatisfiedLinkError e) {

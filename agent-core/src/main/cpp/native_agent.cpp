@@ -1,12 +1,13 @@
 #include <jni.h>
-#include <string>
-#include <memory>
 #include <curl/curl.h>
+#include <memory>
+#include <string>
 #include "icraw/core/logger.hpp"
 #include "icraw/mobile_agent.hpp"
 #include "icraw/config.hpp"
 #include "icraw/android_tools.hpp"
 #include "icraw/tools/tool_registry.hpp"
+#include "src/logger_backend.hpp"
 #include <nlohmann/json.hpp>
 
 // ICRAW_ANDROID is already defined by CMake, no need to redefine
@@ -16,6 +17,126 @@ static std::unique_ptr<icraw::MobileAgent> g_agent;
 
 // Global callback object reference for Android tool invocations
 static jobject g_callback_object = nullptr;
+static JavaVM* g_java_vm = nullptr;
+
+namespace {
+
+constexpr const char* kNativeJavaLoggerTag = "icraw";
+icraw::LogLevel g_native_log_level = icraw::parse_log_level("debug");
+
+class JavaLoggerBackend final : public icraw::LoggerBackend {
+public:
+    JavaLoggerBackend(JavaVM* java_vm, jobject logger, jmethodID debug_method,
+            jmethodID info_method, jmethodID warn_method, jmethodID error_method)
+        : java_vm_(java_vm)
+        , logger_(logger)
+        , debug_method_(debug_method)
+        , info_method_(info_method)
+        , warn_method_(warn_method)
+        , error_method_(error_method) {}
+
+    ~JavaLoggerBackend() override {
+        if (!java_vm_ || !logger_) {
+            return;
+        }
+
+        JNIEnv* env = nullptr;
+        bool attached = false;
+        if (!get_env(&env, &attached)) {
+            return;
+        }
+
+        env->DeleteGlobalRef(logger_);
+        if (attached) {
+            java_vm_->DetachCurrentThread();
+        }
+    }
+
+    void set_level(icraw::LogLevel level) override {
+        min_level_ = level;
+    }
+
+    void log(icraw::LogLevel level, std::string_view message) override {
+        if (level < min_level_ || !java_vm_ || !logger_) {
+            return;
+        }
+
+        jmethodID method = select_method(level);
+        if (!method) {
+            return;
+        }
+
+        JNIEnv* env = nullptr;
+        bool attached = false;
+        if (!get_env(&env, &attached)) {
+            return;
+        }
+
+        jstring tag = env->NewStringUTF(kNativeJavaLoggerTag);
+        jstring text = env->NewStringUTF(std::string(message).c_str());
+        env->CallVoidMethod(logger_, method, tag, text);
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+
+        env->DeleteLocalRef(text);
+        env->DeleteLocalRef(tag);
+
+        if (attached) {
+            java_vm_->DetachCurrentThread();
+        }
+    }
+
+private:
+    bool get_env(JNIEnv** env, bool* attached) const {
+        *attached = false;
+        const jint get_env_result = java_vm_->GetEnv(reinterpret_cast<void**>(env), JNI_VERSION_1_6);
+        if (get_env_result == JNI_OK) {
+            return true;
+        }
+        if (get_env_result != JNI_EDETACHED) {
+            return false;
+        }
+
+        if (java_vm_->AttachCurrentThread(env, nullptr) != 0) {
+            return false;
+        }
+        *attached = true;
+        return true;
+    }
+
+    jmethodID select_method(icraw::LogLevel level) const {
+        switch (level) {
+            case icraw::LogLevel::Trace:
+            case icraw::LogLevel::Debug:
+                return debug_method_;
+            case icraw::LogLevel::Info:
+                return info_method_;
+            case icraw::LogLevel::Warn:
+                return warn_method_;
+            case icraw::LogLevel::Error:
+                return error_method_;
+        }
+        return debug_method_;
+    }
+
+    JavaVM* java_vm_;
+    jobject logger_;
+    jmethodID debug_method_;
+    jmethodID info_method_;
+    jmethodID warn_method_;
+    jmethodID error_method_;
+    icraw::LogLevel min_level_ = icraw::LogLevel::Info;
+};
+
+void reset_native_logger_backend() {
+    icraw::Logger::get_instance().set_backend(
+            icraw::create_default_logger_backend(""),
+            g_native_log_level);
+}
+
+} // namespace
 
 extern "C" {
 
@@ -23,6 +144,7 @@ extern "C" {
  * JNI OnLoad - Called when the native library is loaded
  */
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
+    g_java_vm = vm;
     JNIEnv* env;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
@@ -31,11 +153,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     // Initialize curl globally (required before using curl_easy_init)
     CURLcode curl_res = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curl_res != CURLE_OK) {
-        // Cannot use logger yet, but continue anyway
+        ICRAW_LOG_WARN("[NativeAgentJni][curl_initialize_failed] curl_code={}", static_cast<int>(curl_res));
     }
 
     // Initialize the logger (Android uses logcat, directory is ignored)
-    icraw::Logger::get_instance().init("", "debug");
+    reset_native_logger_backend();
+    ICRAW_LOG_INFO("[NativeAgentJni][jni_load_complete]");
 
     return JNI_VERSION_1_6;
 }
@@ -64,7 +187,8 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
         config_json = env->GetStringUTFChars(configJsonStr, nullptr);
     }
 
-    icraw::Logger::get_instance().logger()->info("nativeInitialize: Starting initialization");
+    ICRAW_LOG_INFO("[NativeAgentJni][native_initialize_start] config_length={}",
+            config_json ? std::strlen(config_json) : 0);
 
     // Create MobileAgent with config
     try {
@@ -91,32 +215,37 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
                     config.workspace_path = json["workspacePath"].get<std::string>();
                 }
                 // Ensure workspace path is set (load_default sets the default path)
-        icraw::IcrawConfig default_config = icraw::IcrawConfig::load_default();
-        if (config.workspace_path.empty()) {
-            config.workspace_path = default_config.workspace_path;
-        }
+                icraw::IcrawConfig default_config = icraw::IcrawConfig::load_default();
+                if (config.workspace_path.empty()) {
+                    config.workspace_path = default_config.workspace_path;
+                }
 
-        icraw::Logger::get_instance().logger()->info("Loaded config from JSON: apiKey set={}, baseUrl={}, model={}, workspace={}",
-                    !config.provider.api_key.empty(), config.provider.base_url, config.agent.model, config.workspace_path.string());
+                icraw::Logger::get_instance().set_level(g_native_log_level);
+
+                ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} workspace={} log_level_source=java",
+                        !config.provider.api_key.empty(),
+                        config.provider.base_url,
+                        config.agent.model,
+                        config.workspace_path.string());
             } catch (const std::exception& e) {
-                icraw::Logger::get_instance().logger()->warn("Failed to parse config JSON: {}", e.what());
+                ICRAW_LOG_WARN("[NativeAgentJni][config_parse_failed] message={}", e.what());
                 config = icraw::IcrawConfig::load_default();
+                icraw::Logger::get_instance().set_level(g_native_log_level);
             }
         } else {
-            icraw::Logger::get_instance().logger()->info("No config JSON provided, using defaults");
+            ICRAW_LOG_INFO("[NativeAgentJni][config_default_used]");
             config = icraw::IcrawConfig::load_default();
+            icraw::Logger::get_instance().set_level(g_native_log_level);
         }
 
-        icraw::Logger::get_instance().logger()->info("Creating MobileAgent with config: model={}, workspace={}",
+        ICRAW_LOG_INFO("[NativeAgentJni][mobile_agent_create_start] model={} workspace={}",
             config.agent.model, config.workspace_path.string());
 
         g_agent = icraw::MobileAgent::create_with_config(config);
 
-        icraw::Logger::get_instance().logger()->info(
-            "NativeAgent initialized successfully");
+        ICRAW_LOG_INFO("[NativeAgentJni][native_initialize_complete]");
     } catch (const std::exception& e) {
-        icraw::Logger::get_instance().logger()->error(
-            "Failed to initialize NativeAgent: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][native_initialize_failed] message={}", e.what());
         // Return error to Java instead of silently failing
         if (config_json) {
             env->ReleaseStringUTFChars(configJsonStr, config_json);
@@ -128,6 +257,81 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
         env->ReleaseStringUTFChars(configJsonStr, config_json);
     }
     return 0;  // Success
+}
+
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogger(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jobject logger) {
+    if (!logger || !g_java_vm) {
+        reset_native_logger_backend();
+        ICRAW_LOG_INFO("[NativeAgentJni][logger_bridge_reset]");
+        return;
+    }
+
+    jclass logger_class = env->GetObjectClass(logger);
+    if (!logger_class) {
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=logger_class_missing");
+        return;
+    }
+
+    jmethodID debug_method = env->GetMethodID(logger_class, "d",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID info_method = env->GetMethodID(logger_class, "i",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID warn_method = env->GetMethodID(logger_class, "w",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID error_method = env->GetMethodID(logger_class, "e",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    env->DeleteLocalRef(logger_class);
+
+    if (!debug_method || !info_method || !warn_method || !error_method) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=logger_method_missing");
+        return;
+    }
+
+    jobject global_logger = env->NewGlobalRef(logger);
+    if (!global_logger) {
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=global_ref_create_failed");
+        return;
+    }
+
+    auto backend = std::make_unique<JavaLoggerBackend>(
+            g_java_vm,
+            global_logger,
+            debug_method,
+            info_method,
+            warn_method,
+            error_method);
+    icraw::Logger::get_instance().set_backend(std::move(backend), g_native_log_level);
+    ICRAW_LOG_INFO("[NativeAgentJni][logger_bridge_enabled]");
+}
+
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogLevel(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring levelStr) {
+    (void) env;
+    std::string level = "debug";
+    if (levelStr != nullptr) {
+        const char* raw_level = env->GetStringUTFChars(levelStr, nullptr);
+        if (raw_level != nullptr && std::strlen(raw_level) > 0) {
+            level = raw_level;
+        }
+        if (raw_level != nullptr) {
+            env->ReleaseStringUTFChars(levelStr, raw_level);
+        }
+    }
+
+    g_native_log_level = icraw::parse_log_level(level);
+    icraw::Logger::get_instance().set_level(g_native_log_level);
+    ICRAW_LOG_INFO("[NativeAgentJni][log_level_updated] level={}", level);
 }
 
 /**
@@ -144,19 +348,21 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
         return env->NewStringUTF("");
     }
 
-    icraw::Logger::get_instance().logger()->debug("Received message: {}", msg);
+    ICRAW_LOG_INFO("[NativeAgentJni][send_message_start] input_length={}", std::strlen(msg));
+    ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] input={}", msg);
 
     // Check if agent is initialized
     if (!g_agent) {
-        icraw::Logger::get_instance().logger()->warn("Agent not initialized, returning error");
+        ICRAW_LOG_WARN("[NativeAgentJni][send_message_skipped] reason=agent_not_initialized");
         response = "Error: Agent not initialized. Call nativeInitialize first.";
     } else {
         try {
             // Call MobileAgent::chat()
             response = g_agent->chat(msg);
-            icraw::Logger::get_instance().logger()->debug("Agent response: {}", response);
+            ICRAW_LOG_INFO("[NativeAgentJni][send_message_complete] output_length={}", response.size());
+            ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] response={}", response);
         } catch (const std::exception& e) {
-            icraw::Logger::get_instance().logger()->error("Agent chat failed: {}", e.what());
+            ICRAW_LOG_ERROR("[NativeAgentJni][send_message_failed] message={}", e.what());
             response = std::string("Error: ") + e.what();
         }
     }
@@ -171,13 +377,13 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
 JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(
         JNIEnv* env,
         jclass /* clazz */) {
-    icraw::Logger::get_instance().logger()->info("Shutting down NativeAgent");
+    ICRAW_LOG_INFO("[NativeAgentJni][shutdown_start]");
 
     // Clean up MobileAgent instance
     if (g_agent) {
         g_agent->stop();
         g_agent.reset();
-        icraw::Logger::get_instance().logger()->info("MobileAgent destroyed");
+        ICRAW_LOG_INFO("[NativeAgentJni][shutdown_complete]");
     }
 }
 
@@ -197,7 +403,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     }
 
     if (!callback) {
-        icraw::Logger::get_instance().logger()->info("AndroidToolCallback unregistered");
+        ICRAW_LOG_INFO("[NativeAgentJni][tool_callback_unregistered]");
         return;
     }
 
@@ -286,7 +492,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     // Register the JNI callback
     icraw::g_android_tools.register_callback(std::make_unique<JniCallback>(java_vm, g_callback_object, method_id));
 
-    icraw::Logger::get_instance().logger()->info("AndroidToolCallback registered via JNI");
+    ICRAW_LOG_INFO("[NativeAgentJni][tool_callback_registered]");
 }
 
 /**
@@ -299,7 +505,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
         jstring schemaJson) {
 
     if (!g_agent) {
-        icraw::Logger::get_instance().logger()->warn("nativeSetToolsSchema: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][tools_schema_register_skipped] reason=agent_not_initialized");
         return;
     }
 
@@ -309,7 +515,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
     }
 
     if (!schema_json || strlen(schema_json) == 0) {
-        icraw::Logger::get_instance().logger()->warn("nativeSetToolsSchema: Empty schema JSON");
+        ICRAW_LOG_WARN("[NativeAgentJni][tools_schema_register_skipped] reason=empty_schema_json");
         if (schema_json) {
             env->ReleaseStringUTFChars(schemaJson, schema_json);
         }
@@ -317,15 +523,16 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
     }
 
     try {
+        ICRAW_LOG_INFO("[NativeAgentJni][tools_schema_register_start] schema_length={}", std::strlen(schema_json));
         auto schema = nlohmann::json::parse(schema_json);
         auto registry = g_agent->get_tool_registry();
 
         // Call the new method to register tools from external schema
         registry->register_tools_from_schema(schema);
 
-        icraw::Logger::get_instance().logger()->info("nativeSetToolsSchema: Successfully registered tools from schema");
+        ICRAW_LOG_INFO("[NativeAgentJni][tools_schema_register_complete]");
     } catch (const std::exception& e) {
-        icraw::Logger::get_instance().logger()->error("nativeSetToolsSchema: Failed to parse schema: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][tools_schema_register_failed] message={}", e.what());
     }
 
     env->ReleaseStringUTFChars(schemaJson, schema_json);
@@ -343,21 +550,23 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
 
     const char* msg = env->GetStringUTFChars(message, nullptr);
     if (!msg) {
-        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Empty message");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=empty_message");
         return;
     }
 
     if (!g_agent) {
-        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=agent_not_initialized");
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
 
     if (!listener) {
-        icraw::Logger::get_instance().logger()->warn("nativeSendMessageStream: Listener is null");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=listener_null");
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_start] input_length={}", std::strlen(msg));
+    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_start_debug] input={}", msg);
 
     // Create global reference to keep the listener object alive
     jobject listener_global_ref = env->NewGlobalRef(listener);
@@ -401,19 +610,19 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                 if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
                     attached = true;
                 } else {
-                    icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Failed to attach thread");
+                    ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=attach_thread_failed");
                     return;
                 }
             } else if (getEnvResult != JNI_OK) {
-                icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Failed to get JNI env");
+                ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=get_jni_env_failed");
                 return;
             }
 
             try {
-                icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: event type='{}'", event.type);
                 if (event.type == "text_delta") {
                     std::string text = event.data.value("delta", "");
-                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: text_delta event, text='{}'", text);
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=text_delta delta_length={} text={}",
+                            text.size(), text);
                     jstring j_text = env->NewStringUTF(text.c_str());
                     env->CallVoidMethod(listener_, method_onTextDelta_, j_text);
                     env->DeleteLocalRef(j_text);
@@ -422,7 +631,10 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                     std::string id = event.data.value("id", "");
                     std::string name = event.data.value("name", "");
                     std::string arguments = event.data.value("input", nlohmann::json::object()).dump();
-                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: tool_use event, name='{}'", name);
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_event] event_type=tool_use tool_name={} tool_id={}",
+                            name, id);
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=tool_use tool_name={} tool_id={} args={}",
+                            name, id, arguments);
 
                     jstring j_id = env->NewStringUTF(id.c_str());
                     jstring j_name = env->NewStringUTF(name.c_str());
@@ -437,6 +649,10 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                 } else if (event.type == "tool_result") {
                     std::string tool_use_id = event.data.value("tool_use_id", "");
                     std::string content = event.data.value("content", "");
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_event] event_type=tool_result tool_id={} content_length={}",
+                            tool_use_id, content.size());
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=tool_result tool_id={} content={}",
+                            tool_use_id, content);
 
                     jstring j_id = env->NewStringUTF(tool_use_id.c_str());
                     jstring j_result = env->NewStringUTF(content.c_str());
@@ -448,13 +664,13 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
 
                 } else if (event.type == "message_end") {
                     std::string finish_reason = event.data.value("finish_reason", "unknown");
-                    icraw::Logger::get_instance().logger()->info("nativeSendMessageStream: message_end event, finish_reason='{}'", finish_reason);
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_complete] finish_reason={}", finish_reason);
                     jstring j_reason = env->NewStringUTF(finish_reason.c_str());
                     env->CallVoidMethod(listener_, method_onMessageEnd_, j_reason);
                     env->DeleteLocalRef(j_reason);
                 }
             } catch (...) {
-                icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Exception in callback");
+                ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=callback_exception");
             }
 
             // Detach thread if we attached it
@@ -513,14 +729,14 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     try {
         // Call chat_stream with the callback
         g_agent->chat_stream(msg, *callback);
-        icraw::Logger::get_instance().logger()->debug("nativeSendMessageStream: chat_stream completed");
+        ICRAW_LOG_DEBUG("[NativeAgentJni][stream_complete_debug] state=chat_stream_returned");
     } catch (const std::exception& e) {
         // Report error to Java via callback
         callback_ptr->reportError("cpp_exception", e.what());
-        icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Exception: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] error_code=cpp_exception message={}", e.what());
     } catch (...) {
         callback_ptr->reportError("unknown_error", "Unknown exception in chat_stream");
-        icraw::Logger::get_instance().logger()->error("nativeSendMessageStream: Unknown exception");
+        ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] error_code=unknown_error");
     }
 
     // Clean up global reference
@@ -536,16 +752,16 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeCancelStream(
         JNIEnv* env,
         jclass /* clazz */) {
 
-    icraw::Logger::get_instance().logger()->info("nativeCancelStream: Cancelling streaming request");
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_cancel_start]");
 
     if (!g_agent) {
-        icraw::Logger::get_instance().logger()->warn("nativeCancelStream: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_cancel_skipped] reason=agent_not_initialized");
         return;
     }
 
     // Call stop on the agent to cancel the streaming request
     g_agent->stop();
-    icraw::Logger::get_instance().logger()->info("nativeCancelStream: Streaming request cancelled");
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_cancel_complete]");
 }
 
 /**
@@ -563,7 +779,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
         return env->NewStringUTF("[]");
     }
 
-    icraw::Logger::get_instance().logger()->debug("nativeGetHistory: session_id={}, limit={}", session_id, limit);
+    ICRAW_LOG_INFO("[NativeAgentJni][history_query_start] session_id={} limit={}", session_id, limit);
 
     std::vector<std::string> roles = {"user", "assistant"};
 
@@ -576,7 +792,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
                 entries = memory_manager->get_recent_messages_by_roles(static_cast<int>(limit), roles, session_id);
             }
         } catch (const std::exception& e) {
-            icraw::Logger::get_instance().logger()->error("nativeGetHistory: {}", e.what());
+            ICRAW_LOG_ERROR("[NativeAgentJni][history_query_failed] message={}", e.what());
         }
     }
 
@@ -594,7 +810,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
 
     env->ReleaseStringUTFChars(sessionId, session_id);
 
-    icraw::Logger::get_instance().logger()->debug("nativeGetHistory: returning {} messages", entries.size());
+    ICRAW_LOG_INFO("[NativeAgentJni][history_query_complete] message_count={}", entries.size());
 
     return env->NewStringUTF(result.c_str());
 }

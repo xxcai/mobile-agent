@@ -1,5 +1,6 @@
 #include "icraw/core/mcp_client.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/core/log_utils.hpp"
 #include <sstream>
 #include <chrono>
 
@@ -29,7 +30,7 @@ std::optional<McpInitializeResult> McpClient::initialize() {
     auto start_time = std::chrono::steady_clock::now();
 
     if (initialized_) {
-        ICRAW_LOG_WARN("[MCP] Already initialized");
+        ICRAW_LOG_WARN("[McpClient][initialize_skipped] reason=already_initialized");
         return std::nullopt;
     }
 
@@ -48,8 +49,9 @@ std::optional<McpInitializeResult> McpClient::initialize() {
     params["clientInfo"] = client_info;
 
     nlohmann::json result;
+    ICRAW_LOG_INFO("[McpClient][initialize_start]");
     if (!send_request("initialize", params, result)) {
-        ICRAW_LOG_ERROR("[MCP] Initialize request failed: {}", last_error_.message);
+        ICRAW_LOG_ERROR("[McpClient][initialize_failed] message={}", last_error_.message);
         return std::nullopt;
     }
 
@@ -63,11 +65,11 @@ std::optional<McpInitializeResult> McpClient::initialize() {
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] initialize - ({}ms)", duration_ms);
+    ICRAW_LOG_INFO("[McpClient][initialize_complete] duration_ms={}", duration_ms);
 
-    ICRAW_LOG_INFO("[MCP] Connected to server: {} v{}",
+    ICRAW_LOG_INFO("[McpClient][server_connected] server_name={} server_version={}",
                    server_info_.name, server_info_.version);
-    ICRAW_LOG_DEBUG("[MCP] Server capabilities: tools={}, resources={}, prompts={}",
+    ICRAW_LOG_DEBUG("[McpClient][initialize_debug] tools_supported={} resources_supported={} prompts_supported={}",
                     server_capabilities_.tools_supported,
                     server_capabilities_.resources_supported,
                     server_capabilities_.prompts_supported);
@@ -104,7 +106,7 @@ std::optional<McpListToolsResult> McpClient::list_tools(const std::string& curso
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] list_tools - ({}ms)", duration_ms);
+    ICRAW_LOG_INFO("[McpClient][list_tools_complete] duration_ms={}", duration_ms);
 
     return McpListToolsResult::from_json(result);
 }
@@ -136,7 +138,7 @@ std::optional<McpToolResult> McpClient::call_tool(const std::string& name,
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[MCP] call_tool {} - ({}ms)", name, duration_ms);
+    ICRAW_LOG_INFO("[McpClient][call_tool_complete] tool_name={} duration_ms={}", name, duration_ms);
 
     return McpToolResult::from_json(result);
 }
@@ -247,8 +249,8 @@ bool McpClient::send_request(const std::string& method,
         headers["Authorization"] = "Bearer " + config_.auth_token;
     }
     
-    ICRAW_LOG_DEBUG("[MCP] Sending request: {} (id={})", method, request["id"].get<int>());
-    ICRAW_LOG_TRACE("[MCP] Request body: {}", request_body);
+    ICRAW_LOG_INFO("[McpClient][request_start] method={} request_id={}", method, request["id"].get<int>());
+    ICRAW_LOG_DEBUG("[McpClient][request_debug] method={} body={}", method, log_utils::truncate_for_debug(request_body));
     
     // Send request
     std::string response_body;
@@ -263,7 +265,7 @@ bool McpClient::send_request(const std::string& method,
     if (!success) {
         last_error_.code = http_error.code;
         last_error_.message = http_error.message;
-        ICRAW_LOG_ERROR("[MCP] HTTP request failed: {} - {}", http_error.code, http_error.message);
+        ICRAW_LOG_ERROR("[McpClient][request_failed] method={} error_code={} message={}", method, http_error.code, http_error.message);
         
         // Try to parse error response
         if (!response_body.empty()) {
@@ -272,7 +274,7 @@ bool McpClient::send_request(const std::string& method,
                 if (error_response.contains("error")) {
                     McpError mcp_error = McpError::from_json(error_response["error"]);
                     last_error_ = mcp_error;
-                    ICRAW_LOG_ERROR("[MCP] MCP error: {} - {}", mcp_error.code, mcp_error.message);
+                    ICRAW_LOG_ERROR("[McpClient][request_failed] method={} error_code={} message={}", method, mcp_error.code, mcp_error.message);
                 }
             } catch (...) {
                 // Ignore JSON parse errors
@@ -282,7 +284,7 @@ bool McpClient::send_request(const std::string& method,
         return false;
     }
     
-    ICRAW_LOG_TRACE("[MCP] Response body: {}", response_body);
+    ICRAW_LOG_DEBUG("[McpClient][response_debug] method={} body={}", method, log_utils::truncate_for_debug(response_body));
     
     // Parse JSON-RPC response
     return parse_response(response_body, result);
@@ -314,7 +316,7 @@ bool McpClient::parse_response(const std::string& response_body,
         // Check for JSON-RPC error
         if (response.contains("error")) {
             last_error_ = McpError::from_json(response["error"]);
-            ICRAW_LOG_ERROR("[MCP] JSON-RPC error: {} - {}", 
+            ICRAW_LOG_ERROR("[McpClient][response_failed] error_code={} message={}", 
                            last_error_.code, last_error_.message);
             return false;
         }
@@ -334,7 +336,7 @@ bool McpClient::parse_response(const std::string& response_body,
     } catch (const nlohmann::json::parse_error& e) {
         last_error_.code = -1;
         last_error_.message = std::string("JSON parse error: ") + e.what();
-        ICRAW_LOG_ERROR("[MCP] {}", last_error_.message);
+        ICRAW_LOG_ERROR("[McpClient][response_failed] message={}", last_error_.message);
         return false;
     }
 }

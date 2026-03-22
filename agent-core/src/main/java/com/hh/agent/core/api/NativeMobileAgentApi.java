@@ -8,6 +8,8 @@ import com.google.gson.reflect.TypeToken;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.log.AgentLogger;
+import com.hh.agent.core.log.AgentLogs;
 import com.hh.agent.core.model.Message;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.List;
  * 注意：会话持久化为 Mock 实现，后续 C++ 模块开发时实现
  */
 public class NativeMobileAgentApi implements MobileAgentApi {
+    private static final String SCOPE = "NativeMobileAgentApi";
     private static final String THINK_START = "<think>";
     private static final String THINK_END = "</think>";
 
@@ -47,7 +50,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
      */
     public synchronized void initializeContext(Context context) {
         // TODO: 后续 C++ 持久化需要 Context
-        System.out.println("[NativeMobileAgentApi] initializeContext: Mock - session persistence not implemented");
+        debug("initialize_context_skipped", "reason=session_persistence_not_implemented");
     }
 
     /**
@@ -62,6 +65,24 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     /**
+     * 设置当前生效 logger，并同步到 native 层。
+     * 供 agent-android 初始化链路透传当前 logger 使用。
+     */
+    public synchronized void setLogger(AgentLogger logger) {
+        NativeAgent.setLogger(logger);
+        debug("logger_synced", "logger_null=" + (logger == null));
+    }
+
+    /**
+     * 显式设置 native logger level。
+     * level 由 Java 层决定并下传，不再依赖 config.json 中的 logging.level。
+     */
+    public synchronized void setNativeLogLevel(String level) {
+        NativeAgent.setNativeLogLevel(level);
+        debug("native_log_level_synced", "level=" + nullToEmpty(level));
+    }
+
+    /**
      * 设置动态生成的 tools.json
      * 由 AndroidToolManager 在初始化时调用，传递动态生成的工具描述
      *
@@ -71,9 +92,9 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         if (toolsJson != null && !toolsJson.isEmpty()) {
             try {
                 NativeAgent.nativeSetToolsSchema(toolsJson);
-                System.out.println("[NativeMobileAgentApi] Successfully set tools.json to native layer");
+                info("tools_schema_set", "schema_length=" + toolsJson.length());
             } catch (Exception e) {
-                System.err.println("[NativeMobileAgentApi] Failed to set tools schema: " + e.getMessage());
+                error("tools_schema_set_failed", "message=" + e.getMessage(), e);
             }
         }
     }
@@ -87,6 +108,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     public synchronized void initialize(String toolsJson, String configPath) {
         if (!initialized) {
             try {
+                info("initialize_start", "config_length=" + lengthOf(configPath));
                 int result = NativeAgent.nativeInitialize(configPath);
                 if (result != 0) {
                     throw new RuntimeException("Native agent initialization failed with code: " + result);
@@ -97,15 +119,16 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 if (toolsJson != null && !toolsJson.isEmpty()) {
                     try {
                         NativeAgent.nativeSetToolsSchema(toolsJson);
-                        System.out.println("[NativeMobileAgentApi] Successfully passed tools.json to native layer");
+                        info("tools_schema_set", "source=initialize schema_length=" + toolsJson.length());
                     } catch (Exception e) {
-                        // Log but don't fail initialization
-                        System.out.println("[NativeMobileAgentApi] Failed to set tools schema: " + e.getMessage());
+                        warn("tools_schema_set_failed", "source=initialize message=" + e.getMessage());
                     }
                 } else {
-                    System.out.println("[NativeMobileAgentApi] toolsJson is empty, skipping native registration");
+                    debug("tools_schema_register_skipped", "reason=empty_tools_json");
                 }
+                info("initialize_complete", "initialized=true");
             } catch (Exception e) {
+                error("initialize_failed", "message=" + e.getMessage(), e);
                 throw new RuntimeException("Failed to initialize native agent: " + e.getMessage(), e);
             }
         }
@@ -150,15 +173,15 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             sessionId = sessionKey.substring(7); // Remove "native:" prefix
         }
 
-        System.out.println("[NativeMobileAgentApi] getHistory: sessionKey=" + sessionKey + ", sessionId=" + sessionId + ", limit=" + maxMessages);
+        info("history_query_start", "session_key=" + nullToEmpty(sessionKey) + " limit=" + maxMessages);
 
         // Call C++ to get messages from SQLite
         String jsonResult = NativeAgent.nativeGetHistory(sessionId, maxMessages);
 
-        System.out.println("[NativeMobileAgentApi] getHistory: jsonResult=" + jsonResult);
+        debug("history_query_payload", "payload_length=" + lengthOf(jsonResult));
 
         if (jsonResult == null || jsonResult.isEmpty()) {
-            System.out.println("[NativeMobileAgentApi] getHistory: returning empty list");
+            info("history_query_empty", "session_key=" + nullToEmpty(sessionKey));
             return new ArrayList<>();
         }
 
@@ -181,11 +204,50 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 messages.add(msg);
             }
 
+            info("history_query_complete", "session_key=" + nullToEmpty(sessionKey)
+                    + " message_count=" + messages.size());
             return messages;
         } catch (Exception e) {
-            System.err.println("[NativeMobileAgentApi] getHistory: Failed to parse messages: " + e.getMessage());
+            error("history_query_parse_failed", "message=" + e.getMessage(), e);
             return new ArrayList<>();
         }
+    }
+
+    private static void debug(String event, String detail) {
+        AgentLogs.d(buildMessage(event, detail));
+    }
+
+    private static void info(String event, String detail) {
+        AgentLogs.i(buildMessage(event, detail));
+    }
+
+    private static void warn(String event, String detail) {
+        AgentLogs.w(buildMessage(event, detail));
+    }
+
+    private static void error(String event, String detail, Throwable throwable) {
+        AgentLogs.e(buildMessage(event, detail), throwable);
+    }
+
+    private static String buildMessage(String event, String detail) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[")
+                .append(SCOPE)
+                .append("][")
+                .append(event)
+                .append("]");
+        if (detail != null && !detail.isEmpty()) {
+            builder.append(" ").append(detail);
+        }
+        return builder.toString();
+    }
+
+    private static int lengthOf(String value) {
+        return value != null ? value.length() : 0;
+    }
+
+    private static String nullToEmpty(String value) {
+        return value != null ? value : "";
     }
 
     /**

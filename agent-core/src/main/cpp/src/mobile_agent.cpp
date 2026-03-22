@@ -7,6 +7,7 @@
 #include "icraw/core/llm_provider.hpp"
 #include "icraw/core/http_client.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/core/log_utils.hpp"
 
 namespace icraw {
 
@@ -45,61 +46,61 @@ MobileAgent::MobileAgent(const IcrawConfig& config)
         Logger::get_instance().init(config_.logging.directory, config_.logging.level);
     }
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating workspace at {}", config_.workspace_path.string());
+    ICRAW_LOG_INFO("[MobileAgent][initialize_start] workspace={}", config_.workspace_path.string());
 
     // Ensure workspace exists
     try {
         std::filesystem::create_directories(config_.workspace_path);
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("[AGENT] Failed to create workspace directory: {}", e.what());
+        ICRAW_LOG_ERROR("[MobileAgent][workspace_prepare_failed] message={}", e.what());
         throw;
     }
 
     // Initialize components
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating MemoryManager");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=memory_manager");
     memory_manager_ = std::make_shared<MemoryManager>(config_.workspace_path);
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating SkillLoader");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=skill_loader");
     skill_loader_ = std::make_shared<SkillLoader>();
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating ToolRegistry");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=tool_registry");
     tool_registry_ = std::make_shared<ToolRegistry>();
     tool_registry_->set_base_path(config_.workspace_path.string());
     tool_registry_->set_memory_manager(memory_manager_.get());
     tool_registry_->register_builtin_tools();
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating PromptBuilder");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=prompt_builder");
     prompt_builder_ = std::make_shared<PromptBuilder>(
         memory_manager_, skill_loader_, tool_registry_);
 
     // Create OpenAI-compatible provider with CurlHttpClient
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating OpenAICompatibleProvider (model: {})", config_.agent.model);
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=llm_provider model={}", config_.agent.model);
     auto provider = std::make_shared<OpenAICompatibleProvider>(
         config_.provider.api_key,
         config_.provider.base_url,
         config_.agent.model);
 
     // Create and set HTTP client
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating CurlHttpClient");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=http_client");
     auto http_client = std::make_unique<CurlHttpClient>();
     provider->set_http_client(std::move(http_client));
 
     llm_provider_ = provider;
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Creating AgentLoop");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=agent_loop");
     agent_loop_ = std::make_unique<AgentLoop>(
         memory_manager_, skill_loader_, tool_registry_,
         llm_provider_, config_.agent);
 
     // Load conversation history from database
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Loading history from memory");
+    ICRAW_LOG_INFO("[MobileAgent][history_load_start] memory_window={}", config_.agent.memory_window);
     load_history_from_memory();
 
     // Build system prompt (passing skills config from user config)
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Building system prompt");
+    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=system_prompt");
     system_prompt_ = prompt_builder_->build_full(config_.skills);
 
-    ICRAW_LOG_DEBUG("[AGENT] MobileAgent: Initialization complete");
+    ICRAW_LOG_INFO("[MobileAgent][initialize_complete] history_count={}", history_.size());
 }
 
 void MobileAgent::load_history_from_memory() {
@@ -124,7 +125,7 @@ void MobileAgent::load_history_from_memory() {
         history_.push_back(std::move(msg));
     }
     
-    ICRAW_LOG_DEBUG("[AGENT] Loaded {} messages from memory into history", history_.size());
+    ICRAW_LOG_INFO("[MobileAgent][history_load_complete] message_count={}", history_.size());
 }
 
 MobileAgent::~MobileAgent() = default;
@@ -150,15 +151,17 @@ std::string MobileAgent::chat(const std::string& message) {
 
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
     // Save user message to SQLite first
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_start] input_length={}", message.size());
+    ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] input={}", log_utils::truncate_for_debug(message));
     if (!message.empty()) {
         auto result = memory_manager_->add_message("user", message, "default", nlohmann::json{});
-        ICRAW_LOG_DEBUG("[CHAT_STREAM] Saved user message, result={}", result);
+        ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] role=user success={}", result);
     }
 
-    ICRAW_LOG_DEBUG("[CHAT_STREAM] Starting process_message_stream");
+    ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=process_message_stream_start");
     auto new_messages = agent_loop_->process_message_stream(
         message, history_, system_prompt_, callback);
-    ICRAW_LOG_DEBUG("[CHAT_STREAM] process_message_stream returned, messages={}", new_messages.size());
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_loop_complete] new_message_count={}", new_messages.size());
     
     // Add new messages to history and memory
     for (size_t i = 0; i < new_messages.size(); ++i) {
@@ -166,7 +169,7 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
         history_.push_back(msg);
 
         if (!should_persist_message(new_messages, i)) {
-            ICRAW_LOG_DEBUG("[CHAT_STREAM] Skip persisting intermediate assistant message at index={}", i);
+            ICRAW_LOG_DEBUG("[MobileAgent][message_persist_skipped] index={} reason=intermediate_assistant", i);
             continue;
         }
         
@@ -194,17 +197,18 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                     metadata["is_tool_call"] = true;
                 }
                 auto result = memory_manager_->add_message(msg.role, content, "default", metadata);
-                ICRAW_LOG_DEBUG("[CHAT_STREAM] add_message result: {}", result);
+                ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] role={} success={} content_length={}",
+                        msg.role, result, content.size());
             }
         }
     }
     
-    ICRAW_LOG_DEBUG("[CHAT_STREAM] Starting maybe_consolidate_memory");
+    ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=maybe_consolidate_memory");
     // Trigger memory consolidation if needed
     // Note: This is now non-blocking - consolidation runs asynchronously
     // to avoid delaying the user experience after message_end event
     agent_loop_->maybe_consolidate_memory(new_messages);
-    ICRAW_LOG_DEBUG("[CHAT_STREAM] chat_stream completed");
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] history_count={}", history_.size());
 }
 
 void MobileAgent::clear_history() {
