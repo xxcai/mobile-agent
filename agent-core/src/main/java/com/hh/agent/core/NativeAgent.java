@@ -1,5 +1,8 @@
 package com.hh.agent.core;
 
+import com.hh.agent.core.log.AgentLogger;
+import com.hh.agent.core.log.AgentLogs;
+
 /**
  * Native agent JNI wrapper class
  * Provides Java interface to the C++ agent engine
@@ -8,6 +11,18 @@ public class NativeAgent {
 
     static {
         System.loadLibrary("icraw");
+    }
+
+    public static void setLogger(AgentLogger logger) {
+        AgentLogs.setLogger(logger);
+    }
+
+    public static AgentLogger getLogger() {
+        return AgentLogs.getLogger();
+    }
+
+    public static void resetLogger() {
+        AgentLogs.resetLogger();
     }
 
     /**
