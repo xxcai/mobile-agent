@@ -37,6 +37,13 @@ void Logger::set_backend(std::unique_ptr<LoggerBackend> backend, LogLevel level)
     initialized_ = true;
 }
 
+void Logger::set_level(LogLevel level) {
+    if (!initialized_ || !backend_) {
+        return;
+    }
+    backend_->set_level(level);
+}
+
 bool Logger::is_initialized() const {
     return initialized_;
 }
