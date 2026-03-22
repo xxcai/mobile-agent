@@ -248,7 +248,7 @@ std::string ToolRegistry::execute_tool(const std::string& tool_name,
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[TOOL] {} - ({}ms)", tool_name, duration_ms);
+    ICRAW_LOG_INFO("[ToolRegistry][tool_execute_complete] tool_name={} duration_ms={}", tool_name, duration_ms);
 
     return result;
 }
@@ -274,7 +274,7 @@ void ToolRegistry::set_base_path(const std::string& path) {
 
 void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
     if (!schema.contains("tools") || !schema["tools"].is_array()) {
-        ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: No 'tools' array in schema");
+        ICRAW_LOG_WARN("[ToolRegistry][tools_schema_invalid] reason=missing_tools_array");
         return;
     }
 
@@ -295,7 +295,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
     const auto& tools = schema["tools"];
     for (const auto& tool : tools) {
         if (!tool.contains("type") || !tool.contains("function")) {
-            ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: Skipping invalid tool entry");
+            ICRAW_LOG_WARN("[ToolRegistry][tool_register_skipped] reason=invalid_tool_entry");
             continue;
         }
 
@@ -320,7 +320,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
         }
 
         if (tool_schema.name.empty()) {
-            ICRAW_LOG_WARN("[TOOL] register_tools_from_schema: Skipping tool with empty name");
+            ICRAW_LOG_WARN("[ToolRegistry][tool_register_skipped] reason=empty_tool_name");
             continue;
         }
 
@@ -332,7 +332,7 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
 
         tool_schemas_.push_back(std::move(tool_schema));
         dynamic_tool_names_.insert(tool_schema.name);
-        ICRAW_LOG_INFO("[TOOL] register_tools_from_schema: Registered tool '{}'", tool_schema.name);
+        ICRAW_LOG_INFO("[ToolRegistry][tool_registered] tool_name={}", tool_schema.name);
     }
 }
 
