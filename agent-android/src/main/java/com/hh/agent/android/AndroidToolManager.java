@@ -1,10 +1,10 @@
 package com.hh.agent.android;
 
 import android.content.Context;
-import android.util.Log;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.LegacyAndroidToolChannel;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.AndroidToolCallback;
@@ -41,12 +41,13 @@ public class AndroidToolManager implements AndroidToolCallback {
      * Note: Built-in tools are now registered via registerTool() from app layer.
      */
     public void initialize() {
-        Log.i("AndroidToolManager", "Initializing AndroidToolManager");
+        AgentLogs.info("AndroidToolManager", "initialize_start",
+                "channel_count=" + channels.size() + " tool_count=" + tools.size());
         activeInstance = this;
 
         // Register callback with NativeMobileAgentApi
         NativeMobileAgentApi.getInstance().setToolCallback(this);
-        Log.i("AndroidToolManager", "Registered AndroidToolCallback with NativeMobileAgentApi");
+        AgentLogs.info("AndroidToolManager", "callback_registered", null);
     }
 
     public static ToolUiDecision resolveToolUiDecision(String toolName, String argumentsJson) {
@@ -80,7 +81,7 @@ public class AndroidToolManager implements AndroidToolCallback {
 
         // Add the tool to the registry
         tools.put(toolName, executor);
-        Log.i("AndroidToolManager", "Registered tool: " + toolName);
+        AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName);
     }
 
     /**
@@ -112,7 +113,7 @@ public class AndroidToolManager implements AndroidToolCallback {
         }
 
         channels.put(channelName, channelExecutor);
-        Log.i("AndroidToolManager", "Registered channel: " + channelName);
+        AgentLogs.info("AndroidToolManager", "channel_registered", "channel_name=" + channelName);
     }
 
     /**
@@ -138,12 +139,12 @@ public class AndroidToolManager implements AndroidToolCallback {
         }
 
         if (!tools.containsKey(toolName)) {
-            Log.i("AndroidToolManager", "Tool not found for unregister: " + toolName);
+            AgentLogs.warn("AndroidToolManager", "tool_unregister_skipped", "tool_name=" + toolName);
             return false;
         }
 
         tools.remove(toolName);
-        Log.i("AndroidToolManager", "Unregistered tool: " + toolName);
+        AgentLogs.info("AndroidToolManager", "tool_unregistered", "tool_name=" + toolName);
 
         return true;
     }
@@ -186,7 +187,7 @@ public class AndroidToolManager implements AndroidToolCallback {
             String toolName = entry.getKey();
             ToolExecutor executor = entry.getValue();
             tools.put(toolName, executor);
-            Log.i("AndroidToolManager", "Registered tool (batch): " + toolName);
+            AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName + " mode=batch");
         }
 
         return true;
@@ -222,7 +223,7 @@ public class AndroidToolManager implements AndroidToolCallback {
         // All validations passed, now unregister all tools
         for (String toolName : toolNames) {
             tools.remove(toolName);
-            Log.i("AndroidToolManager", "Unregistered tool (batch): " + toolName);
+            AgentLogs.info("AndroidToolManager", "tool_unregistered", "tool_name=" + toolName + " mode=batch");
         }
 
         return true;
@@ -247,10 +248,10 @@ public class AndroidToolManager implements AndroidToolCallback {
                 toolsArray.put(channelExecutor.buildToolDefinition());
             }
             root.put("tools", toolsArray);
-
+            AgentLogs.info("AndroidToolManager", "tools_json_generated", "channel_count=" + channels.size());
             return root.toString();
         } catch (Exception e) {
-            Log.e("AndroidToolManager", "Failed to generate tools.json: " + e.getMessage());
+            AgentLogs.error("AndroidToolManager", "generate_tools_json_failed", "message=" + e.getMessage(), e);
             return "";
         }
     }
@@ -275,8 +276,10 @@ public class AndroidToolManager implements AndroidToolCallback {
     @Override
     public String callTool(String toolName, String argsJson) {
         try {
+            AgentLogs.info("AndroidToolManager", "tool_call_start", "channel=" + toolName);
             AndroidToolChannelExecutor channelExecutor = channels.get(toolName);
             if (channelExecutor == null) {
+                AgentLogs.warn("AndroidToolManager", "tool_channel_unsupported", "channel=" + toolName);
                 return ToolResult.error(
                         "unsupported_tool_channel",
                         "Tool channel '" + toolName + "' is not supported"
@@ -284,10 +287,17 @@ public class AndroidToolManager implements AndroidToolCallback {
             }
 
             JSONObject params = new JSONObject(argsJson);
-            return channelExecutor.execute(params).toJsonString();
+            ToolResult result = channelExecutor.execute(params);
+            String resultJson = result.toJsonString();
+            boolean resultSuccess = resultJson.contains("\"success\":true");
+            AgentLogs.info("AndroidToolManager", "tool_call_complete",
+                    "channel=" + toolName + " result_success=" + resultSuccess);
+            return resultJson;
         } catch (org.json.JSONException e) {
+            AgentLogs.warn("AndroidToolManager", "tool_call_invalid_args", "channel=" + toolName + " message=" + e.getMessage());
             return ToolResult.error("invalid_args", e.getMessage()).toJsonString();
         } catch (Exception e) {
+            AgentLogs.error("AndroidToolManager", "tool_call_failed", "channel=" + toolName + " message=" + e.getMessage(), e);
             return ToolResult.error("execution_failed", e.getMessage()).toJsonString();
         }
     }

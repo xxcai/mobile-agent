@@ -1,7 +1,7 @@
 package com.hh.agent.android;
 
 import android.content.Context;
-import android.util.Log;
+import com.hh.agent.android.log.AgentLogs;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -35,14 +35,14 @@ public class WorkspaceManager {
         File workspaceDir = getWorkspaceDirectory();
 
         if (!workspaceDir.exists()) {
-            Log.i(TAG, "Workspace not found, copying from assets: " + workspaceDir.getAbsolutePath());
+            AgentLogs.info(TAG, "workspace_prepare", "mode=create path=" + workspaceDir.getAbsolutePath());
             if (copyAssetsToWorkspace()) {
-                Log.i(TAG, "Workspace initialized successfully");
+                AgentLogs.info(TAG, "workspace_ready", "mode=created path=" + workspaceDir.getAbsolutePath());
             } else {
-                Log.e(TAG, "Failed to initialize workspace from assets");
+                AgentLogs.error(TAG, "workspace_prepare_failed", "path=" + workspaceDir.getAbsolutePath());
             }
         } else {
-            Log.i(TAG, "Workspace already exists, using user workspace: " + workspaceDir.getAbsolutePath());
+            AgentLogs.info(TAG, "workspace_ready", "mode=existing path=" + workspaceDir.getAbsolutePath());
         }
 
         return workspaceDir.getAbsolutePath();
@@ -75,7 +75,7 @@ public class WorkspaceManager {
 
         // Create workspace directory
         if (!workspaceDir.mkdirs()) {
-            Log.e(TAG, "Failed to create workspace directory: " + workspaceDir.getAbsolutePath());
+            AgentLogs.error(TAG, "workspace_dir_create_failed", "path=" + workspaceDir.getAbsolutePath());
             return false;
         }
 
@@ -93,17 +93,17 @@ public class WorkspaceManager {
                 for (String skillName : skillNames) {
                     File targetSkillDir = new File(skillsDir, skillName);
                     if (!targetSkillDir.exists()) {
-                        Log.i(TAG, "Copying built-in skill: " + skillName);
+                        AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
                         copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
                     } else {
-                        Log.i(TAG, "Skipping built-in skill (user version exists): " + skillName);
+                        AgentLogs.debug(TAG, "builtin_skill_skip", "skill_name=" + skillName);
                     }
                 }
             }
 
             return true;
         } catch (IOException e) {
-            Log.e(TAG, "Error copying workspace files", e);
+            AgentLogs.error(TAG, "workspace_copy_failed", "message=" + e.getMessage(), e);
             return false;
         }
     }
@@ -122,7 +122,7 @@ public class WorkspaceManager {
             }
 
             os.flush();
-            Log.d(TAG, "Copied asset: " + assetPath + " -> " + destFile.getAbsolutePath());
+            AgentLogs.debug(TAG, "asset_copied", "asset_path=" + assetPath + " dest=" + destFile.getAbsolutePath());
         }
     }
 
