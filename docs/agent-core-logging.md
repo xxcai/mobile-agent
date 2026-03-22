@@ -323,18 +323,21 @@ tag:icraw [HttpClient]
 tag:icraw [McpClient]
 ```
 
-## 当前验证结果
+## 当前能力边界
 
-本轮日志收口已通过的最小验证包括：
+当前文档描述的是第一阶段已落地能力。
 
-- `./gradlew :agent-core:compileDebugJavaWithJavac`
-- `./gradlew :agent-android:compileDebugJavaWithJavac`
-- `./gradlew :agent-core:externalNativeBuildDebug`
+当前边界如下：
 
-## 后续未完成项
+- Java 层已支持宿主注入 `AgentLogger`
+- `agent-core` 与 `agent-android` Java 层共用同一套 logger 协议
+- C++ 层已完成统一日志门面和日志治理，但当前仍使用 native backend
+- C++ 层日志当前不会跟随 Java 宿主 logger 一起切换
 
-当前仍未完成：
+## 当前已知限制
 
-- C++ 日志通过上层注入 logger 输出
-- Java / C++ tag 的进一步统一
-- 更细的运行时日志开关策略
+- Java 与 C++ 仍使用不同默认 tag：
+  - Java：`AgentCore`
+  - C++：`icraw`
+- C++ 层尚未接入上层 Java 注入 logger
+- 更细的运行时日志开关策略尚未在本文档覆盖
