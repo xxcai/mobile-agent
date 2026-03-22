@@ -31,11 +31,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     // Initialize curl globally (required before using curl_easy_init)
     CURLcode curl_res = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curl_res != CURLE_OK) {
-        // Cannot use logger yet, but continue anyway
+        ICRAW_LOG_WARN("[NativeAgentJni][curl_initialize_failed] curl_code={}", static_cast<int>(curl_res));
     }
 
     // Initialize the logger (Android uses logcat, directory is ignored)
     icraw::Logger::get_instance().init("", "debug");
+    ICRAW_LOG_INFO("[NativeAgentJni][jni_load_complete]");
 
     return JNI_VERSION_1_6;
 }
@@ -64,7 +65,8 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
         config_json = env->GetStringUTFChars(configJsonStr, nullptr);
     }
 
-    ICRAW_LOG_INFO("nativeInitialize: Starting initialization");
+    ICRAW_LOG_INFO("[NativeAgentJni][native_initialize_start] config_length={}",
+            config_json ? std::strlen(config_json) : 0);
 
     // Create MobileAgent with config
     try {
@@ -96,27 +98,25 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
             config.workspace_path = default_config.workspace_path;
         }
 
-        ICRAW_LOG_INFO("Loaded config from JSON: apiKey set={}, baseUrl={}, model={}, workspace={}",
+        ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} workspace={}",
                     !config.provider.api_key.empty(), config.provider.base_url, config.agent.model, config.workspace_path.string());
             } catch (const std::exception& e) {
-                ICRAW_LOG_WARN("Failed to parse config JSON: {}", e.what());
+                ICRAW_LOG_WARN("[NativeAgentJni][config_parse_failed] message={}", e.what());
                 config = icraw::IcrawConfig::load_default();
             }
         } else {
-            ICRAW_LOG_INFO("No config JSON provided, using defaults");
+            ICRAW_LOG_INFO("[NativeAgentJni][config_default_used]");
             config = icraw::IcrawConfig::load_default();
         }
 
-        ICRAW_LOG_INFO("Creating MobileAgent with config: model={}, workspace={}",
+        ICRAW_LOG_INFO("[NativeAgentJni][mobile_agent_create_start] model={} workspace={}",
             config.agent.model, config.workspace_path.string());
 
         g_agent = icraw::MobileAgent::create_with_config(config);
 
-        ICRAW_LOG_INFO(
-            "NativeAgent initialized successfully");
+        ICRAW_LOG_INFO("[NativeAgentJni][native_initialize_complete]");
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR(
-            "Failed to initialize NativeAgent: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][native_initialize_failed] message={}", e.what());
         // Return error to Java instead of silently failing
         if (config_json) {
             env->ReleaseStringUTFChars(configJsonStr, config_json);
@@ -144,19 +144,21 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
         return env->NewStringUTF("");
     }
 
-    ICRAW_LOG_DEBUG("Received message: {}", msg);
+    ICRAW_LOG_INFO("[NativeAgentJni][send_message_start] input_length={}", std::strlen(msg));
+    ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] input={}", msg);
 
     // Check if agent is initialized
     if (!g_agent) {
-        ICRAW_LOG_WARN("Agent not initialized, returning error");
+        ICRAW_LOG_WARN("[NativeAgentJni][send_message_skipped] reason=agent_not_initialized");
         response = "Error: Agent not initialized. Call nativeInitialize first.";
     } else {
         try {
             // Call MobileAgent::chat()
             response = g_agent->chat(msg);
-            ICRAW_LOG_DEBUG("Agent response: {}", response);
+            ICRAW_LOG_INFO("[NativeAgentJni][send_message_complete] output_length={}", response.size());
+            ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] response={}", response);
         } catch (const std::exception& e) {
-            ICRAW_LOG_ERROR("Agent chat failed: {}", e.what());
+            ICRAW_LOG_ERROR("[NativeAgentJni][send_message_failed] message={}", e.what());
             response = std::string("Error: ") + e.what();
         }
     }
@@ -171,13 +173,13 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
 JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(
         JNIEnv* env,
         jclass /* clazz */) {
-    ICRAW_LOG_INFO("Shutting down NativeAgent");
+    ICRAW_LOG_INFO("[NativeAgentJni][shutdown_start]");
 
     // Clean up MobileAgent instance
     if (g_agent) {
         g_agent->stop();
         g_agent.reset();
-        ICRAW_LOG_INFO("MobileAgent destroyed");
+        ICRAW_LOG_INFO("[NativeAgentJni][shutdown_complete]");
     }
 }
 
@@ -197,7 +199,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     }
 
     if (!callback) {
-        ICRAW_LOG_INFO("AndroidToolCallback unregistered");
+        ICRAW_LOG_INFO("[NativeAgentJni][tool_callback_unregistered]");
         return;
     }
 
@@ -286,7 +288,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     // Register the JNI callback
     icraw::g_android_tools.register_callback(std::make_unique<JniCallback>(java_vm, g_callback_object, method_id));
 
-    ICRAW_LOG_INFO("AndroidToolCallback registered via JNI");
+    ICRAW_LOG_INFO("[NativeAgentJni][tool_callback_registered]");
 }
 
 /**
@@ -299,7 +301,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
         jstring schemaJson) {
 
     if (!g_agent) {
-        ICRAW_LOG_WARN("nativeSetToolsSchema: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][tools_schema_register_skipped] reason=agent_not_initialized");
         return;
     }
 
@@ -309,7 +311,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
     }
 
     if (!schema_json || strlen(schema_json) == 0) {
-        ICRAW_LOG_WARN("nativeSetToolsSchema: Empty schema JSON");
+        ICRAW_LOG_WARN("[NativeAgentJni][tools_schema_register_skipped] reason=empty_schema_json");
         if (schema_json) {
             env->ReleaseStringUTFChars(schemaJson, schema_json);
         }
@@ -317,15 +319,16 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
     }
 
     try {
+        ICRAW_LOG_INFO("[NativeAgentJni][tools_schema_register_start] schema_length={}", std::strlen(schema_json));
         auto schema = nlohmann::json::parse(schema_json);
         auto registry = g_agent->get_tool_registry();
 
         // Call the new method to register tools from external schema
         registry->register_tools_from_schema(schema);
 
-        ICRAW_LOG_INFO("nativeSetToolsSchema: Successfully registered tools from schema");
+        ICRAW_LOG_INFO("[NativeAgentJni][tools_schema_register_complete]");
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("nativeSetToolsSchema: Failed to parse schema: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][tools_schema_register_failed] message={}", e.what());
     }
 
     env->ReleaseStringUTFChars(schemaJson, schema_json);
@@ -343,21 +346,23 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
 
     const char* msg = env->GetStringUTFChars(message, nullptr);
     if (!msg) {
-        ICRAW_LOG_WARN("nativeSendMessageStream: Empty message");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=empty_message");
         return;
     }
 
     if (!g_agent) {
-        ICRAW_LOG_WARN("nativeSendMessageStream: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=agent_not_initialized");
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
 
     if (!listener) {
-        ICRAW_LOG_WARN("nativeSendMessageStream: Listener is null");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=listener_null");
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_start] input_length={}", std::strlen(msg));
+    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_start_debug] input={}", msg);
 
     // Create global reference to keep the listener object alive
     jobject listener_global_ref = env->NewGlobalRef(listener);
@@ -401,19 +406,19 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                 if (java_vm_->AttachCurrentThread(&env, nullptr) == 0) {
                     attached = true;
                 } else {
-                    ICRAW_LOG_ERROR("nativeSendMessageStream: Failed to attach thread");
+                    ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=attach_thread_failed");
                     return;
                 }
             } else if (getEnvResult != JNI_OK) {
-                ICRAW_LOG_ERROR("nativeSendMessageStream: Failed to get JNI env");
+                ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=get_jni_env_failed");
                 return;
             }
 
             try {
-                ICRAW_LOG_INFO("nativeSendMessageStream: event type='{}'", event.type);
                 if (event.type == "text_delta") {
                     std::string text = event.data.value("delta", "");
-                    ICRAW_LOG_INFO("nativeSendMessageStream: text_delta event, text='{}'", text);
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=text_delta delta_length={} text={}",
+                            text.size(), text);
                     jstring j_text = env->NewStringUTF(text.c_str());
                     env->CallVoidMethod(listener_, method_onTextDelta_, j_text);
                     env->DeleteLocalRef(j_text);
@@ -422,7 +427,10 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                     std::string id = event.data.value("id", "");
                     std::string name = event.data.value("name", "");
                     std::string arguments = event.data.value("input", nlohmann::json::object()).dump();
-                    ICRAW_LOG_INFO("nativeSendMessageStream: tool_use event, name='{}'", name);
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_event] event_type=tool_use tool_name={} tool_id={}",
+                            name, id);
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=tool_use tool_name={} tool_id={} args={}",
+                            name, id, arguments);
 
                     jstring j_id = env->NewStringUTF(id.c_str());
                     jstring j_name = env->NewStringUTF(name.c_str());
@@ -437,6 +445,10 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                 } else if (event.type == "tool_result") {
                     std::string tool_use_id = event.data.value("tool_use_id", "");
                     std::string content = event.data.value("content", "");
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_event] event_type=tool_result tool_id={} content_length={}",
+                            tool_use_id, content.size());
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=tool_result tool_id={} content={}",
+                            tool_use_id, content);
 
                     jstring j_id = env->NewStringUTF(tool_use_id.c_str());
                     jstring j_result = env->NewStringUTF(content.c_str());
@@ -448,13 +460,13 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
 
                 } else if (event.type == "message_end") {
                     std::string finish_reason = event.data.value("finish_reason", "unknown");
-                    ICRAW_LOG_INFO("nativeSendMessageStream: message_end event, finish_reason='{}'", finish_reason);
+                    ICRAW_LOG_INFO("[NativeAgentJni][stream_complete] finish_reason={}", finish_reason);
                     jstring j_reason = env->NewStringUTF(finish_reason.c_str());
                     env->CallVoidMethod(listener_, method_onMessageEnd_, j_reason);
                     env->DeleteLocalRef(j_reason);
                 }
             } catch (...) {
-                ICRAW_LOG_ERROR("nativeSendMessageStream: Exception in callback");
+                ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] reason=callback_exception");
             }
 
             // Detach thread if we attached it
@@ -513,14 +525,14 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     try {
         // Call chat_stream with the callback
         g_agent->chat_stream(msg, *callback);
-        ICRAW_LOG_DEBUG("nativeSendMessageStream: chat_stream completed");
+        ICRAW_LOG_DEBUG("[NativeAgentJni][stream_complete_debug] state=chat_stream_returned");
     } catch (const std::exception& e) {
         // Report error to Java via callback
         callback_ptr->reportError("cpp_exception", e.what());
-        ICRAW_LOG_ERROR("nativeSendMessageStream: Exception: {}", e.what());
+        ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] error_code=cpp_exception message={}", e.what());
     } catch (...) {
         callback_ptr->reportError("unknown_error", "Unknown exception in chat_stream");
-        ICRAW_LOG_ERROR("nativeSendMessageStream: Unknown exception");
+        ICRAW_LOG_ERROR("[NativeAgentJni][stream_failed] error_code=unknown_error");
     }
 
     // Clean up global reference
@@ -536,16 +548,16 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeCancelStream(
         JNIEnv* env,
         jclass /* clazz */) {
 
-    ICRAW_LOG_INFO("nativeCancelStream: Cancelling streaming request");
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_cancel_start]");
 
     if (!g_agent) {
-        ICRAW_LOG_WARN("nativeCancelStream: Agent not initialized");
+        ICRAW_LOG_WARN("[NativeAgentJni][stream_cancel_skipped] reason=agent_not_initialized");
         return;
     }
 
     // Call stop on the agent to cancel the streaming request
     g_agent->stop();
-    ICRAW_LOG_INFO("nativeCancelStream: Streaming request cancelled");
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_cancel_complete]");
 }
 
 /**
@@ -563,7 +575,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
         return env->NewStringUTF("[]");
     }
 
-    ICRAW_LOG_DEBUG("nativeGetHistory: session_id={}, limit={}", session_id, limit);
+    ICRAW_LOG_INFO("[NativeAgentJni][history_query_start] session_id={} limit={}", session_id, limit);
 
     std::vector<std::string> roles = {"user", "assistant"};
 
@@ -576,7 +588,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
                 entries = memory_manager->get_recent_messages_by_roles(static_cast<int>(limit), roles, session_id);
             }
         } catch (const std::exception& e) {
-            ICRAW_LOG_ERROR("nativeGetHistory: {}", e.what());
+            ICRAW_LOG_ERROR("[NativeAgentJni][history_query_failed] message={}", e.what());
         }
     }
 
@@ -594,7 +606,7 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
 
     env->ReleaseStringUTFChars(sessionId, session_id);
 
-    ICRAW_LOG_DEBUG("nativeGetHistory: returning {} messages", entries.size());
+    ICRAW_LOG_INFO("[NativeAgentJni][history_query_complete] message_count={}", entries.size());
 
     return env->NewStringUTF(result.c_str());
 }
