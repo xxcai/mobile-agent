@@ -24,7 +24,7 @@
 - Android 默认输出到 native log
 - 非 Android 走 native backend
 - Android 场景下已支持复用上层 Java 注入 logger
-- native logger level 已支持从初始化配置读取
+- native logger level 已支持由 Java 层显式下传
 
 结论：
 
@@ -252,21 +252,27 @@ NativeAgent.setLogger(customLogger);
 
 ### native logger level
 
-Android JNI 初始化时，native logger 当前会优先读取初始化配置中的：
-
-```json
-{
-  "logging": {
-    "level": "debug"
-  }
-}
-```
+Android JNI 初始化时，native logger level 当前由 Java 层显式下传，不再依赖 `config.json` 中的 `logging.level`。
 
 当前行为：
 
-- 若 `configJson.logging.level` 存在，则 native 按该 level 过滤
-- 若未配置，则保持兼容默认值 `debug`
+- `agent-android` 初始化链路会在 native 初始化前显式设置 native logger level
+- `agent-core` 独立使用时，也可直接调用 Java 入口显式设置 native logger level
+- 若 Java 层未显式设置，则保持兼容默认值 `debug`
 - 切换 Java logger bridge 时只切 backend，不会重置当前 level
+
+当前推荐的 Android 路径：
+
+- logger 实现：
+  `AgentInitializer.setLogger(customLogger)`
+- native logger level：
+  由 `AgentInitializer` 在初始化 `agent-core` 前显式透传
+
+`agent-core` 独立使用时，可直接调用：
+
+```java
+NativeAgent.setNativeLogLevel("debug");
+```
 
 ## 当前调用约束
 
@@ -368,7 +374,7 @@ tag:icraw [McpClient]
 - Android 场景下，C++ 层日志已支持跟随 Java logger bridge 切换
 - `agent-android` 初始化链路会把当前生效 logger 继续透传给 `agent-core`
 - C++ 层已完成统一日志门面和日志治理
-- native logger level 已支持从初始化配置读取
+- native logger level 已支持由 Java 层显式下传
 
 ## 当前已知限制
 
@@ -377,6 +383,7 @@ tag:icraw [McpClient]
   - C++：`icraw`
 - 非 Android 场景仍使用 native backend，不走 Java logger bridge
 - Java / C++ / `agent-android` 的 tag 规则尚未统一为单一 tag
+- `agent-android` 当前 native logger level 仍使用库内默认下传值，尚未收口为独立对外 API
 - 更细的运行时日志开关策略尚未在本文档覆盖
 
 ## 当前验证
