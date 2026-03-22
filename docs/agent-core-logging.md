@@ -23,12 +23,13 @@
 - 统一使用 `ICRAW_LOG_*` 宏
 - Android 默认输出到 native log
 - 非 Android 走 native backend
-- 当前尚未接入上层 Java 注入 logger
+- Android 场景下已支持复用上层 Java 注入 logger
+- native logger level 已支持从初始化配置读取
 
 结论：
 
 - Java 层：可注入
-- C++ 层：当前不可注入，但机制已统一、日志已治理
+- C++ 层：Android 场景可通过 Java logger bridge 注入；非 Android 仍使用 native backend
 
 ## 默认过滤方式
 
@@ -225,14 +226,47 @@ AgentInitializer.setLogger(customLogger);
 
 ### C++ 层
 
-当前 C++ 层尚未接入宿主注入 logger。
+当前 C++ 层在 Android 场景下已接入 Java logger bridge。
 
 当前行为：
 
-- Android：native log backend
+- Android：
+  - 若已调用 `NativeAgent.setLogger(customLogger)`，C++ 日志通过 JNI bridge 复用该 Java logger 输出
+  - 若通过 `agent-android` 初始化，`AgentInitializer` 会把当前生效 logger 继续透传给 `agent-core`
+  - 若未注入自定义 logger，则回退到默认 native log backend
 - 非 Android：native backend
 
-后续如需打通上层注入，需要单独设计 JNI 到 native 的 logger bridge。
+常见 Android 注入路径：
+
+```java
+AgentInitializer.setLogger(customLogger);
+```
+
+`agent-android` 未显式注入时，也会把当前默认 logger 透传给 `agent-core`。
+
+`agent-core` 独立使用时，也可直接调用：
+
+```java
+NativeAgent.setLogger(customLogger);
+```
+
+### native logger level
+
+Android JNI 初始化时，native logger 当前会优先读取初始化配置中的：
+
+```json
+{
+  "logging": {
+    "level": "debug"
+  }
+}
+```
+
+当前行为：
+
+- 若 `configJson.logging.level` 存在，则 native 按该 level 过滤
+- 若未配置，则保持兼容默认值 `debug`
+- 切换 Java logger bridge 时只切 backend，不会重置当前 level
 
 ## 当前调用约束
 
@@ -325,19 +359,30 @@ tag:icraw [McpClient]
 
 ## 当前能力边界
 
-当前文档描述的是第一阶段已落地能力。
+当前文档描述的是当前已落地能力。
 
 当前边界如下：
 
 - Java 层已支持宿主注入 `AgentLogger`
 - `agent-core` 与 `agent-android` Java 层共用同一套 logger 协议
-- C++ 层已完成统一日志门面和日志治理，但当前仍使用 native backend
-- C++ 层日志当前不会跟随 Java 宿主 logger 一起切换
+- Android 场景下，C++ 层日志已支持跟随 Java logger bridge 切换
+- `agent-android` 初始化链路会把当前生效 logger 继续透传给 `agent-core`
+- C++ 层已完成统一日志门面和日志治理
+- native logger level 已支持从初始化配置读取
 
 ## 当前已知限制
 
 - Java 与 C++ 仍使用不同默认 tag：
   - Java：`AgentCore`
   - C++：`icraw`
-- C++ 层尚未接入上层 Java 注入 logger
+- 非 Android 场景仍使用 native backend，不走 Java logger bridge
+- Java / C++ / `agent-android` 的 tag 规则尚未统一为单一 tag
 - 更细的运行时日志开关策略尚未在本文档覆盖
+
+## 当前验证
+
+当前已通过的最小编译验证包括：
+
+- `./gradlew :agent-core:compileDebugJavaWithJavac`
+- `./gradlew :agent-android:compileDebugJavaWithJavac`
+- `./gradlew :agent-core:externalNativeBuildDebug`
