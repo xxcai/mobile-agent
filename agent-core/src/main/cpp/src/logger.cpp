@@ -25,6 +25,18 @@ void Logger::init(const std::string& directory, const std::string& level) {
     }
 }
 
+void Logger::set_backend(std::unique_ptr<LoggerBackend> backend, LogLevel level) {
+    if (!backend) {
+        initialized_ = false;
+        backend_.reset();
+        return;
+    }
+
+    backend_ = std::move(backend);
+    backend_->set_level(level);
+    initialized_ = true;
+}
+
 bool Logger::is_initialized() const {
     return initialized_;
 }

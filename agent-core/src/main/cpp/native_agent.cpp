@@ -1,12 +1,13 @@
 #include <jni.h>
-#include <string>
-#include <memory>
 #include <curl/curl.h>
+#include <memory>
+#include <string>
 #include "icraw/core/logger.hpp"
 #include "icraw/mobile_agent.hpp"
 #include "icraw/config.hpp"
 #include "icraw/android_tools.hpp"
 #include "icraw/tools/tool_registry.hpp"
+#include "src/logger_backend.hpp"
 #include <nlohmann/json.hpp>
 
 // ICRAW_ANDROID is already defined by CMake, no need to redefine
@@ -16,6 +17,125 @@ static std::unique_ptr<icraw::MobileAgent> g_agent;
 
 // Global callback object reference for Android tool invocations
 static jobject g_callback_object = nullptr;
+static JavaVM* g_java_vm = nullptr;
+
+namespace {
+
+constexpr const char* kNativeJavaLoggerTag = "icraw";
+
+class JavaLoggerBackend final : public icraw::LoggerBackend {
+public:
+    JavaLoggerBackend(JavaVM* java_vm, jobject logger, jmethodID debug_method,
+            jmethodID info_method, jmethodID warn_method, jmethodID error_method)
+        : java_vm_(java_vm)
+        , logger_(logger)
+        , debug_method_(debug_method)
+        , info_method_(info_method)
+        , warn_method_(warn_method)
+        , error_method_(error_method) {}
+
+    ~JavaLoggerBackend() override {
+        if (!java_vm_ || !logger_) {
+            return;
+        }
+
+        JNIEnv* env = nullptr;
+        bool attached = false;
+        if (!get_env(&env, &attached)) {
+            return;
+        }
+
+        env->DeleteGlobalRef(logger_);
+        if (attached) {
+            java_vm_->DetachCurrentThread();
+        }
+    }
+
+    void set_level(icraw::LogLevel level) override {
+        min_level_ = level;
+    }
+
+    void log(icraw::LogLevel level, std::string_view message) override {
+        if (level < min_level_ || !java_vm_ || !logger_) {
+            return;
+        }
+
+        jmethodID method = select_method(level);
+        if (!method) {
+            return;
+        }
+
+        JNIEnv* env = nullptr;
+        bool attached = false;
+        if (!get_env(&env, &attached)) {
+            return;
+        }
+
+        jstring tag = env->NewStringUTF(kNativeJavaLoggerTag);
+        jstring text = env->NewStringUTF(std::string(message).c_str());
+        env->CallVoidMethod(logger_, method, tag, text);
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+
+        env->DeleteLocalRef(text);
+        env->DeleteLocalRef(tag);
+
+        if (attached) {
+            java_vm_->DetachCurrentThread();
+        }
+    }
+
+private:
+    bool get_env(JNIEnv** env, bool* attached) const {
+        *attached = false;
+        const jint get_env_result = java_vm_->GetEnv(reinterpret_cast<void**>(env), JNI_VERSION_1_6);
+        if (get_env_result == JNI_OK) {
+            return true;
+        }
+        if (get_env_result != JNI_EDETACHED) {
+            return false;
+        }
+
+        if (java_vm_->AttachCurrentThread(env, nullptr) != 0) {
+            return false;
+        }
+        *attached = true;
+        return true;
+    }
+
+    jmethodID select_method(icraw::LogLevel level) const {
+        switch (level) {
+            case icraw::LogLevel::Trace:
+            case icraw::LogLevel::Debug:
+                return debug_method_;
+            case icraw::LogLevel::Info:
+                return info_method_;
+            case icraw::LogLevel::Warn:
+                return warn_method_;
+            case icraw::LogLevel::Error:
+                return error_method_;
+        }
+        return debug_method_;
+    }
+
+    JavaVM* java_vm_;
+    jobject logger_;
+    jmethodID debug_method_;
+    jmethodID info_method_;
+    jmethodID warn_method_;
+    jmethodID error_method_;
+    icraw::LogLevel min_level_ = icraw::LogLevel::Info;
+};
+
+void reset_native_logger_backend() {
+    icraw::Logger::get_instance().set_backend(
+            icraw::create_default_logger_backend(""),
+            icraw::parse_log_level("debug"));
+}
+
+} // namespace
 
 extern "C" {
 
@@ -23,6 +143,7 @@ extern "C" {
  * JNI OnLoad - Called when the native library is loaded
  */
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
+    g_java_vm = vm;
     JNIEnv* env;
     if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
         return JNI_ERR;
@@ -35,7 +156,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     }
 
     // Initialize the logger (Android uses logcat, directory is ignored)
-    icraw::Logger::get_instance().init("", "debug");
+    reset_native_logger_backend();
     ICRAW_LOG_INFO("[NativeAgentJni][jni_load_complete]");
 
     return JNI_VERSION_1_6;
@@ -128,6 +249,60 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
         env->ReleaseStringUTFChars(configJsonStr, config_json);
     }
     return 0;  // Success
+}
+
+JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogger(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jobject logger) {
+    if (!logger || !g_java_vm) {
+        reset_native_logger_backend();
+        ICRAW_LOG_INFO("[NativeAgentJni][logger_bridge_reset]");
+        return;
+    }
+
+    jclass logger_class = env->GetObjectClass(logger);
+    if (!logger_class) {
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=logger_class_missing");
+        return;
+    }
+
+    jmethodID debug_method = env->GetMethodID(logger_class, "d",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID info_method = env->GetMethodID(logger_class, "i",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID warn_method = env->GetMethodID(logger_class, "w",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    jmethodID error_method = env->GetMethodID(logger_class, "e",
+            "(Ljava/lang/String;Ljava/lang/String;)V");
+    env->DeleteLocalRef(logger_class);
+
+    if (!debug_method || !info_method || !warn_method || !error_method) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=logger_method_missing");
+        return;
+    }
+
+    jobject global_logger = env->NewGlobalRef(logger);
+    if (!global_logger) {
+        reset_native_logger_backend();
+        ICRAW_LOG_WARN("[NativeAgentJni][logger_bridge_failed] reason=global_ref_create_failed");
+        return;
+    }
+
+    auto backend = std::make_unique<JavaLoggerBackend>(
+            g_java_vm,
+            global_logger,
+            debug_method,
+            info_method,
+            warn_method,
+            error_method);
+    icraw::Logger::get_instance().set_backend(std::move(backend), icraw::parse_log_level("debug"));
+    ICRAW_LOG_INFO("[NativeAgentJni][logger_bridge_enabled]");
 }
 
 /**

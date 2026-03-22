@@ -15,6 +15,7 @@ public class NativeAgent {
 
     public static void setLogger(AgentLogger logger) {
         AgentLogs.setLogger(logger);
+        nativeSetLogger(logger);
     }
 
     public static AgentLogger getLogger() {
@@ -23,6 +24,7 @@ public class NativeAgent {
 
     public static void resetLogger() {
         AgentLogs.resetLogger();
+        nativeSetLogger(null);
     }
 
     /**
@@ -84,6 +86,12 @@ public class NativeAgent {
      * @param schemaJson JSON string containing tools schema
      */
     public static native void nativeSetToolsSchema(String schemaJson);
+
+    /**
+     * Bridge Java logger injection to native logging backend.
+     * Passing null resets native logging to its default backend.
+     */
+    private static native void nativeSetLogger(AgentLogger logger);
 
     /**
      * Send a message with streaming event callback

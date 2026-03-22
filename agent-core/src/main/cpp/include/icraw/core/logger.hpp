@@ -24,6 +24,7 @@ public:
     static Logger& get_instance();
 
     void init(const std::string& directory, const std::string& level = "info");
+    void set_backend(std::unique_ptr<LoggerBackend> backend, LogLevel level);
     bool is_initialized() const;
 
     void log(LogLevel level, std::string_view message);
