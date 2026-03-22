@@ -1,5 +1,6 @@
 #include "icraw/core/http_client.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/core/log_utils.hpp"
 #include <curl/curl.h>
 #include <algorithm>
 #include <sstream>
@@ -91,7 +92,12 @@ bool CurlHttpClient::perform_request(const std::string& url,
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
 
     // Perform the request
-    ICRAW_LOG_DEBUG("[HTTP] Request URL: {}", url);
+    ICRAW_LOG_INFO("[HttpClient][request_start] method={} url={} request_body_length={}",
+            method, url, request_body.size());
+    if (!request_body.empty()) {
+        ICRAW_LOG_DEBUG("[HttpClient][request_debug] method={} body={}",
+                method, log_utils::truncate_for_debug(request_body));
+    }
     CURLcode res = curl_easy_perform(curl);
     
     // Free headers list
@@ -104,7 +110,8 @@ bool CurlHttpClient::perform_request(const std::string& url,
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = -1;
         error.message = curl_easy_strerror(res);
-        ICRAW_LOG_ERROR("[HTTP] {} {} - error ({}ms)", method, url, elapsed);
+        ICRAW_LOG_ERROR("[HttpClient][request_failed] method={} url={} duration_ms={} error_code={} message={}",
+                method, url, elapsed, static_cast<int>(res), error.message);
         return false;
     }
     
@@ -117,13 +124,23 @@ bool CurlHttpClient::perform_request(const std::string& url,
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = static_cast<int>(http_code);
         error.message = "HTTP error: " + std::to_string(http_code);
-        ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
+        ICRAW_LOG_WARN("[HttpClient][request_failed] method={} url={} duration_ms={} status_code={}",
+                method, url, elapsed, http_code);
+        if (!response_body.empty()) {
+            ICRAW_LOG_DEBUG("[HttpClient][response_debug] method={} body={}",
+                    method, log_utils::truncate_for_debug(response_body));
+        }
         return false;
     }
 
     auto end_time = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
+    ICRAW_LOG_INFO("[HttpClient][request_complete] method={} url={} status_code={} duration_ms={} response_length={}",
+            method, url, http_code, elapsed, response_body.size());
+    if (!response_body.empty()) {
+        ICRAW_LOG_DEBUG("[HttpClient][response_debug] method={} body={}",
+                method, log_utils::truncate_for_debug(response_body));
+    }
 
     return true;
 }
@@ -211,9 +228,14 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
     curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1L);
     
     // Perform the request
-    ICRAW_LOG_DEBUG("[STREAM] Starting curl_easy_perform for {}", url);
+    ICRAW_LOG_INFO("[HttpClient][stream_request_start] method={} url={} request_body_length={}",
+            method, url, request_body.size());
+    if (!request_body.empty()) {
+        ICRAW_LOG_DEBUG("[HttpClient][stream_request_debug] method={} body={}",
+                method, log_utils::truncate_for_debug(request_body));
+    }
     CURLcode res = curl_easy_perform(curl);
-    ICRAW_LOG_DEBUG("[STREAM] curl_easy_perform returned: {} (aborted={})", 
+    ICRAW_LOG_DEBUG("[HttpClient][stream_request_debug] curl_result={} aborted={}", 
         static_cast<int>(res), callback_data.aborted);
     
     // Free headers list
@@ -224,13 +246,14 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
     if (res != CURLE_OK && res != CURLE_WRITE_ERROR) {
         error.code = -1;
         error.message = curl_easy_strerror(res);
-        ICRAW_LOG_ERROR("[STREAM] Curl error: {}", error.message);
+        ICRAW_LOG_ERROR("[HttpClient][stream_request_failed] method={} url={} error_code={} message={}",
+                method, url, static_cast<int>(res), error.message);
         return false;
     }
     
     // CURLE_WRITE_ERROR is expected when we abort the stream intentionally
     if (res == CURLE_WRITE_ERROR && callback_data.aborted) {
-        ICRAW_LOG_DEBUG("[STREAM] Stream aborted intentionally (normal end)");
+        ICRAW_LOG_DEBUG("[HttpClient][stream_request_debug] state=aborted_intentionally");
         // This is a normal stream end, not an error
         return true;
     }
@@ -244,13 +267,15 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = static_cast<int>(http_code);
         error.message = "HTTP error: " + std::to_string(http_code);
-        ICRAW_LOG_INFO("[HTTP] {} {} - {} ({}ms)", method, url, http_code, elapsed);
+        ICRAW_LOG_WARN("[HttpClient][stream_request_failed] method={} url={} duration_ms={} status_code={}",
+                method, url, elapsed, http_code);
         return false;
     }
 
     auto end_time = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[HTTP] {} {} - stream OK ({}ms)", method, url, elapsed);
+    ICRAW_LOG_INFO("[HttpClient][stream_request_complete] method={} url={} duration_ms={}",
+            method, url, elapsed);
 
     return true;
 }
@@ -298,7 +323,7 @@ size_t CurlHttpClient::StreamWriteCallback(void* contents, size_t size, size_t n
     size_t total_size = size * nmemb;
     
     if (data->aborted) {
-        ICRAW_LOG_DEBUG("[STREAM_CALLBACK] Already aborted, returning 0");
+        ICRAW_LOG_DEBUG("[HttpClient][stream_callback_debug] state=already_aborted");
         return 0;  // Abort the transfer
     }
     
@@ -328,14 +353,14 @@ size_t CurlHttpClient::StreamWriteCallback(void* contents, size_t size, size_t n
             continue;
         }
         
-        ICRAW_LOG_DEBUG("[STREAM_CALLBACK] Processing event: {}", 
-            event.length() > 100 ? event.substr(0, 100) + "..." : event);
+        ICRAW_LOG_DEBUG("[HttpClient][stream_callback_debug] event_length={} preview={}",
+            event.length(), log_utils::truncate_for_debug(event));
         
         // Call the callback with the event
         if (data->callback) {
             bool continue_stream = data->callback(event);
             if (!continue_stream) {
-                ICRAW_LOG_DEBUG("[STREAM_CALLBACK] Callback returned false, aborting stream");
+                ICRAW_LOG_DEBUG("[HttpClient][stream_callback_debug] state=callback_requested_abort");
                 data->aborted = true;
                 return 0;  // Abort the transfer
             }

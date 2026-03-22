@@ -1,5 +1,6 @@
 #include "icraw/core/llm_provider.hpp"
 #include "icraw/core/logger.hpp"
+#include "icraw/core/log_utils.hpp"
 #include <algorithm>
 #include <sstream>
 #include <chrono>
@@ -363,13 +364,14 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
     std::string request_body_str = body.dump();
 
-    ICRAW_LOG_DEBUG("=== ChatCompletion Request (non-stream) ===");
-    ICRAW_LOG_DEBUG("URL: {}/chat/completions", base_url_);
-    ICRAW_LOG_DEBUG("Body: {}", request_body_str);
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=non_stream message_count={} tool_count={}",
+            request.messages.size(), request.tools.size());
+    ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream url={}/chat/completions body={}",
+            base_url_, log_utils::truncate_for_debug(request_body_str));
 
     // If API key is empty, return a mock response for local testing
     if (api_key_.empty()) {
-        ICRAW_LOG_DEBUG("API key is empty, returning mock response");
+        ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream state=mock_response");
         ChatCompletionResponse response;
         response.finish_reason = "stop";
 
@@ -387,7 +389,8 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
+        ICRAW_LOG_INFO("[LlmProvider][chat_request_complete] mode=non_stream duration_ms={} finish_reason={}",
+                duration_ms, response.finish_reason);
 
         return response;
     }
@@ -420,7 +423,10 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
+        ICRAW_LOG_WARN("[LlmProvider][chat_request_failed] mode=non_stream duration_ms={} error_code={} response_length={}",
+                duration_ms, error.code, response_body.size());
+        ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream error_response={}",
+                log_utils::truncate_for_debug(response_body));
 
         return response;
     }
@@ -430,7 +436,10 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion - ({}ms)", duration_ms);
+        ICRAW_LOG_INFO("[LlmProvider][chat_request_complete] mode=non_stream duration_ms={} response_length={}",
+                duration_ms, response_body.size());
+        ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream response_body={}",
+                log_utils::truncate_for_debug(response_body));
 
         return parse_response(response_json);
     } catch (const nlohmann::json::parse_error& e) {
@@ -440,7 +449,8 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        ICRAW_LOG_INFO("[LLM] chat_completion failed - ({}ms)", duration_ms);
+        ICRAW_LOG_ERROR("[LlmProvider][chat_request_failed] mode=non_stream duration_ms={} message={}",
+                duration_ms, e.what());
 
         return response;
     }
@@ -482,10 +492,11 @@ void OpenAICompatibleProvider::chat_completion_stream(
     
     std::string request_body_str = body.dump();
     
-    ICRAW_LOG_DEBUG("=== ChatCompletion Request (stream) ===");
-    ICRAW_LOG_DEBUG("Parser: {}", stream_parser_->get_parser_name());
-    ICRAW_LOG_DEBUG("URL: {}/chat/completions", base_url_);
-    ICRAW_LOG_DEBUG("Body: {}", request_body_str);
+    ICRAW_LOG_INFO("[LlmProvider][parser_selected] parser={}", stream_parser_->get_parser_name());
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=stream message_count={} tool_count={}",
+            request.messages.size(), request.tools.size());
+    ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=stream url={}/chat/completions body={}",
+            base_url_, log_utils::truncate_for_debug(request_body_str));
     
     std::string url = base_url_ + "/chat/completions";
     
@@ -496,13 +507,14 @@ void OpenAICompatibleProvider::chat_completion_stream(
     
     // Create SSE callback using stream parser
     auto sse_callback = [&](const std::string& sse_event) -> bool {
-        ICRAW_LOG_DEBUG("[LLM_STREAM] SSE event received: {}", sse_event);
+        ICRAW_LOG_DEBUG("[LlmProvider][stream_chunk_debug] event_length={} preview={}",
+                sse_event.size(), log_utils::truncate_for_debug(sse_event));
         ChatCompletionResponse response;
         
         if (stream_parser_->parse_chunk(sse_event, response)) {
             // Check for stream end before callback
             if (response.is_stream_end) {
-                ICRAW_LOG_DEBUG("[LLM_STREAM] Stream end detected, finish_reason='{}', tool_calls={}",
+                ICRAW_LOG_DEBUG("[LlmProvider][chat_stream_debug] finish_reason={} tool_call_count={}",
                     response.finish_reason, response.tool_calls.size());
             }
             
@@ -510,7 +522,7 @@ void OpenAICompatibleProvider::chat_completion_stream(
             
             // Stop curl when stream ends - return false to abort the transfer
             if (response.is_stream_end) {
-                ICRAW_LOG_DEBUG("[LLM_STREAM] Returning false to stop curl");
+                ICRAW_LOG_DEBUG("[LlmProvider][chat_stream_debug] action=stop_transfer");
                 return false;
             }
         }
@@ -519,16 +531,16 @@ void OpenAICompatibleProvider::chat_completion_stream(
     };
     
     HttpError error;
-    ICRAW_LOG_DEBUG("[LLM_STREAM] Starting perform_request_stream");
+    ICRAW_LOG_INFO("[LlmProvider][chat_stream_start]");
     if (!http_client_->perform_request_stream(url, "POST", request_body_str, sse_callback, error, headers)) {
-        ICRAW_LOG_ERROR("[LLM_STREAM] perform_request_stream failed: {}", error.message);
+        ICRAW_LOG_ERROR("[LlmProvider][chat_stream_failed] error_code={} message={}", error.code, error.message);
         throw std::runtime_error("Streaming request failed: " + error.message);
     }
-    ICRAW_LOG_DEBUG("[LLM_STREAM] perform_request_stream completed successfully");
+    ICRAW_LOG_DEBUG("[LlmProvider][chat_stream_debug] state=perform_request_stream_completed");
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[LLM] chat_completion_stream - ({}ms)", duration_ms);
+    ICRAW_LOG_INFO("[LlmProvider][chat_stream_complete] duration_ms={}", duration_ms);
 }
 
 } // namespace icraw
