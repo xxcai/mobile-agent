@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken;
 import com.hh.agent.core.AgentEventListener;
 import com.hh.agent.core.AndroidToolCallback;
 import com.hh.agent.core.NativeAgent;
+import com.hh.agent.core.log.AgentLogs;
 import com.hh.agent.core.model.Message;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.List;
  * 注意：会话持久化为 Mock 实现，后续 C++ 模块开发时实现
  */
 public class NativeMobileAgentApi implements MobileAgentApi {
+    private static final String TAG = "NativeMobileAgentApi";
     private static final String THINK_START = "<think>";
     private static final String THINK_END = "</think>";
 
@@ -47,7 +49,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
      */
     public synchronized void initializeContext(Context context) {
         // TODO: 后续 C++ 持久化需要 Context
-        System.out.println("[NativeMobileAgentApi] initializeContext: Mock - session persistence not implemented");
+        AgentLogs.d(TAG, "initializeContext: session persistence not implemented yet");
     }
 
     /**
@@ -71,9 +73,9 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         if (toolsJson != null && !toolsJson.isEmpty()) {
             try {
                 NativeAgent.nativeSetToolsSchema(toolsJson);
-                System.out.println("[NativeMobileAgentApi] Successfully set tools.json to native layer");
+                AgentLogs.i(TAG, "setToolsJson: passed tools schema to native layer");
             } catch (Exception e) {
-                System.err.println("[NativeMobileAgentApi] Failed to set tools schema: " + e.getMessage());
+                AgentLogs.e(TAG, "setToolsJson: failed to set tools schema: " + e.getMessage(), e);
             }
         }
     }
@@ -97,13 +99,13 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 if (toolsJson != null && !toolsJson.isEmpty()) {
                     try {
                         NativeAgent.nativeSetToolsSchema(toolsJson);
-                        System.out.println("[NativeMobileAgentApi] Successfully passed tools.json to native layer");
+                        AgentLogs.i(TAG, "initialize: passed tools schema to native layer");
                     } catch (Exception e) {
                         // Log but don't fail initialization
-                        System.out.println("[NativeMobileAgentApi] Failed to set tools schema: " + e.getMessage());
+                        AgentLogs.w(TAG, "initialize: failed to set tools schema: " + e.getMessage());
                     }
                 } else {
-                    System.out.println("[NativeMobileAgentApi] toolsJson is empty, skipping native registration");
+                    AgentLogs.d(TAG, "initialize: toolsJson is empty, skipping native registration");
                 }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to initialize native agent: " + e.getMessage(), e);
@@ -150,15 +152,17 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             sessionId = sessionKey.substring(7); // Remove "native:" prefix
         }
 
-        System.out.println("[NativeMobileAgentApi] getHistory: sessionKey=" + sessionKey + ", sessionId=" + sessionId + ", limit=" + maxMessages);
+        AgentLogs.d(TAG, "getHistory: sessionKey=" + sessionKey + ", sessionId=" + sessionId
+                + ", limit=" + maxMessages);
 
         // Call C++ to get messages from SQLite
         String jsonResult = NativeAgent.nativeGetHistory(sessionId, maxMessages);
 
-        System.out.println("[NativeMobileAgentApi] getHistory: jsonResult=" + jsonResult);
+        AgentLogs.d(TAG, "getHistory: received history payload, length="
+                + (jsonResult != null ? jsonResult.length() : 0));
 
         if (jsonResult == null || jsonResult.isEmpty()) {
-            System.out.println("[NativeMobileAgentApi] getHistory: returning empty list");
+            AgentLogs.d(TAG, "getHistory: returning empty list");
             return new ArrayList<>();
         }
 
@@ -181,9 +185,10 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 messages.add(msg);
             }
 
+            AgentLogs.d(TAG, "getHistory: parsed message count=" + messages.size());
             return messages;
         } catch (Exception e) {
-            System.err.println("[NativeMobileAgentApi] getHistory: Failed to parse messages: " + e.getMessage());
+            AgentLogs.e(TAG, "getHistory: failed to parse messages: " + e.getMessage(), e);
             return new ArrayList<>();
         }
     }
