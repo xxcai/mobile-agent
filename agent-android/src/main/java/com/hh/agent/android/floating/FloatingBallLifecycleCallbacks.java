@@ -2,7 +2,7 @@ package com.hh.agent.android.floating;
 
 import android.app.Activity;
 import android.app.Application;
-import android.util.Log;
+import com.hh.agent.android.log.AgentLogs;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -38,7 +38,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
     public void onActivityStarted(Activity activity) {
         foregroundActivityCount++;
         currentForegroundActivity = activity;
-        Log.d(TAG, "onActivityStarted: count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_started", "foreground_count=" + foregroundActivityCount);
         updateFloatingBallVisibility();
     }
 
@@ -53,7 +53,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
             currentForegroundActivity = null;
         }
 
-        Log.d(TAG, "onActivityStopped: count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_stopped", "foreground_count=" + foregroundActivityCount);
         updateFloatingBallVisibility();
     }
 

@@ -6,6 +6,8 @@ package com.hh.agent.android.log;
  */
 public final class AgentLogs {
 
+    public static final String DEFAULT_TAG = "AgentAndroid";
+
     private static volatile AgentLogger logger = new DefaultAgentLogger();
 
     private AgentLogs() {
@@ -23,23 +25,49 @@ public final class AgentLogs {
         logger = new DefaultAgentLogger();
     }
 
-    public static void d(String tag, String message) {
-        logger.d(tag, message);
+    public static void debug(String scope, String event) {
+        debug(scope, event, null);
     }
 
-    public static void i(String tag, String message) {
-        logger.i(tag, message);
+    public static void debug(String scope, String event, String detail) {
+        logger.d(DEFAULT_TAG, buildMessage(scope, event, detail));
     }
 
-    public static void w(String tag, String message) {
-        logger.w(tag, message);
+    public static void info(String scope, String event) {
+        info(scope, event, null);
     }
 
-    public static void e(String tag, String message) {
-        logger.e(tag, message);
+    public static void info(String scope, String event, String detail) {
+        logger.i(DEFAULT_TAG, buildMessage(scope, event, detail));
     }
 
-    public static void e(String tag, String message, Throwable throwable) {
-        logger.e(tag, message, throwable);
+    public static void warn(String scope, String event) {
+        warn(scope, event, null);
+    }
+
+    public static void warn(String scope, String event, String detail) {
+        logger.w(DEFAULT_TAG, buildMessage(scope, event, detail));
+    }
+
+    public static void error(String scope, String event, String detail) {
+        logger.e(DEFAULT_TAG, buildMessage(scope, event, detail));
+    }
+
+    public static void error(String scope, String event, String detail, Throwable throwable) {
+        logger.e(DEFAULT_TAG, buildMessage(scope, event, detail), throwable);
+    }
+
+    private static String buildMessage(String scope, String event, String detail) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[")
+                .append(scope)
+                .append("][")
+                .append(event)
+                .append("]");
+
+        if (detail != null && !detail.isEmpty()) {
+            builder.append(" ").append(detail);
+        }
+        return builder.toString();
     }
 }

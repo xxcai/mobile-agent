@@ -1,6 +1,6 @@
 package com.hh.agent.android.voice;
 
-import android.util.Log;
+import com.hh.agent.android.log.AgentLogs;
 
 /**
  * 语音识别器持有者单例类
@@ -48,7 +48,8 @@ public class VoiceRecognizerHolder {
      */
     public void setRecognizer(IVoiceRecognizer recognizer) {
         this.recognizer = recognizer;
-        Log.d(TAG, "Voice recognizer set: " + (recognizer != null ? recognizer.getClass().getSimpleName() : "null"));
+        String recognizerName = recognizer != null ? recognizer.getClass().getSimpleName() : "null";
+        AgentLogs.info(TAG, "recognizer_set", "recognizer_name=" + recognizerName);
     }
 
     /**

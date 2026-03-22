@@ -10,12 +10,13 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.Toast;
+
+import com.hh.agent.android.log.AgentLogs;
 
 /**
  * 悬浮球单例管理器
@@ -118,6 +119,7 @@ public class FloatingBallManager {
         // 默认位置：屏幕右侧边缘，垂直居中
         mLayoutParams.x = getScreenWidth() - getBallSize();
         mLayoutParams.y = (getScreenHeight() / 2) - (getBallSize() / 2);
+        AgentLogs.info(TAG, "initialize_complete", null);
     }
 
     /**
@@ -132,9 +134,12 @@ public class FloatingBallManager {
             try {
                 mWindowManager.addView(mFloatingBallView, mLayoutParams);
                 mIsShowing = true;
+                AgentLogs.info(TAG, "show_complete", null);
             } catch (Exception e) {
-                Log.e(TAG, "Failed to show floating ball", e);
+                AgentLogs.error(TAG, "show_failed", "message=" + e.getMessage(), e);
             }
+        } else if (!checkOverlayPermission()) {
+            AgentLogs.warn(TAG, "overlay_permission_missing", null);
         }
     }
 
@@ -147,8 +152,9 @@ public class FloatingBallManager {
                 cancelSnapAnimation();
                 mWindowManager.removeView(mFloatingBallView);
                 mIsShowing = false;
+                AgentLogs.info(TAG, "hide_complete", null);
             } catch (Exception e) {
-                Log.e(TAG, "Failed to hide floating ball", e);
+                AgentLogs.error(TAG, "hide_failed", "message=" + e.getMessage(), e);
             }
         }
     }

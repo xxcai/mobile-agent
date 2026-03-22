@@ -3,10 +3,10 @@ package com.hh.agent.android.presenter;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.floating.FloatingBallManager;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.AgentEventListener;
@@ -48,7 +48,6 @@ public class MainPresenter implements MainContract.Presenter {
          * @return 解析结果，包含完整的 think 内容 和正文内容
          */
         ParsedResult parse(String text) {
-            Log.d(TAG, "StreamTextParser parse (multi-think): text=" + text);
             ParsedResult result = new ParsedResult();
 
             if (text == null || text.isEmpty()) {
@@ -83,8 +82,9 @@ public class MainPresenter implements MainContract.Presenter {
 
             result.thinkContent = toNullableString(thinkBuilder);
             result.contentContent = toNullableString(contentBuilder);
+            result.thinkLength = result.thinkContent != null ? result.thinkContent.length() : 0;
+            result.contentLength = result.contentContent != null ? result.contentContent.length() : 0;
 
-            Log.d(TAG, "StreamTextParser result = " + result);
             return result;
         }
 
@@ -124,6 +124,8 @@ public class MainPresenter implements MainContract.Presenter {
             String contentContent;  // 完整的正文内容
             boolean hasThinkStart;
             boolean hasThinkEnd;
+            int thinkLength;
+            int contentLength;
 
             @Override
             public String toString() {
@@ -132,6 +134,8 @@ public class MainPresenter implements MainContract.Presenter {
                         ", contentContent='" + contentContent + '\'' +
                         ", hasThinkStart=" + hasThinkStart +
                         ", hasThinkEnd=" + hasThinkEnd +
+                        ", thinkLength=" + thinkLength +
+                        ", contentLength=" + contentLength +
                         '}';
             }
         }
@@ -192,22 +196,20 @@ public class MainPresenter implements MainContract.Presenter {
 
     @Override
     public void loadMessages() {
-        Log.d(TAG, "loadMessages: start, sessionKey=" + sessionKey);
+        AgentLogs.info(TAG, "history_load_start", "session_key=" + sessionKey);
         if (messageListView != null) {
             mainHandler.post(() -> messageListView.showLoading());
         }
 
         ThreadPoolManager.executeAgentIO(() -> {
             try {
-                Log.d(TAG, "loadMessages: calling getHistory, sessionKey=" + sessionKey);
                 List<Message> messages = mobileAgentApi.getHistory(sessionKey, 50);
-                Log.d(TAG, "loadMessages: got " + messages.size() + " messages");
+                AgentLogs.info(TAG, "history_load_success", "session_key=" + sessionKey + " count=" + messages.size());
 
                 if (messageListView != null) {
                     mainHandler.post(() -> {
                         messageListView.hideLoading();
                         // 先加载历史消息
-                        Log.d(TAG, "loadMessages: calling onMessagesLoaded with " + messages.size() + " messages");
                         messageListView.onMessagesLoaded(messages);
                         // 然后判断是否处于 thinking 状态，如果是则显示思考占位符
                         // 这样可以避免 setMessages() 替换掉思考消息的问题
@@ -220,6 +222,7 @@ public class MainPresenter implements MainContract.Presenter {
                     });
                 }
             } catch (Exception e) {
+                AgentLogs.error(TAG, "history_load_failed", "session_key=" + sessionKey + " message=" + e.getMessage(), e);
                 if (messageListView != null) {
                     mainHandler.post(() -> {
                         messageListView.hideLoading();
@@ -264,17 +267,32 @@ public class MainPresenter implements MainContract.Presenter {
             messageListView.showLoading();
         }
 
+        AgentLogs.info(TAG, "stream_start",
+                "session_key=" + sessionKey + " input_length=" + content.length());
+
         // 设置 StreamingManager 回调，将事件转发到 streamingView
         streamingManager.setCallback(new StreamingManager.StreamingCallback() {
             @Override
             public void onTextDelta(String text) {
-                Log.d("MainPresenter", "onTextDelta: text=" + text);
                 if (streamingView != null) {
                     // 累积所有文本，用于全量解析
                     accumulatedText.append(text);
 
                     // 解析文本，区分 think 块和正文块（全量解析）
                     StreamTextParser.ParsedResult result = currentParser.parse(accumulatedText.toString());
+
+                    if (result.hasThinkStart && !result.hasThinkEnd) {
+                        AgentLogs.warn(TAG, "think_parse_incomplete",
+                                "session_key=" + sessionKey
+                                        + " accumulated_length=" + accumulatedText.length()
+                                        + " think_length=" + result.thinkLength
+                                        + " content_length=" + result.contentLength);
+                    } else if (result.hasThinkStart) {
+                        AgentLogs.debug(TAG, "think_parse_complete",
+                                "session_key=" + sessionKey
+                                        + " think_length=" + result.thinkLength
+                                        + " content_length=" + result.contentLength);
+                    }
 
                     // 更新 Message 对象
                     if (result.thinkContent != null && !result.thinkContent.isEmpty()) {
@@ -293,7 +311,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onToolUse(String id, String name, String argumentsJson) {
-                Log.d("MainPresenter", "onToolUse: id=" + id);
+                AgentLogs.info(TAG, "tool_use", "tool_id=" + id + " tool_name=" + name);
                 if (streamingView != null) {
                     // 创建 ToolCall 对象并添加到 Message
                     ToolCall toolCall = new ToolCall(id, name);
@@ -312,7 +330,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onToolResult(String id, String result) {
-                Log.d("MainPresenter", "onToolResult: id=" + id);
+                AgentLogs.info(TAG, "tool_result", "tool_id=" + id + " result_length=" + (result != null ? result.length() : 0));
                 if (streamingView != null) {
                     // 更新 ToolCall 的结果
                     ToolCall toolCall = assistantMessage.getToolCall(id);
@@ -329,7 +347,14 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onMessageEnd(String finishReason) {
-                Log.d("MainPresenter", "onMessageEnd: finishReason=" + finishReason);
+                if ("parse_error".equals(finishReason)) {
+                    AgentLogs.warn(TAG, "think_parse_error_finish", "session_key=" + sessionKey);
+                }
+                if ("stop".equals(finishReason) || "tool_calls".equals(finishReason)) {
+                    AgentLogs.info(TAG, "stream_finish", "finish_reason=" + finishReason);
+                } else {
+                    AgentLogs.warn(TAG, "stream_finish_unexpected", "finish_reason=" + finishReason);
+                }
                 FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
                 if (floatingBallManager != null) {
                     floatingBallManager.setWorking(false);
@@ -346,7 +371,7 @@ public class MainPresenter implements MainContract.Presenter {
 
             @Override
             public void onError(String errorCode, String errorMessage) {
-                Log.d("MainPresenter", "onError: errorCode=" + errorCode + ", errorMessage=" +errorMessage);
+                AgentLogs.error(TAG, "stream_error", "error_code=" + errorCode + " message=" + errorMessage);
                 FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
                 if (floatingBallManager != null) {
                     floatingBallManager.setWorking(false);
@@ -377,6 +402,7 @@ public class MainPresenter implements MainContract.Presenter {
     @Override
     public void cancelStream() {
         if (streamingManager.isStreaming()) {
+            AgentLogs.info(TAG, "stream_cancel_requested", "session_key=" + sessionKey);
             // 使用 StreamingManager 取消流式请求
             streamingManager.cancel();
             FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();

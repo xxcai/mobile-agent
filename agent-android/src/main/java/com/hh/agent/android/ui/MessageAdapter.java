@@ -1,7 +1,6 @@
 package com.hh.agent.android.ui;
 
 import android.content.Context;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -316,7 +315,6 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             // 正文区：使用 Markwon 渲染 Markdown
             String content = message.getContent();
             if (content != null) {
-                Log.d(TAG, "ResponseCardViewHolder bind content: text = " + content);
                 markwon.setMarkdown(tvContent, content);
             } else {
                 markwon.setMarkdown(tvContent, "");

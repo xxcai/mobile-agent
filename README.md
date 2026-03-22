@@ -173,8 +173,9 @@ dependencies {
 
 1. 准备可选的语音识别实现 `IVoiceRecognizer`
 2. 准备业务侧工具映射 `Map<String, ToolExecutor>`，其中每个 Tool 使用 `ToolDefinition.builder(...)` 定义 schema，并返回 `ToolResult`
-3. 调用 `AgentInitializer.initialize(...)`
-4. 在初始化完成后按需调用 `initializeFloatingBall(...)`
+3. 如需接入宿主自定义日志体系，可选调用 `AgentInitializer.setLogger(...)`
+4. 调用 `AgentInitializer.initialize(...)`
+5. 在初始化完成后按需调用 `initializeFloatingBall(...)`
 
 示意代码：
 
@@ -232,6 +233,17 @@ AgentInitializer.initialize(
 当前只保留一个公开入口：
 
 - `initializeFloatingBall(Application application, List<String> hiddenActivityClassNames)`
+
+logger 注入入口：
+
+- `setLogger(AgentLogger logger)`
+- `getLogger()`
+
+说明：
+
+- `setLogger(...)` 是可选能力；不调用时，`agent-android` 默认使用内置 `DefaultAgentLogger`
+- 当前仓库里的 `app` 模块没有额外实现宿主 logger，而是直接使用库默认实现
+- `agent-android` 当前日志格式、事件清单和排查命令见 `docs/agent-android-logging.md`
 
 调用约定：
 

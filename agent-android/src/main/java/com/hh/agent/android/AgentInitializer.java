@@ -23,6 +23,7 @@ import java.util.Map;
  */
 public class AgentInitializer {
 
+    private static final String TAG = "AgentInitializer";
     private static String configJson = "";
 
     /**
@@ -52,6 +53,16 @@ public class AgentInitializer {
                                   IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
                                   Runnable callback) {
+        int toolCount = tools != null ? tools.size() : 0;
+        AgentLogs.info(TAG, "initialize_start", "tool_count=" + toolCount);
+
+        if (tools == null) {
+            AgentLogs.warn(TAG, "tools_map_null", null);
+        }
+        if (callback == null) {
+            AgentLogs.warn(TAG, "initialize_callback_null", null);
+        }
+
         // 0. 设置语音识别器
         VoiceRecognizerHolder.getInstance().setRecognizer(voiceRecognizer);
 
@@ -74,10 +85,11 @@ public class AgentInitializer {
                 if (lastBrace > 0) {
                     String newField = ",\"workspacePath\":\"" + workspacePath + "\"";
                     configJson = configJson.substring(0, lastBrace) + newField + configJson.substring(lastBrace);
+                    AgentLogs.info(TAG, "workspace_path_injected", "path=" + workspacePath);
                 }
             }
         } catch (Exception e) {
-            // Ignore workspace errors
+            AgentLogs.warn(TAG, "workspace_initialize_failed", "message=" + e.getMessage());
         }
 
         // 5. 初始化 native agent
@@ -85,12 +97,17 @@ public class AgentInitializer {
         try {
             System.loadLibrary("icraw");
             NativeMobileAgentApi.getInstance().initialize(toolsJson, configJson);
+            AgentLogs.info(TAG, "native_initialize_complete", "tools_json_length=" + toolsJson.length());
         } catch (UnsatisfiedLinkError e) {
+            AgentLogs.error(TAG, "native_initialize_failed", "message=" + e.getMessage(), e);
             throw new RuntimeException("Failed to load native library: " + e.getMessage(), e);
         }
 
         // 6. 回调
-        callback.run();
+        if (callback != null) {
+            callback.run();
+        }
+        AgentLogs.info(TAG, "initialize_complete", null);
     }
 
     /**
@@ -106,6 +123,8 @@ public class AgentInitializer {
      */
     public static void initializeFloatingBall(Application application,
                                               List<String> hiddenActivityClassNames) {
+        int hiddenCount = hiddenActivityClassNames != null ? hiddenActivityClassNames.size() : 0;
+        AgentLogs.info(TAG, "floating_ball_initialize_start", "hidden_activity_count=" + hiddenCount);
 
         // 初始化悬浮球
         FloatingBallManager floatingBallManager = FloatingBallManager.getInstance(application);
@@ -115,6 +134,7 @@ public class AgentInitializer {
         if (floatingBallManager.checkOverlayPermission()) {
             floatingBallManager.show();
         } else {
+            AgentLogs.warn(TAG, "overlay_permission_missing", "component=floating_ball_initializer");
             floatingBallManager.showPermissionTip();
         }
 
@@ -131,6 +151,7 @@ public class AgentInitializer {
         application.registerActivityLifecycleCallbacks(
                 new FloatingBallLifecycleCallbacks(application, hiddenActivityClassNames)
         );
+        AgentLogs.info(TAG, "floating_ball_initialize_complete", null);
     }
 
     /**
@@ -143,8 +164,10 @@ public class AgentInitializer {
             is.read(buffer);
             configJson = new String(buffer, "UTF-8");
             is.close();
+            AgentLogs.info(TAG, "config_loaded", "content_length=" + configJson.length());
         } catch (Exception e) {
             configJson = "";
+            AgentLogs.warn(TAG, "config_load_failed", "message=" + e.getMessage());
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.hh.agent.android;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -18,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.hh.agent.android.contract.MainContract;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.presenter.MainPresenter;
 import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
@@ -243,7 +243,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onMessageReceived(Message message) {
-        Log.d("AgentFragment", "onMessageReceived: role=" + message.getRole() + ", content=" + message.getContent());
         adapter.addMessage(message);
         rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
@@ -264,7 +263,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     // 流式回调方法实现
     @Override
     public void onStreamMessageUpdate(Message message) {
-        Log.d("AgentFragment", "onStreamMessageUpdate: message=" + message.toString() + ", currentResponseMessage = " + currentResponseMessage);
         // 第一次收到响应时，创建 response 消息
         if (currentResponseMessage == null) {
             message.setShowToolUi(true);
@@ -285,11 +283,8 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamMessageEnd(Message message, String finishReason) {
-        Log.d("AgentFragment", "onStreamMessageEnd: finishReason=" + finishReason + ", message=" + message);
-
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
         if ("tool_calls".equals(finishReason)) {
-            Log.d("AgentFragment", "onStreamMessageEnd: tool_calls, keeping running");
             return;
         }
 
@@ -317,7 +312,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             // 刷新 RecyclerView 显示更新后的卡片
             rvMessages.scrollToPosition(adapter.getItemCount() - 1);
 
-            Log.d("AgentFragment", "onStreamMessageEnd: stop, kept tool UI on latest response card");
             return;
         }
 
@@ -325,7 +319,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
         for (String errorType : errorFinishReasons) {
             if (errorType.equals(finishReason)) {
-                Log.d("AgentFragment", "onStreamMessageEnd: error finish_reason=" + finishReason);
+                AgentLogs.warn("AgentFragment", "stream_finish_reason_error", "finish_reason=" + finishReason);
                 // 显示错误消息
                 adapter.addErrorMessage(finishReason, "API 响应被截断或内容不符合要求");
                 // 隐藏 thinking 消息
@@ -338,7 +332,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         }
 
         // 默认按异常处理
-        Log.d("AgentFragment", "onStreamMessageEnd: unknown finishReason=" + finishReason + ", treating as error");
+        AgentLogs.warn("AgentFragment", "stream_finish_reason_unknown", "finish_reason=" + finishReason);
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
         adapter.clearActiveToolUiResponse();
@@ -392,7 +386,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void hideThinking() {
-        Log.d("AgentFragment", "hideThinking: removing thinking message");
         adapter.removeThinkingMessage();
         // 恢复按钮为发送状态
         resetSendButton();

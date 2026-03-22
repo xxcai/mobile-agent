@@ -26,6 +26,18 @@ AgentInitializer.initialize(this, voiceRecognizer, tools, () -> {
 });
 ```
 
+如果宿主需要把 `agent-android` 日志接入自己的日志体系，可以在初始化前可选调用：
+
+```java
+AgentInitializer.setLogger(yourAgentLogger);
+```
+
+当前仓库中的 `app` 示例没有额外实现宿主 logger，而是直接使用 `agent-android` 的默认日志实现。
+
+如果宿主要接入自定义 logger，建议保持 `agent-android` 当前的结构化日志格式和分级约定，具体见：
+
+- `docs/agent-android-logging.md`
+
 参考现有实现：
 
 - `app/src/main/java/com/hh/agent/app/App.java`
