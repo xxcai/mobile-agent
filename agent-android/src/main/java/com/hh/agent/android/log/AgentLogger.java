@@ -1,18 +1,8 @@
 package com.hh.agent.android.log;
 
 /**
- * Agent 日志接口。
- * 由宿主注入具体实现，未注入时使用默认实现。
+ * agent-android 兼容日志接口。
+ * 实际协议已下沉到 agent-core，这里保留旧类型名以兼容现有调用方。
  */
-public interface AgentLogger {
-
-    void d(String tag, String message);
-
-    void i(String tag, String message);
-
-    void w(String tag, String message);
-
-    void e(String tag, String message);
-
-    void e(String tag, String message, Throwable throwable);
+public interface AgentLogger extends com.hh.agent.core.log.AgentLogger {
 }

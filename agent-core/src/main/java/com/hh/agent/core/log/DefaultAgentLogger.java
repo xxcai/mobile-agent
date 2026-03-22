@@ -5,7 +5,7 @@ import android.util.Log;
 /**
  * 默认 Agent logger，直接转发到 Android Log。
  */
-public final class DefaultAgentLogger implements AgentLogger {
+public class DefaultAgentLogger implements AgentLogger {
 
     @Override
     public void d(String tag, String message) {
