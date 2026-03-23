@@ -36,10 +36,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private static final class SchemaSummary {
         boolean containsLegacyChannel;
         boolean containsGestureChannel;
+        boolean containsViewContextChannel;
         String legacyDescription = "";
         String legacyFunctionDescription = "";
         String legacyArgsDescription = "";
         String gestureDescription = "";
+        String viewContextDescription = "";
     }
 
     @Override
@@ -204,6 +206,10 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 summary.containsGestureChannel = true;
                 summary.gestureDescription = function.optString("description");
             }
+            if ("android_view_context_tool".equals(function.optString("name"))) {
+                summary.containsViewContextChannel = true;
+                summary.viewContextDescription = function.optString("description");
+            }
         }
         return summary;
     }
@@ -231,10 +237,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("registered_channels=").append(manager.getRegisteredChannels().keySet()).append('\n');
         report.append("legacy_present=").append(summary.containsLegacyChannel).append('\n');
         report.append("gesture_present=").append(summary.containsGestureChannel).append('\n');
+        report.append("view_context_present=").append(summary.containsViewContextChannel).append('\n');
         report.append("legacy_description=").append(summary.legacyDescription).append('\n');
         report.append("legacy_function_description=").append(summary.legacyFunctionDescription).append('\n');
         report.append("legacy_args_description=").append(summary.legacyArgsDescription).append('\n');
-        report.append("gesture_description=").append(summary.gestureDescription).append("\n\n");
+        report.append("gesture_description=").append(summary.gestureDescription).append('\n');
+        report.append("view_context_description=").append(summary.viewContextDescription).append("\n\n");
     }
 
     private void appendIntentMappingChecks(StringBuilder report, SchemaSummary summary) {
@@ -244,11 +252,15 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("read clipboard -> call_android_tool/read_clipboard\n");
         report.append("tap coordinates -> android_gesture_tool/tap\n");
         report.append("swipe screen -> android_gesture_tool/swipe\n");
+        report.append("inspect current native screen -> android_view_context_tool/native_xml\n");
         report.append("legacy_summary_has_business_hint=")
                 .append(summary.legacyDescription.contains("业务工具"))
                 .append('\n');
         report.append("gesture_summary_has_coordinate_hint=")
                 .append(summary.gestureDescription.contains("屏幕坐标"))
+                .append('\n');
+        report.append("view_context_has_perception_hint=")
+                .append(summary.viewContextDescription.contains("视图上下文"))
                 .append("\n\n");
     }
 
@@ -292,6 +304,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 "Gesture Unsupported",
                 "android_gesture_tool",
                 "{\"action\":\"pinch\"}");
+
+        runCase(report, manager,
+                "View Context Native XML",
+                "android_view_context_tool",
+                "{\"source\":\"native_xml\",\"targetHint\":\"发送按钮\"}");
+
+        runCase(report, manager,
+                "View Context All Sources",
+                "android_view_context_tool",
+                "{\"source\":\"all\",\"targetHint\":\"第二个卡片\",\"includeMockWebDom\":true,\"includeMockScreenshot\":true}");
 
         report.append("active_gesture_executor=")
                 .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())
