@@ -3,20 +3,51 @@
 #include "icraw/log/log_utils.hpp"
 #include <curl/curl.h>
 #include <algorithm>
+#include <memory>
 #include <sstream>
 
 namespace icraw {
 
+namespace {
+
+using CurlHandlePtr = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
+using CurlHeadersPtr = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
+
+CurlHandlePtr create_curl_handle() {
+    return CurlHandlePtr(curl_easy_init(), &curl_easy_cleanup);
+}
+
+CurlHeadersPtr build_headers(const std::string& method,
+                            const std::string& request_body,
+                            const HttpHeaders& headers) {
+    curl_slist* raw_headers = nullptr;
+
+    if (method == "POST" && !request_body.empty()) {
+        raw_headers = curl_slist_append(raw_headers, "Content-Type: application/json");
+    }
+
+    for (const auto& [key, value] : headers) {
+        std::string header = key + ": " + value;
+        raw_headers = curl_slist_append(raw_headers, header.c_str());
+    }
+
+    return CurlHeadersPtr(raw_headers, &curl_slist_free_all);
+}
+
+std::string resolve_curl_error(CURLcode code, const char* errbuf) {
+    if (errbuf && errbuf[0] != '\0') {
+        return errbuf;
+    }
+    return curl_easy_strerror(code);
+}
+
+} // namespace
+
 // CurlHttpClient implementation
 
-CurlHttpClient::CurlHttpClient() : curl_(curl_easy_init()) {
-}
+CurlHttpClient::CurlHttpClient() = default;
 
-CurlHttpClient::~CurlHttpClient() {
-    if (curl_) {
-        curl_easy_cleanup(static_cast<CURL*>(curl_));
-    }
-}
+CurlHttpClient::~CurlHttpClient() = default;
 
 // Non-streaming request
 bool CurlHttpClient::perform_request(const std::string& url,
@@ -28,68 +59,53 @@ bool CurlHttpClient::perform_request(const std::string& url,
                                      const HttpHeaders& headers) {
     auto start_time = std::chrono::steady_clock::now();
 
-    CURL* curl = static_cast<CURL*>(curl_);
+    auto curl = create_curl_handle();
     if (!curl) {
         error.code = -1;
-        error.message = "Curl not initialized";
+        error.message = "Curl initialization failed";
         return false;
     }
     
-    // Reset the curl handle
-    curl_easy_reset(curl);
-    
     // Set the URL
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
     
     // Set the HTTP method (GET or POST)
-    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_CUSTOMREQUEST, method.c_str());
     
     // Set the request body for POST
     if (method == "POST" && !request_body.empty()) {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request_body.size());
+        curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDS, request_body.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDSIZE, request_body.size());
     }
     
-    // Build headers list
-    struct curl_slist* curl_headers = nullptr;
-    
-    // Add Content-Type header for JSON requests
-    if (method == "POST" && !request_body.empty()) {
-        curl_headers = curl_slist_append(curl_headers, "Content-Type: application/json");
-    }
-    
-    // Add custom headers
-    for (const auto& [key, value] : headers) {
-        std::string header = key + ": " + value;
-        curl_headers = curl_slist_append(curl_headers, header.c_str());
-    }
+    auto curl_headers = build_headers(method, request_body, headers);
     
     // Set headers if any
     if (curl_headers) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, curl_headers);
+        curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, curl_headers.get());
     }
     
     // Set the write function for the response body
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlHttpClient::WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_body);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, CurlHttpClient::WriteCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &response_body);
     
     // Set the header function for the response headers
-    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, CurlHttpClient::HeaderCallback);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, &response_headers);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERFUNCTION, CurlHttpClient::HeaderCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_HEADERDATA, &response_headers);
     
     // Set up error buffer
-    char errbuf[CURL_ERROR_SIZE];
-    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+    char errbuf[CURL_ERROR_SIZE] = {0};
+    curl_easy_setopt(curl.get(), CURLOPT_ERRORBUFFER, errbuf);
     
     // Set a reasonable timeout
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, 120L);
     
     // Follow redirects
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L);
 
     // Enable SSL/TLS (disable for Android development)
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYHOST, 0L);
 
     // Perform the request
     ICRAW_LOG_INFO("[HttpClient][request_start] method={} url={} request_body_length={}",
@@ -98,18 +114,13 @@ bool CurlHttpClient::perform_request(const std::string& url,
         ICRAW_LOG_DEBUG("[HttpClient][request_debug] method={} body={}",
                 method, log_utils::truncate_for_debug(request_body));
     }
-    CURLcode res = curl_easy_perform(curl);
-    
-    // Free headers list
-    if (curl_headers) {
-        curl_slist_free_all(curl_headers);
-    }
+    CURLcode res = curl_easy_perform(curl.get());
     
     if (res != CURLE_OK) {
         auto end_time = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         error.code = -1;
-        error.message = curl_easy_strerror(res);
+        error.message = resolve_curl_error(res, errbuf);
         ICRAW_LOG_ERROR("[HttpClient][request_failed] method={} url={} duration_ms={} error_code={} message={}",
                 method, url, elapsed, static_cast<int>(res), error.message);
         return false;
@@ -117,7 +128,7 @@ bool CurlHttpClient::perform_request(const std::string& url,
     
     // Get the HTTP response code
     long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &http_code);
 
     if (http_code >= 400) {
         auto end_time = std::chrono::steady_clock::now();
@@ -154,10 +165,10 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
                                             const HttpHeaders& headers) {
     auto start_time = std::chrono::steady_clock::now();
 
-    CURL* curl = static_cast<CURL*>(curl_);
+    auto curl = create_curl_handle();
     if (!curl) {
         error.code = -1;
-        error.message = "Curl not initialized";
+        error.message = "Curl initialization failed";
         return false;
     }
     
@@ -167,38 +178,23 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
         return false;
     }
     
-    // Reset the curl handle
-    curl_easy_reset(curl);
-    
     // Set the URL
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
     
     // Set the HTTP method (GET or POST)
-    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
+    curl_easy_setopt(curl.get(), CURLOPT_CUSTOMREQUEST, method.c_str());
     
     // Set the request body for POST
     if (method == "POST" && !request_body.empty()) {
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, request_body.size());
+        curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDS, request_body.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_POSTFIELDSIZE, request_body.size());
     }
     
-    // Build headers list
-    struct curl_slist* curl_headers = nullptr;
-    
-    // Add Content-Type header for JSON requests
-    if (method == "POST" && !request_body.empty()) {
-        curl_headers = curl_slist_append(curl_headers, "Content-Type: application/json");
-    }
-    
-    // Add custom headers
-    for (const auto& [key, value] : headers) {
-        std::string header = key + ": " + value;
-        curl_headers = curl_slist_append(curl_headers, header.c_str());
-    }
+    auto curl_headers = build_headers(method, request_body, headers);
     
     // Set headers if any
     if (curl_headers) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, curl_headers);
+        curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, curl_headers.get());
     }
     
     // Set up callback data
@@ -207,25 +203,25 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
     callback_data.aborted = false;
     
     // Set the write function for streaming
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlHttpClient::StreamWriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &callback_data);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, CurlHttpClient::StreamWriteCallback);
+    curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &callback_data);
     
     // Set up error buffer
-    char errbuf[CURL_ERROR_SIZE];
-    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+    char errbuf[CURL_ERROR_SIZE] = {0};
+    curl_easy_setopt(curl.get(), CURLOPT_ERRORBUFFER, errbuf);
     
     // Set a reasonable timeout (longer for streaming)
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);
+    curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT, 300L);
     
     // Follow redirects
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L);
 
     // Enable SSL/TLS (disable for Android development)
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(curl.get(), CURLOPT_SSL_VERIFYHOST, 0L);
 
     // Disable buffering for real-time streaming
-    curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1L);
+    curl_easy_setopt(curl.get(), CURLOPT_BUFFERSIZE, 1L);
     
     // Perform the request
     ICRAW_LOG_INFO("[HttpClient][stream_request_start] method={} url={} request_body_length={}",
@@ -234,18 +230,13 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
         ICRAW_LOG_DEBUG("[HttpClient][stream_request_debug] method={} body={}",
                 method, log_utils::truncate_for_debug(request_body));
     }
-    CURLcode res = curl_easy_perform(curl);
+    CURLcode res = curl_easy_perform(curl.get());
     ICRAW_LOG_DEBUG("[HttpClient][stream_request_debug] curl_result={} aborted={}", 
         static_cast<int>(res), callback_data.aborted);
     
-    // Free headers list
-    if (curl_headers) {
-        curl_slist_free_all(curl_headers);
-    }
-    
     if (res != CURLE_OK && res != CURLE_WRITE_ERROR) {
         error.code = -1;
-        error.message = curl_easy_strerror(res);
+        error.message = resolve_curl_error(res, errbuf);
         ICRAW_LOG_ERROR("[HttpClient][stream_request_failed] method={} url={} error_code={} message={}",
                 method, url, static_cast<int>(res), error.message);
         return false;
@@ -260,7 +251,7 @@ bool CurlHttpClient::perform_request_stream(const std::string& url,
     
     // Get the HTTP response code
     long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+    curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &http_code);
     
     if (http_code >= 400) {
         auto end_time = std::chrono::steady_clock::now();

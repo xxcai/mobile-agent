@@ -67,8 +67,6 @@ public:
                                 const HttpHeaders& headers = {}) override;
 
 private:
-    void* curl_;  // CURL* 
-    
     // Callback data structure for streaming
     struct StreamCallbackData {
         StreamCallback callback;
