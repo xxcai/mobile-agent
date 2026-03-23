@@ -1,6 +1,6 @@
 package com.hh.agent.core.api;
 
-import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.model.Message;
 
 import java.util.List;

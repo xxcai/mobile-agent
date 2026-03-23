@@ -1,9 +1,9 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.ui.ToolUiDecision;
-import com.hh.agent.core.ToolDefinition;
-import com.hh.agent.core.ToolExecutor;
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolDefinition;
+import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

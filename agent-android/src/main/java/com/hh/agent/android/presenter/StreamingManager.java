@@ -1,6 +1,6 @@
 package com.hh.agent.android.presenter;
 
-import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.NativeAgent;
 import com.hh.agent.core.api.MobileAgentApi;
 import com.hh.agent.android.thread.ThreadPoolManager;

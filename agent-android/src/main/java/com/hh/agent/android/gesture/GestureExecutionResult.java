@@ -1,6 +1,6 @@
 package com.hh.agent.android.gesture;
 
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
 /**

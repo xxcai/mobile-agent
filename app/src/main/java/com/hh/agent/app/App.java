@@ -4,7 +4,7 @@ import android.app.Application;
 import android.util.Log;
 import com.hh.agent.FloatingBallHiddenActivity;
 import com.hh.agent.android.AgentInitializer;
-import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;

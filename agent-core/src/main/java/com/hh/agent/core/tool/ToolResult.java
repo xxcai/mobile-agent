@@ -1,4 +1,4 @@
-package com.hh.agent.core;
+package com.hh.agent.core.tool;
 
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;

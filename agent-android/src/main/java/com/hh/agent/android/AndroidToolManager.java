@@ -7,10 +7,10 @@ import com.hh.agent.android.channel.LegacyAndroidToolChannel;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
-import com.hh.agent.core.AndroidToolCallback;
-import com.hh.agent.core.ToolExecutor;
-import com.hh.agent.core.ToolResult;
-import com.hh.agent.core.api.NativeMobileAgentApi;
+import com.hh.agent.core.tool.AndroidToolCallback;
+import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.tool.ToolResult;
+import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

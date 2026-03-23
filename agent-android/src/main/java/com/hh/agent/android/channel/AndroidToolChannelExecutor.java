@@ -1,7 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.ui.ToolUiDecision;
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
 /**
