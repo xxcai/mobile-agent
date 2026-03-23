@@ -1,4 +1,4 @@
-package com.hh.agent.core;
+package com.hh.agent.core.event;
 
 /**
  * Callback interface for stream events from C++ native agent.

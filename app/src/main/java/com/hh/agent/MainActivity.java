@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
-import com.hh.agent.core.ToolExecutor;
+import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;
@@ -330,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
         appendSectionHeader(report, "Contract Checks");
         for (Map.Entry<String, ToolExecutor> entry : manager.getRegisteredTools().entrySet()) {
             String toolName = entry.getKey();
-            com.hh.agent.core.ToolDefinition definition = entry.getValue().getDefinition();
+            com.hh.agent.core.tool.ToolDefinition definition = entry.getValue().getDefinition();
             boolean hasTitle = definition.getTitle() != null && !definition.getTitle().trim().isEmpty();
             boolean hasDescription = definition.getDescription() != null && !definition.getDescription().trim().isEmpty();
 

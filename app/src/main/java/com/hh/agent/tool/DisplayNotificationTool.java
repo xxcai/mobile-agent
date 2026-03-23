@@ -5,9 +5,9 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
-import com.hh.agent.core.ToolDefinition;
-import com.hh.agent.core.ToolExecutor;
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolDefinition;
+import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
 /**

@@ -1,6 +1,6 @@
 package com.hh.agent.android;
 
-import com.hh.agent.core.ToolDefinition;
+import com.hh.agent.core.tool.ToolDefinition;
 
 import org.junit.Test;
 

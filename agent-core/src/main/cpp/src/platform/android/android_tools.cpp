@@ -1,5 +1,5 @@
-#include "icraw/android_tools.hpp"
-#include "icraw/core/logger.hpp"
+#include "icraw/platform/android/android_tools.hpp"
+#include "icraw/log/logger.hpp"
 
 namespace icraw {
 

@@ -1,7 +1,9 @@
 package com.hh.agent.core;
 
+import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.log.AgentLogger;
 import com.hh.agent.core.log.AgentLogs;
+import com.hh.agent.core.tool.AndroidToolCallback;
 
 /**
  * Native agent JNI wrapper class

@@ -3,8 +3,8 @@
 #include "icraw/core/skill_loader.hpp"
 #include "icraw/tools/tool_registry.hpp"
 #include "icraw/core/llm_provider.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/core/log_utils.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/log/log_utils.hpp"
 #include "icraw/core/token_utils.hpp"
 #include <algorithm>
 #include <random>

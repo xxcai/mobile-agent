@@ -27,7 +27,8 @@ app (示例宿主)
 
 职责:
 
-- 定义对外 Java API，如 `MobileAgentApi`、`NativeMobileAgentApi`
+- 定义对外 Java API，如 `com.hh.agent.core.api.MobileAgentApi`
+- 提供当前默认实现 `com.hh.agent.core.api.impl.NativeMobileAgentApi`
 - 通过 `NativeAgent` 连接 JNI 与本地 C++ 引擎
 - 管理消息、工具调用、历史记录等核心模型
 - 打包 workspace 相关提示词和技能资源
@@ -37,11 +38,21 @@ app (示例宿主)
 ```text
 agent-core/
 ├── src/main/java/com/hh/agent/core/
-│   ├── api/                  # Java API
+│   ├── api/                  # Java API 接口
+│   │   └── impl/             # 当前默认实现，如 NativeMobileAgentApi
+│   ├── event/                # 流式事件接口
 │   ├── model/                # Message / ToolCall 等模型
-│   ├── ToolExecutor.java
-│   └── AgentEventListener.java
-├── src/main/cpp/             # JNI + C++ 核心实现
+│   ├── tool/                 # Tool contract 类型
+│   └── NativeAgent.java      # JNI bridge
+├── src/main/cpp/
+│   ├── include/icraw/
+│   │   ├── core/             # 可跨平台复用的核心头文件
+│   │   ├── log/              # 日志公开头
+│   │   └── platform/android/ # Android bridge 相关头文件
+│   └── src/
+│       ├── core/             # C++ 核心流程
+│       ├── log/              # 日志实现
+│       └── platform/android/ # Android/JNI bridge 实现
 └── src/main/assets/workspace/ # 内置 workspace 提示词和 skills
 ```
 
@@ -180,6 +191,8 @@ dependencies {
 示意代码：
 
 ```java
+import com.hh.agent.core.tool.ToolExecutor;
+
 Map<String, ToolExecutor> tools = new HashMap<>();
 // tools.put("tool_name", yourToolExecutor);
 
@@ -256,9 +269,11 @@ logger 注入入口：
 
 ### 5. 使用底层 API
 
-如果你只需要核心能力，也可以直接使用 `agent-core` 中的 `NativeMobileAgentApi`：
+如果你只需要核心能力，也可以直接使用 `agent-core` 中当前默认实现 `NativeMobileAgentApi`：
 
 ```java
+import com.hh.agent.core.api.impl.NativeMobileAgentApi;
+
 NativeMobileAgentApi api = NativeMobileAgentApi.getInstance();
 api.sendMessageStream(content, sessionKey, listener);
 ```
@@ -266,7 +281,13 @@ api.sendMessageStream(content, sessionKey, listener);
 当前对外接口定义见：
 
 - `agent-core/src/main/java/com/hh/agent/core/api/MobileAgentApi.java`
-- `agent-core/src/main/java/com/hh/agent/core/api/NativeMobileAgentApi.java`
+- `agent-core/src/main/java/com/hh/agent/core/api/impl/NativeMobileAgentApi.java`
+
+说明：
+
+- `MobileAgentApi` 是稳定接口层
+- `NativeMobileAgentApi` 是当前 Android 集成链路使用的实现类
+- `NativeAgent` 仍位于根包，当前用于保持 JNI 符号名兼容
 
 ## 目录概览
 

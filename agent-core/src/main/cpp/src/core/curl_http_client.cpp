@@ -1,6 +1,6 @@
 #include "icraw/core/http_client.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/core/log_utils.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/log/log_utils.hpp"
 #include <curl/curl.h>
 #include <algorithm>
 #include <sstream>

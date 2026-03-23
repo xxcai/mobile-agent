@@ -1,6 +1,6 @@
 #include "icraw/core/mcp_client.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/core/log_utils.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/log/log_utils.hpp"
 #include <sstream>
 #include <chrono>
 

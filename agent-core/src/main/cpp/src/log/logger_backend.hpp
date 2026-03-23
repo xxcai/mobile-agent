@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include "icraw/core/logger.hpp"
+#include "icraw/log/logger.hpp"
 
 namespace icraw {
 

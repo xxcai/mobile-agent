@@ -10,8 +10,8 @@ import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.android.WorkspaceManager;
-import com.hh.agent.core.ToolExecutor;
-import com.hh.agent.core.api.NativeMobileAgentApi;
+import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 
 import java.io.InputStream;
 import java.util.List;

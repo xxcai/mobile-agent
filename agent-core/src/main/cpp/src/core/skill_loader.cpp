@@ -1,5 +1,5 @@
 #include "icraw/core/skill_loader.hpp"
-#include "icraw/core/logger.hpp"
+#include "icraw/log/logger.hpp"
 #include <fstream>
 #include <sstream>
 #include <regex>

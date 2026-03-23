@@ -3,7 +3,7 @@ package com.hh.agent.android.channel;
 import com.hh.agent.android.gesture.AndroidGestureExecutor;
 import com.hh.agent.android.gesture.GestureExecutionResult;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

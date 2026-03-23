@@ -9,9 +9,9 @@ import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.android.ui.ToolUiDecision;
-import com.hh.agent.core.AgentEventListener;
+import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.api.MobileAgentApi;
-import com.hh.agent.core.api.NativeMobileAgentApi;
+import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
 
