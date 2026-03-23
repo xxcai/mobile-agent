@@ -76,6 +76,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addActionButton(container, "Run Routing Cases", v -> runRoutingCasesSection());
         addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
         addActionButton(container, "Run Container View Context", v -> runLiveViewContextProbe(true));
+        addActionButton(container, "Run Observation Bound Gesture", v -> runObservationBoundGestureProbe());
         addActionButton(container, "Probe LLM Business Route", v ->
                 runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool", null));
         addActionButton(container, "Probe LLM Contact Route", v ->
@@ -261,6 +262,88 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         } catch (Exception e) {
             next.append("parse_error=").append(e.getMessage()).append('\n');
         }
+        outputView.setText(next.toString());
+    }
+
+    private void runObservationBoundGestureProbe() {
+        StringBuilder report = new StringBuilder();
+        report.append("# Observation Bound Gesture Probe\n");
+        report.append("step_1=android_view_context_tool(native_xml)\n");
+        report.append("step_2=android_gesture_tool(tap + observation)\n");
+        report.append("target_hint=发送消息按钮\n\n");
+        outputView.setText(report.toString());
+
+        Thread worker = new Thread(() -> {
+            try {
+                AndroidToolManager manager = buildTestToolManager();
+                String viewContextResult = manager.callTool(
+                        "android_view_context_tool",
+                        "{\"source\":\"native_xml\",\"targetHint\":\"发送消息按钮\"}");
+                JSONObject viewContextJson = new JSONObject(viewContextResult);
+                if (!viewContextJson.optBoolean("success", false)) {
+                    mainHandler.post(() -> appendObservationBoundGestureReport(
+                            viewContextResult,
+                            null,
+                            null));
+                    return;
+                }
+
+                String snapshotId = viewContextJson.optString("snapshotId", "");
+                String gestureArgs = "{\"action\":\"tap\",\"x\":120,\"y\":360,"
+                        + "\"observation\":{\"snapshotId\":\"" + snapshotId + "\","
+                        + "\"targetDescriptor\":\"发送消息按钮\"}}";
+                String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
+
+                mainHandler.post(() -> appendObservationBoundGestureReport(
+                        viewContextResult,
+                        gestureArgs,
+                        gestureResult));
+            } catch (Exception e) {
+                String errorJson = "{\"success\":false,\"error\":\"probe_failed\",\"message\":\""
+                        + e.getMessage() + "\"}";
+                mainHandler.post(() -> appendObservationBoundGestureReport(
+                        errorJson,
+                        null,
+                        null));
+            }
+        });
+        worker.start();
+    }
+
+    private void appendObservationBoundGestureReport(String viewContextResult,
+                                                     String gestureArgs,
+                                                     String gestureResult) {
+        StringBuilder next = new StringBuilder(outputView.getText());
+        next.append("view_context_result=").append(viewContextResult).append("\n\n");
+
+        try {
+            JSONObject viewContextJson = new JSONObject(viewContextResult);
+            String snapshotId = viewContextJson.optString("snapshotId", "<none>");
+            next.append("snapshotId=").append(snapshotId).append('\n');
+            if (gestureArgs != null) {
+                next.append("gesture_input=").append(gestureArgs).append('\n');
+            }
+            if (gestureResult != null) {
+                next.append("gesture_result=").append(gestureResult).append("\n\n");
+                JSONObject gestureJson = new JSONObject(gestureResult);
+                JSONObject paramsJson = gestureJson.optJSONObject("params");
+                JSONObject observationJson = paramsJson != null
+                        ? paramsJson.optJSONObject("observation")
+                        : null;
+                String referencedSnapshotId = observationJson != null
+                        ? observationJson.optString("snapshotId", "<none>")
+                        : "<none>";
+                next.append("gesture_observation_snapshot_id=")
+                        .append(referencedSnapshotId)
+                        .append('\n');
+                next.append("snapshot_match=")
+                        .append(snapshotId.equals(referencedSnapshotId) ? "PASS" : "FAIL")
+                        .append('\n');
+            }
+        } catch (Exception e) {
+            next.append("parse_error=").append(e.getMessage()).append('\n');
+        }
+
         outputView.setText(next.toString());
     }
 
