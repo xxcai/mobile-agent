@@ -5,8 +5,9 @@
 当前工具能力的接入方式是：
 
 - Tool 实现在宿主 `app` 层
-- Tool 接口定义在 `agent-core`
+- Tool 接口定义在 `agent-core` 的 `com.hh.agent.core.tool`
 - Tool 注册与多通道 schema 生成由 `agent-android` 的 `AgentInitializer` 和 `AndroidToolManager` 完成
+- `NativeMobileAgentApi` 当前位于 `com.hh.agent.core.api.impl`
 
 如果需要添加复杂工作流而不是单个工具，请参考 [Android Skill 扩展指南](./android-skill-extension.md)。
 
@@ -15,6 +16,8 @@
 当前代码不是在 `Activity` 里逐个注册 Tool，而是在应用初始化时一次性传入 `Map<String, ToolExecutor>`：
 
 ```java
+import com.hh.agent.core.tool.ToolExecutor;
+
 Map<String, ToolExecutor> tools = new HashMap<>();
 tools.put("display_notification", new DisplayNotificationTool(this));
 tools.put("read_clipboard", new ReadClipboardTool(this));
@@ -43,6 +46,7 @@ AgentInitializer.setLogger(yourAgentLogger);
 - `app/src/main/java/com/hh/agent/app/App.java`
 - `agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java`
 - `agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java`
+- `agent-core/src/main/java/com/hh/agent/core/tool/`
 
 ## 步骤 1: 创建 Tool 类
 
@@ -57,9 +61,9 @@ app/src/main/java/com/hh/agent/tool/MyTool.java
 ```java
 package com.hh.agent.tool;
 
-import com.hh.agent.core.ToolDefinition;
-import com.hh.agent.core.ToolExecutor;
-import com.hh.agent.core.ToolResult;
+import com.hh.agent.core.tool.ToolDefinition;
+import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
 public class MyTool implements ToolExecutor {
@@ -91,7 +95,7 @@ public class MyTool implements ToolExecutor {
 
 注意点：
 
-- 接口包名是 `com.hh.agent.core.ToolExecutor`，不是旧文档中的 `com.hh.agent.library.ToolExecutor`
+- 接口包名是 `com.hh.agent.core.tool.ToolExecutor`，不是旧文档中的 `com.hh.agent.library.ToolExecutor`
 - `getName()` 返回值要和注册到 `Map` 里的 key 保持一致
 - `getDefinition()` 负责提供模型选择工具所需的结构化信息
 - `ToolDefinition` 当前通过 builder/DSL 构建，核心字段包括：
@@ -111,6 +115,8 @@ public class MyTool implements ToolExecutor {
 示例：
 
 ```java
+import com.hh.agent.core.tool.ToolExecutor;
+
 Map<String, ToolExecutor> tools = new HashMap<>();
 tools.put("my_tool", new MyTool());
 
@@ -132,6 +138,12 @@ AgentInitializer.initialize(
 4. 生成 tools schema 并传给 `NativeMobileAgentApi`
 
 因此外部通常不需要手动 new `AndroidToolManager` 再逐个注册。
+
+当前相关类型位置：
+
+- `ToolExecutor` / `ToolDefinition` / `ToolResult`: `com.hh.agent.core.tool`
+- `NativeMobileAgentApi`: `com.hh.agent.core.api.impl`
+- `AgentEventListener`: `com.hh.agent.core.event`
 
 ## 步骤 3: 构建并验证
 
