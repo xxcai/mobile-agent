@@ -281,6 +281,7 @@ MemoryManager::MemoryManager(const std::filesystem::path& workspace_path)
 MemoryManager::~MemoryManager() = default;
 
 bool MemoryManager::create_schema() {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return false;
     }
@@ -457,6 +458,7 @@ std::string MemoryManager::get_timestamp() {
 }
 
 void MemoryManager::close() {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     db_.reset();
 }
 
@@ -497,6 +499,7 @@ int64_t MemoryManager::add_message(const std::string& role,
                                     const std::string& content,
                                     const std::string& session_id,
                                     const nlohmann::json& metadata) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_) {
         ICRAW_LOG_ERROR("add_message: db_ is null");
         return -1;
@@ -563,6 +566,7 @@ std::vector<MemoryEntry> MemoryManager::get_recent_messages_by_roles(
         int limit,
         const std::vector<std::string>& roles,
         const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> messages;
 
     if (!db_ || !db_->is_open()) {
@@ -614,6 +618,7 @@ std::vector<MemoryEntry> MemoryManager::get_recent_messages_by_roles(
 
 std::vector<MemoryEntry> MemoryManager::get_recent_messages(int limit,
                                                              const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> messages;
     
     if (!db_ || !db_->is_open()) {
@@ -662,6 +667,7 @@ std::vector<MemoryEntry> MemoryManager::get_all_messages(const std::string& sess
 }
 
 void MemoryManager::clear_history(const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return;
     }
@@ -678,6 +684,7 @@ void MemoryManager::clear_history(const std::string& session_id) {
 }
 
 int64_t MemoryManager::get_message_count(const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return 0;
     }
@@ -704,6 +711,7 @@ int64_t MemoryManager::get_message_count(const std::string& session_id) const {
 
 std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
                                                        int limit) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> results;
     
     if (!db_ || !db_->is_open()) {
@@ -746,6 +754,7 @@ std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
 // --- Daily Memory ---
 
 void MemoryManager::save_daily_memory(const std::string& content) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     // Save to SQLite
     if (db_ && db_->is_open()) {
         auto now = std::chrono::system_clock::now();
@@ -788,6 +797,7 @@ void MemoryManager::save_daily_memory(const std::string& content) {
 }
 
 std::vector<MemoryEntry> MemoryManager::get_daily_memory(const std::string& date) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> entries;
     
     if (!db_ || !db_->is_open()) {
@@ -836,6 +846,7 @@ std::vector<MemoryEntry> MemoryManager::get_daily_memory(const std::string& date
 int64_t MemoryManager::create_summary(const std::string& session_id,
                                        const std::string& summary,
                                        int message_count) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return -1;
     }
@@ -862,6 +873,7 @@ int64_t MemoryManager::create_summary(const std::string& session_id,
 
 std::optional<ConversationSummary> MemoryManager::get_latest_summary(
     const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
@@ -897,6 +909,7 @@ std::optional<ConversationSummary> MemoryManager::get_latest_summary(
 std::vector<MemoryEntry> MemoryManager::get_messages_for_consolidation(
     int keep_count,
     const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     
     std::vector<MemoryEntry> messages;
     
@@ -945,6 +958,7 @@ std::vector<MemoryEntry> MemoryManager::get_messages_for_consolidation(
 }
 
 void MemoryManager::mark_consolidated(int count, const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return;
     }
@@ -982,6 +996,7 @@ int64_t MemoryManager::get_total_message_count(const std::string& session_id) co
 std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& query,
                                                            int limit,
                                                            const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> results;
     
     if (!db_ || !db_->is_open()) {
@@ -1036,6 +1051,7 @@ std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& que
 std::vector<MemoryEntry> MemoryManager::get_messages_within_token_budget(
     int max_tokens,
     const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     
     std::vector<MemoryEntry> messages;
     
@@ -1098,6 +1114,7 @@ std::vector<MemoryEntry> MemoryManager::get_messages_within_token_budget(
 }
 
 int64_t MemoryManager::get_total_tokens(const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     // First try cached value
     auto stats = get_token_stats(session_id);
     if (stats && stats->total_tokens > 0) {
@@ -1140,6 +1157,7 @@ int64_t MemoryManager::get_total_tokens(const std::string& session_id) const {
 }
 
 void MemoryManager::update_token_stats(const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return;
     }
@@ -1161,6 +1179,7 @@ void MemoryManager::update_token_stats(const std::string& session_id) {
 }
 
 std::optional<TokenStats> MemoryManager::get_token_stats(const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
     }
@@ -1194,6 +1213,7 @@ int64_t MemoryManager::create_compaction_record(const std::string& session_id,
                                                  int tokens_before,
                                                  int tokens_after,
                                                  const std::string& mode) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return -1;
     }
@@ -1223,6 +1243,7 @@ int64_t MemoryManager::create_compaction_record(const std::string& session_id,
 
 std::optional<CompactionRecord> MemoryManager::get_latest_compaction(
     const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
@@ -1258,6 +1279,7 @@ std::optional<CompactionRecord> MemoryManager::get_latest_compaction(
 }
 
 int64_t MemoryManager::get_compaction_count(const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return 0;
     }
@@ -1282,6 +1304,7 @@ int64_t MemoryManager::get_compaction_count(const std::string& session_id) const
 // --- Memory Flush Tracking ---
 
 bool MemoryManager::needs_memory_flush(const CompactionConfig& config) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!config.memory_flush.enabled) {
         return false;
     }
@@ -1296,6 +1319,7 @@ bool MemoryManager::needs_memory_flush(const CompactionConfig& config) const {
 }
 
 void MemoryManager::record_memory_flush(const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return;
     }
@@ -1314,6 +1338,7 @@ void MemoryManager::record_memory_flush(const std::string& session_id) {
 
 std::optional<std::string> MemoryManager::get_last_flush_timestamp(
     const std::string& session_id) const {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
@@ -1340,6 +1365,7 @@ std::optional<std::string> MemoryManager::get_last_flush_timestamp(
 // --- Delete Consolidated Messages ---
 
 int64_t MemoryManager::delete_consolidated_messages(const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return 0;
     }

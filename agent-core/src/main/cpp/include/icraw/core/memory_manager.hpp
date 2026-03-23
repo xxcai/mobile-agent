@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <functional>
 #include <optional>
 #include "icraw/types.hpp"
@@ -289,6 +290,7 @@ private:
     
     std::filesystem::path workspace_path_;
     std::unique_ptr<SQLiteDatabase> db_;
+    mutable std::recursive_mutex db_mutex_;
     
     // Cache for identity files
     std::string soul_content_;
