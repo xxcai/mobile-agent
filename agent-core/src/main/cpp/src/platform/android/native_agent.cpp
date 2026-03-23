@@ -815,4 +815,73 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeGetHistory(
     return env->NewStringUTF(result.c_str());
 }
 
+JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearHistory(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring sessionId) {
+    const char* session_id = env->GetStringUTFChars(sessionId, nullptr);
+    if (!session_id) {
+        return JNI_FALSE;
+    }
+
+    ICRAW_LOG_INFO("[NativeAgentJni][history_clear_start] session_id={}", session_id);
+    bool success = false;
+
+    if (g_agent) {
+        try {
+            g_agent->clear_history();
+            auto memory_manager = g_agent->get_memory_manager();
+            if (memory_manager) {
+                success = memory_manager->clear_history(session_id);
+            }
+        } catch (const std::exception& e) {
+            ICRAW_LOG_ERROR("[NativeAgentJni][history_clear_failed] message={}", e.what());
+        }
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][history_clear_failed] reason=agent_not_initialized");
+    }
+
+    env->ReleaseStringUTFChars(sessionId, session_id);
+    if (success) {
+        ICRAW_LOG_INFO("[NativeAgentJni][history_clear_complete]");
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][history_clear_failed] reason=clear_returned_false");
+    }
+    return success ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearLongTermMemory(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring sessionId) {
+    const char* session_id = env->GetStringUTFChars(sessionId, nullptr);
+    if (!session_id) {
+        return JNI_FALSE;
+    }
+
+    ICRAW_LOG_INFO("[NativeAgentJni][memory_clear_start] session_id={}", session_id);
+    bool success = false;
+
+    if (g_agent) {
+        try {
+            auto memory_manager = g_agent->get_memory_manager();
+            if (memory_manager) {
+                success = memory_manager->clear_long_term_memory(session_id);
+            }
+        } catch (const std::exception& e) {
+            ICRAW_LOG_ERROR("[NativeAgentJni][memory_clear_failed] message={}", e.what());
+        }
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][memory_clear_failed] reason=agent_not_initialized");
+    }
+
+    env->ReleaseStringUTFChars(sessionId, session_id);
+    if (success) {
+        ICRAW_LOG_INFO("[NativeAgentJni][memory_clear_complete]");
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][memory_clear_failed] reason=clear_returned_false");
+    }
+    return success ? JNI_TRUE : JNI_FALSE;
+}
+
 } // extern "C"

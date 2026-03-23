@@ -390,6 +390,10 @@ bool MemoryManager::create_schema() {
         return false;
     }
     
+    db_->execute("DROP TRIGGER IF EXISTS messages_ai;");
+    db_->execute("DROP TRIGGER IF EXISTS messages_ad;");
+    db_->execute("DROP TRIGGER IF EXISTS messages_au;");
+
     // Create FTS5 virtual table for full-text search
     // Note: FTS5 is included in SQLite amalgamation by default
     const char* create_fts_sql = R"(
@@ -403,8 +407,8 @@ bool MemoryManager::create_schema() {
         );
     )";
     
-    // FTS5 might not be available on all SQLite builds, so don't fail if it errors
-    db_->execute(create_fts_sql);
+    // FTS5 might not be available on all SQLite builds.
+    const bool fts_available = db_->execute(create_fts_sql);
     
     // Create FTS triggers for automatic sync (only if FTS table exists)
     const char* create_fts_triggers_sql = R"(
@@ -429,8 +433,15 @@ bool MemoryManager::create_schema() {
         END;
     )";
     
-    // Don't fail if triggers can't be created (FTS might not be available)
-    db_->execute(create_fts_triggers_sql);
+    if (fts_available) {
+        if (!db_->execute(create_fts_triggers_sql)) {
+            ICRAW_LOG_WARN("[MemoryManager][fts_trigger_create_failed] db_path={} error={}",
+                    db_->path().string(), db_->get_error());
+        }
+    } else {
+        ICRAW_LOG_WARN("[MemoryManager][fts_unavailable] db_path={} error={}",
+                db_->path().string(), db_->get_error());
+    }
     
     // Migration: Add new columns to existing tables if they don't exist
     // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we try and ignore errors
@@ -666,21 +677,78 @@ std::vector<MemoryEntry> MemoryManager::get_all_messages(const std::string& sess
     return get_recent_messages(1000000, session_id);  // Large limit for "all"
 }
 
-void MemoryManager::clear_history(const std::string& session_id) {
+bool MemoryManager::clear_history(const std::string& session_id) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
-        return;
+        return false;
     }
-    
+
+    const int64_t count_before = get_message_count(session_id);
     // Use parameterized query to prevent SQL injection
     std::string sql = "DELETE FROM messages WHERE session_id = ?;";
-    
+
     if (!db_->prepare(sql)) {
-        return;
+        ICRAW_LOG_ERROR("[MemoryManager][history_clear_prepare_failed] session_id={} db_path={} error={}",
+                session_id, db_->path().string(), db_->get_error());
+        return false;
     }
-    
+
     db_->bind(1, session_id);
-    db_->step_exec();
+    const bool success = db_->step_exec();
+    db_->reset();
+    if (!success) {
+        ICRAW_LOG_ERROR("[MemoryManager][history_clear_exec_failed] session_id={} db_path={} error={}",
+                session_id, db_->path().string(), db_->get_error());
+        return false;
+    }
+
+    const int64_t count_after = get_message_count(session_id);
+    ICRAW_LOG_INFO("[MemoryManager][history_clear_complete] session_id={} count_before={} count_after={} db_path={}",
+            session_id, count_before, count_after, db_->path().string());
+    return count_after == 0;
+}
+
+bool MemoryManager::clear_long_term_memory(const std::string& session_id) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
+    if (!db_ || !db_->is_open()) {
+        return false;
+    }
+
+    bool success = true;
+    const char* session_scoped_tables[] = {
+        "summaries",
+        "compactions",
+        "token_stats",
+        "memory_flush_log"
+    };
+
+    for (const char* table : session_scoped_tables) {
+        std::string sql = "DELETE FROM ";
+        sql += table;
+        sql += " WHERE session_id = ?;";
+        if (!db_->prepare(sql)) {
+            ICRAW_LOG_ERROR("[MemoryManager][long_term_clear_prepare_failed] table={} session_id={} db_path={} error={}",
+                    table, session_id, db_->path().string(), db_->get_error());
+            success = false;
+            continue;
+        }
+        db_->bind(1, session_id);
+        const bool table_success = db_->step_exec();
+        db_->reset();
+        if (!table_success) {
+            ICRAW_LOG_ERROR("[MemoryManager][long_term_clear_exec_failed] table={} session_id={} db_path={} error={}",
+                    table, session_id, db_->path().string(), db_->get_error());
+            success = false;
+        }
+    }
+
+    if (!db_->execute("DELETE FROM daily_memory;")) {
+        ICRAW_LOG_ERROR("[MemoryManager][long_term_clear_exec_failed] table=daily_memory session_id={} db_path={} error={}",
+                session_id, db_->path().string(), db_->get_error());
+        success = false;
+    }
+
+    return success;
 }
 
 int64_t MemoryManager::get_message_count(const std::string& session_id) const {

@@ -15,6 +15,7 @@ import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -416,6 +417,52 @@ public class MainPresenter implements MainContract.Presenter {
                 });
             }
         }
+    }
+
+    @Override
+    public void clearHistory() {
+        cancelStream();
+        currentParser.reset();
+        accumulatedText.setLength(0);
+        ThreadPoolManager.executeAgentIO(() -> {
+            try {
+                boolean success = mobileAgentApi.clearHistory(sessionKey);
+                if (!success) {
+                    throw new IllegalStateException("native clear history returned false");
+                }
+                if (messageListView != null) {
+                    mainHandler.post(() -> messageListView.onMessagesLoaded(new ArrayList<>()));
+                }
+            } catch (Exception e) {
+                AgentLogs.error(TAG, "history_clear_failed", "session_key=" + sessionKey + " message=" + e.getMessage(), e);
+                if (messageListView != null) {
+                    mainHandler.post(() -> messageListView.onError("清空聊天历史失败: " + e.getMessage()));
+                }
+            }
+        });
+    }
+
+    @Override
+    public void clearHistoryAndLongTermMemory() {
+        cancelStream();
+        currentParser.reset();
+        accumulatedText.setLength(0);
+        ThreadPoolManager.executeAgentIO(() -> {
+            try {
+                boolean success = mobileAgentApi.clearHistoryAndLongTermMemory(sessionKey);
+                if (!success) {
+                    throw new IllegalStateException("native clear history and memory returned false");
+                }
+                if (messageListView != null) {
+                    mainHandler.post(() -> messageListView.onMessagesLoaded(new ArrayList<>()));
+                }
+            } catch (Exception e) {
+                AgentLogs.error(TAG, "memory_clear_failed", "session_key=" + sessionKey + " message=" + e.getMessage(), e);
+                if (messageListView != null) {
+                    mainHandler.post(() -> messageListView.onError("清空聊天历史和长期记忆失败: " + e.getMessage()));
+                }
+            }
+        });
     }
 
     @Override

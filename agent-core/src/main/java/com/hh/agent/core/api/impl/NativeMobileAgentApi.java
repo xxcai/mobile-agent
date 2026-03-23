@@ -214,6 +214,35 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         }
     }
 
+    @Override
+    public boolean clearHistory(String sessionKey) {
+        String sessionId = toSessionId(sessionKey);
+        info("history_clear_start", "session_key=" + nullToEmpty(sessionKey));
+        boolean success = NativeAgent.nativeClearHistory(sessionId);
+        if (!success) {
+            warn("history_clear_failed", "session_key=" + nullToEmpty(sessionKey));
+            return false;
+        }
+        info("history_clear_complete", "session_key=" + nullToEmpty(sessionKey));
+        return true;
+    }
+
+    @Override
+    public boolean clearHistoryAndLongTermMemory(String sessionKey) {
+        String sessionId = toSessionId(sessionKey);
+        info("memory_clear_start", "session_key=" + nullToEmpty(sessionKey));
+        boolean historyCleared = NativeAgent.nativeClearHistory(sessionId);
+        boolean memoryCleared = NativeAgent.nativeClearLongTermMemory(sessionId);
+        if (!historyCleared || !memoryCleared) {
+            warn("memory_clear_failed", "session_key=" + nullToEmpty(sessionKey)
+                    + " history_cleared=" + historyCleared
+                    + " memory_cleared=" + memoryCleared);
+            return false;
+        }
+        info("memory_clear_complete", "session_key=" + nullToEmpty(sessionKey));
+        return true;
+    }
+
     private static void debug(String event, String detail) {
         AgentLogs.d(buildMessage(event, detail));
     }
@@ -249,6 +278,13 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     private static String nullToEmpty(String value) {
         return value != null ? value : "";
+    }
+
+    private static String toSessionId(String sessionKey) {
+        if (sessionKey != null && sessionKey.startsWith("native:")) {
+            return sessionKey.substring(7);
+        }
+        return sessionKey != null ? sessionKey : "default";
     }
 
     /**

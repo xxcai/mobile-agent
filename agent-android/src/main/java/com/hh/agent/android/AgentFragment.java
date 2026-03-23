@@ -2,6 +2,7 @@ package com.hh.agent.android;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -117,10 +118,9 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 设置语音按钮监听器
         setupVoiceButtonListener();
 
-        // 设置 Toolbar
-        if (getActivity() != null) {
-            ((androidx.appcompat.app.AppCompatActivity) getActivity()).setSupportActionBar(toolbar);
-        }
+        // 直接使用 Fragment 内部 Toolbar 承载菜单，避免交给 Activity ActionBar 后菜单不可见。
+        toolbar.inflateMenu(R.menu.agent_actions);
+        toolbar.setOnMenuItemClickListener(this::onToolbarActionClicked);
 
         // 设置 RecyclerView
         adapter = new MessageAdapter(getContext());
@@ -146,6 +146,22 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
                 }
             }
         });
+
+    }
+
+    private boolean onToolbarActionClicked(MenuItem item) {
+        int itemId = item.getItemId();
+        if (itemId == R.id.action_clear_history) {
+            presenter.clearHistory();
+            resetStreamingState();
+            return true;
+        }
+        if (itemId == R.id.action_clear_history_and_memory) {
+            presenter.clearHistoryAndLongTermMemory();
+            resetStreamingState();
+            return true;
+        }
+        return false;
     }
 
     public void setVoiceButtonVisible(boolean visible) {

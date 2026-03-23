@@ -67,6 +67,16 @@ public class NativeAgent {
     public static native String nativeGetHistory(String sessionId, int limit);
 
     /**
+     * Clear persisted chat history for a session.
+     */
+    public static native boolean nativeClearHistory(String sessionId);
+
+    /**
+     * Clear persisted long-term memory for a session.
+     */
+    public static native boolean nativeClearLongTermMemory(String sessionId);
+
+    /**
      * Register an Android tool callback
      *
      * @param callback The callback implementation

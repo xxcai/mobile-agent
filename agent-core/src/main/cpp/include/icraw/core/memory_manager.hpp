@@ -170,7 +170,10 @@ public:
     std::vector<MemoryEntry> get_all_messages(const std::string& session_id = "default") const;
     
     // Clear conversation history
-    void clear_history(const std::string& session_id = "default");
+    bool clear_history(const std::string& session_id = "default");
+
+    // Clear persisted long-term memory for a session.
+    bool clear_long_term_memory(const std::string& session_id = "default");
     
     // Get message count
     int64_t get_message_count(const std::string& session_id = "default") const;
