@@ -19,4 +19,19 @@
 
     <!-- 文字颜色 -->
     <color name="text_secondary">#999999</color>
+
+    <color name="mock_im_brand">#232C33</color>
+    <color name="mock_im_brand_light">#95EC69</color>
+    <color name="mock_im_page_bg">#F5F5F5</color>
+    <color name="mock_im_chat_bg">#EDEDED</color>
+    <color name="mock_im_divider">#E6E6E6</color>
+    <color name="mock_im_secondary_text">#7A7A7A</color>
+    <color name="mock_im_hint_text">#9A9A9A</color>
+    <color name="mock_im_search_bg">#F0F1F2</color>
+    <color name="mock_im_search_text">#8F8F8F</color>
+    <color name="mock_im_badge">#FA5151</color>
+    <color name="mock_im_avatar_bg">#5B8DEF</color>
+    <color name="mock_im_pin_text">#B0B0B0</color>
+    <color name="mock_im_tab_selected">#2F2F2F</color>
+    <color name="mock_im_tab_unselected">#888888</color>
 </resources>
