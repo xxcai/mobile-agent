@@ -244,6 +244,14 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             } else {
                 next.append("mock=").append(json.optBoolean("mock", true)).append('\n');
                 next.append("activityClassName=").append(json.optString("activityClassName", "<none>")).append('\n');
+                next.append("snapshotId=").append(json.optString("snapshotId", "<none>")).append('\n');
+                next.append("snapshotCreatedAtEpochMs=")
+                        .append(json.optLong("snapshotCreatedAtEpochMs", -1L))
+                        .append('\n');
+                next.append("snapshotScope=").append(json.optString("snapshotScope", "<none>")).append('\n');
+                next.append("snapshotCurrentTurnOnly=")
+                        .append(json.optBoolean("snapshotCurrentTurnOnly", false))
+                        .append('\n');
                 String nativeViewXml = json.optString("nativeViewXml", "");
                 next.append("nativeViewXml_length=").append(nativeViewXml.length()).append('\n');
                 next.append("has_send_button_text=").append(nativeViewXml.contains("发送消息")).append('\n');
