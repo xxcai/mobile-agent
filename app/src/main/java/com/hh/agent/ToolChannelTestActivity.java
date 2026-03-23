@@ -14,6 +14,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
+import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.event.AgentEventListener;
@@ -73,12 +74,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Run Routing Cases", v -> runRoutingCasesSection());
+        addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
+        addActionButton(container, "Run Container View Context", v -> runLiveViewContextProbe(true));
         addActionButton(container, "Probe LLM Business Route", v ->
-                runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool"));
-        addActionButton(container, "Probe LLM View Route", v ->
-                runLlmRouteProbe("点击第二个卡片", "android_view_context_tool"));
+                runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool", null));
+        addActionButton(container, "Probe LLM Contact Route", v ->
+                runLlmRouteProbe("点击张三", "android_view_context_tool", "android_gesture_tool"));
+        addActionButton(container, "Probe LLM Send Button Route", v ->
+                runLlmRouteProbe("点击发送消息按钮", "android_view_context_tool", "android_gesture_tool"));
         addActionButton(container, "Probe LLM Structure Route", v ->
-                runLlmRouteProbe("看看当前页面结构", "android_view_context_tool"));
+                runLlmRouteProbe("看看当前页面结构", "android_view_context_tool", null));
         addActionButton(container, "Open Visible Activity", v ->
                 startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
         addActionButton(container, "Open Hidden Activity", v ->
@@ -187,16 +192,83 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         outputView.setText(report.toString());
     }
 
-    private void runLlmRouteProbe(String prompt, String expectedFirstTool) {
+    private void runLiveViewContextProbe(boolean launchContainerFirst) {
+        StringBuilder report = new StringBuilder();
+        report.append("# Live View Context Probe\n");
+        report.append("launch_container_first=").append(launchContainerFirst).append('\n');
+        report.append("source=native_xml\n");
+        report.append("target_hint=发送消息按钮\n");
+        report.append("expected_mock=false\n");
+        report.append("expected_activity=")
+                .append(launchContainerFirst ? getClass().getName() : getClass().getName())
+                .append('\n');
+        if (launchContainerFirst) {
+            report.append("expected_behavior=ContainerActivity closes before dump\n");
+        }
+        report.append('\n');
+        outputView.setText(report.toString());
+
+        if (launchContainerFirst) {
+            startActivity(new Intent(this, ContainerActivity.class));
+        }
+
+        mainHandler.postDelayed(() -> {
+            Thread worker = new Thread(() -> {
+                String resultJson;
+                try {
+                    AndroidToolManager manager = buildTestToolManager();
+                    resultJson = manager.callTool(
+                            "android_view_context_tool",
+                            "{\"source\":\"native_xml\",\"targetHint\":\"发送消息按钮\"}");
+                } catch (Exception e) {
+                    resultJson = "{\"success\":false,\"error\":\"probe_failed\",\"message\":\""
+                            + e.getMessage() + "\"}";
+                }
+                final String finalResultJson = resultJson;
+                mainHandler.post(() -> appendLiveViewContextReport(finalResultJson));
+            });
+            worker.start();
+        }, launchContainerFirst ? 300L : 0L);
+    }
+
+    private void appendLiveViewContextReport(String resultJson) {
+        StringBuilder next = new StringBuilder(outputView.getText());
+        next.append("raw_result=").append(resultJson).append("\n\n");
+        try {
+            JSONObject json = new JSONObject(resultJson);
+            boolean success = json.optBoolean("success", false);
+            next.append("success=").append(success).append('\n');
+            if (!success) {
+                next.append("error=").append(json.optString("error")).append('\n');
+                next.append("message=").append(json.optString("message")).append('\n');
+            } else {
+                next.append("mock=").append(json.optBoolean("mock", true)).append('\n');
+                next.append("activityClassName=").append(json.optString("activityClassName", "<none>")).append('\n');
+                String nativeViewXml = json.optString("nativeViewXml", "");
+                next.append("nativeViewXml_length=").append(nativeViewXml.length()).append('\n');
+                next.append("has_send_button_text=").append(nativeViewXml.contains("发送消息")).append('\n');
+                next.append("has_tool_channel_button_text=").append(nativeViewXml.contains("RUN LIVE VIEW CONTEXT")).append('\n');
+                next.append("observationMode=").append(json.optString("observationMode", "<none>")).append('\n');
+            }
+        } catch (Exception e) {
+            next.append("parse_error=").append(e.getMessage()).append('\n');
+        }
+        outputView.setText(next.toString());
+    }
+
+    private void runLlmRouteProbe(String prompt, String expectedFirstTool, String expectedSecondTool) {
         StringBuilder report = new StringBuilder();
         report.append("# LLM Route Probe\n");
         report.append("prompt=").append(prompt).append('\n');
-        report.append("expected_route_tool=").append(expectedFirstTool).append('\n');
+        report.append("expected_first_route_tool=").append(expectedFirstTool).append('\n');
+        report.append("expected_second_route_tool=")
+                .append(expectedSecondTool == null ? "<none>" : expectedSecondTool)
+                .append('\n');
         report.append("note=session is not fully isolated yet; restart app for cleaner probes when needed\n\n");
         outputView.setText(report.toString());
 
         final boolean[] firstToolCaptured = {false};
-        final boolean[] firstRouteToolCaptured = {false};
+        final int[] routeToolCount = {0};
 
         NativeMobileAgentApi.getInstance().sendMessageStream(prompt, PROBE_SESSION_KEY, new AgentEventListener() {
             @Override
@@ -218,16 +290,18 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                     });
                 }
 
-                if (!firstRouteToolCaptured[0] && isRouteTool(name)) {
-                    firstRouteToolCaptured[0] = true;
-                    mainHandler.post(() -> {
-                        StringBuilder next = new StringBuilder(outputView.getText());
-                        next.append("first_route_tool_id=").append(id).append('\n');
-                        next.append("first_route_tool_name=").append(name).append('\n');
-                        next.append("route_match=").append(expectedFirstTool.equals(name) ? "PASS" : "FAIL").append('\n');
-                        next.append("first_route_tool_arguments=").append(argumentsJson).append("\n\n");
-                        outputView.setText(next.toString());
-                    });
+                if (isRouteTool(name)) {
+                    routeToolCount[0]++;
+                    int currentRouteIndex = routeToolCount[0];
+                    if (currentRouteIndex <= 2) {
+                        mainHandler.post(() -> appendObservedRouteTool(
+                                id,
+                                name,
+                                argumentsJson,
+                                currentRouteIndex,
+                                expectedFirstTool,
+                                expectedSecondTool));
+                    }
                 }
             }
 
@@ -243,9 +317,13 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                     if (!firstToolCaptured[0]) {
                         next.append("first_tool_name=<none>\n");
                     }
-                    if (!firstRouteToolCaptured[0]) {
+                    if (routeToolCount[0] < 1) {
                         next.append("first_route_tool_name=<none>\n");
-                        next.append("route_match=FAIL\n");
+                        next.append("first_route_match=FAIL\n");
+                    }
+                    if (expectedSecondTool != null && routeToolCount[0] < 2) {
+                        next.append("second_route_tool_name=<none>\n");
+                        next.append("second_route_match=FAIL\n");
                     }
                     outputView.setText(next.toString());
                 });
@@ -261,6 +339,31 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 });
             }
         });
+    }
+
+    private void appendObservedRouteTool(String id,
+                                         String name,
+                                         String argumentsJson,
+                                         int routeIndex,
+                                         String expectedFirstTool,
+                                         String expectedSecondTool) {
+        StringBuilder next = new StringBuilder(outputView.getText());
+        if (routeIndex == 1) {
+            next.append("first_route_tool_id=").append(id).append('\n');
+            next.append("first_route_tool_name=").append(name).append('\n');
+            next.append("first_route_match=")
+                    .append(expectedFirstTool.equals(name) ? "PASS" : "FAIL")
+                    .append('\n');
+            next.append("first_route_tool_arguments=").append(argumentsJson).append("\n\n");
+        } else if (routeIndex == 2) {
+            next.append("second_route_tool_id=").append(id).append('\n');
+            next.append("second_route_tool_name=").append(name).append('\n');
+            next.append("second_route_match=")
+                    .append(expectedSecondTool != null && expectedSecondTool.equals(name) ? "PASS" : "FAIL")
+                    .append('\n');
+            next.append("second_route_tool_arguments=").append(argumentsJson).append("\n\n");
+        }
+        outputView.setText(next.toString());
     }
 
     private boolean isRouteTool(String toolName) {
@@ -434,13 +537,13 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("CASE: 给张三发消息说明天开会\n");
         report.append("EXPECTED: call_android_tool first; no view_context first; no direct gesture\n\n");
 
-        report.append("CASE: 点击第二个卡片\n");
+        report.append("CASE: 点击张三\n");
         report.append("EXPECTED: android_view_context_tool first; gesture only after screen inspection\n\n");
 
         report.append("CASE: 看看当前页面结构\n");
         report.append("EXPECTED: android_view_context_tool directly; prefer source=native_xml\n\n");
 
-        report.append("CASE: 点右上角那个红点\n");
+        report.append("CASE: 点击发送消息按钮\n");
         report.append("EXPECTED: android_view_context_tool first; do not guess coordinates before inspection\n\n");
     }
 

@@ -1,13 +1,14 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Mock view-context channel used to validate perception-channel routing.
- * Real native XML / DOM / screenshot collection will be added in a later step.
+ * View-context channel used to validate perception-channel routing.
+ * Native XML now prefers in-process host view trees; DOM / screenshot remain mock.
  */
 public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
@@ -98,6 +99,12 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
             switch (source) {
                 case SOURCE_NATIVE_XML:
+                    ToolResult nativeViewResult =
+                            ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
+                    if (nativeViewResult.toJsonString().contains("\"success\":true")) {
+                        return nativeViewResult
+                                .with("channel", CHANNEL_NAME);
+                    }
                     return result
                             .with("nativeViewXml", MOCK_NATIVE_XML)
                             .with("webDom", (String) null)
