@@ -521,6 +521,15 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 "{\"action\":\"swipe\",\"startX\":200,\"startY\":800,\"endX\":200,\"endY\":300,\"duration\":400}");
 
         runCase(report, manager,
+                "Gesture Tap With Observation",
+                "android_gesture_tool",
+                "{\"action\":\"tap\",\"x\":120,\"y\":360,"
+                        + "\"observation\":{\"snapshotId\":\"obs_test_123\","
+                        + "\"targetNodeIndex\":7,"
+                        + "\"targetDescriptor\":\"发送消息按钮\","
+                        + "\"referencedBounds\":\"[24,640][240,720]\"}}");
+
+        runCase(report, manager,
                 "Gesture Unsupported",
                 "android_gesture_tool",
                 "{\"action\":\"pinch\"}");
