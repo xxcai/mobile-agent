@@ -6,8 +6,8 @@
 #include "icraw/core/agent_loop.hpp"
 #include "icraw/core/llm_provider.hpp"
 #include "icraw/core/http_client.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/core/log_utils.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/log/log_utils.hpp"
 
 namespace icraw {
 

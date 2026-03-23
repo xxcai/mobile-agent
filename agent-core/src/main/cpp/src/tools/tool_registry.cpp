@@ -7,8 +7,8 @@
 
 #include "icraw/tools/tool_registry.hpp"
 #include "icraw/core/memory_manager.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/android_tools.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/platform/android/android_tools.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>

@@ -8,7 +8,7 @@
 #include <optional>
 #include "icraw/types.hpp"
 #include "icraw/config.hpp"
-#include "icraw/core/logger.hpp"
+#include "icraw/log/logger.hpp"
 
 // Forward declaration
 struct sqlite3;

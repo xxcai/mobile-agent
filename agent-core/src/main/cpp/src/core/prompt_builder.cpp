@@ -1,7 +1,7 @@
 #include "icraw/core/prompt_builder.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include "icraw/core/skill_loader.hpp"
-#include "icraw/core/logger.hpp"
+#include "icraw/log/logger.hpp"
 #include "icraw/tools/tool_registry.hpp"
 #include <sstream>
 

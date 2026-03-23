@@ -2,12 +2,12 @@
 #include <curl/curl.h>
 #include <memory>
 #include <string>
-#include "icraw/core/logger.hpp"
+#include "icraw/log/logger.hpp"
 #include "icraw/mobile_agent.hpp"
 #include "icraw/config.hpp"
-#include "icraw/android_tools.hpp"
+#include "icraw/platform/android/android_tools.hpp"
 #include "icraw/tools/tool_registry.hpp"
-#include "src/logger_backend.hpp"
+#include "../../log/logger_backend.hpp"
 #include <nlohmann/json.hpp>
 
 // ICRAW_ANDROID is already defined by CMake, no need to redefine

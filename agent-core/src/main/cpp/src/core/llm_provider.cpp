@@ -1,6 +1,6 @@
 #include "icraw/core/llm_provider.hpp"
-#include "icraw/core/logger.hpp"
-#include "icraw/core/log_utils.hpp"
+#include "icraw/log/logger.hpp"
+#include "icraw/log/log_utils.hpp"
 #include <algorithm>
 #include <sstream>
 #include <chrono>

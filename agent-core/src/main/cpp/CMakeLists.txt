@@ -4,9 +4,9 @@ project(icraw)
 # Main library sources
 set(ICRAW_SOURCES
         src/config.cpp
-        src/logger.cpp
-        src/logger_backend_android.cpp
-        src/logger_backend_spdlog.cpp
+        src/log/logger.cpp
+        src/log/logger_backend_android.cpp
+        src/log/logger_backend_spdlog.cpp
         src/core/content_block.cpp
         src/core/memory_manager.cpp
         src/core/skill_loader.cpp
@@ -18,13 +18,14 @@ set(ICRAW_SOURCES
         src/core/mcp_client.cpp
         src/tools/tool_registry.cpp
         src/mobile_agent.cpp
-        android_tools.cpp
-        native_agent.cpp
+        src/platform/android/android_tools.cpp
+        src/platform/android/native_agent.cpp
 )
 
 # Headers for IDE navigation
 set(ICRAW_HEADERS
-        include/icraw/core/logger.hpp
+        include/icraw/log/logger.hpp
+        include/icraw/log/log_utils.hpp
         include/icraw/core/content_block.hpp
         include/icraw/core/memory_manager.hpp
         include/icraw/core/skill_loader.hpp
@@ -35,6 +36,7 @@ set(ICRAW_HEADERS
         include/icraw/core/token_utils.hpp
         include/icraw/core/mcp_client.hpp
         include/icraw/tools/tool_registry.hpp
+        include/icraw/platform/android/android_tools.hpp
         include/icraw/config.hpp
         include/icraw/mobile_agent.hpp
         include/icraw/types.hpp
