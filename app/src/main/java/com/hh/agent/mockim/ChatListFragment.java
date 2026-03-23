@@ -9,11 +9,13 @@ import android.widget.ListView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.hh.agent.ChatDetailActivity;
 import com.hh.agent.R;
 import com.hh.agent.mockim.adapter.ChatConversationAdapter;
+import com.hh.agent.mockim.debug.MockChatProbeRunner;
 import com.hh.agent.mockim.model.ChatConversation;
 
 import java.util.List;
@@ -44,6 +46,16 @@ public class ChatListFragment extends Fragment {
             Intent intent = new Intent(requireContext(), ChatDetailActivity.class);
             intent.putExtra(ChatDetailActivity.EXTRA_CONVERSATION_ID, conversation.getId());
             startActivity(intent);
+        });
+        listView.setOnItemLongClickListener((parent, itemView, position, id) -> {
+            ChatConversation conversation = conversations.get(position);
+            MockChatProbeRunner.runObservationBoundGestureProbe(
+                    (AppCompatActivity) requireActivity(),
+                    "Chat List Observation Probe",
+                    conversation.getTitle(),
+                    200,
+                    420);
+            return true;
         });
     }
 }

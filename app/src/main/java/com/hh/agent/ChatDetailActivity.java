@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.mockim.MockChatRepository;
 import com.hh.agent.mockim.adapter.ChatMessageAdapter;
+import com.hh.agent.mockim.debug.MockChatProbeRunner;
 import com.hh.agent.mockim.model.ChatConversation;
 
 public class ChatDetailActivity extends AppCompatActivity {
@@ -30,9 +31,19 @@ public class ChatDetailActivity extends AppCompatActivity {
         ImageView backButton = findViewById(R.id.backButton);
         TextView titleView = findViewById(R.id.chatTitleView);
         ListView messageListView = findViewById(R.id.messageListView);
+        TextView sendButton = findViewById(R.id.sendButton);
 
         backButton.setOnClickListener(v -> finish());
         titleView.setText(conversation.getTitle());
         messageListView.setAdapter(new ChatMessageAdapter(this, conversation.getMessages()));
+        sendButton.setOnLongClickListener(v -> {
+            MockChatProbeRunner.runObservationBoundGestureProbe(
+                    this,
+                    "Chat Detail Observation Probe",
+                    "发送",
+                    960,
+                    2200);
+            return true;
+        });
     }
 }
