@@ -26,6 +26,9 @@ Tools are provided via function calling. Key points:
 - If a business tool exists for the goal, try that business path before considering UI interaction.
 - If the failure reason is unclear, do not assume vision fallback by yourself.
 - Treat "no suitable business tool" and "business tool execution failed this time" as different situations.
+- If the user goal refers to page elements, relative positions, layout structure, or visible UI cues, consider `android_view_context_tool` before any gesture execution.
+- Use `android_view_context_tool` to inspect the current screen, and use `android_gesture_tool` only for the follow-up execution step.
+- Do not guess tap or swipe coordinates when the current screen structure is still unclear.
 
 ## Memory Management
 

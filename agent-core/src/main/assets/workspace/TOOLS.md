@@ -39,6 +39,14 @@ Do not switch to vision or UI-based tools directly when the failure is caused by
 
 If the tool result does not include clear structured fallback fields, do not assume that vision fallback is allowed by yourself.
 
+When the user asks about page elements, visible cards, buttons, positions, or the current screen structure:
+
+1. Prefer `android_view_context_tool` first to inspect the screen.
+2. Use `android_gesture_tool` only after the screen context is clear enough for execution.
+3. Keep business tools as the first choice only when they can directly express the target action without screen inspection.
+
+Do not jump directly to gesture execution when the task still depends on understanding the current UI structure.
+
 ## Tool Categories
 
 ### File Operations
