@@ -128,6 +128,40 @@ Required first: action
 - 视图感知通道：适合先理解当前界面结构的任务
 - 手势通道：适合在目标已明确后执行点击或滑动
 
+对于页面元素类任务，当前推荐进一步理解成：
+
+```text
+android_view_context_tool -> android_gesture_tool(observation-bound)
+```
+
+也就是：
+
+1. 先拿当前页面 observation
+2. 再把 `snapshotId`、目标节点索引、目标 bounds 等引用信息带进 gesture
+3. 最后再执行 tap / swipe
+
+例如在 mock 聊天页里：
+
+- `点击张三`
+  - 先看聊天列表页
+  - 再引用 observation 里的 `张三` 节点
+  - 再进入 gesture
+
+- `点击发送`
+  - 先看聊天详情页
+  - 再引用 observation 里的 `发送` 节点
+  - 再进入 gesture
+
+这样做的目的不是“让参数变复杂”，而是让执行层知道：
+
+- 这次动作引用的是哪一次页面观察
+- 点的是观察结果里的哪个节点
+- 这个节点当时的 bounds 是什么
+
+更完整的协议说明见：
+
+- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+
 ## 真实边界
 
 当前这套改动只提升“看懂 prompt 的能力”，还没有解决下面这些问题：
