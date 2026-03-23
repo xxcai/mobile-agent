@@ -65,6 +65,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
         addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
+        addActionButton(container, "Run Routing Cases", v -> runRoutingCasesSection());
         addActionButton(container, "Open Visible Activity", v ->
                 startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
         addActionButton(container, "Open Hidden Activity", v ->
@@ -107,6 +108,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             appendImSenderCompatibilityNote(report);
             appendContractChecks(report, manager);
             appendRuntimeCases(report, manager);
+            appendRoutingCases(report);
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
@@ -163,6 +165,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
+        outputView.setText(report.toString());
+    }
+
+    private void runRoutingCasesSection() {
+        StringBuilder report = new StringBuilder();
+        appendRoutingCases(report);
         outputView.setText(report.toString());
     }
 
@@ -318,6 +326,21 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("active_gesture_executor=")
                 .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())
                 .append('\n');
+    }
+
+    private void appendRoutingCases(StringBuilder report) {
+        report.append("# Routing Cases\n");
+        report.append("CASE: 给张三发消息说明天开会\n");
+        report.append("EXPECTED: call_android_tool first; no view_context first; no direct gesture\n\n");
+
+        report.append("CASE: 点击第二个卡片\n");
+        report.append("EXPECTED: android_view_context_tool first; gesture only after screen inspection\n\n");
+
+        report.append("CASE: 看看当前页面结构\n");
+        report.append("EXPECTED: android_view_context_tool directly; prefer source=native_xml\n\n");
+
+        report.append("CASE: 点右上角那个红点\n");
+        report.append("EXPECTED: android_view_context_tool first; do not guess coordinates before inspection\n\n");
     }
 
     private int dp(int value) {
