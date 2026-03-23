@@ -2,6 +2,8 @@ package com.hh.agent;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.method.ScrollingMovementMethod;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -13,6 +15,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
+import com.hh.agent.core.api.impl.NativeMobileAgentApi;
+import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
@@ -31,6 +35,9 @@ import java.util.Map;
  */
 public class ToolChannelTestActivity extends AppCompatActivity {
 
+    private static final String PROBE_SESSION_KEY = "native:route-probe";
+    private static final String BUILTIN_READ_FILE_TOOL = "read_file";
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView outputView;
 
     private static final class SchemaSummary {
@@ -66,6 +73,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Run Routing Cases", v -> runRoutingCasesSection());
+        addActionButton(container, "Probe LLM Business Route", v ->
+                runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool"));
+        addActionButton(container, "Probe LLM View Route", v ->
+                runLlmRouteProbe("点击第二个卡片", "android_view_context_tool"));
+        addActionButton(container, "Probe LLM Structure Route", v ->
+                runLlmRouteProbe("看看当前页面结构", "android_view_context_tool"));
         addActionButton(container, "Open Visible Activity", v ->
                 startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
         addActionButton(container, "Open Hidden Activity", v ->
@@ -172,6 +185,94 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         StringBuilder report = new StringBuilder();
         appendRoutingCases(report);
         outputView.setText(report.toString());
+    }
+
+    private void runLlmRouteProbe(String prompt, String expectedFirstTool) {
+        StringBuilder report = new StringBuilder();
+        report.append("# LLM Route Probe\n");
+        report.append("prompt=").append(prompt).append('\n');
+        report.append("expected_route_tool=").append(expectedFirstTool).append('\n');
+        report.append("note=session is not fully isolated yet; restart app for cleaner probes when needed\n\n");
+        outputView.setText(report.toString());
+
+        final boolean[] firstToolCaptured = {false};
+        final boolean[] firstRouteToolCaptured = {false};
+
+        NativeMobileAgentApi.getInstance().sendMessageStream(prompt, PROBE_SESSION_KEY, new AgentEventListener() {
+            @Override
+            public void onTextDelta(String text) {
+            }
+
+            @Override
+            public void onToolUse(String id, String name, String argumentsJson) {
+                if (firstToolCaptured[0]) {
+                    // Keep listening for the first route tool even after the first tool is captured.
+                } else {
+                    firstToolCaptured[0] = true;
+                    mainHandler.post(() -> {
+                        StringBuilder next = new StringBuilder(outputView.getText());
+                        next.append("first_tool_id=").append(id).append('\n');
+                        next.append("first_tool_name=").append(name).append('\n');
+                        next.append("first_tool_arguments=").append(argumentsJson).append("\n\n");
+                        outputView.setText(next.toString());
+                    });
+                }
+
+                if (!firstRouteToolCaptured[0] && isRouteTool(name)) {
+                    firstRouteToolCaptured[0] = true;
+                    mainHandler.post(() -> {
+                        StringBuilder next = new StringBuilder(outputView.getText());
+                        next.append("first_route_tool_id=").append(id).append('\n');
+                        next.append("first_route_tool_name=").append(name).append('\n');
+                        next.append("route_match=").append(expectedFirstTool.equals(name) ? "PASS" : "FAIL").append('\n');
+                        next.append("first_route_tool_arguments=").append(argumentsJson).append("\n\n");
+                        outputView.setText(next.toString());
+                    });
+                }
+            }
+
+            @Override
+            public void onToolResult(String id, String result) {
+            }
+
+            @Override
+            public void onMessageEnd(String finishReason) {
+                mainHandler.post(() -> {
+                    StringBuilder next = new StringBuilder(outputView.getText());
+                    next.append("finish_reason=").append(finishReason).append('\n');
+                    if (!firstToolCaptured[0]) {
+                        next.append("first_tool_name=<none>\n");
+                    }
+                    if (!firstRouteToolCaptured[0]) {
+                        next.append("first_route_tool_name=<none>\n");
+                        next.append("route_match=FAIL\n");
+                    }
+                    outputView.setText(next.toString());
+                });
+            }
+
+            @Override
+            public void onError(String errorCode, String errorMessage) {
+                mainHandler.post(() -> {
+                    StringBuilder next = new StringBuilder(outputView.getText());
+                    next.append("error_code=").append(errorCode).append('\n');
+                    next.append("error_message=").append(errorMessage).append('\n');
+                    outputView.setText(next.toString());
+                });
+            }
+        });
+    }
+
+    private boolean isRouteTool(String toolName) {
+        if (toolName == null || toolName.trim().isEmpty()) {
+            return false;
+        }
+        if (BUILTIN_READ_FILE_TOOL.equals(toolName)) {
+            return false;
+        }
+        return "call_android_tool".equals(toolName)
+                || "android_view_context_tool".equals(toolName)
+                || "android_gesture_tool".equals(toolName);
     }
 
     private AndroidToolManager buildTestToolManager() {
