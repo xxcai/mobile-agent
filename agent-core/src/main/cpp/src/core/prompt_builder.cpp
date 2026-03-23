@@ -3,6 +3,7 @@
 #include "icraw/core/skill_loader.hpp"
 #include "icraw/log/logger.hpp"
 #include "icraw/tools/tool_registry.hpp"
+#include <algorithm>
 #include <sstream>
 
 namespace icraw {
@@ -198,24 +199,101 @@ std::string PromptBuilder::format_tool_schemas(const std::vector<ToolSchema>& sc
     
     for (const auto& schema : schemas) {
         ss << "## " << schema.name << "\n";
-        ss << schema.description << "\n\n";
-        
-        if (!schema.parameters.empty() && schema.parameters.contains("properties")) {
-            ss << "Parameters:\n";
-            for (auto& [key, value] : schema.parameters["properties"].items()) {
-                ss << "- " << key << ": ";
-                if (value.contains("type")) {
-                    ss << value["type"].get<std::string>();
-                }
-                if (value.contains("description")) {
-                    ss << " - " << value["description"].get<std::string>();
-                }
-                ss << "\n";
-            }
+        ss << "Route role: " << schema.description << "\n\n";
+
+        if (!schema.parameters.empty()) {
+            ss << format_parameter_block(schema.parameters, "", true);
         }
         ss << "\n";
     }
     
+    return ss.str();
+}
+
+std::string PromptBuilder::format_parameter_block(const nlohmann::json& schema,
+                                                  const std::string& indent,
+                                                  bool include_heading) const {
+    std::ostringstream ss;
+
+    if (!schema.is_object()) {
+        return "";
+    }
+
+    if (include_heading) {
+        ss << indent << "Input shape:\n";
+    }
+
+    std::vector<std::string> required_fields;
+    if (schema.contains("required") && schema["required"].is_array()) {
+        for (const auto& item : schema["required"]) {
+            if (item.is_string()) {
+                required_fields.push_back(item.get<std::string>());
+            }
+        }
+    }
+
+    if (!required_fields.empty()) {
+        ss << indent << "Required first:";
+        for (size_t i = 0; i < required_fields.size(); ++i) {
+            ss << (i == 0 ? " " : ", ") << required_fields[i];
+        }
+        ss << "\n";
+    }
+
+    if (!schema.contains("properties") || !schema["properties"].is_object()) {
+        return ss.str();
+    }
+
+    for (auto& [key, value] : schema["properties"].items()) {
+        const std::string type = value.value("type", "unknown");
+        const bool required = std::find(required_fields.begin(), required_fields.end(), key) != required_fields.end();
+
+        ss << indent << "- " << key << ": " << type;
+        if (required) {
+            ss << " (required)";
+        }
+        if (value.contains("description") && value["description"].is_string()) {
+            ss << " - " << value["description"].get<std::string>();
+        }
+        ss << "\n";
+
+        if (value.contains("enum") && value["enum"].is_array() && !value["enum"].empty()) {
+            ss << indent << "  Choose from: ";
+            for (size_t i = 0; i < value["enum"].size(); ++i) {
+                if (i > 0) {
+                    ss << ", ";
+                }
+                const auto& enum_value = value["enum"][i];
+                if (enum_value.is_string()) {
+                    ss << enum_value.get<std::string>();
+                } else {
+                    ss << enum_value.dump();
+                }
+            }
+            ss << "\n";
+        }
+
+        if (value.contains("default")) {
+            ss << indent << "  Default value: " << value["default"].dump() << "\n";
+        }
+
+        if (type == "object") {
+            if (value.contains("properties") && value["properties"].is_object() && !value["properties"].empty()) {
+                ss << indent << "  Nested shape:\n";
+                ss << format_parameter_block(value, indent + "  ", false);
+            } else {
+                ss << indent << "  Nested shape is defined by the selected tool or described above.\n";
+            }
+        } else if (type == "array" && value.contains("items") && value["items"].is_object()) {
+            const auto& items = value["items"];
+            ss << indent << "  Item shape: " << items.value("type", "unknown");
+            if (items.contains("description") && items["description"].is_string()) {
+                ss << " - " << items["description"].get<std::string>();
+            }
+            ss << "\n";
+        }
+    }
+
     return ss.str();
 }
 

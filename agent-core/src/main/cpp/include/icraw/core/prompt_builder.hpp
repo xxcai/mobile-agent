@@ -32,6 +32,9 @@ private:
     std::string get_section(const std::string& filename) const;
     std::string get_runtime_info() const;
     std::string format_tool_schemas(const std::vector<ToolSchema>& schemas) const;
+    std::string format_parameter_block(const nlohmann::json& schema,
+                                       const std::string& indent,
+                                       bool include_heading) const;
     std::string build_memory_section() const;
 };
 

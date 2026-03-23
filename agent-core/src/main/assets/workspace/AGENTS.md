@@ -16,6 +16,17 @@ Tools are provided via function calling. Key points:
 - Handle tool errors gracefully and explain to the user
 - Tool results may be truncated for efficiency
 
+## Tool Routing
+
+- Prefer business tools when a registered business capability can directly complete the user goal.
+- Use UI or vision-based tools only when:
+  - no business tool can represent the target action, or
+  - a business tool explicitly returns a structured result indicating fallback to vision.
+- Do not switch to UI or vision-based tools only because of temporary execution failure, permission issues, or missing arguments.
+- If a business tool exists for the goal, try that business path before considering UI interaction.
+- If the failure reason is unclear, do not assume vision fallback by yourself.
+- Treat "no suitable business tool" and "business tool execution failed this time" as different situations.
+
 ## Memory Management
 
 The system automatically manages conversation memory:

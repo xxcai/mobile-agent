@@ -1,0 +1,137 @@
+# Prompt 构建与工具展示
+
+本文档说明当前 Android Agent 的 system prompt 是如何拼装的，以及为什么要把工具信息渲染成更接近“路由卡片”的样式。
+
+目标不是追求好看，而是让模型更快看懂：
+
+- 当前有哪些全局规则
+- 当前有哪些业务工具和 UI 工具
+- 这次用户意图更像业务调用，还是更像视觉 / UI 操作
+
+## Prompt 组装顺序
+
+当前 `PromptBuilder` 会按下面顺序组装 system prompt：
+
+```text
+1. SOUL.md
+2. USER.md
+3. AGENTS.md
+4. TOOLS.md
+5. skills/ 中的 always skill 与 skill summary
+6. Memory summary
+7. Available Tools
+8. Runtime Information
+```
+
+对应代码见：
+
+- `agent-core/src/main/cpp/src/core/prompt_builder.cpp`
+- `agent-core/src/main/assets/workspace/SOUL.md`
+- `agent-core/src/main/assets/workspace/AGENTS.md`
+- `agent-core/src/main/assets/workspace/TOOLS.md`
+
+## 为什么要把工具展示做得更形象
+
+如果工具展示只剩下“工具名 + 参数列表”，模型虽然能调用工具，但不容易在调用前快速判断：
+
+- 这是业务工具还是 UI 工具
+- 该工具解决的是哪类目标
+- 哪些参数必须先有
+- 哪些字段存在明确枚举范围
+
+这会直接影响意图路由：
+
+- 容易硬选一个不匹配的业务工具
+- 容易忽略 `call_android_tool.function` 里真正可选的业务能力
+- 容易在边界场景下过早或过晚地考虑视觉链路
+
+因此当前展示改成了更接近“路由卡片”的样式。
+
+## 当前工具展示结构
+
+每个工具现在按下面结构出现在 prompt 中：
+
+```text
+## <tool_name>
+Route role: <tool description>
+
+Input shape:
+Required first: ...
+- <field>: <type> - <description>
+  Choose from: ...
+  Default value: ...
+  Nested shape:
+  - <nested_field>: <type> - <description>
+```
+
+这里有几个关键点：
+
+- `Route role`
+  - 先让模型知道这个工具是干什么的，不是立刻陷入参数细节
+- `Required first`
+  - 强调调用前的最小前置条件
+- `Choose from`
+  - 对枚举参数，直接把候选项展开，减少模型漏看 enum 的概率
+- `Nested shape`
+  - 对 object 参数继续展开，避免模型误以为 object 没有内部结构
+
+## 一个更直观的例子
+
+以 `call_android_tool` 为例，当前 prompt 中它更接近下面这种阅读体验：
+
+```text
+## call_android_tool
+Route role: 调用宿主 App 已注册的业务工具。适用于联系人、消息、通知、剪贴板等业务能力。不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。
+
+Input shape:
+Required first: function, args
+- function: string (required) - 要调用的业务工具名称，只能从 enum 列表中选择。按用户意图选择最匹配的工具
+  Choose from: search_contacts, send_im_message, read_clipboard, display_notification
+- args: object (required) - args 的字段结构由所选 function 决定
+  Nested shape is defined by the selected tool or described above.
+```
+
+而 `android_gesture_tool` 会更像：
+
+```text
+## android_gesture_tool
+Route role: 执行基于屏幕坐标的 Android 手势。适合点击和滑动等 UI 操作。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具。
+
+Input shape:
+Required first: action
+- action: string (required) - 手势动作类型
+  Choose from: tap, swipe
+- x: integer - 点击目标的 X 坐标
+- y: integer - 点击目标的 Y 坐标
+- startX: integer - 滑动起点的 X 坐标
+- startY: integer - 滑动起点的 Y 坐标
+- endX: integer - 滑动终点的 X 坐标
+- endY: integer - 滑动终点的 Y 坐标
+- duration: integer - 滑动持续时间
+```
+
+## 这和“降级到视觉”有什么关系
+
+这一层做的是“调用前判断”，不是“调用后裁定”。
+
+它的价值在于：
+
+- 当用户意图明显落在 `call_android_tool.function` 的候选能力里时，模型更容易先走业务通道
+- 当用户意图明显超出这些业务能力，且更像页面元素选择、坐标点击、列表滑动时，模型更容易意识到这不是现有业务工具能直接完成的目标
+- 这样可以减少“先乱调一个业务工具再说”的情况
+
+但这还不是最终裁定。最终是否允许从业务降级到视觉，仍应以结构化工具结果为准。
+
+## 真实边界
+
+当前这套改动只提升“看懂 prompt 的能力”，还没有解决下面这些问题：
+
+- 业务工具尚未统一返回 `business_capability_not_supported`
+- 业务工具尚未统一返回 `business_target_not_accessible`
+- 视觉链路当前仍未完整闭环
+
+所以这份展示优化的定位是：
+
+- 提高调用前路由判断质量
+- 降低模型误选业务工具的概率
+- 为后续结构化失败协议和视觉链路打基础
