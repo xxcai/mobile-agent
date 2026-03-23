@@ -37,7 +37,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
     @Override
     public void onActivityStarted(Activity activity) {
         foregroundActivityCount++;
-        currentForegroundActivity = activity;
+        currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         AgentLogs.debug(TAG, "activity_started", "foreground_count=" + foregroundActivityCount);
         updateFloatingBallVisibility();
     }
@@ -64,18 +64,26 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     @Override
     public void onActivityDestroyed(Activity activity) {
-        // not used
+        if (activity == currentForegroundActivity) {
+            currentForegroundActivity = null;
+            updateFloatingBallVisibility();
+        }
     }
 
     @Override
     public void onActivityResumed(Activity activity) {
-        currentForegroundActivity = activity;
+        currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         updateFloatingBallVisibility();
     }
 
     @Override
     public void onActivityPaused(Activity activity) {
-        // Keep the last resumed activity until it is replaced or stopped.
+        // ContainerActivity may finish before its enter transition fully settles.
+        // Once it is closing, stop treating it as the foreground blocker immediately.
+        if (activity == currentForegroundActivity && activity.isFinishing()) {
+            currentForegroundActivity = null;
+            updateFloatingBallVisibility();
+        }
     }
 
     @Override
@@ -94,6 +102,13 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         if (activity == null) {
             return false;
         }
+        if (!isActivityEligibleForForegroundTracking(activity)) {
+            return false;
+        }
         return hiddenActivityClassNames.contains(activity.getClass().getName());
+    }
+
+    private boolean isActivityEligibleForForegroundTracking(Activity activity) {
+        return activity != null && !activity.isFinishing() && !activity.isDestroyed();
     }
 }
