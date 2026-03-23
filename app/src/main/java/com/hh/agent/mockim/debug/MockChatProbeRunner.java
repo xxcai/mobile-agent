@@ -22,12 +22,17 @@ import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Shared debug probe entry for MainActivity mock chat pages.
  * It keeps verification on the real chat UI instead of routing back to ToolChannelTestActivity.
  */
 public final class MockChatProbeRunner {
+
+    private static final Pattern NODE_MATCH_PATTERN = Pattern.compile(
+            "<node[^>]*index=\\\"([^\\\"]+)\\\"[^>]*text=\\\"([^\\\"]*)\\\"[^>]*bounds=\\\"([^\\\"]+)\\\"[^>]*/?>");
 
     private MockChatProbeRunner() {
     }
@@ -58,12 +63,22 @@ public final class MockChatProbeRunner {
                     report = buildFailureReport(reportTitle, targetHint, viewContextResult);
                 } else {
                     String snapshotId = viewContextJson.optString("snapshotId", "");
-                    String gestureArgs = "{\"action\":\"tap\",\"x\":" + fallbackX
-                            + ",\"y\":" + fallbackY
-                            + ",\"observation\":{\"snapshotId\":\"" + escape(snapshotId) + "\","
-                            + "\"targetDescriptor\":\"" + escape(targetHint) + "\"}}";
+                    String nativeViewXml = viewContextJson.optString("nativeViewXml", "");
+                    NodeReference nodeReference = findNodeReference(nativeViewXml, targetHint);
+                    String gestureArgs = buildGestureArgs(
+                            snapshotId,
+                            targetHint,
+                            fallbackX,
+                            fallbackY,
+                            nodeReference);
                     String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
-                    report = buildSuccessReport(reportTitle, targetHint, viewContextResult, gestureArgs, gestureResult);
+                    report = buildSuccessReport(
+                            reportTitle,
+                            targetHint,
+                            viewContextResult,
+                            gestureArgs,
+                            gestureResult,
+                            nodeReference);
                 }
             } catch (Exception e) {
                 report = "# " + reportTitle + "\n"
@@ -102,7 +117,8 @@ public final class MockChatProbeRunner {
                                              String targetHint,
                                              String viewContextResult,
                                              String gestureArgs,
-                                             String gestureResult) throws Exception {
+                                             String gestureResult,
+                                             NodeReference nodeReference) throws Exception {
         JSONObject viewContextJson = new JSONObject(viewContextResult);
         JSONObject gestureJson = new JSONObject(gestureResult);
         JSONObject paramsJson = gestureJson.optJSONObject("params");
@@ -130,6 +146,12 @@ public final class MockChatProbeRunner {
                 .append('\n');
         report.append("nativeViewXml_contains_target=")
                 .append(nativeViewXml.contains(targetHint))
+                .append('\n');
+        report.append("matched_target_node_index=")
+                .append(nodeReference != null ? nodeReference.nodeIndex : "<none>")
+                .append('\n');
+        report.append("matched_target_bounds=")
+                .append(nodeReference != null ? nodeReference.bounds : "<none>")
                 .append("\n\n");
         report.append("view_context_result=").append(viewContextResult).append("\n\n");
         report.append("snapshotId=").append(snapshotId).append('\n');
@@ -139,7 +161,55 @@ public final class MockChatProbeRunner {
         report.append("snapshot_match=")
                 .append(snapshotId.equals(referencedSnapshotId) ? "PASS" : "FAIL")
                 .append('\n');
+        if (observationJson != null) {
+            report.append("gesture_target_node_index=")
+                    .append(observationJson.opt("targetNodeIndex"))
+                    .append('\n');
+            report.append("gesture_referenced_bounds=")
+                    .append(observationJson.optString("referencedBounds", "<none>"))
+                    .append('\n');
+        }
         return report.toString();
+    }
+
+    private static String buildGestureArgs(String snapshotId,
+                                           String targetHint,
+                                           int fallbackX,
+                                           int fallbackY,
+                                           NodeReference nodeReference) {
+        StringBuilder gestureArgs = new StringBuilder();
+        gestureArgs.append("{\"action\":\"tap\",\"x\":").append(fallbackX)
+                .append(",\"y\":").append(fallbackY)
+                .append(",\"observation\":{\"snapshotId\":\"").append(escape(snapshotId)).append("\"")
+                .append(",\"targetDescriptor\":\"").append(escape(targetHint)).append("\"");
+        if (nodeReference != null) {
+            gestureArgs.append(",\"targetNodeIndex\":").append(nodeReference.nodeIndex);
+            gestureArgs.append(",\"referencedBounds\":\"").append(escape(nodeReference.bounds)).append("\"");
+        }
+        gestureArgs.append("}}");
+        return gestureArgs.toString();
+    }
+
+    private static NodeReference findNodeReference(String nativeViewXml, String targetHint) {
+        if (nativeViewXml == null || nativeViewXml.isEmpty()
+                || targetHint == null || targetHint.trim().isEmpty()) {
+            return null;
+        }
+
+        Matcher matcher = NODE_MATCH_PATTERN.matcher(nativeViewXml);
+        while (matcher.find()) {
+            String nodeIndex = matcher.group(1);
+            String nodeText = matcher.group(2);
+            String bounds = matcher.group(3);
+            if (targetHint.equals(nodeText)) {
+                try {
+                    return new NodeReference(Integer.parseInt(nodeIndex), bounds);
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     private static void showReportDialog(AppCompatActivity activity, String title, String report) {
@@ -174,5 +244,15 @@ public final class MockChatProbeRunner {
         return value
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");
+    }
+
+    private static final class NodeReference {
+        private final int nodeIndex;
+        private final String bounds;
+
+        private NodeReference(int nodeIndex, String bounds) {
+            this.nodeIndex = nodeIndex;
+            this.bounds = bounds;
+        }
     }
 }
