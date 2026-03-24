@@ -25,6 +25,9 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     private static final String SCOPE = "NativeMobileAgentApi";
     private static final String THINK_START = "<think>";
     private static final String THINK_END = "</think>";
+    private static final String ROUTING_CONTEXT_START = "<routing_context>";
+    private static final String ROUTING_CONTEXT_END = "</routing_context>";
+    private static final String ORIGINAL_REQUEST_LABEL = "Original user request:";
 
     private static NativeMobileAgentApi instance;
     private boolean initialized = false;
@@ -166,6 +169,17 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         NativeAgent.sendMessageStream(content, listener);
     }
 
+    public String runStateless(String systemPrompt, String message) {
+        try {
+            return NativeAgent.nativeRunStateless(
+                    systemPrompt != null ? systemPrompt : "",
+                    message != null ? message : "");
+        } catch (Exception e) {
+            warn("stateless_router_failed", "message=" + e.getMessage());
+            return "";
+        }
+    }
+
     @Override
     public List<Message> getHistory(String sessionKey, int maxMessages) {
         // Convert sessionKey to C++ session_id format (e.g., "native:default" -> "default")
@@ -200,6 +214,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 String timestampStr = jsonMsg.get("timestamp").getAsString();
                 msg.setTimestamp(parseTimestamp(timestampStr));
 
+                sanitizePersistedUserContent(msg);
                 sanitizePersistedAssistantContent(msg);
 
                 messages.add(msg);
@@ -311,6 +326,29 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
         message.setThinkContent(toNullableString(thinkBuilder));
         message.setContent(toNullableString(contentBuilder));
+    }
+
+    private void sanitizePersistedUserContent(Message message) {
+        if (message == null || !"user".equals(message.getRole())) {
+            return;
+        }
+
+        String content = message.getContent();
+        if (content == null || !content.contains(ROUTING_CONTEXT_START)) {
+            return;
+        }
+
+        int start = content.indexOf(ROUTING_CONTEXT_START);
+        int end = content.indexOf(ROUTING_CONTEXT_END);
+        if (start < 0 || end < start) {
+            return;
+        }
+
+        String stripped = content.substring(end + ROUTING_CONTEXT_END.length()).trim();
+        if (stripped.startsWith(ORIGINAL_REQUEST_LABEL)) {
+            stripped = stripped.substring(ORIGINAL_REQUEST_LABEL.length()).trim();
+        }
+        message.setContent(stripped);
     }
 
     private static void appendIfNotEmpty(StringBuilder builder, String text) {

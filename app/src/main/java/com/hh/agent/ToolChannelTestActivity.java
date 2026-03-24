@@ -16,6 +16,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
+import com.hh.agent.android.routing.BusinessPathFeasibilityDecision;
+import com.hh.agent.android.routing.FeasibilityFallbackMode;
+import com.hh.agent.android.routing.BusinessPathFeasibilityRouter;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.tool.ToolExecutor;
@@ -28,6 +31,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,6 +45,29 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private static final String BUILTIN_READ_FILE_TOOL = "read_file";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView outputView;
+
+    private static final class FeasibilityEvalCase {
+        final String name;
+        final String prompt;
+        final boolean expectedFeasible;
+        final String expectedFunction;
+        final FeasibilityFallbackMode expectedFallbackMode;
+        final boolean strictFallbackMode;
+
+        FeasibilityEvalCase(String name,
+                            String prompt,
+                            boolean expectedFeasible,
+                            String expectedFunction,
+                            FeasibilityFallbackMode expectedFallbackMode,
+                            boolean strictFallbackMode) {
+            this.name = name;
+            this.prompt = prompt;
+            this.expectedFeasible = expectedFeasible;
+            this.expectedFunction = expectedFunction;
+            this.expectedFallbackMode = expectedFallbackMode;
+            this.strictFallbackMode = strictFallbackMode;
+        }
+    }
 
     private static final class SchemaSummary {
         boolean containsLegacyChannel;
@@ -76,13 +104,38 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
         addSectionHeader(container, "LLM Routing");
         addActionButton(container, "Probe LLM Business Route", v ->
-                runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool", null));
+                runLlmRouteProbe(
+                        "给张三发消息说明天开会",
+                        true,
+                        "search_contacts",
+                        FeasibilityFallbackMode.UI_FALLBACK_ON_STRUCTURED_FAILURE,
+                        "call_android_tool",
+                        null));
         addActionButton(container, "Probe LLM Contact Route", v ->
-                runLlmRouteProbe("点击张三", "android_view_context_tool", "android_gesture_tool"));
+                runLlmRouteProbe(
+                        "点击张三",
+                        false,
+                        "none",
+                        FeasibilityFallbackMode.DIRECT_UI_PATH,
+                        "android_view_context_tool",
+                        "android_gesture_tool"));
         addActionButton(container, "Probe LLM Send Button Route", v ->
-                runLlmRouteProbe("点击发送消息按钮", "android_view_context_tool", "android_gesture_tool"));
+                runLlmRouteProbe(
+                        "点击发送消息按钮",
+                        false,
+                        "none",
+                        FeasibilityFallbackMode.DIRECT_UI_PATH,
+                        "android_view_context_tool",
+                        "android_gesture_tool"));
         addActionButton(container, "Probe LLM Structure Route", v ->
-                runLlmRouteProbe("看看当前页面结构", "android_view_context_tool", null));
+                runLlmRouteProbe(
+                        "看看当前页面结构",
+                        false,
+                        "none",
+                        FeasibilityFallbackMode.DIRECT_UI_PATH,
+                        "android_view_context_tool",
+                        null));
+        addActionButton(container, "Run Feasibility Router Eval", v -> runFeasibilityRouterEval());
 
         addSectionHeader(container, "Legacy Diagnostics");
         addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
@@ -433,10 +486,40 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         outputView.setText(next.toString());
     }
 
-    private void runLlmRouteProbe(String prompt, String expectedFirstTool, String expectedSecondTool) {
+    private void runLlmRouteProbe(String prompt,
+                                  boolean expectedFeasible,
+                                  String expectedEntryFunction,
+                                  FeasibilityFallbackMode expectedFallbackMode,
+                                  String expectedFirstTool,
+                                  String expectedSecondTool) {
+        Map<String, ToolExecutor> tools = buildTestTools();
+        BusinessPathFeasibilityDecision routeDecision =
+                BusinessPathFeasibilityRouter.route(prompt, tools);
+        String expectedFirstToolFromRouter = routeDecision.isBusinessPathFeasible()
+                ? "call_android_tool"
+                : "android_view_context_tool";
+
         StringBuilder report = new StringBuilder();
         report.append("# LLM Route Probe\n");
         report.append("prompt=").append(prompt).append('\n');
+        report.append('\n');
+        report.append("expected_router.business_path_feasible=").append(expectedFeasible).append('\n');
+        report.append("expected_router.entry_function=").append(expectedEntryFunction).append('\n');
+        report.append("expected_router.fallback_mode=").append(expectedFallbackMode.getWireValue()).append('\n');
+        report.append("actual_router.business_path_feasible=").append(routeDecision.isBusinessPathFeasible()).append('\n');
+        report.append("actual_router.entry_function=").append(routeDecision.getEntryFunction()).append('\n');
+        report.append("actual_router.fallback_mode=").append(routeDecision.getFallbackMode().getWireValue()).append('\n');
+        report.append("actual_router.reason=").append(routeDecision.getReason()).append('\n');
+        report.append("router_match.business_path_feasible=")
+                .append(routeDecision.isBusinessPathFeasible() == expectedFeasible ? "PASS" : "FAIL")
+                .append('\n');
+        report.append("router_match.entry_function=")
+                .append(expectedEntryFunction.equals(routeDecision.getEntryFunction()) ? "PASS" : "FAIL")
+                .append('\n');
+        report.append("router_match.fallback_mode=")
+                .append(routeDecision.getFallbackMode() == expectedFallbackMode ? "PASS" : "FAIL")
+                .append('\n');
+        report.append("router_expected_first_route_tool=").append(expectedFirstToolFromRouter).append('\n');
         report.append("expected_first_route_tool=").append(expectedFirstTool).append('\n');
         report.append("expected_second_route_tool=")
                 .append(expectedSecondTool == null ? "<none>" : expectedSecondTool)
@@ -525,12 +608,18 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                                          String expectedFirstTool,
                                          String expectedSecondTool) {
         StringBuilder next = new StringBuilder(outputView.getText());
+        String routerExpectedFirstTool = readReportValue(next.toString(), "router_expected_first_route_tool=");
         if (routeIndex == 1) {
             next.append("first_route_tool_id=").append(id).append('\n');
             next.append("first_route_tool_name=").append(name).append('\n');
             next.append("first_route_match=")
                     .append(expectedFirstTool.equals(name) ? "PASS" : "FAIL")
                     .append('\n');
+            if (routerExpectedFirstTool != null) {
+                next.append("router_alignment_first_route=")
+                        .append(routerExpectedFirstTool.equals(name) ? "PASS" : "FAIL")
+                        .append('\n');
+            }
             next.append("first_route_tool_arguments=").append(argumentsJson).append("\n\n");
         } else if (routeIndex == 2) {
             next.append("second_route_tool_id=").append(id).append('\n');
@@ -541,6 +630,19 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             next.append("second_route_tool_arguments=").append(argumentsJson).append("\n\n");
         }
         outputView.setText(next.toString());
+    }
+
+    private String readReportValue(String report, String prefix) {
+        if (report == null || prefix == null) {
+            return null;
+        }
+        String[] lines = report.split("\\n");
+        for (String line : lines) {
+            if (line.startsWith(prefix)) {
+                return line.substring(prefix.length()).trim();
+            }
+        }
+        return null;
     }
 
     private boolean isRouteTool(String toolName) {
@@ -557,14 +659,122 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
     private AndroidToolManager buildTestToolManager() {
         AndroidToolManager manager = new AndroidToolManager(this);
+        manager.registerTools(buildTestTools());
+        manager.initialize();
+        return manager;
+    }
+
+    private Map<String, ToolExecutor> buildTestTools() {
         Map<String, ToolExecutor> tools = new HashMap<>();
         tools.put("display_notification", new DisplayNotificationTool(this));
         tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
-        manager.registerTools(tools);
-        manager.initialize();
-        return manager;
+        return tools;
+    }
+
+    private void runFeasibilityRouterEval() {
+        StringBuilder report = new StringBuilder();
+        report.append("# Feasibility Router Eval\n");
+        report.append("mode=llm_router_primary_with_deterministic_fallback\n");
+        report.append("note=This runs the current feasibility router against a fixed case set.\n");
+        report.append("note=Business_path_feasible is the primary execution switch.\n\n");
+        outputView.setText(report.toString());
+
+        Thread worker = new Thread(() -> {
+            String finalReport = buildFeasibilityEvalReport();
+            mainHandler.post(() -> outputView.setText(finalReport));
+        });
+        worker.start();
+    }
+
+    private String buildFeasibilityEvalReport() {
+        StringBuilder report = new StringBuilder();
+        report.append("# Feasibility Router Eval\n");
+        report.append("mode=llm_router_primary_with_deterministic_fallback\n");
+        report.append("case_count=").append(buildFeasibilityEvalCases().size()).append("\n\n");
+
+        Map<String, ToolExecutor> tools = buildTestTools();
+        int passCount = 0;
+
+        for (FeasibilityEvalCase evalCase : buildFeasibilityEvalCases()) {
+            BusinessPathFeasibilityDecision actual = BusinessPathFeasibilityRouter.route(
+                    evalCase.prompt,
+                    tools);
+
+            boolean feasibleMatch = actual.isBusinessPathFeasible() == evalCase.expectedFeasible;
+            boolean functionMatch = evalCase.expectedFunction.equals(actual.getEntryFunction());
+            boolean fallbackMatch = !evalCase.strictFallbackMode
+                    || actual.getFallbackMode() == evalCase.expectedFallbackMode;
+            boolean casePass = feasibleMatch && functionMatch && fallbackMatch;
+            if (casePass) {
+                passCount++;
+            }
+
+            report.append("## ").append(evalCase.name).append('\n');
+            report.append("prompt=").append(evalCase.prompt).append('\n');
+            report.append("expected.business_path_feasible=").append(evalCase.expectedFeasible).append('\n');
+            report.append("expected.entry_function=").append(evalCase.expectedFunction).append('\n');
+            report.append("expected.fallback_mode=").append(evalCase.expectedFallbackMode.getWireValue()).append('\n');
+            report.append("actual.business_path_feasible=").append(actual.isBusinessPathFeasible()).append('\n');
+            report.append("actual.entry_function=").append(actual.getEntryFunction()).append('\n');
+            report.append("actual.fallback_mode=").append(actual.getFallbackMode().getWireValue()).append('\n');
+            report.append("actual.reason=").append(actual.getReason()).append('\n');
+            report.append("match.business_path_feasible=").append(feasibleMatch ? "PASS" : "FAIL").append('\n');
+            report.append("match.entry_function=").append(functionMatch ? "PASS" : "FAIL").append('\n');
+            report.append("match.fallback_mode=")
+                    .append(evalCase.strictFallbackMode ? (fallbackMatch ? "PASS" : "FAIL") : "SKIP")
+                    .append('\n');
+            if (!evalCase.strictFallbackMode) {
+                report.append("fallback_mode_note=logged_only_for_this_case\n");
+            }
+            report.append("case_result=").append(casePass ? "PASS" : "FAIL").append("\n\n");
+        }
+
+        report.insert(report.indexOf("\n\n") + 2,
+                "passed_cases=" + passCount + "\n"
+                        + "failed_cases=" + (buildFeasibilityEvalCases().size() - passCount) + "\n\n");
+        return report.toString();
+    }
+
+    private List<FeasibilityEvalCase> buildFeasibilityEvalCases() {
+        List<FeasibilityEvalCase> cases = new ArrayList<>();
+        cases.add(new FeasibilityEvalCase(
+                "Case 1 - Business Entity Send",
+                "给张三发送一条测试消息",
+                true,
+                "search_contacts",
+                FeasibilityFallbackMode.UI_FALLBACK_ON_STRUCTURED_FAILURE,
+                true));
+        cases.add(new FeasibilityEvalCase(
+                "Case 2 - Page Element Button",
+                "点击发送按钮",
+                false,
+                "none",
+                FeasibilityFallbackMode.DIRECT_UI_PATH,
+                true));
+        cases.add(new FeasibilityEvalCase(
+                "Case 3 - Ambiguous Current Chat",
+                "给当前聊天发送一条测试消息",
+                false,
+                "none",
+                FeasibilityFallbackMode.DIRECT_UI_PATH,
+                true));
+        cases.add(new FeasibilityEvalCase(
+                "Case 4 - Contact Search",
+                "查找张三",
+                true,
+                "search_contacts",
+                FeasibilityFallbackMode.UI_FALLBACK_ON_STRUCTURED_FAILURE,
+                false));
+        cases.add(new FeasibilityEvalCase(
+                "Case 5 - Clipboard Read",
+                "看看剪贴板里是什么",
+                true,
+                "read_clipboard",
+                FeasibilityFallbackMode.NO_UI_FALLBACK,
+                true));
+        return cases;
     }
 
     private SchemaSummary buildSchemaSummary(AndroidToolManager manager) throws Exception {

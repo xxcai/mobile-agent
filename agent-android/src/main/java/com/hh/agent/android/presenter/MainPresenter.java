@@ -7,6 +7,9 @@ import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.log.AgentLogs;
+import com.hh.agent.android.routing.BusinessPathFeasibilityDecision;
+import com.hh.agent.android.routing.BusinessPathFeasibilityRouter;
+import com.hh.agent.android.routing.RoutingPromptAugmenter;
 import com.hh.agent.android.thread.ThreadPoolManager;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.event.AgentEventListener;
@@ -14,8 +17,10 @@ import com.hh.agent.core.api.MobileAgentApi;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
+import com.hh.agent.core.tool.ToolExecutor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * MainActivity 的 Presenter 实现
@@ -267,8 +272,17 @@ public class MainPresenter implements MainContract.Presenter {
             messageListView.showLoading();
         }
 
+        Map<String, ToolExecutor> activeTools = AndroidToolManager.getActiveRegisteredTools();
+        BusinessPathFeasibilityDecision routeDecision =
+                BusinessPathFeasibilityRouter.route(content, activeTools);
+        String routedContent = RoutingPromptAugmenter.augment(content, routeDecision);
+
+        AgentLogs.info(TAG, "routing_precheck",
+                "session_key=" + sessionKey + " " + routeDecision.toLogString());
         AgentLogs.info(TAG, "stream_start",
-                "session_key=" + sessionKey + " input_length=" + content.length());
+                "session_key=" + sessionKey
+                        + " input_length=" + content.length()
+                        + " routed_input_length=" + routedContent.length());
 
         // 设置 StreamingManager 回调，将事件转发到 streamingView
         streamingManager.setCallback(new StreamingManager.StreamingCallback() {
@@ -396,7 +410,7 @@ public class MainPresenter implements MainContract.Presenter {
         if (floatingBallManager != null) {
             floatingBallManager.setWorking(true);
         }
-        streamingManager.sendMessageStream(content, sessionKey);
+        streamingManager.sendMessageStream(routedContent, sessionKey);
     }
 
     @Override

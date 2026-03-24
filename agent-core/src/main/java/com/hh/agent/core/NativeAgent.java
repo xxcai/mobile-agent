@@ -53,6 +53,12 @@ public class NativeAgent {
     public static native String nativeSendMessage(String message);
 
     /**
+     * Run a stateless router-style completion with a custom system prompt.
+     * This call must not persist conversation history.
+     */
+    public static native String nativeRunStateless(String systemPrompt, String message);
+
+    /**
      * Shutdown the native agent
      */
     public static native void nativeShutdown();

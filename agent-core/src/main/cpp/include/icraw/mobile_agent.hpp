@@ -29,6 +29,9 @@ public:
     // Send a message with streaming callback
     void chat_stream(const std::string& message, AgentEventCallback callback);
 
+    // Run a stateless, non-persisted router-style completion with a custom system prompt.
+    std::string chat_stateless(const std::string& system_prompt, const std::string& message);
+
     // Get conversation history
     const std::vector<Message>& get_history() const { return history_; }
 

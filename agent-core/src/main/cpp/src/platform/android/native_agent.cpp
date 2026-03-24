@@ -371,6 +371,46 @@ JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
     return env->NewStringUTF(response.c_str());
 }
 
+JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeRunStateless(
+        JNIEnv* env,
+        jclass /* clazz */,
+        jstring systemPrompt,
+        jstring message) {
+    const char* system_prompt = env->GetStringUTFChars(systemPrompt, nullptr);
+    const char* msg = env->GetStringUTFChars(message, nullptr);
+    std::string response;
+
+    if (!system_prompt || !msg) {
+        if (system_prompt) {
+            env->ReleaseStringUTFChars(systemPrompt, system_prompt);
+        }
+        if (msg) {
+            env->ReleaseStringUTFChars(message, msg);
+        }
+        return env->NewStringUTF("");
+    }
+
+    ICRAW_LOG_INFO("[NativeAgentJni][stateless_start] system_prompt_length={} input_length={}",
+            std::strlen(system_prompt), std::strlen(msg));
+
+    if (!g_agent) {
+        ICRAW_LOG_WARN("[NativeAgentJni][stateless_skipped] reason=agent_not_initialized");
+        response.clear();
+    } else {
+        try {
+            response = g_agent->chat_stateless(system_prompt, msg);
+            ICRAW_LOG_INFO("[NativeAgentJni][stateless_complete] output_length={}", response.size());
+        } catch (const std::exception& e) {
+            ICRAW_LOG_ERROR("[NativeAgentJni][stateless_failed] message={}", e.what());
+            response.clear();
+        }
+    }
+
+    env->ReleaseStringUTFChars(systemPrompt, system_prompt);
+    env->ReleaseStringUTFChars(message, msg);
+    return env->NewStringUTF(response.c_str());
+}
+
 /**
  * Shutdown the native agent
  */

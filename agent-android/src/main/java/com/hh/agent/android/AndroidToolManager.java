@@ -59,6 +59,13 @@ public class AndroidToolManager implements AndroidToolCallback {
         return activeInstance.buildToolUiPolicyResolver().resolve(toolName, argumentsJson);
     }
 
+    public static Map<String, ToolExecutor> getActiveRegisteredTools() {
+        if (activeInstance == null) {
+            return new HashMap<>();
+        }
+        return activeInstance.getRegisteredTools();
+    }
+
     /**
      * Register a ToolExecutor to the tool manager.
      * This allows app layer to dynamically register custom tools at runtime.
