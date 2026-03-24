@@ -149,21 +149,6 @@ std::string MobileAgent::chat(const std::string& message) {
     return "";
 }
 
-std::string MobileAgent::chat_stateless(const std::string& system_prompt,
-                                        const std::string& message) {
-    ChatCompletionRequest request;
-    request.model = config_.agent.model;
-    request.temperature = 0.0;
-    request.max_tokens = 512;
-    request.stream = false;
-
-    request.messages.emplace_back("system", system_prompt);
-    request.messages.emplace_back("user", message);
-
-    auto response = llm_provider_->chat_completion(request);
-    return trim_whitespace(response.content);
-}
-
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
     chat_stream("default", message, std::move(callback));
 }

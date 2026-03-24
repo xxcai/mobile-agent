@@ -168,17 +168,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         NativeAgent.sendMessageStream(toSessionId(sessionKey), content, listener);
     }
 
-    public String runStateless(String systemPrompt, String message) {
-        try {
-            return NativeAgent.nativeRunStateless(
-                    systemPrompt != null ? systemPrompt : "",
-                    message != null ? message : "");
-        } catch (Exception e) {
-            warn("stateless_router_failed", "message=" + e.getMessage());
-            return "";
-        }
-    }
-
     @Override
     public List<Message> getHistory(String sessionKey, int maxMessages) {
         String sessionId = toSessionId(sessionKey);
