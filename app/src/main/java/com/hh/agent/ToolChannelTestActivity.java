@@ -596,6 +596,11 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         runCase(report, manager,
                 "Gesture Tap",
                 "android_gesture_tool",
+                "{\"action\":\"tap\",\"x\":120,\"y\":360,\"allowCoordinateFallback\":true}");
+
+        runCase(report, manager,
+                "Gesture Tap Missing Observation",
+                "android_gesture_tool",
                 "{\"action\":\"tap\",\"x\":120,\"y\":360}");
 
         runCase(report, manager,

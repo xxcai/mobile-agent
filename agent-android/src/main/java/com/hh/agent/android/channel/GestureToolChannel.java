@@ -66,6 +66,10 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                         .put("referencedBounds", new JSONObject()
                                 .put("type", "string")
                                 .put("description", "从 observation 中引用的 bounds 字符串，可选。格式如 [l,t][r,b]。"))));
+        properties.put("allowCoordinateFallback", new JSONObject()
+                .put("type", "boolean")
+                .put("description", "仅用于兼容旧测试或受控回退场景。为 true 时，即使缺少 observation，也允许继续使用裸坐标。默认 false。")
+                .put("default", false));
 
         JSONObject parameters = new JSONObject();
         parameters.put("type", "object");
@@ -97,6 +101,10 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                     if (!params.has("x") || !params.has("y")) {
                         return buildError("invalid_args", "tap requires integer fields 'x' and 'y'");
                     }
+                    ToolResult gatingResult = validateTapObservation(params);
+                    if (gatingResult != null) {
+                        return gatingResult;
+                    }
                     result = executor.tap(params);
                     return result.toToolResult(CHANNEL_NAME);
                 case "swipe":
@@ -117,6 +125,35 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     @Override
     public boolean shouldExposeInnerToolInToolUi() {
         return false;
+    }
+
+    private ToolResult validateTapObservation(JSONObject params) {
+        if (params.optBoolean("allowCoordinateFallback", false)) {
+            return null;
+        }
+
+        JSONObject observation = params.optJSONObject("observation");
+        if (observation == null) {
+            return ToolResult.error("missing_view_context_observation",
+                            "tap requires current-turn observation evidence before execution")
+                    .with("channel", CHANNEL_NAME)
+                    .with("suggestedNextTool", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("suggestedSource", "native_xml")
+                    .with("messageForModel",
+                            "Call android_view_context_tool with source=native_xml first, then retry tap with observation.snapshotId.");
+        }
+
+        String snapshotId = observation.optString("snapshotId", "").trim();
+        if (snapshotId.isEmpty()) {
+            return ToolResult.error("missing_view_context_snapshot_id",
+                            "tap observation must include a non-empty snapshotId")
+                    .with("channel", CHANNEL_NAME)
+                    .with("suggestedNextTool", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("suggestedSource", "native_xml")
+                    .with("messageForModel",
+                            "Call android_view_context_tool with source=native_xml first, then retry tap with observation.snapshotId.");
+        }
+        return null;
     }
 
     private ToolResult buildError(String errorCode, String message) {
