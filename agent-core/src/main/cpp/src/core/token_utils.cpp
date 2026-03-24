@@ -6,6 +6,56 @@
 
 namespace icraw {
 
+namespace {
+
+size_t utf8_safe_prefix_end(std::string_view value, size_t max_bytes) {
+    if (value.size() <= max_bytes) {
+        return value.size();
+    }
+
+    size_t end = max_bytes;
+    while (end > 0 && (static_cast<unsigned char>(value[end]) & 0xC0) == 0x80) {
+        --end;
+    }
+
+    if (end == 0) {
+        return 0;
+    }
+
+    const unsigned char lead = static_cast<unsigned char>(value[end]);
+    size_t code_point_length = 1;
+    if ((lead & 0x80) == 0x00) {
+        code_point_length = 1;
+    } else if ((lead & 0xE0) == 0xC0) {
+        code_point_length = 2;
+    } else if ((lead & 0xF0) == 0xE0) {
+        code_point_length = 3;
+    } else if ((lead & 0xF8) == 0xF0) {
+        code_point_length = 4;
+    } else {
+        return end;
+    }
+
+    if (end + code_point_length > max_bytes) {
+        return end;
+    }
+    return max_bytes;
+}
+
+size_t utf8_safe_suffix_start(std::string_view value, size_t max_bytes) {
+    if (value.size() <= max_bytes) {
+        return 0;
+    }
+
+    size_t start = value.size() - max_bytes;
+    while (start < value.size() && (static_cast<unsigned char>(value[start]) & 0xC0) == 0x80) {
+        ++start;
+    }
+    return start;
+}
+
+} // namespace
+
 // ============================================================================
 // Token Estimation
 // ============================================================================
@@ -126,11 +176,14 @@ std::string prune_tool_result(const std::string& result, int max_chars) {
     // Keep front 2/3 and back 1/3
     int keep_front = max_chars * 2 / 3;
     int keep_back = max_chars / 3;
-    
-    std::string pruned = result.substr(0, keep_front);
+
+    const size_t safe_front_end = utf8_safe_prefix_end(result, static_cast<size_t>(keep_front));
+    const size_t safe_back_start = utf8_safe_suffix_start(result, static_cast<size_t>(keep_back));
+
+    std::string pruned = result.substr(0, safe_front_end);
     pruned += "\n\n... [truncated " + std::to_string(result.size() - max_chars) 
             + " characters] ...\n\n";
-    pruned += result.substr(result.size() - keep_back);
+    pruned += result.substr(safe_back_start);
     
     return pruned;
 }
