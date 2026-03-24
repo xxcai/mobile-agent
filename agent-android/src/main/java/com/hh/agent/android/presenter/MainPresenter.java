@@ -15,7 +15,9 @@ import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * MainActivity 的 Presenter 实现
@@ -23,7 +25,8 @@ import java.util.List;
  */
 public class MainPresenter implements MainContract.Presenter {
 
-    private static MainPresenter instance;
+    private static final String DEFAULT_SESSION_KEY = "native:default";
+    private static final Map<String, MainPresenter> INSTANCES = new HashMap<>();
 
     private MainContract.MessageListView messageListView;
     private MainContract.StreamingView streamingView;
@@ -149,20 +152,27 @@ public class MainPresenter implements MainContract.Presenter {
      * 进程生命周期内只有一个 MainPresenter 实例
      */
     public static synchronized MainPresenter getInstance() {
-        if (instance == null) {
-            instance = new MainPresenter();
+        return getInstance(DEFAULT_SESSION_KEY);
+    }
+
+    public static synchronized MainPresenter getInstance(String sessionKey) {
+        String normalizedSessionKey = normalizeSessionKey(sessionKey);
+        MainPresenter presenter = INSTANCES.get(normalizedSessionKey);
+        if (presenter == null) {
+            presenter = new MainPresenter(normalizedSessionKey, true);
+            INSTANCES.put(normalizedSessionKey, presenter);
         }
-        return instance;
+        return presenter;
     }
 
     /**
      * 私有构造函数
      */
-    private MainPresenter() {
+    private MainPresenter(String sessionKey, boolean internalOnly) {
         this.mobileAgentApi = NativeMobileAgentApi.getInstance();
         this.streamingManager = new StreamingManager(mobileAgentApi);
         this.mainHandler = new Handler(Looper.getMainLooper());
-        this.sessionKey = "native:default";
+        this.sessionKey = normalizeSessionKey(sessionKey);
     }
 
     /**
@@ -171,7 +181,7 @@ public class MainPresenter implements MainContract.Presenter {
      */
     @Deprecated
     public MainPresenter(Context context, String sessionKey) {
-        this();
+        this(normalizeSessionKey(sessionKey), true);
     }
 
     /**
@@ -180,7 +190,7 @@ public class MainPresenter implements MainContract.Presenter {
      */
     @Deprecated
     public MainPresenter(String sessionKey) {
-        this();
+        this(normalizeSessionKey(sessionKey), true);
     }
 
     /**
@@ -190,6 +200,10 @@ public class MainPresenter implements MainContract.Presenter {
      */
     public MobileAgentApi getMobileAgentApi() {
         return mobileAgentApi;
+    }
+
+    public String getSessionKey() {
+        return sessionKey;
     }
 
     private static final String TAG = "MainPresenter";
@@ -268,7 +282,8 @@ public class MainPresenter implements MainContract.Presenter {
         }
 
         AgentLogs.info(TAG, "stream_start",
-                "session_key=" + sessionKey + " input_length=" + content.length());
+                "session_key=" + sessionKey
+                        + " input_length=" + content.length());
 
         // 设置 StreamingManager 回调，将事件转发到 streamingView
         streamingManager.setCallback(new StreamingManager.StreamingCallback() {
@@ -356,7 +371,7 @@ public class MainPresenter implements MainContract.Presenter {
                     AgentLogs.warn(TAG, "stream_finish_unexpected", "finish_reason=" + finishReason);
                 }
                 FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
-                if (floatingBallManager != null) {
+                if (floatingBallManager != null && !"tool_calls".equals(finishReason)) {
                     floatingBallManager.setWorking(false);
                 }
                 if (streamingView != null && messageListView != null) {
@@ -438,7 +453,15 @@ public class MainPresenter implements MainContract.Presenter {
     public void destroy() {
         // 关闭统一线程池
         ThreadPoolManager.shutdown();
-        // 清除单例引用
-        instance = null;
+        synchronized (MainPresenter.class) {
+            INSTANCES.remove(sessionKey);
+        }
+    }
+
+    private static String normalizeSessionKey(String sessionKey) {
+        if (sessionKey == null || sessionKey.trim().isEmpty()) {
+            return DEFAULT_SESSION_KEY;
+        }
+        return sessionKey.trim();
     }
 }

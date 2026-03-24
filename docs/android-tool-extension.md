@@ -11,6 +11,10 @@
 
 如果需要添加复杂工作流而不是单个工具，请参考 [Android Skill 扩展指南](./android-skill-extension.md)。
 
+如果你要扩展的是页面感知 / UI 执行链路，而不是宿主业务工具，先看：
+
+- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+
 ## 当前注册机制
 
 当前代码不是在 `Activity` 里逐个注册 Tool，而是在应用初始化时一次性传入 `Map<String, ToolExecutor>`：
@@ -185,8 +189,10 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 - `call_android_tool`
   宿主 App 业务工具通道
+- `android_view_context_tool`
+  页面观察通道，负责拿当前页面的 `nativeViewXml` / observation snapshot
 - `android_gesture_tool`
-  坐标手势通道
+  UI 执行通道，当前支持 observation 引用参数，后续将优先基于 observation 执行
 
 其中你在宿主 `app` 层注册的 `ToolExecutor`，目前都会被聚合进 `call_android_tool`。
 
@@ -210,7 +216,16 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 因此新增业务 Tool 时，通常只需要补好 `ToolDefinition`，不需要再手改统一提示词。
 
-`android_gesture_tool` 目前已存在，但仍然是 mock 运行时框架，适合用于验证通道选择和参数结构，不执行真实点击或滑动。
+`android_view_context_tool` 和 `android_gesture_tool` 这两个通道现在推荐配合使用：
+
+1. 先用 `android_view_context_tool` 获取当前页面 observation
+2. 再把 `snapshotId`、目标节点索引、目标 bounds 等引用信息带进 `android_gesture_tool`
+
+这套协议的设计原因、字段含义和聊天页例子见：
+
+- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+
+`android_gesture_tool` 当前仍然是 mock 运行时框架，适合用于验证通道选择和参数结构，还没有完全切到真实 observation-bound 执行。
 
 ## 当前示例工具
 

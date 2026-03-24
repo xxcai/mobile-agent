@@ -150,26 +150,54 @@ std::string MobileAgent::chat(const std::string& message) {
 }
 
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
+    chat_stream("default", message, std::move(callback));
+}
+
+void MobileAgent::chat_stream(const std::string& session_id,
+                              const std::string& message,
+                              AgentEventCallback callback) {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    auto session_entries = memory_manager_->get_recent_messages(
+        config_.agent.memory_window, effective_session_id);
+    std::vector<Message> session_history;
+    session_history.reserve(session_entries.size());
+
+    for (const auto& entry : session_entries) {
+        if (entry.role == "tool") {
+            continue;
+        }
+
+        Message msg;
+        msg.role = entry.role;
+        msg.content.push_back(ContentBlock::make_text(entry.content));
+        session_history.push_back(std::move(msg));
+    }
+
     // Save user message to SQLite first
-    ICRAW_LOG_INFO("[MobileAgent][chat_stream_start] input_length={}", message.size());
-    ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] input={}", log_utils::truncate_for_debug(message));
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_start] session_id={} input_length={}",
+            effective_session_id, message.size());
+    ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] session_id={} input={}",
+            effective_session_id, log_utils::truncate_for_debug(message));
     if (!message.empty()) {
-        auto result = memory_manager_->add_message("user", message, "default", nlohmann::json{});
-        ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] role=user success={}", result);
+        auto result = memory_manager_->add_message("user", message, effective_session_id, nlohmann::json{});
+        ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] session_id={} role=user success={}",
+                effective_session_id, result);
     }
 
     ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=process_message_stream_start");
     auto new_messages = agent_loop_->process_message_stream(
-        message, history_, system_prompt_, callback);
-    ICRAW_LOG_INFO("[MobileAgent][chat_stream_loop_complete] new_message_count={}", new_messages.size());
+        message, session_history, system_prompt_, callback);
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_loop_complete] session_id={} new_message_count={}",
+            effective_session_id, new_messages.size());
     
     // Add new messages to history and memory
     for (size_t i = 0; i < new_messages.size(); ++i) {
         const auto& msg = new_messages[i];
-        history_.push_back(msg);
+        session_history.push_back(msg);
 
         if (!should_persist_message(new_messages, i)) {
-            ICRAW_LOG_DEBUG("[MobileAgent][message_persist_skipped] index={} reason=intermediate_assistant", i);
+            ICRAW_LOG_DEBUG("[MobileAgent][message_persist_skipped] session_id={} index={} reason=intermediate_assistant",
+                    effective_session_id, i);
             continue;
         }
         
@@ -196,11 +224,15 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
                 if (!msg.content.empty() && msg.content[0].type == "tool_use") {
                     metadata["is_tool_call"] = true;
                 }
-                auto result = memory_manager_->add_message(msg.role, content, "default", metadata);
-                ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] role={} success={} content_length={}",
-                        msg.role, result, content.size());
+                auto result = memory_manager_->add_message(msg.role, content, effective_session_id, metadata);
+                ICRAW_LOG_DEBUG("[MobileAgent][message_persist_debug] session_id={} role={} success={} content_length={}",
+                        effective_session_id, msg.role, result, content.size());
             }
         }
+    }
+
+    if (effective_session_id == "default") {
+        history_ = session_history;
     }
     
     ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=maybe_consolidate_memory");
@@ -208,7 +240,8 @@ void MobileAgent::chat_stream(const std::string& message, AgentEventCallback cal
     // Note: This is now non-blocking - consolidation runs asynchronously
     // to avoid delaying the user experience after message_end event
     agent_loop_->maybe_consolidate_memory(new_messages);
-    ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] history_count={}", history_.size());
+    ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] session_id={} history_count={}",
+            effective_session_id, session_history.size());
 }
 
 void MobileAgent::clear_history() {

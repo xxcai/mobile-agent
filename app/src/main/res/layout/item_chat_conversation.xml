@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="84dp"
+    android:background="@android:color/white"
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="12dp">
+
+    <TextView
+        android:id="@+id/avatarView"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:background="@drawable/bg_mock_avatar"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/titleView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_toEndOf="@id/avatarView"
+        android:textColor="@android:color/black"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/timeView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:textColor="@color/mock_im_hint_text"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/messageView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/titleView"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_toEndOf="@id/avatarView"
+        android:layout_toStartOf="@id/unreadView"
+        android:maxLines="1"
+        android:textColor="@color/mock_im_secondary_text"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/pinView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@id/messageView"
+        android:layout_toStartOf="@id/unreadView"
+        android:layout_marginEnd="8dp"
+        android:text="置顶"
+        android:textColor="@color/mock_im_pin_text"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/unreadView"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignBottom="@id/messageView"
+        android:background="@drawable/bg_unread_badge"
+        android:gravity="center"
+        android:textColor="@android:color/white"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+</RelativeLayout>

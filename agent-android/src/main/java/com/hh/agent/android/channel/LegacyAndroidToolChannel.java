@@ -139,10 +139,17 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
             ToolExecutor executor = tools.get(functionName);
             if (executor == null) {
-                return buildError("tool_not_found", "Tool '" + functionName + "' not found");
+                return ToolResult.error("business_capability_not_supported",
+                                "Business tool '" + functionName + "' is not supported")
+                        .with("channel", CHANNEL_NAME)
+                        .with("requestedFunction", functionName)
+                        .with("fallbackSuggested", true)
+                        .with("suggestedNextTool", ViewContextToolChannel.CHANNEL_NAME)
+                        .with("suggestedSource", "native_xml");
             }
 
-            return executor.execute(args);
+            ToolResult innerResult = executor.execute(args);
+            return decorateBusinessFailure(innerResult, functionName);
         } catch (Exception e) {
             return buildError("execution_failed", e.getMessage());
         }
@@ -207,5 +214,29 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     private ToolResult buildError(String errorCode, String message) {
         return ToolResult.error(errorCode, message);
+    }
+
+    private ToolResult decorateBusinessFailure(ToolResult result, String functionName) {
+        if (result == null) {
+            return ToolResult.error("execution_failed", "Business tool returned null result")
+                    .with("channel", CHANNEL_NAME)
+                    .with("requestedFunction", functionName);
+        }
+
+        String json = result.toJsonString();
+        if (!json.contains("\"success\":false")) {
+            return result;
+        }
+
+        if (json.contains("\"error\":\"business_capability_not_supported\"")
+                || json.contains("\"error\":\"business_target_not_accessible\"")) {
+            return result
+                    .with("channel", CHANNEL_NAME)
+                    .with("requestedFunction", functionName)
+                    .with("fallbackSuggested", true)
+                    .with("suggestedNextTool", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("suggestedSource", "native_xml");
+        }
+        return result;
     }
 }

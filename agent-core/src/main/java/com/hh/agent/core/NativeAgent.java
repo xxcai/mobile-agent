@@ -110,14 +110,16 @@ public class NativeAgent {
      * @param message The message to send
      * @param listener The event listener to receive stream events
      */
-    public static void sendMessageStream(String message, AgentEventListener listener) {
-        nativeSendMessageStream(message, listener);
+    public static void sendMessageStream(String sessionId, String message, AgentEventListener listener) {
+        nativeSendMessageStream(sessionId, message, listener);
     }
 
     /**
      * Native method to send message with streaming callback
      */
-    private static native void nativeSendMessageStream(String message, AgentEventListener listener);
+    private static native void nativeSendMessageStream(String sessionId,
+                                                       String message,
+                                                       AgentEventListener listener);
 
     /**
      * Cancel the current streaming request

@@ -257,6 +257,7 @@ logger 注入入口：
 - `setLogger(...)` 是可选能力；不调用时，`agent-android` 默认使用内置 `DefaultAgentLogger`
 - 当前仓库里的 `app` 模块没有额外实现宿主 logger，而是直接使用库默认实现
 - `agent-android` 当前日志格式、事件清单和排查命令见 `docs/agent-android-logging.md`
+- Prompt 构建顺序和工具展示方式见 `docs/prompt-construction.md`
 
 调用约定：
 

@@ -545,28 +545,37 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetToolsSchema(
 JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStream(
         JNIEnv* env,
         jclass /* clazz */,
+        jstring sessionId,
         jstring message,
         jobject listener) {
 
+    const char* session_id = env->GetStringUTFChars(sessionId, nullptr);
     const char* msg = env->GetStringUTFChars(message, nullptr);
-    if (!msg) {
+    if (!session_id || !msg) {
         ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=empty_message");
+        if (session_id) {
+            env->ReleaseStringUTFChars(sessionId, session_id);
+        }
         return;
     }
 
     if (!g_agent) {
         ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=agent_not_initialized");
+        env->ReleaseStringUTFChars(sessionId, session_id);
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
 
     if (!listener) {
         ICRAW_LOG_WARN("[NativeAgentJni][stream_start_skipped] reason=listener_null");
+        env->ReleaseStringUTFChars(sessionId, session_id);
         env->ReleaseStringUTFChars(message, msg);
         return;
     }
-    ICRAW_LOG_INFO("[NativeAgentJni][stream_start] input_length={}", std::strlen(msg));
-    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_start_debug] input={}", msg);
+    ICRAW_LOG_INFO("[NativeAgentJni][stream_start] session_id={} input_length={}",
+            session_id, std::strlen(msg));
+    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_start_debug] session_id={} input={}",
+            session_id, msg);
 
     // Create global reference to keep the listener object alive
     jobject listener_global_ref = env->NewGlobalRef(listener);
@@ -728,7 +737,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
 
     try {
         // Call chat_stream with the callback
-        g_agent->chat_stream(msg, *callback);
+        g_agent->chat_stream(session_id, msg, *callback);
         ICRAW_LOG_DEBUG("[NativeAgentJni][stream_complete_debug] state=chat_stream_returned");
     } catch (const std::exception& e) {
         // Report error to Java via callback
@@ -742,6 +751,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     // Clean up global reference
     env->DeleteGlobalRef(listener_global_ref);
 
+    env->ReleaseStringUTFChars(sessionId, session_id);
     env->ReleaseStringUTFChars(message, msg);
 }
 

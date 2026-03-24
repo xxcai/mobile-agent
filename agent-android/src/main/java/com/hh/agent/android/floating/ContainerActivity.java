@@ -28,6 +28,7 @@ import androidx.fragment.app.FragmentTransaction;
  */
 public class ContainerActivity extends AppCompatActivity {
 
+    public static final String SESSION_KEY = "native:container";
     private static final long ENTER_ANIMATION_DURATION_MS = 220L;
     private static final long EXIT_ANIMATION_DURATION_MS = 180L;
 
@@ -206,7 +207,7 @@ public class ContainerActivity extends AppCompatActivity {
         FragmentTransaction transaction = fragmentManager.beginTransaction();
 
         // 创建并加载 AgentFragment
-        AgentFragment agentFragment = new AgentFragment();
+        AgentFragment agentFragment = AgentFragment.newInstance(SESSION_KEY);
         transaction.replace(containerId, agentFragment);
         transaction.commit();
     }
