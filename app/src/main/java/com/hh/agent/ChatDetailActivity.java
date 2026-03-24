@@ -37,9 +37,9 @@ public class ChatDetailActivity extends AppCompatActivity {
         titleView.setText(conversation.getTitle());
         messageListView.setAdapter(new ChatMessageAdapter(this, conversation.getMessages()));
         sendButton.setOnLongClickListener(v -> {
-            MockChatProbeRunner.runObservationBoundGestureProbe(
+            MockChatProbeRunner.runBusinessFallbackLinkageProbe(
                     this,
-                    "Chat Detail Observation Probe",
+                    "Chat Detail Business Fallback Probe",
                     "发送",
                     960,
                     2200);

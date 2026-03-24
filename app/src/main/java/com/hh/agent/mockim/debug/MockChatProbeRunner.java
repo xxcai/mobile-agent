@@ -93,6 +93,74 @@ public final class MockChatProbeRunner {
         worker.start();
     }
 
+    public static void runBusinessFallbackLinkageProbe(AppCompatActivity activity,
+                                                       String reportTitle,
+                                                       String targetHint,
+                                                       int fallbackX,
+                                                       int fallbackY) {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+
+        showReportDialog(activity, reportTitle,
+                "# " + reportTitle + "\n"
+                        + "step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n"
+                        + "step_2=android_view_context_tool(native_xml)\n"
+                        + "step_3=android_gesture_tool(tap + observation)\n"
+                        + "target_hint=" + targetHint + "\n"
+                        + "note=waiting for runtime result...");
+
+        Thread worker = new Thread(() -> {
+            String report;
+            try {
+                AndroidToolManager manager = buildToolManager(activity);
+                String businessArgs = "{\"function\":\"send_im_message\","
+                        + "\"args\":{\"contact_id\":\"ui_current_chat\",\"message\":\"test\"}}";
+                String businessResult = manager.callTool("call_android_tool", businessArgs);
+
+                String viewContextResult = manager.callTool(
+                        "android_view_context_tool",
+                        "{\"source\":\"native_xml\",\"targetHint\":\"" + escape(targetHint) + "\"}");
+                JSONObject viewContextJson = new JSONObject(viewContextResult);
+                if (!viewContextJson.optBoolean("success", false)) {
+                    report = buildBusinessFallbackFailureReport(
+                            reportTitle,
+                            targetHint,
+                            businessArgs,
+                            businessResult,
+                            viewContextResult);
+                } else {
+                    String snapshotId = viewContextJson.optString("snapshotId", "");
+                    String nativeViewXml = viewContextJson.optString("nativeViewXml", "");
+                    NodeReference nodeReference = findNodeReference(nativeViewXml, targetHint);
+                    String gestureArgs = buildGestureArgs(
+                            snapshotId,
+                            targetHint,
+                            fallbackX,
+                            fallbackY,
+                            nodeReference);
+                    String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
+                    report = buildBusinessFallbackSuccessReport(
+                            reportTitle,
+                            targetHint,
+                            businessArgs,
+                            businessResult,
+                            viewContextResult,
+                            gestureArgs,
+                            gestureResult,
+                            nodeReference);
+                }
+            } catch (Exception e) {
+                report = "# " + reportTitle + "\n"
+                        + "target_hint=" + targetHint + "\n"
+                        + "error=probe_failed\n"
+                        + "message=" + e.getMessage();
+            }
+
+            String finalReport = report;
+            mainHandler.post(() -> showReportDialog(activity, reportTitle, finalReport));
+        });
+        worker.start();
+    }
+
     private static AndroidToolManager buildToolManager(AppCompatActivity activity) {
         AndroidToolManager manager = new AndroidToolManager(activity);
         Map<String, ToolExecutor> tools = new HashMap<>();
@@ -110,6 +178,18 @@ public final class MockChatProbeRunner {
                                              String viewContextResult) {
         return "# " + reportTitle + "\n"
                 + "target_hint=" + targetHint + "\n\n"
+                + "view_context_result=" + viewContextResult;
+    }
+
+    private static String buildBusinessFallbackFailureReport(String reportTitle,
+                                                             String targetHint,
+                                                             String businessArgs,
+                                                             String businessResult,
+                                                             String viewContextResult) {
+        return "# " + reportTitle + "\n"
+                + "target_hint=" + targetHint + "\n\n"
+                + "business_input=" + businessArgs + "\n"
+                + "business_result=" + businessResult + "\n\n"
                 + "view_context_result=" + viewContextResult;
     }
 
@@ -188,6 +268,31 @@ public final class MockChatProbeRunner {
         }
         gestureArgs.append("}}");
         return gestureArgs.toString();
+    }
+
+    private static String buildBusinessFallbackSuccessReport(String reportTitle,
+                                                             String targetHint,
+                                                             String businessArgs,
+                                                             String businessResult,
+                                                             String viewContextResult,
+                                                             String gestureArgs,
+                                                             String gestureResult,
+                                                             NodeReference nodeReference) throws Exception {
+        JSONObject businessJson = new JSONObject(businessResult);
+        StringBuilder report = new StringBuilder(buildSuccessReport(
+                reportTitle,
+                targetHint,
+                viewContextResult,
+                gestureArgs,
+                gestureResult,
+                nodeReference));
+        report.insert(("# " + reportTitle + "\n").length(),
+                "business_input=" + businessArgs + "\n"
+                        + "business_result=" + businessResult + "\n"
+                        + "business_error=" + businessJson.optString("error", "<none>") + "\n"
+                        + "business_suggested_next_tool="
+                        + businessJson.optString("suggestedNextTool", "<none>") + "\n\n");
+        return report.toString();
     }
 
     private static NodeReference findNodeReference(String nativeViewXml, String targetHint) {

@@ -43,6 +43,18 @@ public class SendImMessageTool implements ToolExecutor {
             String contactId = args.getString("contact_id");
             String message = args.getString("message");
 
+            // Temporary Step 05 mock guard for business_target_not_accessible.
+            // This sentinel lets us verify the failure protocol before real routing
+            // and UI fallback are wired together. Remove this once the failure
+            // protocol is exercised through a cleaner test fixture or real flow.
+            if (!"001".equals(contactId) && !"002".equals(contactId) && !"003".equals(contactId)) {
+                return ToolResult.error("business_target_not_accessible",
+                                "The requested contact cannot be reached by send_im_message directly")
+                        .with("targetType", "contact_or_conversation")
+                        .with("contact_id", contactId)
+                        .with("fallbackSuggested", true);
+            }
+
             Thread.sleep(5000);
 
             // Mock: Simply return success with formatted message
