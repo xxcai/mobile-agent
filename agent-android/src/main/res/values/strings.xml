@@ -3,4 +3,6 @@
     <string name="app_name">HelloWorld</string>
     <string name="send_button">发送</string>
     <string name="cancel_button">取消</string>
+    <string name="clear_history_button">清空历史</string>
+    <string name="clear_history_and_memory_button">清空历史+记忆</string>
 </resources>

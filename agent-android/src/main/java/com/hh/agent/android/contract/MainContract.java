@@ -153,5 +153,15 @@ public interface MainContract {
          * 取消流式请求
          */
         void cancelStream();
+
+        /**
+         * 清空聊天历史
+         */
+        void clearHistory();
+
+        /**
+         * 清空聊天历史和长期记忆
+         */
+        void clearHistoryAndLongTermMemory();
     }
 }

@@ -36,4 +36,18 @@ public interface MobileAgentApi {
      * @param listener 流式事件监听器
      */
     void sendMessageStream(String content, String sessionKey, AgentEventListener listener);
+
+    /**
+     * Clear persisted chat history for a session.
+     *
+     * @param sessionKey 会话密钥
+     */
+    boolean clearHistory(String sessionKey);
+
+    /**
+     * Clear persisted chat history and long-term memory for a session.
+     *
+     * @param sessionKey 会话密钥
+     */
+    boolean clearHistoryAndLongTermMemory(String sessionKey);
 }
