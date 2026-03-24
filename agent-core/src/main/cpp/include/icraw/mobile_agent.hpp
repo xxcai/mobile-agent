@@ -28,6 +28,9 @@ public:
 
     // Send a message with streaming callback
     void chat_stream(const std::string& message, AgentEventCallback callback);
+    void chat_stream(const std::string& session_id,
+                     const std::string& message,
+                     AgentEventCallback callback);
 
     // Get conversation history
     const std::vector<Message>& get_history() const { return history_; }

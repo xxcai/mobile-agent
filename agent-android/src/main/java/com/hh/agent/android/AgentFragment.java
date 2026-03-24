@@ -36,6 +36,7 @@ import java.util.List;
 public class AgentFragment extends Fragment implements MainContract.MessageListView, MainContract.StreamingView {
 
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
+    private static final String ARG_SESSION_KEY = "session_key";
     private static boolean sPermissionGranted = false;
 
     private RecyclerView rvMessages;
@@ -51,6 +52,14 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private boolean permissionGranted = false;
     // 当前正在更新的 response 消息，用于流式增量更新
     private Message currentResponseMessage = null;
+
+    public static AgentFragment newInstance(String sessionKey) {
+        AgentFragment fragment = new AgentFragment();
+        Bundle args = new Bundle();
+        args.putString(ARG_SESSION_KEY, sessionKey);
+        fragment.setArguments(args);
+        return fragment;
+    }
 
     @Nullable
     @Override
@@ -77,8 +86,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             setVoiceButtonVisible(true);
         }
 
-        // 初始化 Presenter，使用单例模式
-        presenter = MainPresenter.getInstance();
+        presenter = MainPresenter.getInstance(resolveSessionKey());
         presenter.attachView(this, this);
 
         // 初始化 StreamingManager
@@ -446,5 +454,13 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             presenter.detachView();
             // presenter.destroy();   // 移除：不应销毁单例，应保留状态
         }
+    }
+
+    private String resolveSessionKey() {
+        Bundle args = getArguments();
+        if (args == null) {
+            return null;
+        }
+        return args.getString(ARG_SESSION_KEY);
     }
 }
