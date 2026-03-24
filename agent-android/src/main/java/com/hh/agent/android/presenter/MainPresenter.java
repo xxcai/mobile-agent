@@ -371,7 +371,7 @@ public class MainPresenter implements MainContract.Presenter {
                     AgentLogs.warn(TAG, "stream_finish_unexpected", "finish_reason=" + finishReason);
                 }
                 FloatingBallManager floatingBallManager = FloatingBallManager.getInstance();
-                if (floatingBallManager != null) {
+                if (floatingBallManager != null && !"tool_calls".equals(finishReason)) {
                     floatingBallManager.setWorking(false);
                 }
                 if (streamingView != null && messageListView != null) {
