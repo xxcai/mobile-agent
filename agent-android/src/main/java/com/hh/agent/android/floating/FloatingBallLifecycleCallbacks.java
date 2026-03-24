@@ -50,7 +50,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
     @Override
     public void onActivityStarted(Activity activity) {
         foregroundActivityCount++;
-        currentForegroundActivity = activity;
+        currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         currentForegroundActivityRef = new WeakReference<>(activity);
         AgentLogs.debug(TAG, "activity_started", "foreground_count=" + foregroundActivityCount);
         updateFloatingBallVisibility();
@@ -82,12 +82,15 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     @Override
     public void onActivityDestroyed(Activity activity) {
-        // not used
+        if (activity == currentForegroundActivity) {
+            currentForegroundActivity = null;
+            updateFloatingBallVisibility();
+        }
     }
 
     @Override
     public void onActivityResumed(Activity activity) {
-        currentForegroundActivity = activity;
+        currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         currentForegroundActivityRef = new WeakReference<>(activity);
         notifyStableActivityLater(activity);
         updateFloatingBallVisibility();
@@ -95,7 +98,10 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     @Override
     public void onActivityPaused(Activity activity) {
-        // Keep the last resumed activity until it is replaced or stopped.
+        if (activity == currentForegroundActivity && activity.isFinishing()) {
+            currentForegroundActivity = null;
+            updateFloatingBallVisibility();
+        }
     }
 
     @Override
@@ -112,6 +118,9 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     private boolean shouldHideForActivity(Activity activity) {
         if (activity == null) {
+            return false;
+        }
+        if (!isActivityEligibleForForegroundTracking(activity)) {
             return false;
         }
         return hiddenActivityClassNames.contains(activity.getClass().getName());
@@ -206,6 +215,10 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         return activity.getWindow() != null
                 && activity.getWindow().getDecorView() != null
                 && activity.getWindow().getDecorView().isAttachedToWindow();
+    }
+
+    private boolean isActivityEligibleForForegroundTracking(Activity activity) {
+        return activity != null && !activity.isFinishing() && !activity.isDestroyed();
     }
 
     private interface StableActivityObserver {
