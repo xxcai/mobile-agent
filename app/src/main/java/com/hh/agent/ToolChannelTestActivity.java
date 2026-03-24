@@ -41,7 +41,7 @@ import java.util.Map;
  */
 public class ToolChannelTestActivity extends AppCompatActivity {
 
-    private static final String PROBE_SESSION_KEY = "native:route-probe";
+    private static final String PROBE_SESSION_KEY_PREFIX = "native:route-probe";
     private static final String BUILTIN_READ_FILE_TOOL = "read_file";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView outputView;
@@ -498,10 +498,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         String expectedFirstToolFromRouter = routeDecision.isBusinessPathFeasible()
                 ? "call_android_tool"
                 : "android_view_context_tool";
+        String probeSessionKey = buildIsolatedProbeSessionKey();
 
         StringBuilder report = new StringBuilder();
         report.append("# LLM Route Probe\n");
         report.append("prompt=").append(prompt).append('\n');
+        report.append("probe_session_key=").append(probeSessionKey).append('\n');
         report.append('\n');
         report.append("expected_router.business_path_feasible=").append(expectedFeasible).append('\n');
         report.append("expected_router.entry_function=").append(expectedEntryFunction).append('\n');
@@ -524,13 +526,13 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("expected_second_route_tool=")
                 .append(expectedSecondTool == null ? "<none>" : expectedSecondTool)
                 .append('\n');
-        report.append("note=session is not fully isolated yet; restart app for cleaner probes when needed\n\n");
+        report.append("note=probe uses a dedicated session key for this run\n\n");
         outputView.setText(report.toString());
 
         final boolean[] firstToolCaptured = {false};
         final int[] routeToolCount = {0};
 
-        NativeMobileAgentApi.getInstance().sendMessageStream(prompt, PROBE_SESSION_KEY, new AgentEventListener() {
+        NativeMobileAgentApi.getInstance().sendMessageStream(prompt, probeSessionKey, new AgentEventListener() {
             @Override
             public void onTextDelta(String text) {
             }
@@ -655,6 +657,10 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         return "call_android_tool".equals(toolName)
                 || "android_view_context_tool".equals(toolName)
                 || "android_gesture_tool".equals(toolName);
+    }
+
+    private String buildIsolatedProbeSessionKey() {
+        return PROBE_SESSION_KEY_PREFIX + ":" + System.currentTimeMillis();
     }
 
     private AndroidToolManager buildTestToolManager() {

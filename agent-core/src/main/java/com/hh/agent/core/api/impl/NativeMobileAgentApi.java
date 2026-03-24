@@ -165,8 +165,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     @Override
     public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
-        // 调用 Native Agent 流式接口
-        NativeAgent.sendMessageStream(content, listener);
+        NativeAgent.sendMessageStream(toSessionId(sessionKey), content, listener);
     }
 
     public String runStateless(String systemPrompt, String message) {
@@ -182,11 +181,7 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     @Override
     public List<Message> getHistory(String sessionKey, int maxMessages) {
-        // Convert sessionKey to C++ session_id format (e.g., "native:default" -> "default")
-        String sessionId = sessionKey;
-        if (sessionKey != null && sessionKey.startsWith("native:")) {
-            sessionId = sessionKey.substring(7); // Remove "native:" prefix
-        }
+        String sessionId = toSessionId(sessionKey);
 
         info("history_query_start", "session_key=" + nullToEmpty(sessionKey) + " limit=" + maxMessages);
 
@@ -260,6 +255,16 @@ public class NativeMobileAgentApi implements MobileAgentApi {
 
     private static int lengthOf(String value) {
         return value != null ? value.length() : 0;
+    }
+
+    private static String toSessionId(String sessionKey) {
+        if (sessionKey == null || sessionKey.isEmpty()) {
+            return "default";
+        }
+        if (sessionKey.startsWith("native:")) {
+            return sessionKey.substring(7);
+        }
+        return sessionKey;
     }
 
     private static String nullToEmpty(String value) {
