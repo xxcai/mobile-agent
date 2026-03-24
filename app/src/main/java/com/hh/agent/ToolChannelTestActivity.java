@@ -67,16 +67,14 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         int padding = dp(16);
         container.setPadding(padding, padding, padding, padding);
 
-        addActionButton(container, "Run All", v -> runAllSections());
-        addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
-        addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
-        addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
-        addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
+        addSectionHeader(container, "Core Runtime");
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
-        addActionButton(container, "Run Routing Cases", v -> runRoutingCasesSection());
         addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
         addActionButton(container, "Run Container View Context", v -> runLiveViewContextProbe(true));
         addActionButton(container, "Run Observation Bound Gesture", v -> runObservationBoundGestureProbe());
+        addActionButton(container, "Run Business Fallback Linkage", v -> runBusinessFallbackLinkageProbe());
+
+        addSectionHeader(container, "LLM Routing");
         addActionButton(container, "Probe LLM Business Route", v ->
                 runLlmRouteProbe("给张三发消息说明天开会", "call_android_tool", null));
         addActionButton(container, "Probe LLM Contact Route", v ->
@@ -85,10 +83,12 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 runLlmRouteProbe("点击发送消息按钮", "android_view_context_tool", "android_gesture_tool"));
         addActionButton(container, "Probe LLM Structure Route", v ->
                 runLlmRouteProbe("看看当前页面结构", "android_view_context_tool", null));
-        addActionButton(container, "Open Visible Activity", v ->
-                startActivity(new Intent(this, FloatingBallVisibleActivity.class)));
-        addActionButton(container, "Open Hidden Activity", v ->
-                startActivity(new Intent(this, FloatingBallHiddenActivity.class)));
+
+        addSectionHeader(container, "Legacy Diagnostics");
+        addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
+        addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
+        addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
+        addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
 
         outputView = new TextView(this);
         outputView.setTextIsSelectable(true);
@@ -105,6 +105,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         return scrollView;
     }
 
+    private void addSectionHeader(LinearLayout container, String title) {
+        TextView header = new TextView(this);
+        header.setText(title);
+        header.setTextSize(18);
+        header.setPadding(0, dp(12), 0, dp(8));
+        container.addView(header, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
     private void addActionButton(LinearLayout container, String text, android.view.View.OnClickListener listener) {
         Button button = new Button(this);
         button.setText(text);
@@ -114,25 +124,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(8);
         container.addView(button, params);
-    }
-
-    private void runAllSections() {
-        StringBuilder report = new StringBuilder();
-
-        try {
-            AndroidToolManager manager = buildTestToolManager();
-            SchemaSummary summary = buildSchemaSummary(manager);
-            appendChannelSummary(report, manager, summary);
-            appendIntentMappingChecks(report, summary);
-            appendImSenderCompatibilityNote(report);
-            appendContractChecks(report, manager);
-            appendRuntimeCases(report, manager);
-            appendRoutingCases(report);
-        } catch (Exception e) {
-            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
-        }
-
-        outputView.setText(report.toString());
     }
 
     private void runChannelSummarySection() {
@@ -184,12 +175,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
-        outputView.setText(report.toString());
-    }
-
-    private void runRoutingCasesSection() {
-        StringBuilder report = new StringBuilder();
-        appendRoutingCases(report);
         outputView.setText(report.toString());
     }
 
@@ -310,6 +295,62 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         worker.start();
     }
 
+    private void runBusinessFallbackLinkageProbe() {
+        StringBuilder report = new StringBuilder();
+        report.append("# Business Fallback Linkage Probe\n");
+        report.append("step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n");
+        report.append("step_2=android_view_context_tool(native_xml)\n");
+        report.append("step_3=android_gesture_tool(tap + observation)\n");
+        report.append("target_hint=发送\n\n");
+        outputView.setText(report.toString());
+
+        Thread worker = new Thread(() -> {
+            try {
+                AndroidToolManager manager = buildTestToolManager();
+                String businessArgs = "{\"function\":\"send_im_message\","
+                        + "\"args\":{\"contact_id\":\"ui_current_chat\",\"message\":\"test\"}}";
+                String businessResult = manager.callTool("call_android_tool", businessArgs);
+
+                String viewContextResult = manager.callTool(
+                        "android_view_context_tool",
+                        "{\"source\":\"native_xml\",\"targetHint\":\"发送\"}");
+                JSONObject viewContextJson = new JSONObject(viewContextResult);
+                if (!viewContextJson.optBoolean("success", false)) {
+                    mainHandler.post(() -> appendBusinessFallbackLinkageReport(
+                            businessArgs,
+                            businessResult,
+                            viewContextResult,
+                            null,
+                            null));
+                    return;
+                }
+
+                String snapshotId = viewContextJson.optString("snapshotId", "");
+                String gestureArgs = "{\"action\":\"tap\",\"x\":960,\"y\":2200,"
+                        + "\"observation\":{\"snapshotId\":\"" + snapshotId + "\","
+                        + "\"targetDescriptor\":\"发送\"}}";
+                String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
+
+                mainHandler.post(() -> appendBusinessFallbackLinkageReport(
+                        businessArgs,
+                        businessResult,
+                        viewContextResult,
+                        gestureArgs,
+                        gestureResult));
+            } catch (Exception e) {
+                String errorJson = "{\"success\":false,\"error\":\"probe_failed\",\"message\":\""
+                        + e.getMessage() + "\"}";
+                mainHandler.post(() -> appendBusinessFallbackLinkageReport(
+                        null,
+                        errorJson,
+                        null,
+                        null,
+                        null));
+            }
+        });
+        worker.start();
+    }
+
     private void appendObservationBoundGestureReport(String viewContextResult,
                                                      String gestureArgs,
                                                      String gestureResult) {
@@ -342,6 +383,51 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             next.append("parse_error=").append(e.getMessage()).append('\n');
+        }
+
+        outputView.setText(next.toString());
+    }
+
+    private void appendBusinessFallbackLinkageReport(String businessArgs,
+                                                     String businessResult,
+                                                     String viewContextResult,
+                                                     String gestureArgs,
+                                                     String gestureResult) {
+        StringBuilder next = new StringBuilder(outputView.getText());
+        if (businessArgs != null) {
+            next.append("business_input=").append(businessArgs).append('\n');
+        }
+        next.append("business_result=").append(businessResult).append("\n\n");
+
+        try {
+            JSONObject businessJson = new JSONObject(businessResult);
+            next.append("business_error=").append(businessJson.optString("error", "<none>")).append('\n');
+            next.append("business_suggested_next_tool=")
+                    .append(businessJson.optString("suggestedNextTool", "<none>"))
+                    .append('\n');
+        } catch (Exception e) {
+            next.append("business_parse_error=").append(e.getMessage()).append('\n');
+        }
+
+        if (viewContextResult != null) {
+            next.append('\n').append("view_context_result=").append(viewContextResult).append("\n\n");
+        }
+        if (gestureArgs != null) {
+            next.append("gesture_input=").append(gestureArgs).append('\n');
+        }
+        if (gestureResult != null) {
+            next.append("gesture_result=").append(gestureResult).append("\n\n");
+            try {
+                JSONObject gestureJson = new JSONObject(gestureResult);
+                JSONObject paramsJson = gestureJson.optJSONObject("params");
+                next.append("gesture_tap_point_source=")
+                        .append(paramsJson != null
+                                ? paramsJson.optString("tapPointSource", "<none>")
+                                : "<none>")
+                        .append('\n');
+            } catch (Exception e) {
+                next.append("gesture_parse_error=").append(e.getMessage()).append('\n');
+            }
         }
 
         outputView.setText(next.toString());
@@ -594,6 +680,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 "{\"function\":\"\",\"args\":{}}");
 
         runCase(report, manager,
+                "Business Capability Not Supported",
+                "call_android_tool",
+                "{\"function\":\"open_current_chat_send_button\",\"args\":{}}");
+
+        runCase(report, manager,
+                "Business Target Not Accessible",
+                "call_android_tool",
+                "{\"function\":\"send_im_message\",\"args\":{\"contact_id\":\"ui_current_chat\",\"message\":\"test\"}}");
+
+        runCase(report, manager,
                 "Gesture Tap",
                 "android_gesture_tool",
                 "{\"action\":\"tap\",\"x\":120,\"y\":360,\"allowCoordinateFallback\":true}");
@@ -635,21 +731,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("active_gesture_executor=")
                 .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())
                 .append('\n');
-    }
-
-    private void appendRoutingCases(StringBuilder report) {
-        report.append("# Routing Cases\n");
-        report.append("CASE: 给张三发消息说明天开会\n");
-        report.append("EXPECTED: call_android_tool first; no view_context first; no direct gesture\n\n");
-
-        report.append("CASE: 点击张三\n");
-        report.append("EXPECTED: android_view_context_tool first; gesture only after screen inspection\n\n");
-
-        report.append("CASE: 看看当前页面结构\n");
-        report.append("EXPECTED: android_view_context_tool directly; prefer source=native_xml\n\n");
-
-        report.append("CASE: 点击发送消息按钮\n");
-        report.append("EXPECTED: android_view_context_tool first; do not guess coordinates before inspection\n\n");
     }
 
     private int dp(int value) {
