@@ -98,6 +98,8 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     @Override
     public void onActivityPaused(Activity activity) {
+        // ContainerActivity may finish before its enter transition fully settles.
+        // Once it is closing, stop treating it as the foreground blocker immediately.
         if (activity == currentForegroundActivity && activity.isFinishing()) {
             currentForegroundActivity = null;
             updateFloatingBallVisibility();
