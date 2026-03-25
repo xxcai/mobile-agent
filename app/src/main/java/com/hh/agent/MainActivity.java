@@ -6,6 +6,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
+import com.hh.agent.mockdiscover.DiscoverFeedFragment;
 import com.hh.agent.mockim.ChatListFragment;
 import com.hh.agent.mockim.PlaceholderFragment;
 
@@ -39,13 +40,18 @@ public class MainActivity extends AppCompatActivity {
     private void bindEvents() {
         tabChats.setOnClickListener(v -> showChatsTab());
         tabContacts.setOnClickListener(v -> showPlaceholderTab("通讯录"));
-        tabDiscover.setOnClickListener(v -> showPlaceholderTab("发现"));
+        tabDiscover.setOnClickListener(v -> showDiscoverTab());
         tabProfile.setOnClickListener(v -> showPlaceholderTab("我"));
     }
 
     private void showChatsTab() {
         switchContent(ChatListFragment.newInstance());
         updateSelectedTab(tabChats);
+    }
+
+    private void showDiscoverTab() {
+        switchContent(DiscoverFeedFragment.newInstance());
+        updateSelectedTab(tabDiscover);
     }
 
     private void showPlaceholderTab(String title) {

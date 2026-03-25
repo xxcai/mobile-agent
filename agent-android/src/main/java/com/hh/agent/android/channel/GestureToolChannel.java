@@ -9,8 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Mock gesture channel used to validate multi-channel schema and parameter routing.
- * Real runtime gesture execution will be added in a later step.
+ * Gesture channel for observation-bound in-process touch injection.
  */
 public class GestureToolChannel implements AndroidToolChannelExecutor {
 
@@ -27,7 +26,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
 
         properties.put("action", new JSONObject()
                 .put("type", "string")
-                .put("description", "手势动作类型。tap 表示点击单个屏幕坐标；swipe 表示从起点拖动到终点。不要填写业务工具名。")
+                .put("description", "手势动作类型。tap 表示点击页面元素；swipe 表示按高层滚动意图驱动当前页面滚动。运行时会在当前前台 Activity 内注入真实触摸事件。不要填写业务工具名。")
                 .put("enum", new JSONArray().put("tap").put("swipe")));
         properties.put("x", new JSONObject()
                 .put("type", "integer")
@@ -35,21 +34,23 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
         properties.put("y", new JSONObject()
                 .put("type", "integer")
                 .put("description", "点击目标的 Y 坐标。仅在 action=tap 时必填。"));
-        properties.put("startX", new JSONObject()
-                .put("type", "integer")
-                .put("description", "滑动起点的 X 坐标。仅在 action=swipe 时必填。"));
-        properties.put("startY", new JSONObject()
-                .put("type", "integer")
-                .put("description", "滑动起点的 Y 坐标。仅在 action=swipe 时必填。"));
-        properties.put("endX", new JSONObject()
-                .put("type", "integer")
-                .put("description", "滑动终点的 X 坐标。仅在 action=swipe 时必填。"));
-        properties.put("endY", new JSONObject()
-                .put("type", "integer")
-                .put("description", "滑动终点的 Y 坐标。仅在 action=swipe 时必填。"));
+        properties.put("direction", new JSONObject()
+                .put("type", "string")
+                .put("description", "滚动方向。down 表示继续查看更早的内容，up 表示回看更新的内容。仅在 action=swipe 时必填。")
+                .put("enum", new JSONArray().put("down").put("up")));
+        properties.put("scope", new JSONObject()
+                .put("type", "string")
+                .put("description", "滚动作用域。feed 表示优先命中当前主 feed 容器。仅在 action=swipe 时可选。")
+                .put("enum", new JSONArray().put("feed"))
+                .put("default", "feed"));
+        properties.put("amount", new JSONObject()
+                .put("type", "string")
+                .put("description", "滚动幅度。small/medium/large/one_screen 分别对应容器高度的不同百分比。仅在 action=swipe 时可选。")
+                .put("enum", new JSONArray().put("small").put("medium").put("large").put("one_screen"))
+                .put("default", "medium"));
         properties.put("duration", new JSONObject()
                 .put("type", "integer")
-                .put("description", "滑动持续时间，单位毫秒。仅在 action=swipe 时可选。"));
+                .put("description", "滚动后的稳定等待时间，单位毫秒。仅在 action=swipe 时可选。"));
         properties.put("observation", new JSONObject()
                 .put("type", "object")
                 .put("description", "基于 observation 执行时的引用信息。页面元素类任务优先填写该对象，再配合坐标作为兼容 fallback。")
@@ -78,7 +79,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
 
         JSONObject function = new JSONObject();
         function.put("name", CHANNEL_NAME);
-        function.put("description", "执行基于屏幕坐标的 Android 手势。适合点击和滑动等 UI 操作，例如点击按钮、从列表顶部滑到中部。页面元素类任务优先携带 observation 引用信息，再配合坐标作为兼容 fallback。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具；这类任务应使用 call_android_tool。当前运行时为 mock，用于验证通道选择、动作选择和参数组织。");
+        function.put("description", "执行当前宿主页面内的 Android UI 动作。tap 会优先依据 observation 引用计算目标点，再通过当前 Activity 注入 DOWN/UP 事件；swipe 只接收高层滚动意图，由运行时自动计算安全距离并注入 DOWN/MOVE/UP 序列。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具；这类任务应使用 call_android_tool。");
         function.put("parameters", parameters);
 
         return new JSONObject()
@@ -108,9 +109,8 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                     result = executor.tap(params);
                     return result.toToolResult(CHANNEL_NAME);
                 case "swipe":
-                    if (!params.has("startX") || !params.has("startY")
-                            || !params.has("endX") || !params.has("endY")) {
-                        return buildError("invalid_args", "swipe requires 'startX', 'startY', 'endX', and 'endY'");
+                    if (!params.has("direction")) {
+                        return buildError("invalid_args", "swipe requires 'direction'");
                     }
                     result = executor.swipe(params);
                     return result.toToolResult(CHANNEL_NAME);

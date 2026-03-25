@@ -123,9 +123,9 @@ Skill 正文没有强制格式，但建议至少包含：
 - `call_android_tool`
   用于宿主 App 业务工具，例如联系人、消息、通知、剪贴板
 - `android_gesture_tool`
-  用于点击、滑动等坐标级手势
+  用于页面内点击、滚动等 UI 手势
 
-其中 `android_gesture_tool` 当前仍是 mock 运行时框架，适合验证通道选择和参数结构，不执行真实点击/滑动。
+其中 `android_gesture_tool` 当前已经具备真实 in-process 执行能力，但仍应优先用于“先看页面，再执行元素动作”的场景，而不是替代业务工具。
 
 因此在 Skill 中，调用方式应写成：
 
@@ -146,7 +146,12 @@ Skill 正文没有强制格式，但建议至少包含：
 {
   "action": "tap",
   "x": 120,
-  "y": 340
+  "y": 340,
+  "observation": {
+    "snapshotId": "obs_xxx",
+    "targetDescriptor": "发送按钮",
+    "referencedBounds": "[920,2100][1038,2196]"
+  }
 }
 ```
 
@@ -155,15 +160,12 @@ Skill 正文没有强制格式，但建议至少包含：
 ```json
 {
   "action": "swipe",
-  "startX": 100,
-  "startY": 500,
-  "endX": 400,
-  "endY": 500,
+  "direction": "down",
+  "scope": "feed",
+  "amount": "medium",
   "duration": 300
 }
 ```
-
-但在当前工程状态下，这类调用只会得到 mock 结果。
 
 ## 现有示例
 
