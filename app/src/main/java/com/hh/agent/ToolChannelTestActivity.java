@@ -74,6 +74,14 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addActionButton(container, "Run Observation Bound Gesture", v -> runObservationBoundGestureProbe());
         addActionButton(container, "Run Business Fallback Linkage", v -> runBusinessFallbackLinkageProbe());
 
+        addSectionHeader(container, "Touch Injection");
+        addActionButton(container, "Open Touch Dispatch Probe",
+                v -> startActivity(new Intent(this, TouchDispatchProbeActivity.class)));
+        addActionButton(container, "Open Recycler Swipe Probe",
+                v -> startActivity(new Intent(this, RecyclerViewSwipeProbeActivity.class)));
+        addActionButton(container, "Open Long Press / Double Tap Probe",
+                v -> startActivity(new Intent(this, LongPressDoubleTapProbeActivity.class)));
+
         addSectionHeader(container, "LLM Routing");
         addActionButton(container, "Probe LLM Business Route", v ->
                 runLlmRouteProbe(
