@@ -1,10 +1,13 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
+import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.core.tool.ToolResult;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * View-context channel used to validate perception-channel routing.
@@ -14,15 +17,16 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
     public static final String CHANNEL_NAME = "android_view_context_tool";
 
-    private static final String SOURCE_NATIVE_XML = "native_xml";
-    private static final String SOURCE_WEB_DOM = "web_dom";
-    private static final String SOURCE_SCREEN_SNAPSHOT = "screen_snapshot";
-    private static final String SOURCE_ALL = "all";
+    static final String SOURCE_NATIVE_XML = "native_xml";
+    static final String SOURCE_WEB_DOM = "web_dom";
+    static final String SOURCE_SCREEN_SNAPSHOT = "screen_snapshot";
+    static final String SOURCE_ALL = "all";
 
-    private static final String MOCK_WEB_DOM =
+    static final String MOCK_WEB_DOM =
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
 
-    private static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
+    static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
+    private final Map<String, ViewContextSourceDefinition> sourceDefinitions = createSourceDefinitions();
 
     @Override
     public String getChannelName() {
@@ -31,42 +35,20 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
     @Override
     public JSONObject buildToolDefinition() throws Exception {
-        JSONObject properties = new JSONObject();
-
-        properties.put("source", new JSONObject()
-                .put("type", "string")
-                .put("description", "要获取的视图上下文来源。native_xml 返回当前原生界面树；web_dom 和 screen_snapshot 当前为 mock。")
-                .put("enum", new JSONArray()
-                        .put(SOURCE_NATIVE_XML)
-                        .put(SOURCE_WEB_DOM)
-                        .put(SOURCE_SCREEN_SNAPSHOT)
-                        .put(SOURCE_ALL))
-                .put("default", SOURCE_NATIVE_XML));
-        properties.put("targetHint", new JSONObject()
-                .put("type", "string")
-                .put("description", "用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"));
-        properties.put("includeMockWebDom", new JSONObject()
-                .put("type", "boolean")
-                .put("description", "当 source=all 时，是否附带 mock web DOM。")
-                .put("default", false));
-        properties.put("includeMockScreenshot", new JSONObject()
-                .put("type", "boolean")
-                .put("description", "当 source=all 时，是否附带 mock screenshot 引用。")
-                .put("default", false));
-
-        JSONObject parameters = new JSONObject();
-        parameters.put("type", "object");
-        parameters.put("properties", properties);
-        parameters.put("required", new JSONArray().put("source"));
-
-        JSONObject function = new JSONObject();
-        function.put("name", CHANNEL_NAME);
-        function.put("description", "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。native_xml 返回当前原生界面树；web_dom 和 screen_snapshot 当前仅返回 mock。");
-        function.put("parameters", parameters);
-
-        return new JSONObject()
-                .put("type", "function")
-                .put("function", function);
+        ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
+                        CHANNEL_NAME,
+                        "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。"
+                                + buildSourceDescription() + "。")
+                .property("source", ToolSchemaBuilder.string()
+                        .description("要获取的视图上下文来源。前 3 个值表示单一来源；all 表示聚合模式，用于一次返回多个上下文来源。" + buildSourceDescription() + "。")
+                        .enumValues(getSourceNames())
+                        .defaultValue(SOURCE_NATIVE_XML), true)
+                .property("targetHint", ToolSchemaBuilder.string()
+                        .description("用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"), false);
+        for (ViewContextSourceDefinition definition : sourceDefinitions.values()) {
+            definition.contributeProperties(builder);
+        }
+        return builder.build();
     }
 
     @Override
@@ -77,62 +59,16 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
                 source = SOURCE_NATIVE_XML;
             }
 
-            boolean includeMockWebDom = params.optBoolean("includeMockWebDom", false);
-            boolean includeMockScreenshot = params.optBoolean("includeMockScreenshot", false);
             String targetHint = normalizeOptionalText(params.optString("targetHint", null));
-
-            ToolResult result = ToolResult.success()
-                    .with("channel", CHANNEL_NAME)
-                    .with("source", source)
-                    .with("mock", true)
-                    .with("targetHint", targetHint);
-
-            switch (source) {
-                case SOURCE_NATIVE_XML:
-                    return ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint)
-                            .with("channel", CHANNEL_NAME);
-                case SOURCE_WEB_DOM:
-                    return result
-                            .with("nativeViewXml", (String) null)
-                            .with("webDom", MOCK_WEB_DOM)
-                            .with("screenSnapshot", (String) null);
-                case SOURCE_SCREEN_SNAPSHOT:
-                    return result
-                            .with("nativeViewXml", (String) null)
-                            .with("webDom", (String) null)
-                            .with("screenSnapshot", MOCK_SCREEN_SNAPSHOT);
-                case SOURCE_ALL:
-                    ToolResult nativeSnapshot =
-                            ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
-                    JSONObject nativeSnapshotJson = new JSONObject(nativeSnapshot.toJsonString());
-                    boolean nativeSuccess = nativeSnapshotJson.optBoolean("success", false);
-                    return result
-                            .with("mock", !nativeSuccess)
-                            .with("activityClassName",
-                                    nativeSuccess ? nativeSnapshotJson.optString("activityClassName", null) : null)
-                            .with("observationMode",
-                                    nativeSuccess ? nativeSnapshotJson.optString("observationMode", null) : null)
-                            .with("snapshotId",
-                                    nativeSuccess ? nativeSnapshotJson.optString("snapshotId", null) : null)
-                            .with("snapshotCreatedAtEpochMs",
-                                    nativeSuccess ? nativeSnapshotJson.optLong("snapshotCreatedAtEpochMs", 0L) : null)
-                            .with("snapshotScope",
-                                    nativeSuccess ? nativeSnapshotJson.optString("snapshotScope", null) : null)
-                            .with("snapshotCurrentTurnOnly",
-                                    nativeSuccess ? nativeSnapshotJson.optBoolean("snapshotCurrentTurnOnly", false) : null)
-                            .with("nativeViewXml",
-                                    nativeSuccess ? nativeSnapshotJson.optString("nativeViewXml", null) : null)
-                            .with("nativeViewUnavailableReason",
-                                    nativeSuccess ? null : nativeSnapshotJson.optString("message", "unknown"))
-                            .with("webDom", includeMockWebDom ? MOCK_WEB_DOM : null)
-                            .with("screenSnapshot", includeMockScreenshot ? MOCK_SCREEN_SNAPSHOT : null);
-                default:
-                    return ToolResult.error("invalid_args",
-                                    "Unsupported source '" + source + "' for " + CHANNEL_NAME)
-                            .with("allowedSources",
-                                    SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
-                                            + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
+            ViewContextSourceDefinition sourceDefinition = sourceDefinitions.get(source);
+            if (sourceDefinition == null) {
+                return ToolResult.error("invalid_args",
+                                "Unsupported source '" + source + "' for " + CHANNEL_NAME)
+                        .with("allowedSources",
+                                SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
+                                        + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
             }
+            return sourceDefinition.execute(params, targetHint);
         } catch (Exception e) {
             return ToolResult.error("execution_failed", e.getMessage());
         }
@@ -144,5 +80,40 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Map<String, ViewContextSourceDefinition> createSourceDefinitions() {
+        LinkedHashMap<String, ViewContextSourceDefinition> definitions = new LinkedHashMap<>();
+        register(definitions, new NativeXmlViewContextSourceDefinition());
+        register(definitions, new WebDomViewContextSourceDefinition());
+        register(definitions, new ScreenSnapshotViewContextSourceDefinition());
+        register(definitions, new AllViewContextSourceDefinition());
+        return definitions;
+    }
+
+    private void register(Map<String, ViewContextSourceDefinition> definitions,
+                          ViewContextSourceDefinition definition) {
+        String sourceName = definition.getSourceName();
+        if (definitions.containsKey(sourceName)) {
+            throw new IllegalStateException("Duplicate view-context source definition: " + sourceName);
+        }
+        definitions.put(sourceName, definition);
+    }
+
+    private String buildSourceDescription() {
+        StringBuilder description = new StringBuilder();
+        boolean first = true;
+        for (ViewContextSourceDefinition definition : sourceDefinitions.values()) {
+            if (!first) {
+                description.append("；");
+            }
+            description.append(definition.getSourceDescription());
+            first = false;
+        }
+        return description.toString();
+    }
+
+    private String[] getSourceNames() {
+        return sourceDefinitions.keySet().toArray(new String[0]);
     }
 }
