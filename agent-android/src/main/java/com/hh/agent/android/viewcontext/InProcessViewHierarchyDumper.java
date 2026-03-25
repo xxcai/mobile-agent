@@ -12,6 +12,7 @@ import androidx.annotation.Nullable;
 
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
+import com.hh.agent.android.log.AgentLogs;
 
 import java.lang.ref.WeakReference;
 
@@ -19,6 +20,8 @@ import java.lang.ref.WeakReference;
  * Collects a compact XML-like snapshot from the current in-process foreground activity.
  */
 public final class InProcessViewHierarchyDumper {
+    private static final String TAG = "InProcessViewHierarchyDumper";
+
     private static final long CONTAINER_DISMISS_TIMEOUT_MS = 1500L;
     private static final long FOREGROUND_STABLE_TIMEOUT_MS = 1500L;
     private static final int MAX_NODES = 300;
@@ -88,6 +91,14 @@ public final class InProcessViewHierarchyDumper {
             xml.append(">");
             appendNode(xml, decorView, state);
             xml.append("</hierarchy>");
+
+            AgentLogs.info(
+                    TAG,
+                    "dump_complete",
+                    "activity=" + currentActivity.getClass().getName()
+                            + " node_count=" + state.nodeCount
+                            + " max_nodes=" + MAX_NODES
+            );
 
             holder.xml = xml.toString();
             holder.activityClassName = currentActivity.getClass().getName();
