@@ -5,7 +5,7 @@ This file documents constraints and usage patterns.
 
 ## General Constraints
 
-- Tool results truncated at 10,000 characters
+- Tool results truncated at 40,000 characters
 - No shell access (Android sandbox)
 - All tools run locally on device
 
@@ -46,6 +46,49 @@ When the user asks about page elements, visible cards, buttons, positions, or th
 3. Keep business tools as the first choice only when they can directly express the target action without screen inspection.
 
 Do not jump directly to gesture execution when the task still depends on understanding the current UI structure.
+
+## Gesture Tool Rules
+
+For `android_gesture_tool`, always follow these rules:
+
+1. Call `android_view_context_tool` first in the same turn.
+2. Use the latest `observation.snapshotId` from that result.
+3. Do not guess raw coordinates.
+4. Do not retry the same gesture without new screen evidence.
+
+For `tap`:
+
+- Prefer the target from the latest observation.
+- Include `observation.snapshotId`.
+- Include `observation.referencedBounds` whenever possible.
+- If there is no fresh observation for the target, do not call `tap`.
+
+For `swipe`:
+
+- Use `swipe` only for scrolling a specific visible container.
+- Always include:
+  - `direction`: `up` or `down`
+  - `amount`: `small`, `medium`, `large`, or `one_screen`
+  - `observation.snapshotId`
+  - `observation.referencedBounds`
+- `observation.referencedBounds` must point to the container you want to scroll.
+- Do not pass raw swipe coordinates such as `startX/startY/endX/endY`.
+- Do not rely on the runtime to guess which list or feed to scroll when multiple scroll containers are visible.
+
+Example `swipe`:
+
+```json
+{
+  "action": "swipe",
+  "direction": "down",
+  "amount": "small",
+  "observation": {
+    "snapshotId": "obs_xxx",
+    "referencedBounds": "[0,287][1216,2381]",
+    "targetDescriptor": "朋友圈列表"
+  }
+}
+```
 
 For route selection in the main conversation:
 

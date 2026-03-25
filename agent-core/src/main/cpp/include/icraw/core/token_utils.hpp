@@ -90,7 +90,7 @@ int calculate_available_context(int current_tokens, const CompactionConfig& conf
 /// @param result The tool result string
 /// @param max_chars Maximum characters to keep
 /// @return Pruned result with truncation marker if needed
-std::string prune_tool_result(const std::string& result, int max_chars = 10000);
+std::string prune_tool_result(const std::string& result, int max_chars = 40000);
 
 // ============================================================================
 // Message Chunking

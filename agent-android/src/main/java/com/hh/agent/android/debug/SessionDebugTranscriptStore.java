@@ -23,6 +23,7 @@ public final class SessionDebugTranscriptStore {
     private static final String TAG = "SessionDebugTranscript";
     private static final String DEBUG_DIR = ".icraw/debug-transcripts";
     private static final int INPUT_LABEL_MAX = 40;
+    private static final String EVENT_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
     private static final SessionTranscript NO_OP_TRANSCRIPT = new NoOpSessionTranscript();
 
     private static SessionDebugTranscriptStore instance;
@@ -128,6 +129,8 @@ public final class SessionDebugTranscriptStore {
         private final File eventsFile;
         private final File responseFile;
         private final StringBuilder responseBuilder = new StringBuilder();
+        private final SimpleDateFormat eventTimeFormat =
+                new SimpleDateFormat(EVENT_TIME_PATTERN, Locale.US);
 
         private FileSessionTranscript(File turnDir, File eventsFile, File responseFile) {
             this.turnDir = turnDir;
@@ -177,8 +180,9 @@ public final class SessionDebugTranscriptStore {
 
         private void appendEvent(String type, JSONObject payload) {
             try (FileWriter writer = new FileWriter(eventsFile, true)) {
+                String eventTime = eventTimeFormat.format(new Date());
                 JSONObject line = new JSONObject()
-                        .put("time", System.currentTimeMillis())
+                        .put("time", eventTime)
                         .put("type", type)
                         .put("payload", payload);
                 writer.write(line.toString());

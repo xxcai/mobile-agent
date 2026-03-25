@@ -102,12 +102,20 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
 
             JSONObject payload = new JSONObject(params.toString());
             String direction = payload.optString("direction", "").trim();
-            String scope = payload.optString("scope", "feed").trim();
             String amount = payload.optString("amount", "medium").trim();
             int durationMs = payload.optInt("duration", 400);
+            JSONObject observation = payload.optJSONObject("observation");
+            Rect referencedBounds = parseBounds(observation != null
+                    ? observation.optString("referencedBounds", "")
+                    : "");
+            if (referencedBounds == null) {
+                return GestureExecutionResult.error("swipe",
+                        "missing_scroll_container_bounds",
+                        "Swipe requires observation.referencedBounds for the target scroll container");
+            }
 
             ExecutionResult result = runOnUiThread(activity,
-                    () -> performScroll(activity, direction, scope, amount, durationMs));
+                    () -> performScroll(activity, referencedBounds, direction, amount, durationMs));
             if (!result.success) {
                 return GestureExecutionResult.error("swipe", result.error, result.message);
             }
@@ -205,8 +213,8 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
     }
 
     private ExecutionResult performScroll(Activity activity,
+                                          Rect referencedBounds,
                                           String direction,
-                                          String scope,
                                           String amount,
                                           int requestedDurationMs) {
         View root = activity.getWindow() != null ? activity.getWindow().getDecorView() : null;
@@ -216,10 +224,10 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
 
         List<View> views = new ArrayList<>();
         collectViews(root, views);
-        View container = findScrollableContainer(views, scope);
+        View container = findScrollableContainer(views, referencedBounds);
         if (container == null) {
             return ExecutionResult.error("scroll_target_not_found",
-                    "No supported scroll container matched the requested swipe scope");
+                    "No supported scroll container matched the requested observation bounds");
         }
 
         ScrollPlan plan = buildScrollPlan(container, direction, amount);
@@ -279,9 +287,9 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         return best;
     }
 
-    private View findScrollableContainer(List<View> views, String scope) {
+    private View findScrollableContainer(List<View> views, Rect referencedBounds) {
         View best = null;
-        int bestArea = -1;
+        float bestScore = -1f;
         Rect rect = new Rect();
         for (View view : views) {
             if (!(view instanceof AbsListView)
@@ -290,24 +298,17 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
                 continue;
             }
             view.getGlobalVisibleRect(rect);
-            if ("feed".equals(scope) && rect.height() <= 0) {
+            if (rect.height() <= 0 || rect.width() <= 0) {
                 continue;
             }
-            int area = Math.max(1, rect.width() * rect.height());
-            if (area > bestArea) {
+            float score = computeContainerMatchScore(rect, referencedBounds);
+            if (score > bestScore) {
                 best = view;
-                bestArea = area;
+                bestScore = score;
             }
         }
-        if (best != null) {
+        if (best != null && bestScore > 0f) {
             return best;
-        }
-        for (View view : views) {
-            if (view instanceof AbsListView
-                    || view instanceof ScrollView
-                    || view instanceof RecyclerView) {
-                return view;
-            }
         }
         return null;
     }
@@ -358,6 +359,20 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
             return new ScrollPlan(centerX, startY, centerX, endY, startY - endY);
         }
         return null;
+    }
+
+    private float computeContainerMatchScore(Rect candidate, Rect referencedBounds) {
+        Rect intersection = new Rect(candidate);
+        if (!intersection.intersect(referencedBounds)) {
+            return 0f;
+        }
+        float intersectionArea = Math.max(1, intersection.width() * intersection.height());
+        float candidateArea = Math.max(1, candidate.width() * candidate.height());
+        float boundsArea = Math.max(1, referencedBounds.width() * referencedBounds.height());
+        float unionArea = candidateArea + boundsArea - intersectionArea;
+        float iou = intersectionArea / Math.max(1f, unionArea);
+        boolean containsCenter = candidate.contains(referencedBounds.centerX(), referencedBounds.centerY());
+        return containsCenter ? iou + 1f : iou;
     }
 
     private Rect parseBounds(String referencedBounds) {
