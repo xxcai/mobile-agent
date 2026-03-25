@@ -219,11 +219,6 @@ public class ContainerActivity extends AppCompatActivity {
         }
         mIsClosing = true;
 
-        // 显示悬浮球
-        if (mFloatingBallManager != null) {
-            mFloatingBallManager.show();
-        }
-
         if (mCardLayout == null || mScrimView == null) {
             super.finish();
             overridePendingTransition(0, 0);
