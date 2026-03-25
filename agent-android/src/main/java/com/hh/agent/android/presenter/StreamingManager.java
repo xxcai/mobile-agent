@@ -1,5 +1,6 @@
 package com.hh.agent.android.presenter;
 
+import com.hh.agent.android.debug.SessionDebugTranscriptStore;
 import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.NativeAgent;
 import com.hh.agent.core.api.MobileAgentApi;
@@ -66,11 +67,17 @@ public class StreamingManager {
     public void sendMessageStream(String content, String sessionKey) {
         // 设置流式状态
         isStreaming.set(true);
+        SessionDebugTranscriptStore store = SessionDebugTranscriptStore.getInstance();
+        SessionDebugTranscriptStore.SessionTranscript sessionTranscript =
+                store != null ? store.startTurn(sessionKey, content) : null;
 
         // 创建 AgentEventListener 监听器
         AgentEventListener listener = new AgentEventListener() {
             @Override
             public void onTextDelta(String text) {
+                if (sessionTranscript != null) {
+                    sessionTranscript.onTextDelta(text);
+                }
                 if (callback != null) {
                     callback.onTextDelta(text);
                 }
@@ -78,6 +85,9 @@ public class StreamingManager {
 
             @Override
             public void onToolUse(String id, String name, String argumentsJson) {
+                if (sessionTranscript != null) {
+                    sessionTranscript.onToolUse(id, name, argumentsJson);
+                }
                 if (callback != null) {
                     callback.onToolUse(id, name, argumentsJson);
                 }
@@ -85,6 +95,9 @@ public class StreamingManager {
 
             @Override
             public void onToolResult(String id, String result) {
+                if (sessionTranscript != null) {
+                    sessionTranscript.onToolResult(id, result);
+                }
                 if (callback != null) {
                     callback.onToolResult(id, result);
                 }
@@ -94,6 +107,9 @@ public class StreamingManager {
             public void onMessageEnd(String finishReason) {
                 // 清除流式状态
                 isStreaming.set(false);
+                if (sessionTranscript != null) {
+                    sessionTranscript.onMessageEnd(finishReason);
+                }
                 if (callback != null) {
                     callback.onMessageEnd(finishReason);
                 }
@@ -103,6 +119,9 @@ public class StreamingManager {
             public void onError(String errorCode, String errorMessage) {
                 // 清除流式状态
                 isStreaming.set(false);
+                if (sessionTranscript != null) {
+                    sessionTranscript.onError(errorCode, errorMessage);
+                }
                 if (callback != null) {
                     callback.onError(errorCode, errorMessage);
                 }

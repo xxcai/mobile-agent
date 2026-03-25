@@ -4,6 +4,7 @@ import android.app.Application;
 import android.content.Context;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
+import com.hh.agent.android.debug.SessionDebugTranscriptStore;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.android.floating.FloatingBallManager;
@@ -67,6 +68,7 @@ public class AgentInitializer {
 
         // 0. 设置语音识别器
         VoiceRecognizerHolder.getInstance().setRecognizer(voiceRecognizer);
+        SessionDebugTranscriptStore.initialize(application);
 
         // 1. 创建 AndroidToolManager
         AndroidToolManager toolManager = new AndroidToolManager(application);

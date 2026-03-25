@@ -47,7 +47,7 @@ public class GestureExecutionResult {
         }
         if (success) {
             result.with("mock", mock);
-            result.with("result", "not_implemented");
+            result.with("result", "executed");
             if (payload != null) {
                 result.withJson("params", payload.toString());
             }

@@ -192,7 +192,7 @@ return ToolResult.error("execution_failed", e.getMessage());
 - `android_view_context_tool`
   页面观察通道，负责拿当前页面的 `nativeViewXml` / observation snapshot
 - `android_gesture_tool`
-  UI 执行通道，当前支持 observation 引用参数，后续将优先基于 observation 执行
+  UI 执行通道，当前支持 observation 引用参数，并已具备真实 in-process 执行能力
 
 其中你在宿主 `app` 层注册的 `ToolExecutor`，目前都会被聚合进 `call_android_tool`。
 
@@ -225,7 +225,15 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 - [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
 
-`android_gesture_tool` 当前仍然是 mock 运行时框架，适合用于验证通道选择和参数结构，还没有完全切到真实 observation-bound 执行。
+`android_gesture_tool` 当前已经不再是纯 mock 通道：
+
+- `tap` 已支持 observation-bound 的真实 in-process 执行
+- `swipe` 已支持高层滚动意图参数
+- 当前默认 runtime 仍处于过渡阶段：
+  - `tap` 主要基于 bounds 命中后的 `performClick / performItemClick`
+  - `swipe` 主要基于容器滚动实现
+
+下一阶段计划切到“Activity 内构造 `MotionEvent` 并通过 `dispatchTouchEvent` 注入”的主路径，以统一 `tap / swipe / long_press / double_tap` 的手势模拟方式。
 
 ## 当前示例工具
 

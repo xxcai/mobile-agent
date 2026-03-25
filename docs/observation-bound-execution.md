@@ -77,7 +77,7 @@
 
 这个通道负责“执行动作”。
 
-除了原来的坐标字段，现在还支持一个 `observation` 对象：
+当前 `android_gesture_tool` 以 `observation` 作为页面元素动作的主要引用信息：
 
 ```json
 {
@@ -93,7 +93,8 @@
 }
 ```
 
-`x/y` 目前仍保留，作为兼容 fallback。
+对 `tap` 来说，`x/y` 仍可作为受控 fallback，但推荐主路径始终依赖 `observation`。
+对 `swipe` 来说，正式协议已经不再要求模型直接生成 `startX / startY / endX / endY`，而是由 runtime 接收高层滚动意图后自行计算。
 
 ## 4 个 observation 字段分别是什么意思
 
@@ -150,13 +151,13 @@
 [42,438][1038,564]
 ```
 
-这是当前最接近“可执行点击点”的桥梁。
+这是当前从页面观察走向手势执行的几何桥梁。
 
-后续如果执行层要真正基于 observation 执行，最直接的做法就是：
+当前 runtime 的默认做法是：
 
 1. 解析 `referencedBounds`
 2. 取中心点
-3. 再执行 tap
+3. 再执行点击
 
 ## 用聊天列表页举例
 
@@ -281,37 +282,54 @@
 - mock 聊天列表页和详情页都已能从真实 observation 中提取：
   - `targetNodeIndex`
   - `referencedBounds`
-- 当前测试页和 mock 聊天页都能验证：
+- `tap` 已能基于 observation 做真实 in-process 执行
+- `swipe` 已切成高层滚动意图协议，由 runtime 计算滚动参数
+- 当前测试页和 mock 页面都能验证：
   - `snapshotId` 在 view context 和 gesture 之间保持一致
+  - observation 可以驱动真实点击和滚动
 
 ## 当前还没做到什么
 
-- `android_gesture_tool` 运行时还没有优先消费 `referencedBounds`
-- 还没有在运行时强制要求“先 observation，再 gesture”
-- 还没有把这套协议完整接到 LLM 自动调用链路里
+- 默认 runtime 仍未完全切到统一的真实事件注入
+- `tap` 仍主要依赖 bounds 命中后 `performClick / performItemClick`
+- `swipe` 仍主要依赖容器识别后的滚动实现
+- `long_press / double_tap` 还没有进入正式 gesture 协议
+- LLM 自动调用链路还没有系统化验收完整的事件注入主路径
 
 所以当前状态可以概括成：
 
-> 协议已经 observation-bound，运行时还没有完全 observation-bound。
+> 协议已经 observation-bound，执行主链也已真实可用，但 runtime 还处在“语义调用 -> 事件注入”迁移中。
 
 ## 推荐的后续实现顺序
 
-### 1. 先让 gesture 真正消费 observation
+### 1. 让默认 runtime 切到 Activity 事件注入
 
 最小实现建议：
 
 - 当 `action=tap` 且存在 `observation.referencedBounds` 时
 - 优先从 `referencedBounds` 计算点击中心点
-- `x/y` 仅作为 fallback
+- 生成 `ACTION_DOWN / ACTION_UP`
+- 通过当前前台 Activity 的 `dispatchTouchEvent` 注入
 
-### 2. 再加 runtime gating
+对于 `swipe`：
+
+- 继续接收 `direction / scope / amount`
+- 由 runtime 生成 `DOWN / MOVE* / UP`
+- 同样通过 Activity 的 `dispatchTouchEvent` 注入
+
+### 2. 再扩到更多真实手势类型
+
+- 把 `long_press / double_tap` 纳入统一事件序列构造层
+- 让调试 demo 与正式 runtime 尽量共用底层注入逻辑
+
+### 3. 保持 runtime gating
 
 也就是：
 
 - 页面元素类任务如果没有当前回合 observation
-- 可以拒绝直接 gesture
+- 继续拒绝直接 gesture 或只允许受控 fallback
 
-### 3. 最后再把这套规则完全前推到模型链路
+### 4. 最后再把这套规则完全前推到模型链路
 
 也就是让模型默认走：
 

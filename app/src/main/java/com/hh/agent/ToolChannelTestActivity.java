@@ -274,7 +274,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         StringBuilder report = new StringBuilder();
         report.append("# Observation Bound Gesture Probe\n");
         report.append("step_1=android_view_context_tool(native_xml)\n");
-        report.append("step_2=android_gesture_tool(tap + observation)\n");
+        report.append("step_2=android_gesture_tool(tap + observation + activity touch injection)\n");
         report.append("target_hint=发送消息按钮\n\n");
         outputView.setText(report.toString());
 
@@ -320,7 +320,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("# Business Fallback Linkage Probe\n");
         report.append("step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n");
         report.append("step_2=android_view_context_tool(native_xml)\n");
-        report.append("step_3=android_gesture_tool(tap + observation)\n");
+        report.append("step_3=android_gesture_tool(tap + observation + activity touch injection)\n");
         report.append("target_hint=发送\n\n");
         outputView.setText(report.toString());
 
@@ -400,6 +400,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 next.append("snapshot_match=")
                         .append(snapshotId.equals(referencedSnapshotId) ? "PASS" : "FAIL")
                         .append('\n');
+                next.append("gesture_dispatch_path=")
+                        .append(paramsJson != null
+                                ? paramsJson.optString("dispatchPath", "<none>")
+                                : "<none>")
+                        .append('\n');
+                next.append("gesture_dispatch_any_handled=")
+                        .append(paramsJson != null
+                                ? paramsJson.optBoolean("dispatchAnyHandled", false)
+                                : false)
+                        .append('\n');
             }
         } catch (Exception e) {
             next.append("parse_error=").append(e.getMessage()).append('\n');
@@ -443,6 +453,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 next.append("gesture_tap_point_source=")
                         .append(paramsJson != null
                                 ? paramsJson.optString("tapPointSource", "<none>")
+                                : "<none>")
+                        .append('\n');
+                next.append("gesture_dispatch_path=")
+                        .append(paramsJson != null
+                                ? paramsJson.optString("dispatchPath", "<none>")
+                                : "<none>")
+                        .append('\n');
+                next.append("gesture_dispatch_trace=")
+                        .append(paramsJson != null
+                                ? paramsJson.optString("dispatchTrace", "<none>")
                                 : "<none>")
                         .append('\n');
             } catch (Exception e) {
@@ -736,7 +756,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         runCase(report, manager,
                 "Gesture Swipe",
                 "android_gesture_tool",
-                "{\"action\":\"swipe\",\"startX\":200,\"startY\":800,\"endX\":200,\"endY\":300,\"duration\":400}");
+                "{\"action\":\"swipe\",\"direction\":\"down\",\"scope\":\"feed\",\"amount\":\"medium\",\"duration\":400}");
 
         runCase(report, manager,
                 "Gesture Tap With Observation",

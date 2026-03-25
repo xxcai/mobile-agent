@@ -130,16 +130,13 @@ public final class InProcessViewHierarchyDumper {
         }
 
         int nodeIndex = state.nodeCount++;
-        xml.append("<node index=\"").append(nodeIndex).append("\"");
-        xml.append(" class=\"").append(escape(view.getClass().getName())).append("\"");
-        xml.append(" resource-id=\"").append(escape(resolveResourceId(view))).append("\"");
-        xml.append(" text=\"").append(escape(extractText(view))).append("\"");
-        xml.append(" clickable=\"").append(view.isClickable()).append("\"");
-        xml.append(" enabled=\"").append(view.isEnabled()).append("\"");
-        xml.append(" focusable=\"").append(view.isFocusable()).append("\"");
-        xml.append(" visible=\"").append(view.getVisibility() == View.VISIBLE).append("\"");
-        xml.append(" bounds=\"").append(escape(extractBounds(view))).append("\"");
-        xml.append(">");
+        xml.append(buildNodeOpenTag(
+                nodeIndex,
+                view.getClass().getName(),
+                resolveResourceId(view),
+                extractText(view),
+                extractBounds(view)
+        ));
 
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
@@ -185,6 +182,30 @@ public final class InProcessViewHierarchyDumper {
             return contentDescription.toString();
         }
         return "";
+    }
+
+    private static void appendOptionalAttribute(StringBuilder xml, String name, @Nullable String value) {
+        if (value == null || value.isEmpty()) {
+            return;
+        }
+        xml.append(" ").append(name).append("=\"").append(escape(value)).append("\"");
+    }
+
+    static String buildNodeOpenTag(
+            int nodeIndex,
+            String className,
+            @Nullable String resourceId,
+            @Nullable String text,
+            String bounds
+    ) {
+        StringBuilder xml = new StringBuilder();
+        xml.append("<node index=\"").append(nodeIndex).append("\"");
+        xml.append(" class=\"").append(escape(className)).append("\"");
+        appendOptionalAttribute(xml, "resource-id", resourceId);
+        appendOptionalAttribute(xml, "text", text);
+        xml.append(" bounds=\"").append(escape(bounds)).append("\"");
+        xml.append(">");
+        return xml.toString();
     }
 
     private static String resolveResourceId(View view) {

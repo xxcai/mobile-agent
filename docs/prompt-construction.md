@@ -95,7 +95,7 @@ Required first: function, args
 
 ```text
 ## android_gesture_tool
-Route role: 执行基于屏幕坐标的 Android 手势。适合点击和滑动等 UI 操作。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具。
+Route role: 执行当前宿主页面内的 Android UI 手势。适合在先看页面后，完成点击和滚动等动作。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具。
 
 Input shape:
 Required first: action
@@ -103,11 +103,11 @@ Required first: action
   Choose from: tap, swipe
 - x: integer - 点击目标的 X 坐标
 - y: integer - 点击目标的 Y 坐标
-- startX: integer - 滑动起点的 X 坐标
-- startY: integer - 滑动起点的 Y 坐标
-- endX: integer - 滑动终点的 X 坐标
-- endY: integer - 滑动终点的 Y 坐标
-- duration: integer - 滑动持续时间
+- observation: object - 当前回合页面快照引用信息，页面元素任务优先填写
+- direction: string - 滚动方向，仅 action=swipe 时使用
+- scope: string - 滚动作用域，仅 action=swipe 时使用
+- amount: string - 滚动幅度，仅 action=swipe 时使用
+- duration: integer - 滚动后的稳定等待时间
 ```
 
 ## 这和“降级到视觉”有什么关系
@@ -168,7 +168,7 @@ android_view_context_tool -> android_gesture_tool(observation-bound)
 
 - 业务工具尚未统一返回 `business_capability_not_supported`
 - 业务工具尚未统一返回 `business_target_not_accessible`
-- 视觉链路当前仍未完整闭环
+- 视觉链路虽然已具备真实 in-process 执行，但默认 runtime 仍处于从语义调用向事件注入迁移的过程中
 
 所以这份展示优化的定位是：
 

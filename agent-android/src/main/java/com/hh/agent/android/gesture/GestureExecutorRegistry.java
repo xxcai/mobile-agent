@@ -2,11 +2,10 @@ package com.hh.agent.android.gesture;
 
 /**
  * Registry for the active gesture executor.
- * Step 04 keeps the default mock executor; later steps can install a real runtime executor.
  */
 public final class GestureExecutorRegistry {
 
-    private static AndroidGestureExecutor executor = new MockGestureExecutor();
+    private static AndroidGestureExecutor executor = new InProcessGestureExecutor();
 
     private GestureExecutorRegistry() {
     }

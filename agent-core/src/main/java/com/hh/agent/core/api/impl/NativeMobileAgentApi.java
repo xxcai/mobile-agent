@@ -285,13 +285,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         return value != null ? value : "";
     }
 
-    private static String toSessionId(String sessionKey) {
-        if (sessionKey != null && sessionKey.startsWith("native:")) {
-            return sessionKey.substring(7);
-        }
-        return sessionKey != null ? sessionKey : "default";
-    }
-
     /**
      * Parse ISO 8601 timestamp string to milliseconds
      */

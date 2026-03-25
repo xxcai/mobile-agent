@@ -751,11 +751,14 @@ std::vector<ContentBlock> AgentLoop::handle_tool_calls(const std::vector<ToolCal
         
         std::string result = tool_registry_->execute_tool(tc.name, tc.arguments);
         
-        // Prune large tool results
-        std::string pruned_result = prune_tool_result(result, 10000);
+        // TODO: Replace this generic max-char pruning with tool-aware compression.
+        // View/perception tools need structure-preserving summaries instead of
+        // front/back truncation once this debug validation is complete.
+        std::string pruned_result = prune_tool_result(result, 30000);
         if (pruned_result.size() != result.size()) {
-            ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=pruned_result original_length={} pruned_length={}",
-                    result.size(), pruned_result.size());
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][tool_result_pruned] tool_name={} tool_id={} pruned=true original_length={} pruned_length={}",
+                    tc.name, tc.id, result.size(), pruned_result.size());
         }
         
         results.push_back(ContentBlock::make_tool_result(tc.id, pruned_result));
