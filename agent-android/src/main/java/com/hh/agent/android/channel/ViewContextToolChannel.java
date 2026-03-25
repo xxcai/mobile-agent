@@ -8,7 +8,7 @@ import org.json.JSONObject;
 
 /**
  * View-context channel used to validate perception-channel routing.
- * Native XML now prefers in-process host view trees; DOM / screenshot remain mock.
+ * Native XML is produced from the in-process host view tree; DOM / screenshot remain mock.
  */
 public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
@@ -18,16 +18,6 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     private static final String SOURCE_WEB_DOM = "web_dom";
     private static final String SOURCE_SCREEN_SNAPSHOT = "screen_snapshot";
     private static final String SOURCE_ALL = "all";
-
-    private static final String MOCK_NATIVE_XML =
-            "<hierarchy rotation=\"0\">"
-                    + "<node index=\"0\" text=\"\" resource-id=\"com.hh.agent:id/root\" class=\"android.widget.FrameLayout\" clickable=\"false\">"
-                    + "<node index=\"0\" text=\"消息\" resource-id=\"com.hh.agent:id/tab_message\" class=\"android.widget.TextView\" clickable=\"true\" bounds=\"[0,0][240,120]\"/>"
-                    + "<node index=\"1\" text=\"张三\" resource-id=\"com.hh.agent:id/contact_name\" class=\"android.widget.TextView\" clickable=\"true\" bounds=\"[24,160][300,240]\"/>"
-                    + "<node index=\"2\" text=\"新消息\" resource-id=\"com.hh.agent:id/unread_badge\" class=\"android.widget.TextView\" clickable=\"false\" bounds=\"[320,170][420,220]\"/>"
-                    + "<node index=\"3\" text=\"发送消息\" resource-id=\"com.hh.agent:id/send_button\" class=\"android.widget.Button\" clickable=\"true\" bounds=\"[24,640][240,720]\"/>"
-                    + "</node>"
-                    + "</hierarchy>";
 
     private static final String MOCK_WEB_DOM =
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
@@ -45,7 +35,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
         properties.put("source", new JSONObject()
                 .put("type", "string")
-                .put("description", "要获取的视图上下文来源。native_xml 优先用于验证原生界面树；web_dom 和 screen_snapshot 当前为 mock。")
+                .put("description", "要获取的视图上下文来源。native_xml 返回当前原生界面树；web_dom 和 screen_snapshot 当前为 mock。")
                 .put("enum", new JSONArray()
                         .put(SOURCE_NATIVE_XML)
                         .put(SOURCE_WEB_DOM)
@@ -71,7 +61,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
         JSONObject function = new JSONObject();
         function.put("name", CHANNEL_NAME);
-        function.put("description", "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。优先使用 native_xml 验证原生界面树；web_dom 和 screen_snapshot 当前仅返回 mock。");
+        function.put("description", "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。native_xml 返回当前原生界面树；web_dom 和 screen_snapshot 当前仅返回 mock。");
         function.put("parameters", parameters);
 
         return new JSONObject()
@@ -99,16 +89,8 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
             switch (source) {
                 case SOURCE_NATIVE_XML:
-                    ToolResult nativeViewResult =
-                            ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
-                    if (nativeViewResult.toJsonString().contains("\"success\":true")) {
-                        return nativeViewResult
-                                .with("channel", CHANNEL_NAME);
-                    }
-                    return result
-                            .with("nativeViewXml", MOCK_NATIVE_XML)
-                            .with("webDom", (String) null)
-                            .with("screenSnapshot", (String) null);
+                    return ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint)
+                            .with("channel", CHANNEL_NAME);
                 case SOURCE_WEB_DOM:
                     return result
                             .with("nativeViewXml", (String) null)
@@ -120,8 +102,28 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
                             .with("webDom", (String) null)
                             .with("screenSnapshot", MOCK_SCREEN_SNAPSHOT);
                 case SOURCE_ALL:
+                    ToolResult nativeSnapshot =
+                            ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
+                    JSONObject nativeSnapshotJson = new JSONObject(nativeSnapshot.toJsonString());
+                    boolean nativeSuccess = nativeSnapshotJson.optBoolean("success", false);
                     return result
-                            .with("nativeViewXml", MOCK_NATIVE_XML)
+                            .with("mock", !nativeSuccess)
+                            .with("activityClassName",
+                                    nativeSuccess ? nativeSnapshotJson.optString("activityClassName", null) : null)
+                            .with("observationMode",
+                                    nativeSuccess ? nativeSnapshotJson.optString("observationMode", null) : null)
+                            .with("snapshotId",
+                                    nativeSuccess ? nativeSnapshotJson.optString("snapshotId", null) : null)
+                            .with("snapshotCreatedAtEpochMs",
+                                    nativeSuccess ? nativeSnapshotJson.optLong("snapshotCreatedAtEpochMs", 0L) : null)
+                            .with("snapshotScope",
+                                    nativeSuccess ? nativeSnapshotJson.optString("snapshotScope", null) : null)
+                            .with("snapshotCurrentTurnOnly",
+                                    nativeSuccess ? nativeSnapshotJson.optBoolean("snapshotCurrentTurnOnly", false) : null)
+                            .with("nativeViewXml",
+                                    nativeSuccess ? nativeSnapshotJson.optString("nativeViewXml", null) : null)
+                            .with("nativeViewUnavailableReason",
+                                    nativeSuccess ? null : nativeSnapshotJson.optString("message", "unknown"))
                             .with("webDom", includeMockWebDom ? MOCK_WEB_DOM : null)
                             .with("screenSnapshot", includeMockScreenshot ? MOCK_SCREEN_SNAPSHOT : null);
                 default:
