@@ -55,6 +55,14 @@
             android:exported="false" />
 
         <activity
+            android:name=".EmailDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".BusinessWebActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".FloatingBallVisibleActivity"
             android:exported="false" />
 

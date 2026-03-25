@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="96dp"
+    android:background="@android:color/white"
+    android:paddingHorizontal="16dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="12dp">
+
+    <View
+        android:id="@+id/emailUnreadDot"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_unread_badge" />
+
+    <TextView
+        android:id="@+id/emailSenderView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_toEndOf="@id/emailUnreadDot"
+        android:textColor="@android:color/black"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/emailTimeView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:textColor="@color/mock_im_hint_text"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/emailSubjectView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/emailSenderView"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="6dp"
+        android:layout_toEndOf="@id/emailUnreadDot"
+        android:layout_toStartOf="@id/emailLabelView"
+        android:maxLines="1"
+        android:textColor="@android:color/black"
+        android:textSize="15sp" />
+
+    <TextView
+        android:id="@+id/emailPreviewView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/emailSubjectView"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="8dp"
+        android:layout_toEndOf="@id/emailUnreadDot"
+        android:maxLines="1"
+        android:textColor="@color/mock_im_secondary_text"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/emailLabelView"
+        android:layout_width="wrap_content"
+        android:layout_height="24dp"
+        android:layout_alignBottom="@id/emailSubjectView"
+        android:layout_alignParentEnd="true"
+        android:background="@drawable/bg_chat_input"
+        android:gravity="center"
+        android:minWidth="56dp"
+        android:paddingHorizontal="10dp"
+        android:textColor="@color/mock_im_secondary_text"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+</RelativeLayout>

@@ -34,4 +34,16 @@
     <color name="mock_im_pin_text">#B0B0B0</color>
     <color name="mock_im_tab_selected">#2F2F2F</color>
     <color name="mock_im_tab_unselected">#888888</color>
+    <color name="business_page_bg">#F3F6FB</color>
+    <color name="business_card_bg">#FFFFFF</color>
+    <color name="business_card_stroke">#E5EBF3</color>
+    <color name="business_title">#1F2937</color>
+    <color name="business_body">#4B5563</color>
+    <color name="business_subtle">#8A94A6</color>
+    <color name="business_blue">#4C8BF5</color>
+    <color name="business_cyan">#42B6C8</color>
+    <color name="business_orange">#F59E0B</color>
+    <color name="business_green">#16A34A</color>
+    <color name="business_pink">#EC4899</color>
+    <color name="business_red">#EF4444</color>
 </resources>
