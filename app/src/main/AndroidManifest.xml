@@ -36,6 +36,21 @@
         </activity>
 
         <activity
+            android:name=".TouchDispatchProbeActivity"
+            android:exported="false"
+            android:label="@string/touch_dispatch_probe_launcher_name" />
+
+        <activity
+            android:name=".RecyclerViewSwipeProbeActivity"
+            android:exported="false"
+            android:label="@string/recycler_swipe_probe_launcher_name" />
+
+        <activity
+            android:name=".LongPressDoubleTapProbeActivity"
+            android:exported="false"
+            android:label="@string/long_press_double_tap_probe_launcher_name" />
+
+        <activity
             android:name=".ChatDetailActivity"
             android:exported="false" />
 
