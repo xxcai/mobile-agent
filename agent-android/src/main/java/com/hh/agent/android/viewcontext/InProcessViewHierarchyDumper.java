@@ -19,10 +19,9 @@ import java.lang.ref.WeakReference;
  * Collects a compact XML-like snapshot from the current in-process foreground activity.
  */
 public final class InProcessViewHierarchyDumper {
-
     private static final long CONTAINER_DISMISS_TIMEOUT_MS = 1500L;
     private static final long FOREGROUND_STABLE_TIMEOUT_MS = 1500L;
-    private static final int MAX_NODES = 160;
+    private static final int MAX_NODES = 300;
 
     private InProcessViewHierarchyDumper() {
     }
@@ -125,7 +124,13 @@ public final class InProcessViewHierarchyDumper {
     }
 
     private static void appendNode(StringBuilder xml, View view, DumpState state) {
-        if (view == null || state.nodeCount >= MAX_NODES || !isMeaningful(view)) {
+        if (view == null) {
+            return;
+        }
+        if (state.nodeCount >= MAX_NODES) {
+            return;
+        }
+        if (!isMeaningful(view)) {
             return;
         }
 

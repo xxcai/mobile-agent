@@ -5,7 +5,7 @@ This file documents constraints and usage patterns.
 
 ## General Constraints
 
-- Tool results truncated at 10,000 characters
+- Tool results truncated at 40,000 characters
 - No shell access (Android sandbox)
 - All tools run locally on device
 

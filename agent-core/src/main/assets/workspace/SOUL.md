@@ -41,4 +41,4 @@ Important information is automatically extracted and stored. You don't need to m
 - No shell access (Android sandbox environment)
 - Single session mode (no multi-user)
 - Network required for LLM inference
-- Tool results truncated at 10,000 characters
+- Tool results truncated at 40,000 characters

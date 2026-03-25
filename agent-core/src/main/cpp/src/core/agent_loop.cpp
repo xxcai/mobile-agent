@@ -754,7 +754,7 @@ std::vector<ContentBlock> AgentLoop::handle_tool_calls(const std::vector<ToolCal
         // TODO: Replace this generic max-char pruning with tool-aware compression.
         // View/perception tools need structure-preserving summaries instead of
         // front/back truncation once this debug validation is complete.
-        std::string pruned_result = prune_tool_result(result, 30000);
+        std::string pruned_result = prune_tool_result(result, 40000);
         if (pruned_result.size() != result.size()) {
             ICRAW_LOG_INFO(
                     "[AgentLoop][tool_result_pruned] tool_name={} tool_id={} pruned=true original_length={} pruned_length={}",
