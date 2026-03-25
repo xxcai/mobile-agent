@@ -65,9 +65,10 @@ always: false
 
 如果用户明确要求“完整一点”“多看几条”“继续往下看再总结”，或者当前可见动态明显不足以支撑总结，可以**受控向下滑动页面**，继续查看更早的朋友圈内容，再补读：
 
-1. 调用一次 `android_gesture_tool`，使用 `action=swipe`、`direction=down`、`scope=feed`，必要时可配 `amount=medium`
-2. 再次调用 `android_view_context_tool`
-3. 合并新旧可见内容
+1. 从最新 `android_view_context_tool` 结果中选出承载朋友圈内容的滚动容器，并记录该容器的 `observation.snapshotId` 与 `observation.referencedBounds`
+2. 调用一次 `android_gesture_tool`，使用 `action=swipe`、`direction=down`，必要时可配 `amount=medium`，并把上一步选中的容器 observation 一起传入
+3. 再次调用 `android_view_context_tool`
+4. 合并新旧可见内容
 
 **限制**:
 
@@ -76,6 +77,7 @@ always: false
 - 补读目标是查看**之前/更早的朋友圈动态**
 - 如果滚动后没有出现新的动态，应停止继续滚动
 - 这里的滚动能力依赖 gesture runtime 的真实页面事件注入，不要在 Skill 中自己编造裸坐标
+- 如果页面上存在多个滚动容器，必须明确选择“朋友圈内容所在的那个容器”，不要让 runtime 自行猜测
 
 ### 步骤 4: 去重
 
@@ -183,10 +185,11 @@ always: false
 **用户**: 再往下看一点，然后总结完整一些
 
 **Agent**:
-1. 调用 `android_gesture_tool` 向下滚动一次
-2. 再次调用 `android_view_context_tool`
-3. 合并并去重
-4. 输出更新后的总结，并说明“基于当前屏幕 + 补读内容”
+1. 从最新 view context 中选择朋友圈列表容器，带上该容器的 `observation.snapshotId + observation.referencedBounds`
+2. 调用 `android_gesture_tool` 向下滚动一次
+3. 再次调用 `android_view_context_tool`
+4. 合并并去重
+5. 输出更新后的总结，并说明“基于当前屏幕 + 补读内容”
 
 ---
 
@@ -196,9 +199,10 @@ always: false
 
 **Agent**:
 1. 说明将继续向下滑动查看更早动态
-2. 调用 `android_gesture_tool` 向下滚动一次
-3. 再调用 `android_view_context_tool`
-4. 对新增内容和当前内容一起总结，并说明总结基于补读后的可见范围
+2. 从最新 view context 中选择朋友圈列表容器，带上该容器的 `observation.snapshotId + observation.referencedBounds`
+3. 调用 `android_gesture_tool` 向下滚动一次
+4. 再调用 `android_view_context_tool`
+5. 对新增内容和当前内容一起总结，并说明总结基于补读后的可见范围
 
 ---
 
