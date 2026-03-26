@@ -7,7 +7,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-final class TapGestureToolActionDefinition extends AbstractGestureToolActionDefinition {
+final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler {
 
     @Override
     public String getActionName() {

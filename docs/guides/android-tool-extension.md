@@ -47,7 +47,7 @@ AgentInitializer.setLogger(yourAgentLogger);
 
 如果宿主要接入自定义 logger，建议保持 `agent-android` 当前的结构化日志格式和分级约定，具体见：
 
-- `docs/agent-android-logging.md`
+- `docs/logging/agent-android-logging.md`
 
 参考现有实现：
 

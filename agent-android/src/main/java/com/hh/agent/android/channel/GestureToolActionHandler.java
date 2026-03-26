@@ -6,7 +6,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-interface GestureToolActionDefinition {
+interface GestureToolActionHandler {
 
     String getActionName();
 

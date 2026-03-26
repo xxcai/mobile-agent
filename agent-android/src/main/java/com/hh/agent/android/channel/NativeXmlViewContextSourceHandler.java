@@ -6,7 +6,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-final class NativeXmlViewContextSourceDefinition extends AbstractViewContextSourceDefinition {
+final class NativeXmlViewContextSourceHandler extends AbstractViewContextSourceHandler {
 
     @Override
     public String getSourceName() {

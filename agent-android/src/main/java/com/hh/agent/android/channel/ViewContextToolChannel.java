@@ -26,7 +26,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
 
     static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
-    private final Map<String, ViewContextSourceDefinition> sourceDefinitions = createSourceDefinitions();
+    private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
 
     @Override
     public String getChannelName() {
@@ -45,8 +45,8 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
                         .defaultValue(SOURCE_NATIVE_XML), true)
                 .property("targetHint", ToolSchemaBuilder.string()
                         .description("用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"), false);
-        for (ViewContextSourceDefinition definition : sourceDefinitions.values()) {
-            definition.contributeProperties(builder);
+        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
+            handler.contributeProperties(builder);
         }
         return builder.build();
     }
@@ -60,15 +60,15 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
             }
 
             String targetHint = normalizeOptionalText(params.optString("targetHint", null));
-            ViewContextSourceDefinition sourceDefinition = sourceDefinitions.get(source);
-            if (sourceDefinition == null) {
+            ViewContextSourceHandler sourceHandler = sourceHandlers.get(source);
+            if (sourceHandler == null) {
                 return ToolResult.error("invalid_args",
                                 "Unsupported source '" + source + "' for " + CHANNEL_NAME)
                         .with("allowedSources",
                                 SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
                                         + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
             }
-            return sourceDefinition.execute(params, targetHint);
+            return sourceHandler.execute(params, targetHint);
         } catch (Exception e) {
             return ToolResult.error("execution_failed", e.getMessage());
         }
@@ -82,38 +82,38 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private Map<String, ViewContextSourceDefinition> createSourceDefinitions() {
-        LinkedHashMap<String, ViewContextSourceDefinition> definitions = new LinkedHashMap<>();
-        register(definitions, new NativeXmlViewContextSourceDefinition());
-        register(definitions, new WebDomViewContextSourceDefinition());
-        register(definitions, new ScreenSnapshotViewContextSourceDefinition());
-        register(definitions, new AllViewContextSourceDefinition());
-        return definitions;
+    private Map<String, ViewContextSourceHandler> createSourceHandlers() {
+        LinkedHashMap<String, ViewContextSourceHandler> handlers = new LinkedHashMap<>();
+        register(handlers, new NativeXmlViewContextSourceHandler());
+        register(handlers, new WebDomViewContextSourceHandler());
+        register(handlers, new ScreenSnapshotViewContextSourceHandler());
+        register(handlers, new AllViewContextSourceHandler());
+        return handlers;
     }
 
-    private void register(Map<String, ViewContextSourceDefinition> definitions,
-                          ViewContextSourceDefinition definition) {
-        String sourceName = definition.getSourceName();
-        if (definitions.containsKey(sourceName)) {
-            throw new IllegalStateException("Duplicate view-context source definition: " + sourceName);
+    private void register(Map<String, ViewContextSourceHandler> handlers,
+                          ViewContextSourceHandler handler) {
+        String sourceName = handler.getSourceName();
+        if (handlers.containsKey(sourceName)) {
+            throw new IllegalStateException("Duplicate view-context source handler: " + sourceName);
         }
-        definitions.put(sourceName, definition);
+        handlers.put(sourceName, handler);
     }
 
     private String buildSourceDescription() {
         StringBuilder description = new StringBuilder();
         boolean first = true;
-        for (ViewContextSourceDefinition definition : sourceDefinitions.values()) {
+        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
             if (!first) {
                 description.append("；");
             }
-            description.append(definition.getSourceDescription());
+            description.append(handler.getSourceDescription());
             first = false;
         }
         return description.toString();
     }
 
     private String[] getSourceNames() {
-        return sourceDefinitions.keySet().toArray(new String[0]);
+        return sourceHandlers.keySet().toArray(new String[0]);
     }
 }

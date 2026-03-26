@@ -6,7 +6,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-abstract class AbstractGestureToolActionDefinition implements GestureToolActionDefinition {
+abstract class AbstractGestureToolActionHandler implements GestureToolActionHandler {
 
     protected final ToolResult buildError(String errorCode, String message) {
         return ToolResult.error(errorCode, message);

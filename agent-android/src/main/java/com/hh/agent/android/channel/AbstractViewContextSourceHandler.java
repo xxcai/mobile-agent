@@ -4,7 +4,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-abstract class AbstractViewContextSourceDefinition implements ViewContextSourceDefinition {
+abstract class AbstractViewContextSourceHandler implements ViewContextSourceHandler {
 
     protected ToolResult buildBaseResult(String source, String targetHint) {
         return ToolResult.success()

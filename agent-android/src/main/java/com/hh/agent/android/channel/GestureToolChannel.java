@@ -16,8 +16,8 @@ import java.util.Map;
 public class GestureToolChannel implements AndroidToolChannelExecutor {
 
     public static final String CHANNEL_NAME = "android_gesture_tool";
-    private final Map<String, GestureToolActionDefinition> actionDefinitions =
-            createActionDefinitions();
+    private final Map<String, GestureToolActionHandler> actionHandlers =
+            createActionHandlers();
 
     @Override
     public String getChannelName() {
@@ -34,8 +34,8 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                         .enumValues(getActionNames()), true)
                 .property("observation", buildObservationSchema(), false)
                 ;
-        for (GestureToolActionDefinition definition : actionDefinitions.values()) {
-            definition.contributeProperties(builder);
+        for (GestureToolActionHandler handler : actionHandlers.values()) {
+            handler.contributeProperties(builder);
         }
         return builder.build();
     }
@@ -61,13 +61,13 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
                 return buildError("invalid_args", "android_gesture_tool requires a non-empty 'action' field");
             }
 
-            GestureToolActionDefinition actionDefinition = actionDefinitions.get(action);
-            if (actionDefinition == null) {
+            GestureToolActionHandler actionHandler = actionHandlers.get(action);
+            if (actionHandler == null) {
                 return buildError("invalid_args", "Unsupported gesture action '" + action + "'");
             }
 
             AndroidGestureExecutor executor = GestureExecutorRegistry.getExecutor();
-            return actionDefinition.execute(params, executor);
+            return actionHandler.execute(params, executor);
         } catch (Exception e) {
             return buildError("execution_failed", e.getMessage());
         }
@@ -78,30 +78,30 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
         return false;
     }
 
-    private Map<String, GestureToolActionDefinition> createActionDefinitions() {
-        LinkedHashMap<String, GestureToolActionDefinition> definitions = new LinkedHashMap<>();
-        register(definitions, new TapGestureToolActionDefinition());
-        register(definitions, new SwipeGestureToolActionDefinition());
-        return definitions;
+    private Map<String, GestureToolActionHandler> createActionHandlers() {
+        LinkedHashMap<String, GestureToolActionHandler> handlers = new LinkedHashMap<>();
+        register(handlers, new TapGestureToolActionHandler());
+        register(handlers, new SwipeGestureToolActionHandler());
+        return handlers;
     }
 
-    private void register(Map<String, GestureToolActionDefinition> definitions,
-                          GestureToolActionDefinition definition) {
-        String actionName = definition.getActionName();
-        if (definitions.containsKey(actionName)) {
-            throw new IllegalStateException("Duplicate gesture action definition: " + actionName);
+    private void register(Map<String, GestureToolActionHandler> handlers,
+                          GestureToolActionHandler handler) {
+        String actionName = handler.getActionName();
+        if (handlers.containsKey(actionName)) {
+            throw new IllegalStateException("Duplicate gesture action handler: " + actionName);
         }
-        definitions.put(actionName, definition);
+        handlers.put(actionName, handler);
     }
 
     private String buildActionDescription() {
         StringBuilder description = new StringBuilder("手势动作类型。");
         boolean first = true;
-        for (GestureToolActionDefinition definition : actionDefinitions.values()) {
+        for (GestureToolActionHandler handler : actionHandlers.values()) {
             if (!first) {
                 description.append("；");
             }
-            description.append(definition.getActionDescription());
+            description.append(handler.getActionDescription());
             first = false;
         }
         description.append("。运行时会在当前前台 Activity 内注入真实触摸事件。不要填写业务工具名。");
@@ -109,7 +109,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     }
 
     private String[] getActionNames() {
-        return actionDefinitions.keySet().toArray(new String[0]);
+        return actionHandlers.keySet().toArray(new String[0]);
     }
 
     private ToolResult buildError(String errorCode, String message) {

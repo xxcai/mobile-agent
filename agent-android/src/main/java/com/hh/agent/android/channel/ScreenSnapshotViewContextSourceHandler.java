@@ -5,16 +5,16 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-final class WebDomViewContextSourceDefinition extends AbstractViewContextSourceDefinition {
+final class ScreenSnapshotViewContextSourceHandler extends AbstractViewContextSourceHandler {
 
     @Override
     public String getSourceName() {
-        return ViewContextToolChannel.SOURCE_WEB_DOM;
+        return ViewContextToolChannel.SOURCE_SCREEN_SNAPSHOT;
     }
 
     @Override
     public String getSourceDescription() {
-        return "web_dom 当前返回 mock web DOM";
+        return "screen_snapshot 当前返回 mock screenshot 引用";
     }
 
     @Override
@@ -25,7 +25,7 @@ final class WebDomViewContextSourceDefinition extends AbstractViewContextSourceD
     public ToolResult execute(JSONObject params, String targetHint) {
         return buildBaseResult(getSourceName(), targetHint)
                 .with("nativeViewXml", (String) null)
-                .with("webDom", ViewContextToolChannel.MOCK_WEB_DOM)
-                .with("screenSnapshot", (String) null);
+                .with("webDom", (String) null)
+                .with("screenSnapshot", ViewContextToolChannel.MOCK_SCREEN_SNAPSHOT);
     }
 }

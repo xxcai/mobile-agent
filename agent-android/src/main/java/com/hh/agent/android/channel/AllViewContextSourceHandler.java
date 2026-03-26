@@ -6,7 +6,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-final class AllViewContextSourceDefinition extends AbstractViewContextSourceDefinition {
+final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler {
 
     @Override
     public String getSourceName() {

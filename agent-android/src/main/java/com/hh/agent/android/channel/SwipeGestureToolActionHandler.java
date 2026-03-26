@@ -7,7 +7,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-final class SwipeGestureToolActionDefinition extends AbstractGestureToolActionDefinition {
+final class SwipeGestureToolActionHandler extends AbstractGestureToolActionHandler {
 
     @Override
     public String getActionName() {

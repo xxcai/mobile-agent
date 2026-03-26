@@ -5,7 +5,7 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
-interface ViewContextSourceDefinition {
+interface ViewContextSourceHandler {
 
     String getSourceName();
 
