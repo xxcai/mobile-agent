@@ -22,6 +22,7 @@ struct ChatCompletionRequest {
 
 struct ChatCompletionResponse {
     std::string content;
+    std::string reasoning_content;
     std::vector<ToolCall> tool_calls;
     std::string finish_reason;
     bool is_stream_end = false;
@@ -95,11 +96,14 @@ public:
     std::vector<ToolCall> get_accumulated_tool_calls() override;
     
 private:
+    ToolCallMatchMode initial_match_mode_;
     ToolCallMatchMode match_mode_;
     std::map<int, ToolCallAccumulator> accumulators_by_index_;
     std::map<std::string, ToolCallAccumulator> accumulators_by_id_;
     bool mode_detected_ = false;
-    
+    std::string content_snapshot_;
+    std::string reasoning_snapshot_;
+
     // Accumulate a tool call chunk
     void accumulate_tool_call(const nlohmann::json& tc_json);
     

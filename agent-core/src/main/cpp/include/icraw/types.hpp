@@ -256,7 +256,7 @@ struct ToolCall {
 // --- Agent Event (for streaming) ---
 
 struct AgentEvent {
-    std::string type;  // "text_delta" | "tool_use" | "tool_result" | "message_end"
+    std::string type;  // "text_delta" | "reasoning_delta" | "tool_use" | "tool_result" | "message_end"
     nlohmann::json data;
 };
 

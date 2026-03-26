@@ -326,6 +326,13 @@ public class MainPresenter implements MainContract.Presenter {
             }
 
             @Override
+            public void onReasoningDelta(String text) {
+                AgentLogs.debug(TAG, "reasoning_delta_received",
+                        "session_key=" + sessionKey
+                                + " delta_length=" + (text != null ? text.length() : 0));
+            }
+
+            @Override
             public void onToolUse(String id, String name, String argumentsJson) {
                 AgentLogs.info(TAG, "tool_use", "tool_id=" + id + " tool_name=" + name);
                 if (streamingView != null) {

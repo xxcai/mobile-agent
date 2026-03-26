@@ -21,6 +21,7 @@ public class StreamingManager {
      */
     public interface StreamingCallback {
         void onTextDelta(String text);
+        void onReasoningDelta(String text);
         void onToolUse(String id, String name, String argumentsJson);
         void onToolResult(String id, String result);
         void onMessageEnd(String finishReason);
@@ -80,6 +81,16 @@ public class StreamingManager {
                 }
                 if (callback != null) {
                     callback.onTextDelta(text);
+                }
+            }
+
+            @Override
+            public void onReasoningDelta(String text) {
+                if (sessionTranscript != null) {
+                    sessionTranscript.onReasoningDelta(text);
+                }
+                if (callback != null) {
+                    callback.onReasoningDelta(text);
                 }
             }
 

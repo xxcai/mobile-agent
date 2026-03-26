@@ -588,6 +588,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     jclass listener_cls = env->GetObjectClass(listener);
 
     jmethodID method_onTextDelta = env->GetMethodID(listener_cls, "onTextDelta", "(Ljava/lang/String;)V");
+    jmethodID method_onReasoningDelta = env->GetMethodID(listener_cls, "onReasoningDelta", "(Ljava/lang/String;)V");
     jmethodID method_onToolUse = env->GetMethodID(listener_cls, "onToolUse",
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     jmethodID method_onToolResult = env->GetMethodID(listener_cls, "onToolResult",
@@ -602,11 +603,12 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     class JniStreamCallback : public icraw::AgentEventCallback {
     public:
         JniStreamCallback(JavaVM* jvm, jobject listener,
-                          jmethodID onTextDelta, jmethodID onToolUse,
+                          jmethodID onTextDelta, jmethodID onReasoningDelta, jmethodID onToolUse,
                           jmethodID onToolResult, jmethodID onMessageEnd,
                           jmethodID onError)
             : java_vm_(jvm), listener_(listener),
-              method_onTextDelta_(onTextDelta), method_onToolUse_(onToolUse),
+              method_onTextDelta_(onTextDelta), method_onReasoningDelta_(onReasoningDelta),
+              method_onToolUse_(onToolUse),
               method_onToolResult_(onToolResult), method_onMessageEnd_(onMessageEnd),
               method_onError_(onError) {}
 
@@ -634,6 +636,14 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
                             text.size(), text);
                     jstring j_text = env->NewStringUTF(text.c_str());
                     env->CallVoidMethod(listener_, method_onTextDelta_, j_text);
+                    env->DeleteLocalRef(j_text);
+
+                } else if (event.type == "reasoning_delta") {
+                    std::string text = event.data.value("delta", "");
+                    ICRAW_LOG_DEBUG("[NativeAgentJni][stream_event_debug] event_type=reasoning_delta delta_length={} text={}",
+                            text.size(), text);
+                    jstring j_text = env->NewStringUTF(text.c_str());
+                    env->CallVoidMethod(listener_, method_onReasoningDelta_, j_text);
                     env->DeleteLocalRef(j_text);
 
                 } else if (event.type == "tool_use") {
@@ -720,6 +730,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
         JavaVM* java_vm_;
         jobject listener_;
         jmethodID method_onTextDelta_;
+        jmethodID method_onReasoningDelta_;
         jmethodID method_onToolUse_;
         jmethodID method_onToolResult_;
         jmethodID method_onMessageEnd_;
@@ -729,7 +740,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessageStrea
     // Create callback instance
     auto callback = std::make_unique<JniStreamCallback>(
         java_vm, listener_global_ref,
-        method_onTextDelta, method_onToolUse,
+        method_onTextDelta, method_onReasoningDelta, method_onToolUse,
         method_onToolResult, method_onMessageEnd,
         method_onError);
 

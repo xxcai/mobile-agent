@@ -2,7 +2,7 @@ package com.hh.agent.core.event;
 
 /**
  * Callback interface for stream events from C++ native agent.
- * Receives streaming events like text_delta, tool_use, tool_result, message_end, and errors.
+ * Receives streaming events like text_delta, reasoning_delta, tool_use, tool_result, message_end, and errors.
  */
 public interface AgentEventListener {
 
@@ -12,6 +12,13 @@ public interface AgentEventListener {
      * @param text The incremental text content
      */
     void onTextDelta(String text);
+
+    /**
+     * Called when reasoning delta is received during streaming.
+     *
+     * @param text The incremental reasoning content
+     */
+    void onReasoningDelta(String text);
 
     /**
      * Called when a tool use is initiated.
