@@ -28,6 +28,7 @@ Tools are provided via function calling. Key points:
 - Treat "no suitable business tool" and "business tool failed this time" as different situations.
 - Use `android_view_context_tool` before `android_gesture_tool` when the current screen structure is still unclear.
 - Do not guess tap or swipe coordinates.
+- When repeated tool results no longer change the evidence, stop exploring and answer with the best supported result.
 - Show progress quickly: begin the main response immediately, then choose the first tool call.
 
 ## Turn Scope
