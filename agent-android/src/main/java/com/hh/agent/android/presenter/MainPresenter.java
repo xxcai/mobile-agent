@@ -246,7 +246,7 @@ public class MainPresenter implements MainContract.Presenter {
             @Override
             public void onMessageEnd(String finishReason) {
                 if ("parse_error".equals(finishReason)) {
-                    AgentLogs.warn(TAG, "think_parse_error_finish", "session_key=" + sessionKey);
+                    AgentLogs.warn(TAG, "stream_parse_error_finish", "session_key=" + sessionKey);
                 }
                 if ("stop".equals(finishReason) || "tool_calls".equals(finishReason)) {
                     AgentLogs.info(TAG, "stream_finish", "finish_reason=" + finishReason);

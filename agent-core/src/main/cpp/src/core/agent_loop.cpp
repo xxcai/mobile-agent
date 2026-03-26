@@ -54,52 +54,12 @@ static void append_think_block_if_not_empty(std::vector<ContentBlock>& blocks,
     }
 }
 
-static std::vector<ContentBlock> parse_mixed_response_blocks(const std::string& raw_text) {
-    std::vector<ContentBlock> blocks;
-    const std::string think_start = "<think>";
-    const std::string think_end = "</think>";
-
-    size_t cursor = 0;
-    while (cursor < raw_text.size()) {
-        const size_t think_start_pos = raw_text.find(think_start, cursor);
-        if (think_start_pos == std::string::npos) {
-            append_text_block_if_not_empty(blocks, raw_text.substr(cursor));
-            break;
-        }
-
-        if (think_start_pos > cursor) {
-            append_text_block_if_not_empty(blocks, raw_text.substr(cursor, think_start_pos - cursor));
-        }
-
-        const size_t think_content_start = think_start_pos + think_start.size();
-        const size_t think_end_pos = raw_text.find(think_end, think_content_start);
-        if (think_end_pos == std::string::npos) {
-            // Preserve incomplete tags as visible text on finalization rather than dropping content.
-            append_text_block_if_not_empty(blocks, raw_text.substr(think_start_pos));
-            break;
-        }
-
-        const std::string think_content = trim_whitespace(
-            raw_text.substr(think_content_start, think_end_pos - think_content_start));
-        if (!think_content.empty()) {
-            blocks.push_back(ContentBlock::make_think(think_content));
-        }
-
-        cursor = think_end_pos + think_end.size();
-    }
-
-    return blocks;
-}
-
 static std::vector<ContentBlock> build_response_blocks(const std::string& visible_text,
                                                        const std::string& reasoning_text) {
-    if (!reasoning_text.empty()) {
-        std::vector<ContentBlock> blocks;
-        append_think_block_if_not_empty(blocks, reasoning_text);
-        append_text_block_if_not_empty(blocks, visible_text);
-        return blocks;
-    }
-    return parse_mixed_response_blocks(visible_text);
+    std::vector<ContentBlock> blocks;
+    append_think_block_if_not_empty(blocks, reasoning_text);
+    append_text_block_if_not_empty(blocks, visible_text);
+    return blocks;
 }
 
 AgentLoop::AgentLoop(std::shared_ptr<MemoryManager> memory_manager,
