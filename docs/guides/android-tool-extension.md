@@ -2,6 +2,10 @@
 
 本文档基于当前工程代码，说明如何为宿主应用添加新的 Android Tool。
 
+如果你还不了解当前项目里 native agent、Java tool channel 和宿主业务工具之间的整体关系，建议先看：
+
+- [Android Tool 架构说明](../architecture/android-tool-architecture.md)
+
 当前工具能力的接入方式是：
 
 - Tool 实现在宿主 `app` 层
@@ -13,7 +17,7 @@
 
 如果你要扩展的是页面感知 / UI 执行链路，而不是宿主业务工具，先看：
 
-- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+- [Observation-Bound Execution 协议说明](../protocols/observation-bound-execution.md)
 
 ## 当前注册机制
 
@@ -223,7 +227,7 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 这套协议的设计原因、字段含义和聊天页例子见：
 
-- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+- [Observation-Bound Execution 协议说明](../protocols/observation-bound-execution.md)
 
 `android_gesture_tool` 当前已经不再是纯 mock 通道：
 
