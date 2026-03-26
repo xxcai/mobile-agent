@@ -9,12 +9,12 @@ namespace icraw {
 
 namespace {
 
-bool is_minimax_base_url(const std::string& base_url) {
-    return base_url.find("minimax") != std::string::npos;
+bool base_url_contains(const std::string& base_url, const std::string& needle) {
+    return base_url.find(needle) != std::string::npos;
 }
 
-void maybe_enable_minimax_reasoning_split(const std::string& base_url, nlohmann::json& body) {
-    if (is_minimax_base_url(base_url)) {
+void apply_request_profile_quirks(const OpenAICompatibleProfile& profile, nlohmann::json& body) {
+    if (profile.enable_reasoning_split) {
         body["reasoning_split"] = true;
     }
 }
@@ -67,16 +67,41 @@ std::string normalize_snapshot_or_delta(const std::string& current, std::string&
 // Stream Parser Factory
 // ============================================================================
 
-std::unique_ptr<StreamParser> create_stream_parser(const std::string& base_url) {
-    // Detect provider based on base_url
-    if (base_url.find("dashscope.aliyuncs.com") != std::string::npos) {
-        // Aliyun Qwen uses index-based matching
-        ICRAW_LOG_DEBUG("Using index-based stream parser for Aliyun/Qwen");
+OpenAICompatibleProfile resolve_openai_compatible_profile(const std::string& base_url) {
+    OpenAICompatibleProfile profile;
+
+    if (base_url_contains(base_url, "minimax")) {
+        profile.vendor = OpenAICompatibleVendor::MINIMAX;
+        profile.profile_name = "minimax";
+        profile.enable_reasoning_split = true;
+        return profile;
+    }
+
+    if (base_url_contains(base_url, "dashscope.aliyuncs.com")) {
+        profile.vendor = OpenAICompatibleVendor::QWEN;
+        profile.profile_name = "qwen";
+        profile.tool_call_match_mode = OpenAIStreamParser::ToolCallMatchMode::BY_INDEX;
+        return profile;
+    }
+
+    if (base_url_contains(base_url, "bigmodel.cn") || base_url_contains(base_url, "zhipu")) {
+        profile.vendor = OpenAICompatibleVendor::GLM;
+        profile.profile_name = "glm";
+        return profile;
+    }
+
+    return profile;
+}
+
+std::unique_ptr<StreamParser> create_stream_parser(const OpenAICompatibleProfile& profile) {
+    if (profile.tool_call_match_mode == OpenAIStreamParser::ToolCallMatchMode::BY_INDEX) {
+        ICRAW_LOG_DEBUG("[LlmProvider][profile_debug] profile={} parser_mode=by_index",
+                profile.profile_name);
         return std::make_unique<OpenAIStreamParser>(OpenAIStreamParser::ToolCallMatchMode::BY_INDEX);
     }
-    
-    // Default: OpenAI style with auto-detection
-    ICRAW_LOG_DEBUG("Using auto-detect stream parser");
+
+    ICRAW_LOG_DEBUG("[LlmProvider][profile_debug] profile={} parser_mode=auto",
+            profile.profile_name);
     return std::make_unique<OpenAIStreamParser>(OpenAIStreamParser::ToolCallMatchMode::AUTO);
 }
 
@@ -263,6 +288,12 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
                 response.content = normalize_snapshot_or_delta(raw_content, content_snapshot_);
             }
 
+            if (delta.contains("reasoning_content") && !delta["reasoning_content"].is_null()) {
+                const std::string raw_reasoning = delta["reasoning_content"].get<std::string>();
+                response.reasoning_content =
+                    normalize_snapshot_or_delta(raw_reasoning, reasoning_snapshot_);
+            }
+
             if (delta.contains("reasoning_details") && !delta["reasoning_details"].is_null()) {
                 const std::string raw_reasoning = extract_reasoning_text(delta["reasoning_details"]);
                 response.reasoning_content =
@@ -387,12 +418,16 @@ OpenAICompatibleProvider::OpenAICompatibleProvider(const std::string& api_key,
     : api_key_(api_key)
     , base_url_(base_url)
     , default_model_(default_model.empty() ? "gpt-4o" : default_model)
+    , profile_(resolve_openai_compatible_profile(base_url))
     , http_client_(std::make_unique<CurlHttpClient>())
-    , stream_parser_(create_stream_parser(base_url))
+    , stream_parser_(create_stream_parser(profile_))
 {
     if (!base_url_.empty() && base_url_.back() == '/') {
         base_url_.pop_back();
     }
+
+    ICRAW_LOG_INFO("[LlmProvider][profile_selected] profile={} base_url={}",
+            profile_.profile_name, base_url_);
 }
 
 void OpenAICompatibleProvider::set_http_client(std::unique_ptr<HttpClient> client) {
@@ -400,11 +435,11 @@ void OpenAICompatibleProvider::set_http_client(std::unique_ptr<HttpClient> clien
 }
 
 std::string OpenAICompatibleProvider::get_provider_name() const {
-    return "OpenAI-Compatible";
+    return "OpenAI-Compatible(" + profile_.profile_name + ")";
 }
 
 std::vector<std::string> OpenAICompatibleProvider::get_supported_models() const {
-    return {"gpt-4o", "gpt-4o-mini", "qwen-max", "qwen3-max"};
+    return {"gpt-4o", "gpt-4o-mini", "qwen-max", "qwen3-max", "glm-5", "glm-4-plus"};
 }
 
 ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompletionRequest& request) {
@@ -433,7 +468,7 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
 
-    maybe_enable_minimax_reasoning_split(base_url_, body);
+    apply_request_profile_quirks(profile_, body);
 
     std::string request_body_str = body.dump();
 
@@ -563,7 +598,7 @@ void OpenAICompatibleProvider::chat_completion_stream(
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
 
-    maybe_enable_minimax_reasoning_split(base_url_, body);
+    apply_request_profile_quirks(profile_, body);
     
     std::string request_body_str = body.dump();
     

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(icraw)
+include(CTest)
 
 # Main library sources
 set(ICRAW_SOURCES
@@ -72,4 +73,8 @@ target_link_libraries(icraw PUBLIC
 
 if(ANDROID)
     target_link_libraries(icraw PUBLIC log)
+endif()
+
+if(BUILD_TESTING AND NOT ANDROID)
+    add_subdirectory(../../test/cpp ${CMAKE_CURRENT_BINARY_DIR}/tests)
 endif()

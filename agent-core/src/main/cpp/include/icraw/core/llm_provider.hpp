@@ -115,8 +115,27 @@ private:
 // Stream Parser Factory
 // ============================================================================
 
-// Create appropriate stream parser based on provider/base_url
-std::unique_ptr<StreamParser> create_stream_parser(const std::string& base_url);
+enum class OpenAICompatibleVendor {
+    GENERIC,
+    MINIMAX,
+    QWEN,
+    GLM,
+};
+
+struct OpenAICompatibleProfile {
+    OpenAICompatibleVendor vendor = OpenAICompatibleVendor::GENERIC;
+    std::string profile_name = "generic";
+    OpenAIStreamParser::ToolCallMatchMode tool_call_match_mode =
+        OpenAIStreamParser::ToolCallMatchMode::AUTO;
+    bool enable_reasoning_split = false;
+    bool supports_reasoning_details = true;
+};
+
+// Resolve vendor profile from the configured base URL.
+OpenAICompatibleProfile resolve_openai_compatible_profile(const std::string& base_url);
+
+// Create appropriate stream parser based on the resolved profile.
+std::unique_ptr<StreamParser> create_stream_parser(const OpenAICompatibleProfile& profile);
 
 // ============================================================================
 // LLM Provider Base Class
@@ -169,6 +188,7 @@ protected:
     std::string api_key_;
     std::string base_url_;
     std::string default_model_;
+    OpenAICompatibleProfile profile_;
     std::unique_ptr<HttpClient> http_client_;
     std::unique_ptr<StreamParser> stream_parser_;
 };
