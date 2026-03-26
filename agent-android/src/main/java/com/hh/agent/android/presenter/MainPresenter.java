@@ -366,7 +366,9 @@ public class MainPresenter implements MainContract.Presenter {
                 if ("parse_error".equals(finishReason)) {
                     AgentLogs.warn(TAG, "think_parse_error_finish", "session_key=" + sessionKey);
                 }
-                if ("stop".equals(finishReason) || "tool_calls".equals(finishReason)) {
+                if ("stop".equals(finishReason)
+                        || "tool_calls".equals(finishReason)
+                        || "max_iterations".equals(finishReason)) {
                     AgentLogs.info(TAG, "stream_finish", "finish_reason=" + finishReason);
                 } else {
                     AgentLogs.warn(TAG, "stream_finish_unexpected", "finish_reason=" + finishReason);

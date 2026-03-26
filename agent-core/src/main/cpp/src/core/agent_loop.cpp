@@ -206,6 +206,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                                                         AgentEventCallback callback) {
     std::vector<Message> new_messages;
     stop_requested_ = false;
+    std::string loop_exit_reason;
     
     // Build request
     ChatCompletionRequest request;
@@ -413,12 +414,14 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             // No valid tool calls - check finish_reason to decide
             if (last_finish_reason_ == "stop" || last_finish_reason_ == "end_turn") {
                 ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=finish_reason finish_reason={}", last_finish_reason_);
+                loop_exit_reason = last_finish_reason_;
                 break;  // Exit loop - LLM is done
             }
             
             // For text-only responses (no tool calls), also exit the loop
             // The LLM has finished its response
             ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=text_only_response");
+            loop_exit_reason = "text_only_response";
             break;
         }
         // If we have valid tool calls, execute them and loop continues
@@ -460,13 +463,28 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         }
     }
 
+    if (loop_exit_reason.empty()) {
+        if (stop_requested_) {
+            loop_exit_reason = "cancel";
+        } else if (iteration >= max_iterations_) {
+            loop_exit_reason = "max_iterations";
+            ICRAW_LOG_WARN("[AgentLoop][loop_exit_debug] reason=max_iterations_reached iteration={} max_iterations={}",
+                    iteration, max_iterations_);
+
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = "max_iterations";
+            callback(event);
+        }
+    }
+
     auto loop_end_time = std::chrono::steady_clock::now();
     auto loop_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end_time - loop_start_time).count();
-    ICRAW_LOG_INFO("[AgentLoop][loop_complete] mode=stream duration_ms={} iteration_count={}",
-            loop_duration_ms, iteration);
+    ICRAW_LOG_INFO("[AgentLoop][loop_complete] mode=stream duration_ms={} iteration_count={} exit_reason={}",
+            loop_duration_ms, iteration, loop_exit_reason);
 
-    ICRAW_LOG_DEBUG("[AgentLoop][loop_complete_debug] iteration={} total_message_count={}",
-        iteration, new_messages.size());
+    ICRAW_LOG_DEBUG("[AgentLoop][loop_complete_debug] iteration={} total_message_count={} exit_reason={}",
+        iteration, new_messages.size(), loop_exit_reason);
 
     return new_messages;
 }
