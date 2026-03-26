@@ -151,6 +151,61 @@ void test_glm_request_uses_generic_openai_compatible_shape() {
            "glm request should not inherit minimax-specific reasoning_split");
 }
 
+void test_glm_request_omits_thinking_when_not_configured() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.model = "glm-5";
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(!body_json.contains("thinking"),
+           "glm request should not send thinking config when request leaves it unset");
+}
+
+void test_glm_request_can_enable_thinking() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.model = "glm-5";
+    request.enable_thinking = true;
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.contains("thinking"), "glm request should include thinking config when enabled");
+    expect(body_json["thinking"]["type"] == "enabled",
+           "glm thinking config should be encoded as enabled");
+}
+
+void test_glm_request_can_disable_thinking() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.model = "glm-5";
+    request.enable_thinking = false;
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.contains("thinking"), "glm request should include thinking config when disabled");
+    expect(body_json["thinking"]["type"] == "disabled",
+           "glm thinking config should be encoded as disabled");
+}
+
 void test_qwen_stream_parser_uses_index_matching() {
     const auto profile = resolve_openai_compatible_profile("https://dashscope.aliyuncs.com/compatible-mode/v1");
     auto parser = create_stream_parser(profile);
@@ -206,6 +261,9 @@ int main() {
     icraw::test_minimax_request_injects_reasoning_split();
     icraw::test_generic_request_does_not_inject_reasoning_split();
     icraw::test_glm_request_uses_generic_openai_compatible_shape();
+    icraw::test_glm_request_omits_thinking_when_not_configured();
+    icraw::test_glm_request_can_enable_thinking();
+    icraw::test_glm_request_can_disable_thinking();
     icraw::test_qwen_stream_parser_uses_index_matching();
     icraw::test_glm_stream_parser_supports_reasoning_content();
     std::cout << "icraw_llm_provider_tests: PASS" << std::endl;

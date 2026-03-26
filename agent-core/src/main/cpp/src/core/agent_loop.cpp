@@ -86,6 +86,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     request.model = agent_config_.model;
     request.temperature = agent_config_.temperature;
     request.max_tokens = agent_config_.max_tokens;
+    request.enable_thinking = agent_config_.enable_thinking;
     request.stream = false;
     
     // Add system message
@@ -189,6 +190,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     request.model = agent_config_.model;
     request.temperature = agent_config_.temperature;
     request.max_tokens = agent_config_.max_tokens;
+    request.enable_thinking = agent_config_.enable_thinking;
     request.stream = true;
     
     // Add system message
@@ -675,6 +677,7 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
     request.model = agent_config_.model;
     request.temperature = agent_config_.temperature;
     request.max_tokens = agent_config_.max_tokens;
+    request.enable_thinking = agent_config_.enable_thinking;
     request.messages.emplace_back("system", system_prompt);
     request.messages.emplace_back("user", user_prompt);
     request.tools.push_back(save_memory_tool);
@@ -833,6 +836,7 @@ bool AgentLoop::execute_memory_flush() {
     request.model = agent_config_.model;
     request.temperature = 0.3;  // Lower temperature for memory extraction
     request.max_tokens = 1024;
+    request.enable_thinking = agent_config_.enable_thinking;
     request.messages.emplace_back("system", system_prompt);
     request.messages.emplace_back("user", user_prompt);
     request.tools.push_back(save_memory_tool);
@@ -967,6 +971,7 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             request.model = agent_config_.model;
             request.temperature = 0.3;
             request.max_tokens = agent_config_.max_tokens;
+            request.enable_thinking = agent_config_.enable_thinking;
             request.messages.emplace_back("system", 
                 "You are a memory consolidation agent. Call the save_memory tool to save important information.");
             request.messages.emplace_back("user", prompt);

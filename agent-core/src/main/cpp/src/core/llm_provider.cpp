@@ -13,9 +13,29 @@ bool base_url_contains(const std::string& base_url, const std::string& needle) {
     return base_url.find(needle) != std::string::npos;
 }
 
-void apply_request_profile_quirks(const OpenAICompatibleProfile& profile, nlohmann::json& body) {
+const char* describe_thinking_type(const ChatCompletionRequest& request,
+                                   const nlohmann::json& body) {
+    if (body.contains("thinking")
+            && body["thinking"].is_object()
+            && body["thinking"].contains("type")
+            && body["thinking"]["type"].is_string()) {
+        return body["thinking"]["type"].get_ref<const std::string&>().c_str();
+    }
+    if (request.enable_thinking.has_value()) {
+        return *request.enable_thinking ? "enabled_not_emitted" : "disabled_not_emitted";
+    }
+    return "absent";
+}
+
+void apply_request_profile_quirks(const OpenAICompatibleProfile& profile,
+                                  const ChatCompletionRequest& request,
+                                  nlohmann::json& body) {
     if (profile.enable_reasoning_split) {
         body["reasoning_split"] = true;
+    }
+
+    if (profile.supports_thinking_toggle && request.enable_thinking.has_value()) {
+        body["thinking"]["type"] = *request.enable_thinking ? "enabled" : "disabled";
     }
 }
 
@@ -87,6 +107,7 @@ OpenAICompatibleProfile resolve_openai_compatible_profile(const std::string& bas
     if (base_url_contains(base_url, "bigmodel.cn") || base_url_contains(base_url, "zhipu")) {
         profile.vendor = OpenAICompatibleVendor::GLM;
         profile.profile_name = "glm";
+        profile.supports_thinking_toggle = true;
         return profile;
     }
 
@@ -468,12 +489,16 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
 
-    apply_request_profile_quirks(profile_, body);
+    apply_request_profile_quirks(profile_, request, body);
 
     std::string request_body_str = body.dump();
 
     ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=non_stream message_count={} tool_count={}",
             request.messages.size(), request.tools.size());
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_flags] mode=non_stream profile={} thinking_type={} reasoning_split={}",
+            profile_.profile_name,
+            describe_thinking_type(request, body),
+            body.value("reasoning_split", false));
     ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream url={}/chat/completions body={}",
             base_url_, log_utils::truncate_for_debug(request_body_str));
 
@@ -598,13 +623,17 @@ void OpenAICompatibleProvider::chat_completion_stream(
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
 
-    apply_request_profile_quirks(profile_, body);
+    apply_request_profile_quirks(profile_, request, body);
     
     std::string request_body_str = body.dump();
     
     ICRAW_LOG_INFO("[LlmProvider][parser_selected] parser={}", stream_parser_->get_parser_name());
     ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=stream message_count={} tool_count={}",
             request.messages.size(), request.tools.size());
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_flags] mode=stream profile={} thinking_type={} reasoning_split={}",
+            profile_.profile_name,
+            describe_thinking_type(request, body),
+            body.value("reasoning_split", false));
     ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=stream url={}/chat/completions body={}",
             base_url_, log_utils::truncate_for_debug(request_body_str));
     

@@ -5,6 +5,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <optional>
 #include "icraw/types.hpp"
 #include "icraw/core/http_client.hpp"
 
@@ -15,6 +16,7 @@ struct ChatCompletionRequest {
     std::string model;
     double temperature = 0.7;
     int max_tokens = 4096;
+    std::optional<bool> enable_thinking;
     std::vector<nlohmann::json> tools;
     bool tool_choice_auto = true;
     bool stream = false;
@@ -129,6 +131,7 @@ struct OpenAICompatibleProfile {
         OpenAIStreamParser::ToolCallMatchMode::AUTO;
     bool enable_reasoning_split = false;
     bool supports_reasoning_details = true;
+    bool supports_thinking_toggle = false;
 };
 
 // Resolve vendor profile from the configured base URL.

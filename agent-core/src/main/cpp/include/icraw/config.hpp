@@ -2,6 +2,7 @@
 
 #include <string>
 #include <memory>
+#include <optional>
 #include <filesystem>
 #include "icraw/types.hpp"
 
@@ -74,6 +75,7 @@ struct AgentConfig {
     int max_iterations = 15;
     double temperature = 0.7;
     int max_tokens = 4096;
+    std::optional<bool> enable_thinking;
     
     // Memory consolidation settings (legacy, use compaction instead)
     int memory_window = 50;        // Keep this many messages in memory
