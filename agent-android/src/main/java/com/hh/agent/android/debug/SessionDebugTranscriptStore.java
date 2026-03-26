@@ -118,6 +118,7 @@ public final class SessionDebugTranscriptStore {
 
     public interface SessionTranscript {
         void onTextDelta(String text);
+        void onReasoningDelta(String text);
         void onToolUse(String id, String name, String argumentsJson);
         void onToolResult(String id, String result);
         void onMessageEnd(String finishReason);
@@ -145,6 +146,13 @@ public final class SessionDebugTranscriptStore {
                     "length", text == null ? 0 : text.length(),
                     "text", text == null ? "" : text));
             flushResponse();
+        }
+
+        @Override
+        public synchronized void onReasoningDelta(String text) {
+            appendEvent("reasoning_delta", buildPayload(
+                    "length", text == null ? 0 : text.length(),
+                    "text", text == null ? "" : text));
         }
 
         @Override
@@ -222,6 +230,10 @@ public final class SessionDebugTranscriptStore {
     private static final class NoOpSessionTranscript implements SessionTranscript {
         @Override
         public void onTextDelta(String text) {
+        }
+
+        @Override
+        public void onReasoningDelta(String text) {
         }
 
         @Override

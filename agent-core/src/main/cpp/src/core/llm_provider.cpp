@@ -7,6 +7,62 @@
 
 namespace icraw {
 
+namespace {
+
+bool is_minimax_base_url(const std::string& base_url) {
+    return base_url.find("minimax") != std::string::npos;
+}
+
+void maybe_enable_minimax_reasoning_split(const std::string& base_url, nlohmann::json& body) {
+    if (is_minimax_base_url(base_url)) {
+        body["reasoning_split"] = true;
+    }
+}
+
+std::string extract_reasoning_text(const nlohmann::json& node) {
+    if (node.is_null()) {
+        return "";
+    }
+    if (node.is_string()) {
+        return node.get<std::string>();
+    }
+    if (node.is_array()) {
+        std::string combined;
+        for (const auto& item : node) {
+            combined += extract_reasoning_text(item);
+        }
+        return combined;
+    }
+    if (node.is_object()) {
+        if (node.contains("text") && node["text"].is_string()) {
+            return node["text"].get<std::string>();
+        }
+        if (node.contains("reasoning") && node["reasoning"].is_string()) {
+            return node["reasoning"].get<std::string>();
+        }
+        if (node.contains("content")) {
+            return extract_reasoning_text(node["content"]);
+        }
+    }
+    return "";
+}
+
+std::string normalize_snapshot_or_delta(const std::string& current, std::string& snapshot) {
+    if (current.empty()) {
+        return "";
+    }
+    if (!snapshot.empty() && current.rfind(snapshot, 0) == 0) {
+        std::string delta = current.substr(snapshot.size());
+        snapshot = current;
+        return delta;
+    }
+
+    snapshot += current;
+    return current;
+}
+
+} // namespace
+
 // ============================================================================
 // Stream Parser Factory
 // ============================================================================
@@ -29,14 +85,17 @@ std::unique_ptr<StreamParser> create_stream_parser(const std::string& base_url) 
 // ============================================================================
 
 OpenAIStreamParser::OpenAIStreamParser(ToolCallMatchMode mode)
-    : match_mode_(mode) {
+    : initial_match_mode_(mode)
+    , match_mode_(mode) {
 }
 
 void OpenAIStreamParser::reset_accumulators() {
     accumulators_by_index_.clear();
     accumulators_by_id_.clear();
     mode_detected_ = false;
-    match_mode_ = ToolCallMatchMode::AUTO;  // Reset to AUTO for each new stream
+    match_mode_ = initial_match_mode_;
+    content_snapshot_.clear();
+    reasoning_snapshot_.clear();
 }
 
 OpenAIStreamParser::ToolCallAccumulator* OpenAIStreamParser::find_or_create_accumulator(
@@ -200,7 +259,14 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
             const auto& delta = choice["delta"];
 
             if (delta.contains("content") && !delta["content"].is_null()) {
-                response.content = delta["content"].get<std::string>();
+                const std::string raw_content = delta["content"].get<std::string>();
+                response.content = normalize_snapshot_or_delta(raw_content, content_snapshot_);
+            }
+
+            if (delta.contains("reasoning_details") && !delta["reasoning_details"].is_null()) {
+                const std::string raw_reasoning = extract_reasoning_text(delta["reasoning_details"]);
+                response.reasoning_content =
+                    normalize_snapshot_or_delta(raw_reasoning, reasoning_snapshot_);
             }
             
             if (delta.contains("tool_calls") && delta["tool_calls"].is_array()) {
@@ -275,6 +341,11 @@ ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& respons
         if (message.contains("reasoning_content") && !message["reasoning_content"].is_null()) {
             printf("[LLM] Found reasoning_content: %s\n", message["reasoning_content"].get<std::string>().c_str());
             fflush(stdout);
+            result.reasoning_content = message["reasoning_content"].get<std::string>();
+        }
+
+        if (message.contains("reasoning_details") && !message["reasoning_details"].is_null()) {
+            result.reasoning_content = extract_reasoning_text(message["reasoning_details"]);
         }
 
         if (message.contains("content") && !message["content"].is_null()) {
@@ -361,6 +432,8 @@ ChatCompletionResponse OpenAICompatibleProvider::chat_completion(const ChatCompl
         body["tools"] = request.tools;
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
+
+    maybe_enable_minimax_reasoning_split(base_url_, body);
 
     std::string request_body_str = body.dump();
 
@@ -489,6 +562,8 @@ void OpenAICompatibleProvider::chat_completion_stream(
         body["tools"] = request.tools;
         body["tool_choice"] = request.tool_choice_auto ? "auto" : "required";
     }
+
+    maybe_enable_minimax_reasoning_split(base_url_, body);
     
     std::string request_body_str = body.dump();
     

@@ -499,6 +499,10 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onReasoningDelta(String text) {
+            }
+
+            @Override
             public void onToolUse(String id, String name, String argumentsJson) {
                 if (firstToolCaptured[0]) {
                     // Keep listening for the first route tool even after the first tool is captured.

@@ -46,40 +46,19 @@ static void append_text_block_if_not_empty(std::vector<ContentBlock>& blocks,
     }
 }
 
-static std::vector<ContentBlock> parse_mixed_response_blocks(const std::string& raw_text) {
-    std::vector<ContentBlock> blocks;
-    const std::string think_start = "<think>";
-    const std::string think_end = "</think>";
-
-    size_t cursor = 0;
-    while (cursor < raw_text.size()) {
-        const size_t think_start_pos = raw_text.find(think_start, cursor);
-        if (think_start_pos == std::string::npos) {
-            append_text_block_if_not_empty(blocks, raw_text.substr(cursor));
-            break;
-        }
-
-        if (think_start_pos > cursor) {
-            append_text_block_if_not_empty(blocks, raw_text.substr(cursor, think_start_pos - cursor));
-        }
-
-        const size_t think_content_start = think_start_pos + think_start.size();
-        const size_t think_end_pos = raw_text.find(think_end, think_content_start);
-        if (think_end_pos == std::string::npos) {
-            // Preserve incomplete tags as visible text on finalization rather than dropping content.
-            append_text_block_if_not_empty(blocks, raw_text.substr(think_start_pos));
-            break;
-        }
-
-        const std::string think_content = trim_whitespace(
-            raw_text.substr(think_content_start, think_end_pos - think_content_start));
-        if (!think_content.empty()) {
-            blocks.push_back(ContentBlock::make_think(think_content));
-        }
-
-        cursor = think_end_pos + think_end.size();
+static void append_think_block_if_not_empty(std::vector<ContentBlock>& blocks,
+                                            const std::string& text) {
+    const std::string trimmed = trim_whitespace(text);
+    if (!trimmed.empty()) {
+        blocks.push_back(ContentBlock::make_think(trimmed));
     }
+}
 
+static std::vector<ContentBlock> build_response_blocks(const std::string& visible_text,
+                                                       const std::string& reasoning_text) {
+    std::vector<ContentBlock> blocks;
+    append_think_block_if_not_empty(blocks, reasoning_text);
+    append_text_block_if_not_empty(blocks, visible_text);
     return blocks;
 }
 
@@ -146,10 +125,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         // Build assistant message
         Message assistant_msg;
         assistant_msg.role = "assistant";
-        
-        if (!response.content.empty()) {
-            assistant_msg.content.push_back(ContentBlock::make_text(response.content));
-        }
+        assistant_msg.content = build_response_blocks(response.content, response.reasoning_content);
         
         // Add tool_calls as separate field (OpenAI format)
         for (const auto& tc : response.tool_calls) {
@@ -252,6 +228,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         // StreamParser handles tool call accumulation internally
         // We only accumulate text here for real-time display
         std::string accumulated_text;
+        std::string accumulated_reasoning;
         std::vector<ToolCall> final_tool_calls;
         bool stream_complete = false;
         
@@ -267,6 +244,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     AgentEvent event;
                     event.type = "text_delta";
                     event.data["delta"] = chunk.content;
+                    callback(event);
+                }
+
+                if (!chunk.reasoning_content.empty()) {
+                    accumulated_reasoning += chunk.reasoning_content;
+
+                    AgentEvent event;
+                    event.type = "reasoning_delta";
+                    event.data["delta"] = chunk.reasoning_content;
                     callback(event);
                 }
                 
@@ -286,8 +272,8 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 }
             });
         
-        ICRAW_LOG_INFO("[AgentLoop][stream_complete] iteration={} stream_complete={} text_length={} tool_call_count={}",
-            iteration, stream_complete, accumulated_text.length(), final_tool_calls.size());
+        ICRAW_LOG_INFO("[AgentLoop][stream_complete] iteration={} stream_complete={} text_length={} reasoning_length={} tool_call_count={}",
+            iteration, stream_complete, accumulated_text.length(), accumulated_reasoning.length(), final_tool_calls.size());
         
         // === Deferred Processing ===
         // StreamParser has already accumulated and validated tool calls
@@ -295,9 +281,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         Message assistant_msg;
         assistant_msg.role = "assistant";
         
-        if (!accumulated_text.empty()) {
-            assistant_msg.content = parse_mixed_response_blocks(accumulated_text);
-        }
+        assistant_msg.content = build_response_blocks(accumulated_text, accumulated_reasoning);
         
         // Process tool calls - StreamParser already accumulated and validated them
         std::vector<ToolCall> valid_tool_calls;

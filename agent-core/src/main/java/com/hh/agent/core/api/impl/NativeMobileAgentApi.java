@@ -23,9 +23,6 @@ import java.util.List;
  */
 public class NativeMobileAgentApi implements MobileAgentApi {
     private static final String SCOPE = "NativeMobileAgentApi";
-    private static final String THINK_START = "<think>";
-    private static final String THINK_END = "</think>";
-
     private static NativeMobileAgentApi instance;
     private boolean initialized = false;
     private static final Gson gson = new Gson();
@@ -195,8 +192,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 String timestampStr = jsonMsg.get("timestamp").getAsString();
                 msg.setTimestamp(parseTimestamp(timestampStr));
 
-                sanitizePersistedAssistantContent(msg);
-
                 messages.add(msg);
             }
 
@@ -307,68 +302,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
                 return System.currentTimeMillis();
             }
         }
-    }
-
-    private void sanitizePersistedAssistantContent(Message message) {
-        if (message == null || !"assistant".equals(message.getRole())) {
-            return;
-        }
-
-        String content = message.getContent();
-        if (content == null || !content.contains(THINK_START)) {
-            return;
-        }
-
-        StringBuilder thinkBuilder = new StringBuilder();
-        StringBuilder contentBuilder = new StringBuilder();
-        int cursor = 0;
-
-        while (cursor < content.length()) {
-            int thinkStart = content.indexOf(THINK_START, cursor);
-            if (thinkStart < 0) {
-                appendIfNotEmpty(contentBuilder, content.substring(cursor));
-                break;
-            }
-
-            appendIfNotEmpty(contentBuilder, content.substring(cursor, thinkStart));
-
-            int thinkContentStart = thinkStart + THINK_START.length();
-            int thinkEnd = content.indexOf(THINK_END, thinkContentStart);
-            if (thinkEnd < 0) {
-                appendIfNotEmpty(contentBuilder, content.substring(thinkContentStart));
-                break;
-            }
-
-            appendThinkIfNotEmpty(thinkBuilder, content.substring(thinkContentStart, thinkEnd));
-            cursor = thinkEnd + THINK_END.length();
-        }
-
-        message.setThinkContent(toNullableString(thinkBuilder));
-        message.setContent(toNullableString(contentBuilder));
-    }
-
-    private static void appendIfNotEmpty(StringBuilder builder, String text) {
-        if (text != null && !text.isEmpty()) {
-            builder.append(text);
-        }
-    }
-
-    private static void appendThinkIfNotEmpty(StringBuilder builder, String text) {
-        if (text == null) {
-            return;
-        }
-        String trimmed = text.trim();
-        if (trimmed.isEmpty()) {
-            return;
-        }
-        if (builder.length() > 0) {
-            builder.append("\n");
-        }
-        builder.append(trimmed);
-    }
-
-    private static String toNullableString(StringBuilder builder) {
-        return builder.length() == 0 ? null : builder.toString();
     }
 
     /**
