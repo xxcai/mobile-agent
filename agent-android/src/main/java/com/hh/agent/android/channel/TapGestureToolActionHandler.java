@@ -5,9 +5,16 @@ import com.hh.agent.android.gesture.GestureExecutionResult;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.core.tool.ToolResult;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler {
+
+    private static final Pattern BOUNDS_PATTERN =
+            Pattern.compile("\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]");
 
     @Override
     public String getActionName() {
@@ -32,6 +39,7 @@ final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler
 
     @Override
     public ToolResult execute(JSONObject params, AndroidGestureExecutor executor) {
+        populateTapCoordinatesFromObservation(params);
         if (!params.has("x") || !params.has("y")) {
             return buildError("invalid_args", "tap requires integer fields 'x' and 'y'");
         }
@@ -62,5 +70,37 @@ final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler
     @Override
     protected GestureExecutionResult executeInternal(JSONObject params, AndroidGestureExecutor executor) {
         return executor.tap(params);
+    }
+
+    private void populateTapCoordinatesFromObservation(JSONObject params) {
+        if (params.has("x") && params.has("y")) {
+            return;
+        }
+
+        JSONObject observation = params.optJSONObject("observation");
+        if (observation == null) {
+            return;
+        }
+
+        String referencedBounds = observation.optString("referencedBounds", "").trim();
+        if (referencedBounds.isEmpty()) {
+            return;
+        }
+
+        Matcher matcher = BOUNDS_PATTERN.matcher(referencedBounds);
+        if (!matcher.matches()) {
+            return;
+        }
+
+        int left = Integer.parseInt(matcher.group(1));
+        int top = Integer.parseInt(matcher.group(2));
+        int right = Integer.parseInt(matcher.group(3));
+        int bottom = Integer.parseInt(matcher.group(4));
+        try {
+            params.put("x", (left + right) / 2);
+            params.put("y", (top + bottom) / 2);
+        } catch (JSONException ignored) {
+            // JSONObject accepts integer values in normal paths; leave params unchanged on unexpected failure.
+        }
     }
 }

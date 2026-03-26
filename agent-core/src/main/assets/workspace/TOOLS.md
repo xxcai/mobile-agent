@@ -60,9 +60,14 @@ For `android_gesture_tool`, always follow these rules:
 For `tap`:
 
 - Prefer the target from the latest observation.
+- `tap` must include integer `x` and `y`.
+- Derive `x` and `y` from the target bounds in the latest observation.
 - Include `observation.snapshotId`.
 - Include `observation.referencedBounds` whenever possible.
 - If there is no fresh observation for the target, do not call `tap`.
+- If you cannot identify fresh bounds for the target from the current-turn observation, do not call `tap`.
+- If `tap` fails with `missing_view_context_observation` or `missing_view_context_snapshot_id`, the next step must be `android_view_context_tool` before any new gesture attempt.
+- If `tap` fails with `invalid_args`, do not retry until the missing required fields are corrected.
 
 For `swipe`:
 
