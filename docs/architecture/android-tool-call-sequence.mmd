@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant App as Host App
+    participant Init as AgentInitializer
+    participant Manager as AndroidToolManager
+    participant Api as NativeMobileAgentApi / NativeAgent
+    participant Native as Native tool registry / AndroidTools
+    participant LLM as LLM + agent loop
+    participant Channel as Java tool channel
+
+    rect rgb(32, 39, 70)
+        App->>Init: initialize(tools, ...)
+        Init->>Manager: create and register tools/channels
+        Manager->>Manager: buildToolDefinition()
+        Manager->>Api: set tools.json
+        Api->>Native: nativeSetToolsSchema(...)
+        Manager->>Api: register AndroidToolCallback
+        Api->>Native: nativeRegisterAndroidToolCallback(...)
+    end
+
+    rect rgb(26, 58, 50)
+        LLM->>Native: choose tool call\n(toolName + args)
+        Native->>Manager: callTool(toolName, argsJson)
+        Manager->>Channel: execute(params)
+        Channel-->>Manager: ToolResult
+        Manager-->>Native: resultJson
+        Native-->>LLM: tool result
+    end

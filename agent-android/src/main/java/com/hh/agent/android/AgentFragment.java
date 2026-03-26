@@ -339,6 +339,16 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             return;
         }
 
+        if ("max_iterations".equals(finishReason)) {
+            AgentLogs.warn("AgentFragment", "stream_finish_reason_max_iterations",
+                    "finish_reason=" + finishReason);
+            adapter.addErrorMessage("max_iterations", "已多次尝试但仍未完成，请重试或缩小问题范围");
+            hideThinking();
+            adapter.removeAiMessages();
+            adapter.clearActiveToolUiResponse();
+            return;
+        }
+
         // 检查是否为错误类型的 finish_reason
         String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
         for (String errorType : errorFinishReasons) {

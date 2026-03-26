@@ -11,9 +11,50 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class LegacyAndroidToolChannelTest {
+
+    @Test
+    public void buildToolDefinitionUsesExpectedLegacyContract() throws Exception {
+        ToolExecutor tool = new ToolExecutor() {
+            @Override
+            public String getName() {
+                return "send_im_message";
+            }
+
+            @Override
+            public ToolDefinition getDefinition() {
+                return ToolDefinition.builder("发送消息", "向指定联系人发送文本消息")
+                        .stringParam("contact_id", "联系人ID", true, "003")
+                        .stringParam("message", "消息内容", true, "test")
+                        .build();
+            }
+
+            @Override
+            public ToolResult execute(JSONObject args) {
+                return ToolResult.success();
+            }
+        };
+
+        LegacyAndroidToolChannel channel =
+                new LegacyAndroidToolChannel(Collections.singletonMap("send_im_message", tool));
+
+        JSONObject schema = channel.buildToolDefinition();
+        JSONObject function = schema.getJSONObject("function");
+        JSONObject parameters = function.getJSONObject("parameters");
+        JSONObject properties = parameters.getJSONObject("properties");
+
+        assertEquals("call_android_tool", function.getString("name"));
+        assertEquals(2, parameters.getJSONArray("required").length());
+        assertEquals("function", parameters.getJSONArray("required").getString(0));
+        assertEquals("args", parameters.getJSONArray("required").getString(1));
+        assertEquals("string", properties.getJSONObject("function").getString("type"));
+        assertEquals("object", properties.getJSONObject("args").getString("type"));
+        assertEquals("send_im_message",
+                properties.getJSONObject("function").getJSONArray("enum").getString(0));
+    }
 
     @Test
     public void returnsBusinessCapabilityNotSupportedWhenFunctionMissing() throws Exception {

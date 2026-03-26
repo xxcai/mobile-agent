@@ -1,38 +1,32 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
+import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.core.tool.ToolResult;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * View-context channel used to validate perception-channel routing.
- * Native XML now prefers in-process host view trees; DOM / screenshot remain mock.
+ * Native XML is produced from the in-process host view tree; DOM / screenshot remain mock.
  */
 public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
     public static final String CHANNEL_NAME = "android_view_context_tool";
 
-    private static final String SOURCE_NATIVE_XML = "native_xml";
-    private static final String SOURCE_WEB_DOM = "web_dom";
-    private static final String SOURCE_SCREEN_SNAPSHOT = "screen_snapshot";
-    private static final String SOURCE_ALL = "all";
+    static final String SOURCE_NATIVE_XML = "native_xml";
+    static final String SOURCE_WEB_DOM = "web_dom";
+    static final String SOURCE_SCREEN_SNAPSHOT = "screen_snapshot";
+    static final String SOURCE_ALL = "all";
 
-    private static final String MOCK_NATIVE_XML =
-            "<hierarchy rotation=\"0\">"
-                    + "<node index=\"0\" text=\"\" resource-id=\"com.hh.agent:id/root\" class=\"android.widget.FrameLayout\" clickable=\"false\">"
-                    + "<node index=\"0\" text=\"消息\" resource-id=\"com.hh.agent:id/tab_message\" class=\"android.widget.TextView\" clickable=\"true\" bounds=\"[0,0][240,120]\"/>"
-                    + "<node index=\"1\" text=\"张三\" resource-id=\"com.hh.agent:id/contact_name\" class=\"android.widget.TextView\" clickable=\"true\" bounds=\"[24,160][300,240]\"/>"
-                    + "<node index=\"2\" text=\"新消息\" resource-id=\"com.hh.agent:id/unread_badge\" class=\"android.widget.TextView\" clickable=\"false\" bounds=\"[320,170][420,220]\"/>"
-                    + "<node index=\"3\" text=\"发送消息\" resource-id=\"com.hh.agent:id/send_button\" class=\"android.widget.Button\" clickable=\"true\" bounds=\"[24,640][240,720]\"/>"
-                    + "</node>"
-                    + "</hierarchy>";
-
-    private static final String MOCK_WEB_DOM =
+    static final String MOCK_WEB_DOM =
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
 
-    private static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
+    static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
+    private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
 
     @Override
     public String getChannelName() {
@@ -41,42 +35,20 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
     @Override
     public JSONObject buildToolDefinition() throws Exception {
-        JSONObject properties = new JSONObject();
-
-        properties.put("source", new JSONObject()
-                .put("type", "string")
-                .put("description", "要获取的视图上下文来源。native_xml 优先用于验证原生界面树；web_dom 和 screen_snapshot 当前为 mock。")
-                .put("enum", new JSONArray()
-                        .put(SOURCE_NATIVE_XML)
-                        .put(SOURCE_WEB_DOM)
-                        .put(SOURCE_SCREEN_SNAPSHOT)
-                        .put(SOURCE_ALL))
-                .put("default", SOURCE_NATIVE_XML));
-        properties.put("targetHint", new JSONObject()
-                .put("type", "string")
-                .put("description", "用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"));
-        properties.put("includeMockWebDom", new JSONObject()
-                .put("type", "boolean")
-                .put("description", "当 source=all 时，是否附带 mock web DOM。")
-                .put("default", false));
-        properties.put("includeMockScreenshot", new JSONObject()
-                .put("type", "boolean")
-                .put("description", "当 source=all 时，是否附带 mock screenshot 引用。")
-                .put("default", false));
-
-        JSONObject parameters = new JSONObject();
-        parameters.put("type", "object");
-        parameters.put("properties", properties);
-        parameters.put("required", new JSONArray().put("source"));
-
-        JSONObject function = new JSONObject();
-        function.put("name", CHANNEL_NAME);
-        function.put("description", "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。优先使用 native_xml 验证原生界面树；web_dom 和 screen_snapshot 当前仅返回 mock。");
-        function.put("parameters", parameters);
-
-        return new JSONObject()
-                .put("type", "function")
-                .put("function", function);
+        ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
+                        CHANNEL_NAME,
+                        "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。"
+                                + buildSourceDescription() + "。")
+                .property("source", ToolSchemaBuilder.string()
+                        .description("要获取的视图上下文来源。前 3 个值表示单一来源；all 表示聚合模式，用于一次返回多个上下文来源。" + buildSourceDescription() + "。")
+                        .enumValues(getSourceNames())
+                        .defaultValue(SOURCE_NATIVE_XML), true)
+                .property("targetHint", ToolSchemaBuilder.string()
+                        .description("用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"), false);
+        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
+            handler.contributeProperties(builder);
+        }
+        return builder.build();
     }
 
     @Override
@@ -87,50 +59,16 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
                 source = SOURCE_NATIVE_XML;
             }
 
-            boolean includeMockWebDom = params.optBoolean("includeMockWebDom", false);
-            boolean includeMockScreenshot = params.optBoolean("includeMockScreenshot", false);
             String targetHint = normalizeOptionalText(params.optString("targetHint", null));
-
-            ToolResult result = ToolResult.success()
-                    .with("channel", CHANNEL_NAME)
-                    .with("source", source)
-                    .with("mock", true)
-                    .with("targetHint", targetHint);
-
-            switch (source) {
-                case SOURCE_NATIVE_XML:
-                    ToolResult nativeViewResult =
-                            ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
-                    if (nativeViewResult.toJsonString().contains("\"success\":true")) {
-                        return nativeViewResult
-                                .with("channel", CHANNEL_NAME);
-                    }
-                    return result
-                            .with("nativeViewXml", MOCK_NATIVE_XML)
-                            .with("webDom", (String) null)
-                            .with("screenSnapshot", (String) null);
-                case SOURCE_WEB_DOM:
-                    return result
-                            .with("nativeViewXml", (String) null)
-                            .with("webDom", MOCK_WEB_DOM)
-                            .with("screenSnapshot", (String) null);
-                case SOURCE_SCREEN_SNAPSHOT:
-                    return result
-                            .with("nativeViewXml", (String) null)
-                            .with("webDom", (String) null)
-                            .with("screenSnapshot", MOCK_SCREEN_SNAPSHOT);
-                case SOURCE_ALL:
-                    return result
-                            .with("nativeViewXml", MOCK_NATIVE_XML)
-                            .with("webDom", includeMockWebDom ? MOCK_WEB_DOM : null)
-                            .with("screenSnapshot", includeMockScreenshot ? MOCK_SCREEN_SNAPSHOT : null);
-                default:
-                    return ToolResult.error("invalid_args",
-                                    "Unsupported source '" + source + "' for " + CHANNEL_NAME)
-                            .with("allowedSources",
-                                    SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
-                                            + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
+            ViewContextSourceHandler sourceHandler = sourceHandlers.get(source);
+            if (sourceHandler == null) {
+                return ToolResult.error("invalid_args",
+                                "Unsupported source '" + source + "' for " + CHANNEL_NAME)
+                        .with("allowedSources",
+                                SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
+                                        + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
             }
+            return sourceHandler.execute(params, targetHint);
         } catch (Exception e) {
             return ToolResult.error("execution_failed", e.getMessage());
         }
@@ -142,5 +80,40 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Map<String, ViewContextSourceHandler> createSourceHandlers() {
+        LinkedHashMap<String, ViewContextSourceHandler> handlers = new LinkedHashMap<>();
+        register(handlers, new NativeXmlViewContextSourceHandler());
+        register(handlers, new WebDomViewContextSourceHandler());
+        register(handlers, new ScreenSnapshotViewContextSourceHandler());
+        register(handlers, new AllViewContextSourceHandler());
+        return handlers;
+    }
+
+    private void register(Map<String, ViewContextSourceHandler> handlers,
+                          ViewContextSourceHandler handler) {
+        String sourceName = handler.getSourceName();
+        if (handlers.containsKey(sourceName)) {
+            throw new IllegalStateException("Duplicate view-context source handler: " + sourceName);
+        }
+        handlers.put(sourceName, handler);
+    }
+
+    private String buildSourceDescription() {
+        StringBuilder description = new StringBuilder();
+        boolean first = true;
+        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
+            if (!first) {
+                description.append("；");
+            }
+            description.append(handler.getSourceDescription());
+            first = false;
+        }
+        return description.toString();
+    }
+
+    private String[] getSourceNames() {
+        return sourceHandlers.keySet().toArray(new String[0]);
     }
 }

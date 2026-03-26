@@ -1,11 +1,11 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.tool.ToolDefinition;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.core.tool.ToolResult;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Map;
@@ -35,51 +35,25 @@ public class LegacyAndroidToolChannel implements AndroidToolChannelExecutor {
 
     @Override
     public JSONObject buildToolDefinition() throws Exception {
-        JSONArray toolNames = new JSONArray();
         String functionChoicesDescription = buildFunctionChoicesDescription();
         String argsDescription = buildArgsDescription();
+        return ToolSchemaBuilder.function(
+                        CHANNEL_NAME,
+                        "调用宿主 App 已注册的业务工具。适用于联系人、消息、通知、剪贴板等业务能力。"
+                                + "协议固定为 {\"function\":\"工具名\",\"args\":{...}}。"
+                                + "不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。")
+                .property("function", ToolSchemaBuilder.string()
+                        .description(functionChoicesDescription)
+                        .enumValues(getToolNames()), true)
+                .property("args", ToolSchemaBuilder.object()
+                        .description(argsDescription), true)
+                .build();
+    }
 
-        for (Map.Entry<String, ToolExecutor> entry : tools.entrySet()) {
-            ToolExecutor executor = entry.getValue();
-            String toolName = executor.getName();
-            toolNames.put(toolName);
-        }
-
-        JSONObject functionObj = new JSONObject();
-        functionObj.put("name", CHANNEL_NAME);
-        functionObj.put("description",
-                "调用宿主 App 已注册的业务工具。适用于联系人、消息、通知、剪贴板等业务能力。"
-                        + "协议固定为 {\"function\":\"工具名\",\"args\":{...}}。"
-                        + "不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。");
-
-        JSONObject params = new JSONObject();
-        params.put("type", "object");
-
-        JSONObject properties = new JSONObject();
-
-        JSONObject functionParam = new JSONObject();
-        functionParam.put("type", "string");
-        functionParam.put("description", functionChoicesDescription);
-        functionParam.put("enum", toolNames);
-        properties.put("function", functionParam);
-
-        JSONObject argsParam = new JSONObject();
-        argsParam.put("type", "object");
-        argsParam.put("description", argsDescription);
-        properties.put("args", argsParam);
-
-        params.put("properties", properties);
-
-        JSONArray required = new JSONArray();
-        required.put("function");
-        required.put("args");
-        params.put("required", required);
-
-        functionObj.put("parameters", params);
-
-        return new JSONObject()
-                .put("type", "function")
-                .put("function", functionObj);
+    private String[] getToolNames() {
+        return tools.values().stream()
+                .map(ToolExecutor::getName)
+                .toArray(String[]::new);
     }
 
     private String buildFunctionChoicesDescription() {

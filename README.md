@@ -256,8 +256,8 @@ logger 注入入口：
 
 - `setLogger(...)` 是可选能力；不调用时，`agent-android` 默认使用内置 `DefaultAgentLogger`
 - 当前仓库里的 `app` 模块没有额外实现宿主 logger，而是直接使用库默认实现
-- `agent-android` 当前日志格式、事件清单和排查命令见 `docs/agent-android-logging.md`
-- Prompt 构建顺序和工具展示方式见 `docs/prompt-construction.md`
+- `agent-android` 当前日志格式、事件清单和排查命令见 `docs/logging/agent-android-logging.md`
+- Prompt 构建顺序和工具展示方式见 `docs/architecture/prompt-construction.md`
 
 调用约定：
 
@@ -306,3 +306,4 @@ mobile-agent/
 
 - 当前 `README` 只描述 `agent-core`、`agent-android` 和示例宿主 `app`
 - `cxxplatform/` 为独立目录，不作为当前 Android 集成方案说明的一部分
+- 补充文档总索引见 `docs/README.md`

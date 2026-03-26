@@ -394,11 +394,24 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 String referencedSnapshotId = observationJson != null
                         ? observationJson.optString("snapshotId", "<none>")
                         : "<none>";
+                String resolvedViewText = paramsJson != null
+                        ? paramsJson.optString("resolvedViewText", "<none>")
+                        : "<none>";
+                boolean snapshotMatch = snapshotId.equals(referencedSnapshotId);
+                boolean dispatchHandled = paramsJson != null
+                        && paramsJson.optBoolean("dispatchAnyHandled", false);
+                boolean targetMatch = resolvedViewText.contains("发送");
                 next.append("gesture_observation_snapshot_id=")
                         .append(referencedSnapshotId)
                         .append('\n');
                 next.append("snapshot_match=")
-                        .append(snapshotId.equals(referencedSnapshotId) ? "PASS" : "FAIL")
+                        .append(snapshotMatch ? "PASS" : "FAIL")
+                        .append('\n');
+                next.append("gesture_resolved_view_text=")
+                        .append(resolvedViewText)
+                        .append('\n');
+                next.append("gesture_target_match=")
+                        .append(targetMatch ? "PASS" : "FAIL")
                         .append('\n');
                 next.append("gesture_dispatch_path=")
                         .append(paramsJson != null
@@ -406,9 +419,10 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                                 : "<none>")
                         .append('\n');
                 next.append("gesture_dispatch_any_handled=")
-                        .append(paramsJson != null
-                                ? paramsJson.optBoolean("dispatchAnyHandled", false)
-                                : false)
+                        .append(dispatchHandled)
+                        .append('\n');
+                next.append("probe_result=")
+                        .append(snapshotMatch && dispatchHandled && targetMatch ? "PASS" : "FAIL")
                         .append('\n');
             }
         } catch (Exception e) {
@@ -721,7 +735,90 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         JSONObject schema = new JSONObject(manager.generateToolsJsonString());
         report.append("schema_version=").append(schema.optInt("version", -1)).append('\n');
         report.append("tool_count=").append(schema.getJSONArray("tools").length()).append('\n');
-        report.append("registered_tools=").append(manager.getRegisteredTools().keySet()).append("\n\n");
+        report.append("registered_tools=").append(manager.getRegisteredTools().keySet()).append('\n');
+
+        JSONObject gestureFunction = findFunction(schema.getJSONArray("tools"), "android_gesture_tool");
+        report.append("gesture_tool_present=").append(gestureFunction != null ? "PASS" : "FAIL").append('\n');
+        if (gestureFunction == null) {
+            report.append('\n');
+            return;
+        }
+
+        JSONObject gestureParameters = gestureFunction.optJSONObject("parameters");
+        JSONObject gestureProperties = gestureParameters != null
+                ? gestureParameters.optJSONObject("properties")
+                : null;
+        JSONArray gestureRequired = gestureParameters != null
+                ? gestureParameters.optJSONArray("required")
+                : null;
+        JSONObject actionProperty = gestureProperties != null
+                ? gestureProperties.optJSONObject("action")
+                : null;
+        JSONObject directionProperty = gestureProperties != null
+                ? gestureProperties.optJSONObject("direction")
+                : null;
+        JSONObject amountProperty = gestureProperties != null
+                ? gestureProperties.optJSONObject("amount")
+                : null;
+        JSONObject observationProperty = gestureProperties != null
+                ? gestureProperties.optJSONObject("observation")
+                : null;
+        JSONObject observationProperties = observationProperty != null
+                ? observationProperty.optJSONObject("properties")
+                : null;
+
+        report.append("gesture_action_required=")
+                .append(asPassFail(arrayContains(gestureRequired, "action")))
+                .append('\n');
+        report.append("gesture_action_enum_has_tap_swipe=")
+                .append(asPassFail(arrayContains(actionProperty != null ? actionProperty.optJSONArray("enum") : null, "tap")
+                        && arrayContains(actionProperty != null ? actionProperty.optJSONArray("enum") : null, "swipe")))
+                .append('\n');
+        report.append("gesture_direction_enum_has_down_up=")
+                .append(asPassFail(arrayContains(directionProperty != null ? directionProperty.optJSONArray("enum") : null, "down")
+                        && arrayContains(directionProperty != null ? directionProperty.optJSONArray("enum") : null, "up")))
+                .append('\n');
+        report.append("gesture_amount_default_medium=")
+                .append(asPassFail("medium".equals(amountProperty != null
+                        ? amountProperty.optString("default", "")
+                        : "")))
+                .append('\n');
+        report.append("gesture_observation_has_snapshot_id=")
+                .append(asPassFail(observationProperties != null && observationProperties.has("snapshotId")))
+                .append('\n');
+        report.append("gesture_observation_has_referenced_bounds=")
+                .append(asPassFail(observationProperties != null && observationProperties.has("referencedBounds")))
+                .append("\n\n");
+    }
+
+    private JSONObject findFunction(JSONArray tools, String functionName) throws Exception {
+        for (int index = 0; index < tools.length(); index++) {
+            JSONObject tool = tools.getJSONObject(index);
+            JSONObject function = tool.optJSONObject("function");
+            if (function == null) {
+                continue;
+            }
+            if (functionName.equals(function.optString("name"))) {
+                return function;
+            }
+        }
+        return null;
+    }
+
+    private boolean arrayContains(JSONArray array, String expected) {
+        if (array == null || expected == null) {
+            return false;
+        }
+        for (int index = 0; index < array.length(); index++) {
+            if (expected.equals(array.optString(index, null))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String asPassFail(boolean passed) {
+        return passed ? "PASS" : "FAIL";
     }
 
     private void appendRuntimeCases(StringBuilder report, AndroidToolManager manager) {

@@ -160,7 +160,7 @@ android_view_context_tool -> android_gesture_tool(observation-bound)
 
 更完整的协议说明见：
 
-- [Observation-Bound Execution 协议说明](./observation-bound-execution.md)
+- [Observation-Bound Execution 协议说明](../protocols/observation-bound-execution.md)
 
 ## 真实边界
 

@@ -55,6 +55,7 @@ For `android_gesture_tool`, always follow these rules:
 2. Use the latest `observation.snapshotId` from that result.
 3. Do not guess raw coordinates.
 4. Do not retry the same gesture without new screen evidence.
+5. Stop exploring when repeated tool results no longer produce new evidence.
 
 For `tap`:
 
@@ -74,6 +75,9 @@ For `swipe`:
 - `observation.referencedBounds` must point to the container you want to scroll.
 - Do not pass raw swipe coordinates such as `startX/startY/endX/endY`.
 - Do not rely on the runtime to guess which list or feed to scroll when multiple scroll containers are visible.
+- If a swipe result shows no movement or no change in the same container, treat it as no new progress in that direction.
+- Do not repeat the same swipe on the same container unless fresh evidence suggests the content changed.
+- When repeated observation produces no new relevant items, stop exploring and answer with the best result already supported by the evidence.
 
 Example `swipe`:
 
@@ -96,6 +100,12 @@ For route selection in the main conversation:
 2. If a stable business entity is explicit, prefer the corresponding business tool first.
 3. If the target is a visible UI element or the request depends on current screen structure, prefer `android_view_context_tool` first.
 4. If a business tool returns a structured capability or target-access failure and fallback is clearly allowed, then move to `android_view_context_tool` and `android_gesture_tool`.
+
+For feed, list, and time-range tasks:
+
+1. The goal is to gather enough evidence to answer, not to exhaust every possible item on the screen.
+2. Once relevant items are found and further attempts do not change the result, summarize and stop.
+3. Do not keep repeating the same observation or scroll action only to confirm a possibility when the evidence is no longer changing.
 
 ## Tool Categories
 

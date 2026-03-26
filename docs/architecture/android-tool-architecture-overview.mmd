@@ -1,0 +1,36 @@
+flowchart LR
+    subgraph Host["Host App / Java"]
+        host["Host app registers\nToolExecutor(s)"]
+        init["AgentInitializer"]
+        manager["AndroidToolManager"]
+        legacy["LegacyAndroidToolChannel\n(call_android_tool)"]
+        gesture["GestureToolChannel\n(android_gesture_tool)"]
+        view["ViewContextToolChannel\n(android_view_context_tool)"]
+    end
+
+    subgraph Bridge["Bridge Layer"]
+        api["NativeMobileAgentApi /\nNativeAgent"]
+        callback["AndroidToolCallback"]
+    end
+
+    subgraph Native["Native Agent / C++"]
+        registry["Tool registry"]
+        dispatcher["AndroidTools /\nJniCallback"]
+        loop["LLM + agent loop"]
+    end
+
+    host --> init
+    init --> manager
+    manager --> legacy
+    manager --> gesture
+    manager --> view
+
+    manager -->|"1. generate tools.json"| api
+    api -->|"2. nativeSetToolsSchema"| registry
+
+    manager -.implements.-> callback
+    callback --> api
+    api -->|"3. nativeRegisterAndroidToolCallback"| dispatcher
+
+    loop --> registry
+    loop --> dispatcher
