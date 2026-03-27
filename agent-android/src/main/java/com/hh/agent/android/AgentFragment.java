@@ -344,8 +344,16 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             return;
         }
 
+        if ("cancel".equals(finishReason)) {
+            AgentLogs.info("AgentFragment", "stream_cancelled", "finish_reason=" + finishReason);
+            hideThinking();
+            adapter.removeAiMessages();
+            adapter.clearActiveToolUiResponse();
+            return;
+        }
+
         // 检查是否为错误类型的 finish_reason
-        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
+        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error"};
         for (String errorType : errorFinishReasons) {
             if (errorType.equals(finishReason)) {
                 AgentLogs.warn("AgentFragment", "stream_finish_reason_error", "finish_reason=" + finishReason);

@@ -256,6 +256,7 @@ public class MainPresenter implements MainContract.Presenter {
                     AgentLogs.warn(TAG, "stream_parse_error_finish", "session_key=" + sessionKey);
                 }
                 if ("stop".equals(finishReason)
+                        || "cancel".equals(finishReason)
                         || "tool_calls".equals(finishReason)
                         || "max_iterations".equals(finishReason)) {
                     AgentLogs.info(TAG, "stream_finish", "finish_reason=" + finishReason);
