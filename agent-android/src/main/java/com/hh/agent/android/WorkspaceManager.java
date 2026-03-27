@@ -42,6 +42,7 @@ public class WorkspaceManager {
                 AgentLogs.error(TAG, "workspace_prepare_failed", "path=" + workspaceDir.getAbsolutePath());
             }
         } else {
+            syncBuiltinSkillsIfNeeded(workspaceDir);
             AgentLogs.info(TAG, "workspace_ready", "mode=existing path=" + workspaceDir.getAbsolutePath());
         }
 
@@ -87,24 +88,44 @@ public class WorkspaceManager {
             copyAssetFile(ASSETS_WORKSPACE + "/USER.md", new File(workspaceDir, "USER.md"));
 
             // Copy skills directory - dynamically read from assets/skills/
-            File skillsDir = new File(workspaceDir, "skills");
-            String[] skillNames = context.getAssets().list(ASSETS_WORKSPACE + "/skills");
-            if (skillNames != null) {
-                for (String skillName : skillNames) {
-                    File targetSkillDir = new File(skillsDir, skillName);
-                    if (!targetSkillDir.exists()) {
-                        AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
-                        copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
-                    } else {
-                        AgentLogs.debug(TAG, "builtin_skill_skip", "skill_name=" + skillName);
-                    }
-                }
-            }
+            syncBuiltinSkillsIntoWorkspace(workspaceDir);
 
             return true;
         } catch (IOException e) {
             AgentLogs.error(TAG, "workspace_copy_failed", "message=" + e.getMessage(), e);
             return false;
+        }
+    }
+
+    private void syncBuiltinSkillsIfNeeded(File workspaceDir) {
+        try {
+            syncBuiltinSkillsIntoWorkspace(workspaceDir);
+        } catch (IOException e) {
+            AgentLogs.warn(TAG, "builtin_skill_sync_failed", "message=" + e.getMessage());
+        }
+    }
+
+    private void syncBuiltinSkillsIntoWorkspace(File workspaceDir) throws IOException {
+        File skillsDir = new File(workspaceDir, "skills");
+        if (!skillsDir.exists() && !skillsDir.mkdirs()) {
+            AgentLogs.warn(TAG, "builtin_skill_dir_create_failed", "path=" + skillsDir.getAbsolutePath());
+            return;
+        }
+
+        String[] skillNames = context.getAssets().list(ASSETS_WORKSPACE + "/skills");
+        if (skillNames == null) {
+            AgentLogs.debug(TAG, "builtin_skill_sync_skipped", "reason=assets_list_empty");
+            return;
+        }
+
+        for (String skillName : skillNames) {
+            File targetSkillDir = new File(skillsDir, skillName);
+            if (!targetSkillDir.exists()) {
+                AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
+                copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
+            } else {
+                AgentLogs.debug(TAG, "builtin_skill_skip", "skill_name=" + skillName);
+            }
         }
     }
 
