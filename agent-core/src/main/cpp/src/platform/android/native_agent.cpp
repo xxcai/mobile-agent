@@ -210,6 +210,11 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
                 if (json.contains("agent") && json["agent"].contains("model")) {
                     config.agent.model = json["agent"]["model"].get<std::string>();
                 }
+                if (json.contains("agent")
+                        && json["agent"].contains("enableThinking")
+                        && json["agent"]["enableThinking"].is_boolean()) {
+                    config.agent.enable_thinking = json["agent"]["enableThinking"].get<bool>();
+                }
                 // Parse workspace path from JSON
                 if (json.contains("workspacePath")) {
                     config.workspace_path = json["workspacePath"].get<std::string>();
@@ -222,10 +227,13 @@ JNIEXPORT jint JNICALL Java_com_hh_agent_core_NativeAgent_nativeInitialize(
 
                 icraw::Logger::get_instance().set_level(g_native_log_level);
 
-                ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} workspace={} log_level_source=java",
+                ICRAW_LOG_INFO("[NativeAgentJni][config_loaded] api_key_set={} base_url={} model={} enable_thinking={} workspace={} log_level_source=java",
                         !config.provider.api_key.empty(),
                         config.provider.base_url,
                         config.agent.model,
+                        config.agent.enable_thinking.has_value()
+                                ? (*config.agent.enable_thinking ? "enabled" : "disabled")
+                                : "unset",
                         config.workspace_path.string());
             } catch (const std::exception& e) {
                 ICRAW_LOG_WARN("[NativeAgentJni][config_parse_failed] message={}", e.what());

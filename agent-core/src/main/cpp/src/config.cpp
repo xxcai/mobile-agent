@@ -152,6 +152,9 @@ AgentConfig AgentConfig::from_json(const nlohmann::json& json) {
     config.max_iterations = json.value("maxIterations", 15);
     config.temperature = json.value("temperature", 0.7);
     config.max_tokens = json.value("maxTokens", 4096);
+    if (json.contains("enableThinking") && json["enableThinking"].is_boolean()) {
+        config.enable_thinking = json["enableThinking"].get<bool>();
+    }
     
     // Legacy memory settings
     config.memory_window = json.value("memoryWindow", 50);
@@ -166,7 +169,7 @@ AgentConfig AgentConfig::from_json(const nlohmann::json& json) {
 }
 
 nlohmann::json AgentConfig::to_json() const {
-    return {
+    nlohmann::json json = {
         {"model", model},
         {"maxIterations", max_iterations},
         {"temperature", temperature},
@@ -175,6 +178,12 @@ nlohmann::json AgentConfig::to_json() const {
         {"consolidationThreshold", consolidation_threshold},
         {"compaction", compaction.to_json()}
     };
+
+    if (enable_thinking.has_value()) {
+        json["enableThinking"] = *enable_thinking;
+    }
+
+    return json;
 }
 
 // ProviderConfig

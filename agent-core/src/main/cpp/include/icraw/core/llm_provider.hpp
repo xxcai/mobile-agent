@@ -5,6 +5,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <optional>
 #include "icraw/types.hpp"
 #include "icraw/core/http_client.hpp"
 
@@ -15,6 +16,7 @@ struct ChatCompletionRequest {
     std::string model;
     double temperature = 0.7;
     int max_tokens = 4096;
+    std::optional<bool> enable_thinking;
     std::vector<nlohmann::json> tools;
     bool tool_choice_auto = true;
     bool stream = false;
@@ -115,8 +117,14 @@ private:
 // Stream Parser Factory
 // ============================================================================
 
-// Create appropriate stream parser based on provider/base_url
-std::unique_ptr<StreamParser> create_stream_parser(const std::string& base_url);
+enum class OpenAICompatibleVendor {
+    GENERIC,
+    MINIMAX,
+    QWEN,
+    GLM,
+};
+
+OpenAICompatibleVendor resolve_openai_compatible_vendor(const std::string& base_url);
 
 // ============================================================================
 // LLM Provider Base Class
@@ -137,6 +145,7 @@ public:
     // Provider info
     virtual std::string get_provider_name() const = 0;
     virtual std::vector<std::string> get_supported_models() const = 0;
+    virtual void set_http_client(std::unique_ptr<HttpClient> client) = 0;
 
     // Build request body for OpenAI-compatible API
     virtual nlohmann::json build_request_body(const ChatCompletionRequest& request) const;
@@ -146,29 +155,38 @@ public:
 };
 
 // ============================================================================
-// OpenAI-compatible Provider
+// OpenAI-compatible Provider Base
 // ============================================================================
 
-class OpenAICompatibleProvider : public LLMProvider {
+class OpenAICompatibleProviderBase : public LLMProvider {
 public:
-    OpenAICompatibleProvider(const std::string& api_key,
-                             const std::string& base_url = "https://api.openai.com/v1",
-                             const std::string& default_model = "gpt-4o");
-    ~OpenAICompatibleProvider() override = default;
+    OpenAICompatibleProviderBase(const std::string& api_key,
+                                 const std::string& base_url = "https://api.openai.com/v1",
+                                 const std::string& default_model = "gpt-4o");
+    ~OpenAICompatibleProviderBase() override = default;
 
     ChatCompletionResponse chat_completion(const ChatCompletionRequest& request) override;
-    void chat_completion_stream(const ChatCompletionRequest& request,
-                                std::function<void(const ChatCompletionResponse&)> callback) override;
+    void chat_completion_stream(
+        const ChatCompletionRequest& request,
+        std::function<void(const ChatCompletionResponse&)> callback) override;
 
     std::string get_provider_name() const override;
     std::vector<std::string> get_supported_models() const override;
 
-    void set_http_client(std::unique_ptr<HttpClient> client);
+    void set_http_client(std::unique_ptr<HttpClient> client) override;
 
 protected:
+    void set_provider_name(std::string provider_name);
+    void refresh_stream_parser();
+
+    virtual void apply_request_quirks(const ChatCompletionRequest& request,
+                                      nlohmann::json& body) const;
+    virtual std::unique_ptr<StreamParser> create_provider_stream_parser() const;
+
     std::string api_key_;
     std::string base_url_;
     std::string default_model_;
+    std::string provider_name_ = "generic";
     std::unique_ptr<HttpClient> http_client_;
     std::unique_ptr<StreamParser> stream_parser_;
 };

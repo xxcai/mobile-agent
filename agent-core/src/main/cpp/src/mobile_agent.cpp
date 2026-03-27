@@ -5,6 +5,7 @@
 #include "icraw/core/prompt_builder.hpp"
 #include "icraw/core/agent_loop.hpp"
 #include "icraw/core/llm_provider.hpp"
+#include "icraw/core/llm_provider_factory.hpp"
 #include "icraw/core/http_client.hpp"
 #include "icraw/log/logger.hpp"
 #include "icraw/log/log_utils.hpp"
@@ -73,12 +74,14 @@ MobileAgent::MobileAgent(const IcrawConfig& config)
     prompt_builder_ = std::make_shared<PromptBuilder>(
         memory_manager_, skill_loader_, tool_registry_);
 
-    // Create OpenAI-compatible provider with CurlHttpClient
+    // Create provider via factory so vendor-specific behavior lives in concrete classes.
     ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=llm_provider model={}", config_.agent.model);
-    auto provider = std::make_shared<OpenAICompatibleProvider>(
+    auto provider = LLMProviderFactory::create_openai_compatible_provider(
         config_.provider.api_key,
         config_.provider.base_url,
         config_.agent.model);
+    ICRAW_LOG_INFO("[MobileAgent][provider_created] provider={} base_url={} model={}",
+            provider->get_provider_name(), config_.provider.base_url, config_.agent.model);
 
     // Create and set HTTP client
     ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=http_client");

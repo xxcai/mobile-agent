@@ -62,6 +62,41 @@ public class GestureToolChannelTest {
     }
 
     @Test
+    public void executeDerivesTapCoordinatesFromObservationBounds() throws Exception {
+        RecordingGestureExecutor executor = new RecordingGestureExecutor();
+        GestureExecutorRegistry.setExecutor(executor);
+
+        JSONObject params = new JSONObject()
+                .put("action", "tap")
+                .put("observation", new JSONObject()
+                        .put("snapshotId", "snap-1")
+                        .put("referencedBounds", "[539,2169][799,2337]")
+                        .put("targetDescriptor", "发现标签"));
+
+        JSONObject result = new JSONObject(channel.execute(params).toJsonString());
+        assertTrue(result.getBoolean("success"));
+        assertEquals("tap", executor.lastAction);
+        assertEquals(669, executor.lastParams.getInt("x"));
+        assertEquals(2253, executor.lastParams.getInt("y"));
+    }
+
+    @Test
+    public void executeKeepsObservationErrorWhenTapHasCoordinatesButNoObservation() throws Exception {
+        RecordingGestureExecutor executor = new RecordingGestureExecutor();
+        GestureExecutorRegistry.setExecutor(executor);
+
+        JSONObject params = new JSONObject()
+                .put("action", "tap")
+                .put("x", 10)
+                .put("y", 20);
+
+        JSONObject result = new JSONObject(channel.execute(params).toJsonString());
+        assertFalse(result.getBoolean("success"));
+        assertEquals("missing_view_context_observation", result.getString("error"));
+        assertEquals("", executor.lastAction);
+    }
+
+    @Test
     public void executeReturnsSwipeObservationErrorBeforeExecutorCall() throws Exception {
         RecordingGestureExecutor executor = new RecordingGestureExecutor();
         GestureExecutorRegistry.setExecutor(executor);
