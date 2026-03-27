@@ -269,8 +269,10 @@ public class MainPresenter implements MainContract.Presenter {
                 }
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        streamingView.hideThinking();
-                        messageListView.hideLoading();
+                        if (!"tool_calls".equals(finishReason)) {
+                            streamingView.hideThinking();
+                            messageListView.hideLoading();
+                        }
                         // 传递带有完成状态的 Message
                         streamingView.onStreamMessageEnd(assistantMessage, finishReason);
                     });

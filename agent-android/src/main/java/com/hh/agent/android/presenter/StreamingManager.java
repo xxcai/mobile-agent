@@ -123,8 +123,10 @@ public class StreamingManager {
 
             @Override
             public void onMessageEnd(String finishReason) {
-                // 清除流式状态
-                isStreaming.set(false);
+                if (!"tool_calls".equals(finishReason)) {
+                    // tool_calls 只是进入工具执行阶段，还不是整轮 turn 结束。
+                    isStreaming.set(false);
+                }
                 if (sessionTranscript != null) {
                     sessionTranscript.onMessageEnd(finishReason);
                 }

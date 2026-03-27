@@ -459,6 +459,18 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             event.data["content"] = result.content;
             callback(event);
         }
+
+        if (stop_requested_) {
+            loop_exit_reason = "cancel";
+            ICRAW_LOG_INFO("[AgentLoop][tool_phase_cancelled] iteration={} tool_result_count={}",
+                    iteration, tool_results.size());
+
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = "cancel";
+            callback(event);
+            break;
+        }
     }
 
     if (loop_exit_reason.empty()) {
