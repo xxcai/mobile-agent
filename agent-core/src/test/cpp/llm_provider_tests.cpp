@@ -1,5 +1,10 @@
 #include "icraw/core/http_client.hpp"
 #include "icraw/core/llm_provider.hpp"
+#include "icraw/core/llm_provider_factory.hpp"
+#include "icraw/core/providers/generic_openai_provider.hpp"
+#include "icraw/core/providers/glm_provider.hpp"
+#include "icraw/core/providers/minimax_provider.hpp"
+#include "icraw/core/providers/qwen_provider.hpp"
 #include "icraw/types.hpp"
 
 #include <cassert>
@@ -13,12 +18,14 @@ namespace {
 class FakeHttpClient final : public HttpClient {
 public:
     bool should_succeed = true;
+    bool should_stream_succeed = true;
     std::string captured_url;
     std::string captured_method;
     std::string captured_request_body;
     HttpHeaders captured_headers;
     std::string response_body =
         R"({"choices":[{"finish_reason":"stop","message":{"content":"ok"}}]})";
+    std::vector<std::string> stream_events;
 
     bool perform_request(const std::string& url,
                          const std::string& method,
@@ -41,6 +48,31 @@ public:
         }
 
         out_response_body = response_body;
+        return true;
+    }
+
+    bool perform_request_stream(const std::string& url,
+                                const std::string& method,
+                                const std::string& request_body,
+                                StreamCallback callback,
+                                HttpError& error,
+                                const HttpHeaders& headers = {}) override {
+        captured_url = url;
+        captured_method = method;
+        captured_request_body = request_body;
+        captured_headers = headers;
+
+        if (!should_stream_succeed) {
+            error.code = 500;
+            error.message = "fake stream failure";
+            return false;
+        }
+
+        for (const auto& event : stream_events) {
+            if (!callback(event)) {
+                break;
+            }
+        }
         return true;
     }
 };
@@ -70,32 +102,25 @@ ChatCompletionRequest make_basic_request() {
     return request;
 }
 
-void test_profile_resolution() {
+void test_vendor_resolution() {
     {
-        const auto profile = resolve_openai_compatible_profile("https://api.minimax.chat/v1");
-        expect(profile.vendor == OpenAICompatibleVendor::MINIMAX, "minimax vendor should resolve");
-        expect(profile.profile_name == "minimax", "minimax profile name should resolve");
-        expect(profile.enable_reasoning_split, "minimax should enable reasoning_split");
+        const auto vendor = resolve_openai_compatible_vendor("https://api.minimax.chat/v1");
+        expect(vendor == OpenAICompatibleVendor::MINIMAX, "minimax vendor should resolve");
     }
 
     {
-        const auto profile = resolve_openai_compatible_profile("https://dashscope.aliyuncs.com/compatible-mode/v1");
-        expect(profile.vendor == OpenAICompatibleVendor::QWEN, "qwen vendor should resolve");
-        expect(profile.tool_call_match_mode == OpenAIStreamParser::ToolCallMatchMode::BY_INDEX,
-               "qwen should use BY_INDEX parser mode");
+        const auto vendor = resolve_openai_compatible_vendor("https://dashscope.aliyuncs.com/compatible-mode/v1");
+        expect(vendor == OpenAICompatibleVendor::QWEN, "qwen vendor should resolve");
     }
 
     {
-        const auto profile = resolve_openai_compatible_profile("https://open.bigmodel.cn/api/paas/v4");
-        expect(profile.vendor == OpenAICompatibleVendor::GLM, "glm vendor should resolve");
-        expect(profile.profile_name == "glm", "glm profile name should resolve");
-        expect(!profile.enable_reasoning_split, "glm should not enable minimax quirks by default");
+        const auto vendor = resolve_openai_compatible_vendor("https://open.bigmodel.cn/api/paas/v4");
+        expect(vendor == OpenAICompatibleVendor::GLM, "glm vendor should resolve");
     }
 
     {
-        const auto profile = resolve_openai_compatible_profile("https://api.openai.com/v1");
-        expect(profile.vendor == OpenAICompatibleVendor::GENERIC, "generic vendor should resolve");
-        expect(!profile.enable_reasoning_split, "generic should not enable minimax quirks");
+        const auto vendor = resolve_openai_compatible_vendor("https://api.openai.com/v1");
+        expect(vendor == OpenAICompatibleVendor::GENERIC, "generic vendor should resolve");
     }
 }
 
@@ -103,7 +128,7 @@ void test_minimax_request_injects_reasoning_split() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("test-key", "https://api.minimax.chat/v1", "MiniMax-M1");
+    MinimaxProvider provider("test-key", "https://api.minimax.chat/v1", "MiniMax-M1");
     provider.set_http_client(std::move(fake_http));
 
     auto response = provider.chat_completion(make_basic_request());
@@ -117,7 +142,7 @@ void test_generic_request_does_not_inject_reasoning_split() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("test-key", "https://api.openai.com/v1", "gpt-4o");
+    GenericOpenAIProvider provider("test-key", "https://api.openai.com/v1", "gpt-4o");
     provider.set_http_client(std::move(fake_http));
 
     auto response = provider.chat_completion(make_basic_request());
@@ -131,14 +156,14 @@ void test_glm_request_uses_generic_openai_compatible_shape() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    GlmProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
     provider.set_http_client(std::move(fake_http));
 
     auto response = provider.chat_completion(make_basic_request());
     (void) response;
 
-    expect(provider.get_provider_name() == "OpenAI-Compatible(glm)",
-           "glm provider name should expose glm profile");
+    expect(provider.get_provider_name() == "GlmProvider",
+           "glm provider name should expose the concrete provider class");
     expect(fake_http_raw->captured_url == "https://open.bigmodel.cn/api/paas/v4/chat/completions",
            "glm should use the standard chat completions path");
     expect(fake_http_raw->captured_headers["Authorization"] == "Bearer glm-key",
@@ -155,7 +180,7 @@ void test_glm_request_omits_thinking_when_not_configured() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    GlmProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
     provider.set_http_client(std::move(fake_http));
 
     ChatCompletionRequest request = make_basic_request();
@@ -172,7 +197,7 @@ void test_glm_request_can_enable_thinking() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    GlmProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
     provider.set_http_client(std::move(fake_http));
 
     ChatCompletionRequest request = make_basic_request();
@@ -191,7 +216,7 @@ void test_glm_request_can_disable_thinking() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
 
-    OpenAICompatibleProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    GlmProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
     provider.set_http_client(std::move(fake_http));
 
     ChatCompletionRequest request = make_basic_request();
@@ -207,21 +232,17 @@ void test_glm_request_can_disable_thinking() {
 }
 
 void test_qwen_stream_parser_uses_index_matching() {
-    const auto profile = resolve_openai_compatible_profile("https://dashscope.aliyuncs.com/compatible-mode/v1");
-    auto parser = create_stream_parser(profile);
-
-    auto* openai_parser = dynamic_cast<OpenAIStreamParser*>(parser.get());
-    expect(openai_parser != nullptr, "qwen profile should still use OpenAIStreamParser");
+    OpenAIStreamParser parser(OpenAIStreamParser::ToolCallMatchMode::BY_INDEX);
 
     ChatCompletionResponse first_chunk;
     const std::string first_event =
         R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"weather","arguments":"{"}}]}}]})";
-    expect(parser->parse_chunk(first_event, first_chunk), "qwen first tool_call chunk should parse");
+    expect(parser.parse_chunk(first_event, first_chunk), "qwen first tool_call chunk should parse");
 
     ChatCompletionResponse second_chunk;
     const std::string second_event =
         R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"city\":\"Hangzhou\"}"}}],"content":null},"finish_reason":"tool_calls"}]})";
-    expect(parser->parse_chunk(second_event, second_chunk), "qwen second tool_call chunk should parse");
+    expect(parser.parse_chunk(second_event, second_chunk), "qwen second tool_call chunk should parse");
     expect(second_chunk.is_stream_end, "finish_reason=tool_calls should end stream");
     expect(second_chunk.tool_calls.size() == 1, "qwen chunks should accumulate into one tool call");
     expect(second_chunk.tool_calls[0].name == "weather", "qwen accumulated tool name should match");
@@ -230,14 +251,183 @@ void test_qwen_stream_parser_uses_index_matching() {
            "qwen accumulated tool arguments should merge by index");
 }
 
+void test_qwen_stream_parser_tolerates_null_string_fields() {
+    OpenAIStreamParser parser(OpenAIStreamParser::ToolCallMatchMode::BY_INDEX);
+
+    ChatCompletionResponse first_chunk;
+    const std::string first_event =
+        R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":null,"function":{"name":"weather","arguments":"{"}}]},"finish_reason":null}]})";
+    expect(parser.parse_chunk(first_event, first_chunk),
+           "qwen chunk with null finish_reason and null id should still parse");
+    expect(!first_chunk.is_stream_end,
+           "null finish_reason should not end stream");
+
+    ChatCompletionResponse second_chunk;
+    const std::string second_event =
+        R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":null,"function":{"name":null,"arguments":"\"city\":\"Hangzhou\"}"}}]},"finish_reason":"tool_calls"}]})";
+    expect(parser.parse_chunk(second_event, second_chunk),
+           "qwen chunk with null tool-call string fields should still parse");
+    expect(second_chunk.is_stream_end,
+           "tool_calls finish_reason should still end stream");
+    expect(second_chunk.tool_calls.size() == 1,
+           "qwen null-safe parsing should still accumulate one tool call");
+    expect(second_chunk.tool_calls[0].name == "weather",
+           "existing non-null tool name should be preserved when later chunk name is null");
+    expect(second_chunk.tool_calls[0].arguments["city"] == "Hangzhou",
+           "arguments should still merge when earlier/later chunks contain null string fields");
+}
+
+void test_qwen_request_omits_enable_thinking_when_not_configured() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    QwenProvider provider("qwen-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max");
+    provider.set_http_client(std::move(fake_http));
+
+    auto response = provider.chat_completion(make_basic_request());
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(!body_json.contains("enable_thinking"),
+           "qwen request should not send enable_thinking when request leaves it unset");
+}
+
+void test_qwen_request_can_enable_thinking() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    QwenProvider provider("qwen-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.enable_thinking = true;
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.contains("enable_thinking"),
+           "qwen request should include enable_thinking when enabled");
+    expect(body_json["enable_thinking"] == true,
+           "qwen enable_thinking should be encoded as true");
+}
+
+void test_qwen_request_can_disable_thinking() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    QwenProvider provider("qwen-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.enable_thinking = false;
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.contains("enable_thinking"),
+           "qwen request should include enable_thinking when disabled");
+    expect(body_json["enable_thinking"] == false,
+           "qwen enable_thinking should be encoded as false");
+}
+
+void test_factory_returns_specialized_provider_classes() {
+    {
+        auto provider = LLMProviderFactory::create_openai_compatible_provider(
+            "test-key", "https://api.minimax.chat/v1", "MiniMax-M1");
+        expect(dynamic_cast<MinimaxProvider*>(provider.get()) != nullptr,
+               "factory should return MinimaxProvider");
+    }
+
+    {
+        auto provider = LLMProviderFactory::create_openai_compatible_provider(
+            "test-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max");
+        expect(dynamic_cast<QwenProvider*>(provider.get()) != nullptr,
+               "factory should return QwenProvider");
+    }
+
+    {
+        auto provider = LLMProviderFactory::create_openai_compatible_provider(
+            "test-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+        expect(dynamic_cast<GlmProvider*>(provider.get()) != nullptr,
+               "factory should return GlmProvider");
+    }
+
+    {
+        auto provider = LLMProviderFactory::create_openai_compatible_provider(
+            "test-key", "https://api.openai.com/v1", "gpt-4o");
+        expect(dynamic_cast<GenericOpenAIProvider*>(provider.get()) != nullptr,
+               "factory should return GenericOpenAIProvider");
+    }
+}
+
+void test_specialized_minimax_provider_injects_reasoning_split() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    MinimaxProvider provider("test-key", "https://api.minimax.chat/v1", "MiniMax-M1");
+    provider.set_http_client(std::move(fake_http));
+
+    auto response = provider.chat_completion(make_basic_request());
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.value("reasoning_split", false),
+           "specialized minimax provider should inject reasoning_split");
+}
+
+void test_specialized_glm_provider_controls_thinking() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+
+    GlmProvider provider("glm-key", "https://open.bigmodel.cn/api/paas/v4", "glm-5");
+    provider.set_http_client(std::move(fake_http));
+
+    ChatCompletionRequest request = make_basic_request();
+    request.enable_thinking = false;
+    auto response = provider.chat_completion(request);
+    (void) response;
+
+    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
+    expect(body_json.contains("thinking"),
+           "specialized glm provider should emit thinking config");
+    expect(body_json["thinking"]["type"] == "disabled",
+           "specialized glm provider should encode disabled thinking");
+}
+
+void test_specialized_qwen_provider_uses_index_matching_in_streams() {
+    auto fake_http = std::make_unique<FakeHttpClient>();
+    auto* fake_http_raw = fake_http.get();
+    fake_http_raw->stream_events = {
+        R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"weather","arguments":"{"}}]}}]})",
+        R"(data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"city\":\"Hangzhou\"}"}}]},"finish_reason":"tool_calls"}]})"
+    };
+
+    QwenProvider provider("qwen-key", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-max");
+    provider.set_http_client(std::move(fake_http));
+
+    std::vector<ChatCompletionResponse> responses;
+    provider.chat_completion_stream(make_basic_request(), [&](const ChatCompletionResponse& response) {
+        responses.push_back(response);
+    });
+
+    expect(fake_http_raw->captured_url == "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+           "specialized qwen provider should use standard chat completions path");
+    expect(!responses.empty(), "specialized qwen provider should emit stream responses");
+    const auto& final_response = responses.back();
+    expect(final_response.is_stream_end, "specialized qwen provider should end stream on tool_calls");
+    expect(final_response.tool_calls.size() == 1,
+           "specialized qwen provider should accumulate tool calls by index");
+    expect(final_response.tool_calls[0].arguments["city"] == "Hangzhou",
+           "specialized qwen provider should merge tool arguments by index");
+}
+
 void test_glm_stream_parser_supports_reasoning_content() {
-    const auto profile = resolve_openai_compatible_profile("https://open.bigmodel.cn/api/paas/v4");
-    auto parser = create_stream_parser(profile);
+    OpenAIStreamParser parser;
 
     ChatCompletionResponse first_chunk;
     const std::string first_event =
         R"(data: {"choices":[{"delta":{"reasoning_content":"先分析问题","content":null}}]})";
-    expect(parser->parse_chunk(first_event, first_chunk), "glm reasoning chunk should parse");
+    expect(parser.parse_chunk(first_event, first_chunk), "glm reasoning chunk should parse");
     expect_equal(first_chunk.reasoning_content, "先分析问题",
                  "glm reasoning_content should be surfaced as reasoning delta");
     expect(first_chunk.content.empty(), "glm reasoning-only chunk should not emit text");
@@ -245,7 +435,7 @@ void test_glm_stream_parser_supports_reasoning_content() {
     ChatCompletionResponse second_chunk;
     const std::string second_event =
         R"(data: {"choices":[{"delta":{"reasoning_content":"先分析问题，再回答","content":"答案是 4"},"finish_reason":"stop"}]})";
-    expect(parser->parse_chunk(second_event, second_chunk), "glm combined reasoning/text chunk should parse");
+    expect(parser.parse_chunk(second_event, second_chunk), "glm combined reasoning/text chunk should parse");
     expect_equal(second_chunk.reasoning_content, "，再回答",
                  "glm reasoning snapshot should be normalized to delta");
     expect_equal(second_chunk.content, "答案是 4",
@@ -257,7 +447,7 @@ void test_glm_stream_parser_supports_reasoning_content() {
 } // namespace icraw
 
 int main() {
-    icraw::test_profile_resolution();
+    icraw::test_vendor_resolution();
     icraw::test_minimax_request_injects_reasoning_split();
     icraw::test_generic_request_does_not_inject_reasoning_split();
     icraw::test_glm_request_uses_generic_openai_compatible_shape();
@@ -265,7 +455,15 @@ int main() {
     icraw::test_glm_request_can_enable_thinking();
     icraw::test_glm_request_can_disable_thinking();
     icraw::test_qwen_stream_parser_uses_index_matching();
+    icraw::test_qwen_stream_parser_tolerates_null_string_fields();
+    icraw::test_qwen_request_omits_enable_thinking_when_not_configured();
+    icraw::test_qwen_request_can_enable_thinking();
+    icraw::test_qwen_request_can_disable_thinking();
     icraw::test_glm_stream_parser_supports_reasoning_content();
+    icraw::test_factory_returns_specialized_provider_classes();
+    icraw::test_specialized_minimax_provider_injects_reasoning_split();
+    icraw::test_specialized_glm_provider_controls_thinking();
+    icraw::test_specialized_qwen_provider_uses_index_matching_in_streams();
     std::cout << "icraw_llm_provider_tests: PASS" << std::endl;
     return 0;
 }

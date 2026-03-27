@@ -14,9 +14,15 @@ set(ICRAW_SOURCES
         src/core/prompt_builder.cpp
         src/core/agent_loop.cpp
         src/core/llm_provider.cpp
+        src/core/openai_compatible_provider_base.cpp
+        src/core/llm_provider_factory.cpp
         src/core/curl_http_client.cpp
         src/core/token_utils.cpp
         src/core/mcp_client.cpp
+        src/core/providers/generic_openai_provider.cpp
+        src/core/providers/minimax_provider.cpp
+        src/core/providers/qwen_provider.cpp
+        src/core/providers/glm_provider.cpp
         src/tools/tool_registry.cpp
         src/mobile_agent.cpp
         src/platform/android/android_tools.cpp
@@ -33,6 +39,12 @@ set(ICRAW_HEADERS
         include/icraw/core/prompt_builder.hpp
         include/icraw/core/agent_loop.hpp
         include/icraw/core/llm_provider.hpp
+        include/icraw/core/openai_compatible_provider_base.hpp
+        include/icraw/core/llm_provider_factory.hpp
+        include/icraw/core/providers/generic_openai_provider.hpp
+        include/icraw/core/providers/minimax_provider.hpp
+        include/icraw/core/providers/qwen_provider.hpp
+        include/icraw/core/providers/glm_provider.hpp
         include/icraw/core/http_client.hpp
         include/icraw/core/token_utils.hpp
         include/icraw/core/mcp_client.hpp

@@ -1,7 +1,13 @@
 set(ICRAW_LLM_PROVIDER_TEST_SOURCES
         llm_provider_tests.cpp
         ../../main/cpp/src/core/llm_provider.cpp
+        ../../main/cpp/src/core/openai_compatible_provider_base.cpp
+        ../../main/cpp/src/core/llm_provider_factory.cpp
         ../../main/cpp/src/core/curl_http_client.cpp
+        ../../main/cpp/src/core/providers/generic_openai_provider.cpp
+        ../../main/cpp/src/core/providers/minimax_provider.cpp
+        ../../main/cpp/src/core/providers/qwen_provider.cpp
+        ../../main/cpp/src/core/providers/glm_provider.cpp
         ../../main/cpp/src/log/logger.cpp
         ../../main/cpp/src/log/logger_backend_spdlog.cpp
 )
