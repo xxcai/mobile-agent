@@ -43,6 +43,11 @@ void OpenAICompatibleProviderBase::set_http_client(std::unique_ptr<HttpClient> c
     http_client_ = std::move(client);
 }
 
+void OpenAICompatibleProviderBase::cancel_active_request() {
+    cancel_requested_.store(true);
+    ICRAW_LOG_INFO("[LlmProvider][cancel_requested] profile={}", provider_name_);
+}
+
 void OpenAICompatibleProviderBase::set_provider_name(std::string provider_name) {
     provider_name_ = std::move(provider_name);
     ICRAW_LOG_INFO("[LlmProvider][profile_selected] profile={} base_url={}",
@@ -74,6 +79,7 @@ std::unique_ptr<StreamParser> OpenAICompatibleProviderBase::create_provider_stre
 }
 
 ChatCompletionResponse OpenAICompatibleProviderBase::chat_completion(const ChatCompletionRequest& request) {
+    cancel_requested_.store(false);
     auto start_time = std::chrono::steady_clock::now();
 
     if (!http_client_) {
@@ -199,6 +205,7 @@ ChatCompletionResponse OpenAICompatibleProviderBase::chat_completion(const ChatC
 void OpenAICompatibleProviderBase::chat_completion_stream(
     const ChatCompletionRequest& request,
     std::function<void(const ChatCompletionResponse&)> callback) {
+    cancel_requested_.store(false);
     auto start_time = std::chrono::steady_clock::now();
 
     if (!http_client_) {
@@ -250,6 +257,12 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
     }
 
     auto sse_callback = [&](const std::string& sse_event) -> bool {
+        if (cancel_requested_.load()) {
+            ICRAW_LOG_INFO("[LlmProvider][chat_stream_cancel] profile={} stage=before_parse",
+                    provider_name_);
+            return false;
+        }
+
         ICRAW_LOG_DEBUG("[LlmProvider][stream_chunk_debug] event_length={} preview={}",
                 sse_event.size(), log_utils::truncate_for_debug(sse_event));
         ChatCompletionResponse response;
@@ -261,6 +274,12 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
             }
 
             callback(response);
+
+            if (cancel_requested_.load()) {
+                ICRAW_LOG_INFO("[LlmProvider][chat_stream_cancel] profile={} stage=after_callback",
+                        provider_name_);
+                return false;
+            }
 
             if (response.is_stream_end) {
                 ICRAW_LOG_DEBUG("[LlmProvider][chat_stream_debug] action=stop_transfer");

@@ -93,6 +93,10 @@ public class MainPresenter implements MainContract.Presenter {
         return mobileAgentApi;
     }
 
+    public boolean isStreaming() {
+        return streamingManager.isStreaming();
+    }
+
     public String getSessionKey() {
         return sessionKey;
     }
@@ -162,6 +166,9 @@ public class MainPresenter implements MainContract.Presenter {
         Message assistantMessage = new Message();
         assistantMessage.setRole("response");
         assistantMessage.setTimestamp(System.currentTimeMillis());
+
+        // 先进入 streaming 状态，避免后续 showLoading() 提前禁用“取消”按钮。
+        streamingManager.beginStreaming();
 
         // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
         if (streamingView != null) {

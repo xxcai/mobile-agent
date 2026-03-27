@@ -60,13 +60,20 @@ public class StreamingManager {
     }
 
     /**
+     * 预先标记进入流式状态，用于 UI 在真正发起 native 请求前切到“可取消”状态。
+     */
+    public void beginStreaming() {
+        isStreaming.set(true);
+    }
+
+    /**
      * 发送流式消息
      *
      * @param content 消息内容
      * @param sessionKey 会话 key
      */
     public void sendMessageStream(String content, String sessionKey) {
-        // 设置流式状态
+        // 设置流式状态（允许重复调用，保持幂等）
         isStreaming.set(true);
         SessionDebugTranscriptStore store = SessionDebugTranscriptStore.getInstance();
         SessionDebugTranscriptStore.SessionTranscript sessionTranscript =

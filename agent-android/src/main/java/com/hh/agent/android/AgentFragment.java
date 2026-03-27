@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.presenter.MainPresenter;
-import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
@@ -47,7 +46,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
-    private StreamingManager streamingManager;
     private boolean isRecording = false;
     private boolean permissionGranted = false;
     // 当前正在更新的 response 消息，用于流式增量更新
@@ -88,9 +86,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         presenter = MainPresenter.getInstance(resolveSessionKey());
         presenter.attachView(this, this);
-
-        // 初始化 StreamingManager
-        streamingManager = new StreamingManager(presenter.getMobileAgentApi());
 
         // 加载历史消息
         presenter.loadMessages();
@@ -137,7 +132,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         // 设置发送按钮点击事件
         btnSend.setOnClickListener(v -> {
-            if (streamingManager.isStreaming()) {
+            if (presenter != null && presenter.isStreaming()) {
                 // 取消流式响应
                 presenter.cancelStream();
                 // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
@@ -392,7 +387,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void showLoading() {
-        if (btnSend != null) {
+        if (btnSend != null && (presenter == null || !presenter.isStreaming())) {
             btnSend.setEnabled(false);
         }
     }
