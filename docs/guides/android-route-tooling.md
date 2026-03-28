@@ -101,14 +101,19 @@ App 层当前只需要提供或组装以下能力：
 
 实际组装入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
 
+说明：
+
+- route tooling 的通用运行时、source model 和 bridge 适配器已经下沉到 `agent-android/src/main/java/com/hh/agent/android/route/`
+- App 层主要保留宿主数据源、demo invoker 和最终装配代码
+
 ### Native
 
-当前 native 侧使用 App registry 驱动：
+当前 native 侧使用 App registry 驱动，但 registry model 和 bridge 适配器位于 `agent-android`：
 
-- [NativeRouteRegistry.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/NativeRouteRegistry.java)
-- [NativeRouteRegistryEntry.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/NativeRouteRegistryEntry.java)
+- [NativeRouteRegistry.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/NativeRouteRegistry.java)
+- [NativeRouteRegistryEntry.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/NativeRouteRegistryEntry.java)
+- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java)
 - [DefaultNativeRouteRegistry.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultNativeRouteRegistry.java)
-- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RegistryBackedNativeRouteBridge.java)
 
 当前 registry 只要求最小字段：
 
@@ -120,12 +125,12 @@ App 层当前只需要提供或组装以下能力：
 
 ### MiniApp
 
-当前 miniapp 侧使用 App mock query source 驱动：
+当前 miniapp 侧使用 App mock query source 驱动，但 query source contract 和 bridge 适配器位于 `agent-android`：
 
-- [MiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/MiniAppQuerySource.java)
-- [MiniAppQueryResult.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/MiniAppQueryResult.java)
+- [MiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/MiniAppQuerySource.java)
+- [MiniAppQueryResult.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/MiniAppQueryResult.java)
+- [QuerySourceBackedMiniAppRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedMiniAppRouteBridge.java)
 - [DefaultMockMiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockMiniAppQuerySource.java)
-- [QuerySourceBackedMiniAppRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/QuerySourceBackedMiniAppRouteBridge.java)
 
 当前 query result 最小字段：
 
@@ -146,6 +151,14 @@ App 层当前只需要提供或组装以下能力：
 - bridge 返回空列表
 - bridge 内记日志
 - 不向 resolver 抛异常
+
+如果真实查询仍然满足：
+
+- 单 query 输入
+- `h5://数字编号` URI
+- `appName` + `description` 输出
+
+通常不需要修改 [QuerySourceBackedMiniAppRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedMiniAppRouteBridge.java) 本身。
 
 ## Demo 与正式能力边界
 
@@ -168,7 +181,7 @@ App 层当前只需要提供或组装以下能力：
 接真实 native 名单时，优先改：
 
 - [DefaultNativeRouteRegistry.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultNativeRouteRegistry.java)
-- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RegistryBackedNativeRouteBridge.java)
+- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java)
 
 接真实 miniapp 查询时，优先改：
 
@@ -181,3 +194,22 @@ App 层当前只需要提供或组装以下能力：
 - [RouteHint.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteHint.java)
 - [RouteResolution.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteResolution.java)
 - [RouteTarget.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteTarget.java)
+- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java)
+- [QuerySourceBackedMiniAppRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedMiniAppRouteBridge.java)
+
+## 当前代码边界
+
+当前推荐分层如下：
+
+- `agent-android`
+  - route runtime
+  - `RouteResolver` / `RouteOpener`
+  - source model
+  - bridge 适配器
+- `app`
+  - native registry 数据源
+  - miniapp query source 数据源
+  - `DemoHostRouteInvoker`
+  - 调试入口和 demo 页面
+
+如果只是把 mock source 替换成真实 source，优先改 `app`，不要直接改 `agent-android` 的 runtime contract。
