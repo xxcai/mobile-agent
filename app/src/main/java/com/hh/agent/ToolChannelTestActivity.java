@@ -114,6 +114,18 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 runResolveRouteProbe("{\"targetTypeHint\":\"miniapp\",\"miniAppName\":\"报销\",\"keywords_csv\":\"报销,费用报销\"}"));
         addActionButton(container, "Resolve Route Keywords", v ->
                 runResolveRouteProbe("{\"keywords_csv\":\"报销\"}"));
+        addActionButton(container, "Open Resolved Native Route", v ->
+                runOpenResolvedRouteProbe(
+                        "{\"targetType\":\"native\",\"uri\":\"ui://myapp.im/createGroup\",\"title\":\"创建群聊\"}",
+                        false));
+        addActionButton(container, "Open Resolved MiniApp Route", v ->
+                runOpenResolvedRouteProbe(
+                        "{\"targetType\":\"miniapp\",\"uri\":\"ui://miniapp/expense/reimbursement/home\",\"title\":\"费控报销\"}",
+                        false));
+        addActionButton(container, "Open Route From Container", v ->
+                runOpenResolvedRouteProbe(
+                        "{\"targetType\":\"miniapp\",\"uri\":\"ui://miniapp/expense/reimbursement/home\",\"title\":\"费控报销\"}",
+                        true));
 
         addSectionHeader(container, "Legacy Diagnostics");
         addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
@@ -223,6 +235,41 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             report.append("error=").append(e.getMessage()).append('\n');
         }
         outputView.setText(report.toString());
+    }
+
+    private void runOpenResolvedRouteProbe(String argumentsJson, boolean launchContainerFirst) {
+        StringBuilder report = new StringBuilder();
+        report.append("# Open Resolved Route Probe\n");
+        report.append("launch_container_first=").append(launchContainerFirst).append('\n');
+        report.append("input=").append(argumentsJson).append("\n\n");
+        outputView.setText(report.toString());
+
+        if (launchContainerFirst) {
+            startActivity(new Intent(this, ContainerActivity.class));
+        }
+
+        mainHandler.postDelayed(() -> {
+            Thread worker = new Thread(() -> {
+                try {
+                    AndroidToolManager manager = buildTestToolManager();
+                    String raw = manager.callTool(
+                            "call_android_tool",
+                            "{\"function\":\"open_resolved_route\",\"args\":" + argumentsJson + "}");
+                    mainHandler.post(() -> {
+                        StringBuilder next = new StringBuilder(outputView.getText());
+                        next.append("raw_result=").append(raw).append('\n');
+                        outputView.setText(next.toString());
+                    });
+                } catch (Exception e) {
+                    mainHandler.post(() -> {
+                        StringBuilder next = new StringBuilder(outputView.getText());
+                        next.append("error=").append(e.getMessage()).append('\n');
+                        outputView.setText(next.toString());
+                    });
+                }
+            });
+            worker.start();
+        }, launchContainerFirst ? 300L : 0L);
     }
 
     private void runLiveViewContextProbe(boolean launchContainerFirst) {
@@ -663,7 +710,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
-        tools.putAll(RouteToolProvider.createRouteTools());
+        tools.putAll(RouteToolProvider.createRouteTools(this));
         return tools;
     }
 
