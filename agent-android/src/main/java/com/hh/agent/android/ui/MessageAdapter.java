@@ -517,6 +517,23 @@ public class MessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     }
 
     /**
+     * 按时间戳移除当前正在流式更新的 response 消息。
+     */
+    public void removeResponseMessage(long timestamp) {
+        for (int i = 0; i < messages.size(); i++) {
+            Message msg = messages.get(i);
+            if ("response".equals(msg.getRole()) && msg.getTimestamp() == timestamp) {
+                messages.remove(i);
+                if (activeToolUiResponseTimestamp != null && activeToolUiResponseTimestamp == timestamp) {
+                    activeToolUiResponseTimestamp = null;
+                }
+                notifyItemRemoved(i);
+                return;
+            }
+        }
+    }
+
+    /**
      * 移除所有 AI 相关消息（thinking, response）
      * 保留用户消息
      */

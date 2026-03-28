@@ -135,9 +135,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             if (presenter != null && presenter.isStreaming()) {
                 // 取消流式响应
                 presenter.cancelStream();
-                // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
-                adapter.removeThinkingMessage();
-                adapter.removeAiMessages();
+                cleanupCancelledTurn();
                 // 重置状态（按钮恢复，用户输入保留在 etMessage）
                 resetStreamingState();
             } else {
@@ -302,8 +300,20 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamMessageEnd(Message message, String finishReason) {
+        Long currentResponseTimestamp = currentResponseMessage != null ? currentResponseMessage.getTimestamp() : null;
+
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
         if ("tool_calls".equals(finishReason)) {
+            return;
+        }
+
+        if ("cancel".equals(finishReason)) {
+            AgentLogs.info("AgentFragment", "stream_cancelled", "finish_reason=" + finishReason);
+            cleanupCancelledTurn(currentResponseTimestamp);
+            if (adapter.getItemCount() > 0) {
+                rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+            }
+            currentResponseMessage = null;
             return;
         }
 
@@ -338,14 +348,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             AgentLogs.warn("AgentFragment", "stream_finish_reason_max_iterations",
                     "finish_reason=" + finishReason);
             adapter.addErrorMessage("max_iterations", "已多次尝试但仍未完成，请重试或缩小问题范围");
-            hideThinking();
-            adapter.removeAiMessages();
-            adapter.clearActiveToolUiResponse();
-            return;
-        }
-
-        if ("cancel".equals(finishReason)) {
-            AgentLogs.info("AgentFragment", "stream_cancelled", "finish_reason=" + finishReason);
             hideThinking();
             adapter.removeAiMessages();
             adapter.clearActiveToolUiResponse();
@@ -444,6 +446,19 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 清理当前响应消息引用，避免新消息触发旧回调
         currentResponseMessage = null;
         resetSendButton();
+    }
+
+    private void cleanupCancelledTurn() {
+        Long currentResponseTimestamp = currentResponseMessage != null ? currentResponseMessage.getTimestamp() : null;
+        cleanupCancelledTurn(currentResponseTimestamp);
+    }
+
+    private void cleanupCancelledTurn(@Nullable Long currentResponseTimestamp) {
+        hideThinking();
+        if (currentResponseTimestamp != null) {
+            adapter.removeResponseMessage(currentResponseTimestamp);
+        }
+        adapter.clearActiveToolUiResponse();
     }
 
     @Override
