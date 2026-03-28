@@ -37,7 +37,7 @@ public class App extends Application {
         tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
-        tools.putAll(RouteToolProvider.createRouteTools());
+        tools.putAll(RouteToolProvider.createRouteTools(this));
 
         // 初始化 Agent（语音识别器通过注入方式在 AgentInitializer 内部设置）
         AgentInitializer.initialize(this, new MockVoiceRecognizer(), tools, () -> {
