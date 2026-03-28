@@ -47,7 +47,7 @@ final class SwipeGestureToolActionHandler extends AbstractGestureToolActionHandl
             observation = requireObservation(
                     params,
                     "swipe requires current-turn observation evidence for the target scroll container",
-                    "Call android_view_context_tool with source=native_xml first, then retry swipe with observation.snapshotId and observation.referencedBounds for the target container.");
+                    "Call android_view_context_tool first, then retry swipe with observation.snapshotId and observation.referencedBounds for the target container.");
         } catch (MissingObservationException exception) {
             return exception.getToolResult();
         }
@@ -55,7 +55,7 @@ final class SwipeGestureToolActionHandler extends AbstractGestureToolActionHandl
         ToolResult snapshotValidationResult = requireObservationSnapshot(
                 observation,
                 "swipe observation must include a non-empty snapshotId",
-                "Call android_view_context_tool with source=native_xml first, then retry swipe with observation.snapshotId and observation.referencedBounds for the target container.");
+                "Call android_view_context_tool first, then retry swipe with observation.snapshotId and observation.referencedBounds for the target container.");
         if (snapshotValidationResult != null) {
             return snapshotValidationResult;
         }

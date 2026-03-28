@@ -57,14 +57,14 @@ final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler
             observation = requireObservation(
                     params,
                     "tap requires current-turn observation evidence before execution",
-                    "Call android_view_context_tool with source=native_xml first, then retry tap with observation.snapshotId.");
+                    "Call android_view_context_tool first, then retry tap with observation.snapshotId.");
         } catch (MissingObservationException exception) {
             return exception.getToolResult();
         }
         return requireObservationSnapshot(
                 observation,
                 "tap observation must include a non-empty snapshotId",
-                "Call android_view_context_tool with source=native_xml first, then retry tap with observation.snapshotId.");
+                "Call android_view_context_tool first, then retry tap with observation.snapshotId.");
     }
 
     @Override

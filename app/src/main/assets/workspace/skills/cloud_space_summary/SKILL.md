@@ -59,7 +59,6 @@ always: false
 
 ```json
 {
-  "source": "native_xml",
   "targetHint": "主界面、个人中心或云空间入口"
 }
 ```

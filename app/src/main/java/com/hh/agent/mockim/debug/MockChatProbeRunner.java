@@ -46,7 +46,7 @@ public final class MockChatProbeRunner {
 
         showReportDialog(activity, reportTitle,
                 "# " + reportTitle + "\n"
-                        + "step_1=android_view_context_tool(native_xml)\n"
+                        + "step_1=android_view_context_tool(runtime_auto)\n"
                         + "step_2=android_gesture_tool(tap + observation)\n"
                         + "target_hint=" + targetHint + "\n"
                         + "note=waiting for runtime result...");
@@ -57,7 +57,7 @@ public final class MockChatProbeRunner {
                 AndroidToolManager manager = buildToolManager(activity);
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"source\":\"native_xml\",\"targetHint\":\"" + escape(targetHint) + "\"}");
+                        "{\"targetHint\":\"" + escape(targetHint) + "\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
                     report = buildFailureReport(reportTitle, targetHint, viewContextResult);
@@ -103,7 +103,7 @@ public final class MockChatProbeRunner {
         showReportDialog(activity, reportTitle,
                 "# " + reportTitle + "\n"
                         + "step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n"
-                        + "step_2=android_view_context_tool(native_xml)\n"
+                        + "step_2=android_view_context_tool(runtime_auto)\n"
                         + "step_3=android_gesture_tool(tap + observation)\n"
                         + "target_hint=" + targetHint + "\n"
                         + "note=waiting for runtime result...");
@@ -118,7 +118,7 @@ public final class MockChatProbeRunner {
 
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"source\":\"native_xml\",\"targetHint\":\"" + escape(targetHint) + "\"}");
+                        "{\"targetHint\":\"" + escape(targetHint) + "\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
                     report = buildBusinessFallbackFailureReport(

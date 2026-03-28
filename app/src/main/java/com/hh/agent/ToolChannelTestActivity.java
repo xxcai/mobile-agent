@@ -276,7 +276,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         StringBuilder report = new StringBuilder();
         report.append("# Live View Context Probe\n");
         report.append("launch_container_first=").append(launchContainerFirst).append('\n');
-        report.append("source=native_xml\n");
+        report.append("source=runtime_auto\n");
         report.append("target_hint=发送消息按钮\n");
         report.append("expected_mock=false\n");
         report.append("expected_activity=")
@@ -299,7 +299,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                     AndroidToolManager manager = buildTestToolManager();
                     resultJson = manager.callTool(
                             "android_view_context_tool",
-                            "{\"source\":\"native_xml\",\"targetHint\":\"发送消息按钮\"}");
+                            "{\"targetHint\":\"发送消息按钮\"}");
                 } catch (Exception e) {
                     resultJson = "{\"success\":false,\"error\":\"probe_failed\",\"message\":\""
                             + e.getMessage() + "\"}";
@@ -347,7 +347,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private void runObservationBoundGestureProbe() {
         StringBuilder report = new StringBuilder();
         report.append("# Observation Bound Gesture Probe\n");
-        report.append("step_1=android_view_context_tool(native_xml)\n");
+        report.append("step_1=android_view_context_tool(runtime_auto)\n");
         report.append("step_2=android_gesture_tool(tap + observation + activity touch injection)\n");
         report.append("target_hint=发送消息按钮\n\n");
         outputView.setText(report.toString());
@@ -357,7 +357,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 AndroidToolManager manager = buildTestToolManager();
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"source\":\"native_xml\",\"targetHint\":\"发送消息按钮\"}");
+                        "{\"targetHint\":\"发送消息按钮\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
                     mainHandler.post(() -> appendObservationBoundGestureReport(
@@ -393,7 +393,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         StringBuilder report = new StringBuilder();
         report.append("# Business Fallback Linkage Probe\n");
         report.append("step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n");
-        report.append("step_2=android_view_context_tool(native_xml)\n");
+        report.append("step_2=android_view_context_tool(runtime_auto)\n");
         report.append("step_3=android_gesture_tool(tap + observation + activity touch injection)\n");
         report.append("target_hint=发送\n\n");
         outputView.setText(report.toString());
@@ -407,7 +407,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"source\":\"native_xml\",\"targetHint\":\"发送\"}");
+                        "{\"targetHint\":\"发送\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
                     mainHandler.post(() -> appendBusinessFallbackLinkageReport(
@@ -788,7 +788,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("read clipboard -> call_android_tool/read_clipboard\n");
         report.append("tap coordinates -> android_gesture_tool/tap\n");
         report.append("swipe screen -> android_gesture_tool/swipe\n");
-        report.append("inspect current native screen -> android_view_context_tool/native_xml\n");
+        report.append("inspect current screen -> android_view_context_tool/runtime_auto\n");
         report.append("legacy_summary_has_business_hint=")
                 .append(summary.legacyDescription.contains("业务工具"))
                 .append('\n');
@@ -949,14 +949,9 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 "{\"action\":\"pinch\"}");
 
         runCase(report, manager,
-                "View Context Native XML",
+                "View Context Runtime Auto",
                 "android_view_context_tool",
-                "{\"source\":\"native_xml\",\"targetHint\":\"发送按钮\"}");
-
-        runCase(report, manager,
-                "View Context All Sources",
-                "android_view_context_tool",
-                "{\"source\":\"all\",\"targetHint\":\"第二个卡片\",\"includeMockWebDom\":true,\"includeMockScreenshot\":true}");
+                "{\"targetHint\":\"发送按钮\"}");
 
         report.append("active_gesture_executor=")
                 .append(GestureExecutorRegistry.getExecutor().getClass().getSimpleName())

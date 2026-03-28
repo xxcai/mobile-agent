@@ -33,7 +33,6 @@ always: false
 **完整调用格式**:
 ```json
 {
-  "source": "native_xml",
   "targetHint": "朋友圈动态"
 }
 ```
@@ -202,7 +201,7 @@ always: false
 **用户**: 帮我总结一下朋友圈都在发什么
 
 **Agent**:
-1. 调用 `android_view_context_tool({"source":"native_xml","targetHint":"朋友圈动态"})`
+1. 调用 `android_view_context_tool({"targetHint":"朋友圈动态"})`
 2. 提取当前可见动态
 3. 输出：
 
