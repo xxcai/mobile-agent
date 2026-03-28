@@ -14,6 +14,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
+import com.hh.agent.app.RouteToolProvider;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
@@ -103,6 +104,16 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                         "看看当前页面结构",
                         "android_view_context_tool",
                         null));
+
+        addSectionHeader(container, "Route Tooling");
+        addActionButton(container, "Resolve Route URI", v ->
+                runResolveRouteProbe("{\"uri\":\"ui://myapp.search/selectActivity\",\"targetTypeHint\":\"native\"}"));
+        addActionButton(container, "Resolve Route Native Module", v ->
+                runResolveRouteProbe("{\"targetTypeHint\":\"native\",\"nativeModule\":\"myapp.im\",\"keywords_csv\":\"群聊,创建\"}"));
+        addActionButton(container, "Resolve Route MiniApp", v ->
+                runResolveRouteProbe("{\"targetTypeHint\":\"miniapp\",\"miniAppName\":\"报销\",\"keywords_csv\":\"报销,费用报销\"}"));
+        addActionButton(container, "Resolve Route Keywords", v ->
+                runResolveRouteProbe("{\"keywords_csv\":\"报销\"}"));
 
         addSectionHeader(container, "Legacy Diagnostics");
         addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
@@ -194,6 +205,22 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             appendRuntimeCases(report, manager);
         } catch (Exception e) {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
+        }
+        outputView.setText(report.toString());
+    }
+
+    private void runResolveRouteProbe(String argumentsJson) {
+        StringBuilder report = new StringBuilder();
+        report.append("# Resolve Route Probe\n");
+        report.append("input=").append(argumentsJson).append("\n\n");
+        try {
+            AndroidToolManager manager = buildTestToolManager();
+            String raw = manager.callTool(
+                    "call_android_tool",
+                    "{\"function\":\"resolve_route\",\"args\":" + argumentsJson + "}");
+            report.append("raw_result=").append(raw).append('\n');
+        } catch (Exception e) {
+            report.append("error=").append(e.getMessage()).append('\n');
         }
         outputView.setText(report.toString());
     }
@@ -636,6 +663,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
+        tools.putAll(RouteToolProvider.createRouteTools());
         return tools;
     }
 
