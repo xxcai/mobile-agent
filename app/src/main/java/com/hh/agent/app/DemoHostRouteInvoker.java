@@ -19,7 +19,7 @@ final class DemoHostRouteInvoker implements HostRouteInvoker {
         if (uri == null || uri.trim().isEmpty()) {
             throw new IllegalArgumentException("uri cannot be null or empty");
         }
-        if (uri.startsWith("ui://miniapp/")) {
+        if (uri.startsWith("h5://")) {
             Intent intent = new Intent(appContext, BusinessWebActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.putExtra(BusinessWebActivity.EXTRA_TITLE, deriveTitle(uri));

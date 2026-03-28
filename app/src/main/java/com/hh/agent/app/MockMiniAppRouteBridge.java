@@ -13,13 +13,11 @@ final class MockMiniAppRouteBridge implements MiniAppRouteBridge {
     MockMiniAppRouteBridge() {
         List<MiniAppRouteRecord> seed = new ArrayList<>();
         seed.add(new MiniAppRouteRecord(
-                "ui://miniapp/expense/reimbursement/home",
-                "报销",
+                "h5://1001001",
                 "费控报销",
                 "费用报销入口"));
         seed.add(new MiniAppRouteRecord(
-                "ui://miniapp/expense/travel/home",
-                "差旅",
+                "h5://1001002",
                 "差旅申请",
                 "差旅申请入口"));
         records = Collections.unmodifiableList(seed);
@@ -33,7 +31,8 @@ final class MockMiniAppRouteBridge implements MiniAppRouteBridge {
         String normalized = query.trim().toLowerCase();
         List<MiniAppRouteRecord> matches = new ArrayList<>();
         for (MiniAppRouteRecord record : records) {
-            String haystack = (record.getAppName() + " " + record.getTitle() + " " + record.getDescription())
+            String description = record.getDescription() == null ? "" : record.getDescription();
+            String haystack = (record.getTitle() + " " + description)
                     .toLowerCase();
             if (haystack.contains(normalized)) {
                 matches.add(record);

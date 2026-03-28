@@ -29,7 +29,7 @@ public final class OpenResolvedRouteTool implements ToolExecutor {
         return ToolDefinition.builder("打开已解析目标", "根据已解析的 targetType、uri、title 打开目标页面")
                 .intentExamples("打开已经解析好的报销页面", "打开刚刚解析出的创建群聊页面")
                 .stringParam("targetType", "native 或 miniapp", true, "miniapp")
-                .stringParam("uri", "已解析的目标 URI", true, "ui://miniapp/expense/reimbursement/home")
+                .stringParam("uri", "已解析的目标 URI", true, "h5://1001001")
                 .stringParam("title", "已解析的目标标题", true, "费控报销")
                 .build();
     }
