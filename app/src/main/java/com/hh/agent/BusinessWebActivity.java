@@ -8,6 +8,10 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.hh.agent.android.AndroidToolManager;
+
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +21,8 @@ public class BusinessWebActivity extends AppCompatActivity {
 
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_HTML_CONTENT = "html_content";
+    public static final String EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE = "auto_run_view_context_probe";
+    public static final String EXTRA_PROBE_TARGET_HINT = "probe_target_hint";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,10 +41,12 @@ public class BusinessWebActivity extends AppCompatActivity {
         ImageView backButton = findViewById(R.id.businessWebBackButton);
         TextView titleView = findViewById(R.id.businessWebTitleView);
         WebView webView = findViewById(R.id.businessWebView);
+        TextView probeResultView = findViewById(R.id.businessWebProbeResultView);
 
         backButton.setOnClickListener(v -> finish());
         titleView.setText(title);
         configureWebView(webView, title, htmlContent);
+        maybeRunViewContextProbe(webView, probeResultView);
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -73,5 +81,41 @@ public class BusinessWebActivity extends AppCompatActivity {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private void maybeRunViewContextProbe(WebView webView, TextView probeResultView) {
+        if (!getIntent().getBooleanExtra(EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE, false)) {
+            return;
+        }
+        String targetHint = getIntent().getStringExtra(EXTRA_PROBE_TARGET_HINT);
+        if (targetHint == null || targetHint.trim().isEmpty()) {
+            targetHint = "业务页面";
+        }
+        final String finalTargetHint = targetHint;
+        probeResultView.setVisibility(TextView.VISIBLE);
+        probeResultView.setText("running probe...");
+        webView.postDelayed(() -> runViewContextProbe(finalTargetHint, probeResultView), 500L);
+    }
+
+    private void runViewContextProbe(String targetHint, TextView probeResultView) {
+        Thread worker = new Thread(() -> {
+            String report;
+            try {
+                AndroidToolManager manager = new AndroidToolManager(this);
+                String resultJson = manager.callTool(
+                        "android_view_context_tool",
+                        new JSONObject().put("targetHint", targetHint).toString());
+                JSONObject result = new JSONObject(resultJson);
+                report = "success=" + result.optBoolean("success", false)
+                        + "\nsource=" + result.optString("source", "<none>")
+                        + "\nselectionStatus=" + result.optString("selectionStatus", "<none>")
+                        + "\nactivityClassName=" + result.optString("activityClassName", "<none>");
+            } catch (Exception e) {
+                report = "success=false\nerror=" + e.getMessage();
+            }
+            String finalReport = report;
+            runOnUiThread(() -> probeResultView.setText(finalReport));
+        });
+        worker.start();
     }
 }

@@ -71,6 +71,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addSectionHeader(container, "Core Runtime");
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
+        addActionButton(container, "Run Business WebView Context", v -> runBusinessWebViewContextProbe());
         addActionButton(container, "Run Container View Context", v -> runLiveViewContextProbe(true));
         addActionButton(container, "Run Observation Bound Gesture", v -> runObservationBoundGestureProbe());
         addActionButton(container, "Run Business Fallback Linkage", v -> runBusinessFallbackLinkageProbe());
@@ -342,6 +343,24 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             next.append("parse_error=").append(e.getMessage()).append('\n');
         }
         outputView.setText(next.toString());
+    }
+
+    private void runBusinessWebViewContextProbe() {
+        StringBuilder report = new StringBuilder();
+        report.append("# Business WebView Context Probe\n");
+        report.append("source=runtime_auto\n");
+        report.append("target_hint=业务页面\n");
+        report.append("expected_source=web_dom\n");
+        report.append("expected_activity=").append(BusinessWebActivity.class.getName()).append('\n');
+        report.append("next_step=launch BusinessWebActivity and read on-page probe result\n");
+        outputView.setText(report.toString());
+
+        Intent intent = new Intent(this, BusinessWebActivity.class);
+        intent.putExtra(BusinessWebActivity.EXTRA_TITLE, "业务页 Probe");
+        intent.putExtra(BusinessWebActivity.EXTRA_HTML_CONTENT, "runtime auto probe");
+        intent.putExtra(BusinessWebActivity.EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE, true);
+        intent.putExtra(BusinessWebActivity.EXTRA_PROBE_TARGET_HINT, "业务页面");
+        startActivity(intent);
     }
 
     private void runObservationBoundGestureProbe() {
