@@ -30,28 +30,9 @@ public final class InProcessViewHierarchyDumper {
     }
 
     public static DumpResult dumpCurrentHierarchy(@Nullable String targetHint) {
-        Activity activity = FloatingBallLifecycleCallbacks.getCurrentForegroundActivity();
+        Activity activity = getCurrentStableForegroundActivity();
         if (activity == null) {
-            return DumpResult.error("No foreground activity available");
-        }
-
-        if (activity instanceof ContainerActivity) {
-            dismissContainerActivity(activity);
-            activity = FloatingBallLifecycleCallbacks.awaitNextStableForegroundActivity(
-                    true,
-                    CONTAINER_DISMISS_TIMEOUT_MS
-            );
-            if (activity == null) {
-                return DumpResult.error("ContainerActivity was dismissed but no foreground host activity became available");
-            }
-        } else {
-            activity = FloatingBallLifecycleCallbacks.awaitNextStableForegroundActivity(
-                    false,
-                    FOREGROUND_STABLE_TIMEOUT_MS
-            );
-            if (activity == null) {
-                return DumpResult.error("Foreground activity did not stabilize in time");
-            }
+            return DumpResult.error("Foreground activity did not stabilize in time");
         }
 
         final Activity stableActivity = activity;
@@ -128,6 +109,27 @@ public final class InProcessViewHierarchyDumper {
             return DumpResult.error(holder.error);
         }
         return DumpResult.success(holder.xml, holder.activityClassName);
+    }
+
+    @Nullable
+    public static Activity getCurrentStableForegroundActivity() {
+        Activity activity = FloatingBallLifecycleCallbacks.getCurrentForegroundActivity();
+        if (activity == null) {
+            return null;
+        }
+
+        if (activity instanceof ContainerActivity) {
+            dismissContainerActivity(activity);
+            return FloatingBallLifecycleCallbacks.awaitNextStableForegroundActivity(
+                    true,
+                    CONTAINER_DISMISS_TIMEOUT_MS
+            );
+        }
+
+        return FloatingBallLifecycleCallbacks.awaitNextStableForegroundActivity(
+                false,
+                FOREGROUND_STABLE_TIMEOUT_MS
+        );
     }
 
     private static void dismissContainerActivity(Activity activity) {

@@ -1,7 +1,8 @@
 package com.hh.agent.android.channel;
 
-import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.RuntimeViewContextSourceResolver;
+import com.hh.agent.android.viewcontext.ViewContextSourceSelection;
 import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
@@ -27,6 +28,15 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
     static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
     private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
+    private final RuntimeViewContextSourceResolver sourceResolver;
+
+    public ViewContextToolChannel() {
+        this(RuntimeViewContextSourceResolver.createDefault());
+    }
+
+    ViewContextToolChannel(RuntimeViewContextSourceResolver sourceResolver) {
+        this.sourceResolver = sourceResolver;
+    }
 
     @Override
     public String getChannelName() {
@@ -37,38 +47,35 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。这个通道负责感知，不负责点击或滑动。"
-                                + buildSourceDescription() + "。")
-                .property("source", ToolSchemaBuilder.string()
-                        .description("要获取的视图上下文来源。前 3 个值表示单一来源；all 表示聚合模式，用于一次返回多个上下文来源。" + buildSourceDescription() + "。")
-                        .enumValues(getSourceNames())
-                        .defaultValue(SOURCE_NATIVE_XML), true)
+                        "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。"
+                                + "视图来源由 runtime 根据当前 Activity 和页面结构自动选择；当前支持 "
+                                + SOURCE_NATIVE_XML + " 与 " + SOURCE_WEB_DOM + "。")
                 .property("targetHint", ToolSchemaBuilder.string()
                         .description("用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"), false);
-        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
-            handler.contributeProperties(builder);
-        }
         return builder.build();
     }
 
     @Override
     public ToolResult execute(JSONObject params) {
         try {
-            String source = params.optString("source", SOURCE_NATIVE_XML).trim();
-            if (source.isEmpty()) {
-                source = SOURCE_NATIVE_XML;
-            }
-
             String targetHint = normalizeOptionalText(params.optString("targetHint", null));
+            ViewContextSourceSelection selection = sourceResolver.resolve();
+            String source = selection.getSource();
+            if (source == null || source.trim().isEmpty()) {
+                return ToolResult.error("execution_failed",
+                                "Runtime did not resolve a view-context source")
+                        .with("selectionStatus", selection.getStatus().name());
+            }
             ViewContextSourceHandler sourceHandler = sourceHandlers.get(source);
             if (sourceHandler == null) {
-                return ToolResult.error("invalid_args",
-                                "Unsupported source '" + source + "' for " + CHANNEL_NAME)
-                        .with("allowedSources",
-                                SOURCE_NATIVE_XML + "," + SOURCE_WEB_DOM + ","
-                                        + SOURCE_SCREEN_SNAPSHOT + "," + SOURCE_ALL);
+                return ToolResult.error("execution_failed",
+                                "Resolved unsupported source '" + source + "' for " + CHANNEL_NAME)
+                        .with("selectionStatus", selection.getStatus().name());
             }
-            return sourceHandler.execute(params, targetHint);
+            ToolResult result = sourceHandler.execute(params, targetHint);
+            return result
+                    .with("selectionStatus", selection.getStatus().name())
+                    .with("matchedActivityClassName", selection.getMatchedActivityClassName());
         } catch (Exception e) {
             return ToolResult.error("execution_failed", e.getMessage());
         }
@@ -86,8 +93,6 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         LinkedHashMap<String, ViewContextSourceHandler> handlers = new LinkedHashMap<>();
         register(handlers, new NativeXmlViewContextSourceHandler());
         register(handlers, new WebDomViewContextSourceHandler());
-        register(handlers, new ScreenSnapshotViewContextSourceHandler());
-        register(handlers, new AllViewContextSourceHandler());
         return handlers;
     }
 
@@ -100,20 +105,4 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         handlers.put(sourceName, handler);
     }
 
-    private String buildSourceDescription() {
-        StringBuilder description = new StringBuilder();
-        boolean first = true;
-        for (ViewContextSourceHandler handler : sourceHandlers.values()) {
-            if (!first) {
-                description.append("；");
-            }
-            description.append(handler.getSourceDescription());
-            first = false;
-        }
-        return description.toString();
-    }
-
-    private String[] getSourceNames() {
-        return sourceHandlers.keySet().toArray(new String[0]);
-    }
 }

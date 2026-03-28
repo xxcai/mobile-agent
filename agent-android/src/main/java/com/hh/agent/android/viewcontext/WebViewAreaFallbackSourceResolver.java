@@ -10,7 +10,7 @@ import androidx.annotation.Nullable;
 /**
  * Resolves fallback source from the current page's visible WebView area ratio.
  */
-public final class WebViewAreaFallbackSourceResolver {
+public class WebViewAreaFallbackSourceResolver {
 
     static final double WEB_DOM_RATIO_THRESHOLD = 0.5d;
     static final String SOURCE_NATIVE_XML = "native_xml";
