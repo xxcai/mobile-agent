@@ -17,7 +17,8 @@ app (示例宿主)
 
 - `agent-core` 负责底层能力，不直接提供完整 UI
 - `agent-android` 依赖 `agent-core`，补齐 Android 场景下的初始化、Fragment UI、语音识别接入和悬浮球入口
-- `app` 是示例工程，用来演示如何把两个库模块接到应用里
+- `agent-android` 当前也承载了 route tooling 的通用运行时、bridge 适配器和 route 打开时序
+- `app` 是示例工程，用来演示如何把两个库模块接到应用里，并保留宿主数据源、demo 页面和装配代码
 
 ## 模块说明
 
@@ -74,6 +75,7 @@ agent-core/
 - 提供 Android 侧初始化入口 `AgentInitializer`
 - 提供可嵌入宿主页面的 `AgentFragment`
 - 管理 Android Tools 注册与 schema 生成
+- 提供 route tooling 运行时与 route 解析/打开能力
 - 初始化工作空间目录
 - 提供语音识别、悬浮球、容器页等 Android 集成能力
 
@@ -85,6 +87,7 @@ agent-android/
 │   ├── AgentInitializer.java
 │   ├── AgentFragment.java
 │   ├── AndroidToolManager.java
+│   ├── route/               # RouteHint / RouteResolver / RouteOpener / bridge 适配器
 │   └── WorkspaceManager.java
 └── src/main/res/             # Fragment UI、动画、drawable、主题资源
 ```
@@ -258,6 +261,7 @@ logger 注入入口：
 - 当前仓库里的 `app` 模块没有额外实现宿主 logger，而是直接使用库默认实现
 - `agent-android` 当前日志格式、事件清单和排查命令见 `docs/logging/agent-android-logging.md`
 - Prompt 构建顺序和工具展示方式见 `docs/architecture/prompt-construction.md`
+- route tooling 的接入方式、URI 规则和 App 层替换点见 `docs/guides/android-route-tooling.md`
 
 调用约定：
 
