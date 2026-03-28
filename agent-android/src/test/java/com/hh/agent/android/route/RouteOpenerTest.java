@@ -64,7 +64,7 @@ public class RouteOpenerTest {
 
         JSONObject json = result.toJson();
         assertEquals(true, json.getBoolean("success"));
-        assertEquals("ui://miniapp/expense/reimbursement/home",
+        assertEquals("h5://1001001",
                 json.getJSONObject("target").getString("uri"));
         assertEquals(true, json.getJSONObject("meta").getBoolean("containerDismissed"));
         assertEquals(true, json.getJSONObject("meta").getBoolean("hostActivityReady"));
@@ -73,7 +73,7 @@ public class RouteOpenerTest {
     private RouteTarget validTarget() {
         return new RouteTarget.Builder()
                 .targetType(RouteHint.TARGET_TYPE_MINIAPP)
-                .uri("ui://miniapp/expense/reimbursement/home")
+                .uri("h5://1001001")
                 .title("费控报销")
                 .build();
     }

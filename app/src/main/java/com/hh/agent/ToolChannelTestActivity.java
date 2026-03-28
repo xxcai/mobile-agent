@@ -120,11 +120,11 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                         false));
         addActionButton(container, "Open Resolved MiniApp Route", v ->
                 runOpenResolvedRouteProbe(
-                        "{\"targetType\":\"miniapp\",\"uri\":\"ui://miniapp/expense/reimbursement/home\",\"title\":\"费控报销\"}",
+                        "{\"targetType\":\"miniapp\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}",
                         false));
         addActionButton(container, "Open Route From Container", v ->
                 runOpenResolvedRouteProbe(
-                        "{\"targetType\":\"miniapp\",\"uri\":\"ui://miniapp/expense/reimbursement/home\",\"title\":\"费控报销\"}",
+                        "{\"targetType\":\"miniapp\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}",
                         true));
 
         addSectionHeader(container, "Legacy Diagnostics");

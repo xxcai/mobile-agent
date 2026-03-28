@@ -2,23 +2,17 @@ package com.hh.agent.android.route;
 
 public final class MiniAppRouteRecord {
     private final String uri;
-    private final String appName;
     private final String title;
     private final String description;
 
-    public MiniAppRouteRecord(String uri, String appName, String title, String description) {
+    public MiniAppRouteRecord(String uri, String title, String description) {
         this.uri = requireText(uri, "uri");
-        this.appName = requireText(appName, "appName");
         this.title = requireText(title, "title");
         this.description = normalizeText(description);
     }
 
     public String getUri() {
         return uri;
-    }
-
-    public String getAppName() {
-        return appName;
     }
 
     public String getTitle() {

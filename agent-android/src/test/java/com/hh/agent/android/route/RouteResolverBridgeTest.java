@@ -74,8 +74,7 @@ public class RouteResolverBridgeTest {
                     }
                 },
                 query -> Collections.singletonList(new MiniAppRouteRecord(
-                        "ui://miniapp/expense/reimbursement/home",
-                        "报销",
+                        "h5://1001001",
                         "费控报销",
                         "费用报销入口")));
 
