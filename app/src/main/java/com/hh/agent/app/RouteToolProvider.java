@@ -16,11 +16,12 @@ public final class RouteToolProvider {
     }
 
     public static Map<String, ToolExecutor> createRouteTools(android.content.Context context) {
+        NativeRouteRegistry nativeRouteRegistry = DefaultNativeRouteRegistry.create();
         AndroidRouteRuntime routeRuntime = new AndroidRouteRuntime(
                 new RouteResolver(
                         new AllowAllUriAccessPolicy(),
                         new NoOpRouteScorer(),
-                        new MockNativeRouteBridge(),
+                        new RegistryBackedNativeRouteBridge(nativeRouteRegistry),
                         new MockMiniAppRouteBridge()),
                 new DemoHostRouteInvoker(context));
         Map<String, ToolExecutor> tools = new HashMap<>();
