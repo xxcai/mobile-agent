@@ -412,7 +412,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void showThinking() {
         // 切换按钮为取消状态
-        btnSend.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        btnSend.setImageResource(R.drawable.ic_cancel);
         btnSend.setContentDescription(getString(R.string.cancel_button));
 
         Message thinkingMsg = new Message();
@@ -435,7 +435,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
      */
     private void resetSendButton() {
         btnSend.setEnabled(true);
-        btnSend.setImageResource(android.R.drawable.ic_menu_send);
+        btnSend.setImageResource(R.drawable.ic_sent);
         btnSend.setContentDescription(getString(R.string.send_button));
     }
 
