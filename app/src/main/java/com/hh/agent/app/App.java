@@ -40,15 +40,20 @@ public class App extends Application {
         tools.putAll(RouteToolProvider.createRouteTools(this));
 
         // 初始化 Agent（语音识别器通过注入方式在 AgentInitializer 内部设置）
-        AgentInitializer.initialize(this, new MockVoiceRecognizer(), tools, () -> {
-            Log.d(TAG, "Agent initialized successfully");
+        AgentInitializer.initialize(
+                this,
+                new MockVoiceRecognizer(),
+                tools,
+                DefaultActivityViewContextSourcePolicy.create(),
+                () -> {
+                    Log.d(TAG, "Agent initialized successfully");
 
-            // 初始化悬浮球，并演示宿主追加隐藏页面的接入方式。
-            AgentInitializer.initializeFloatingBall(
-                    App.this,
-                    Collections.singletonList(FloatingBallHiddenActivity.class.getName())
-            );
-        });
+                    // 初始化悬浮球，并演示宿主追加隐藏页面的接入方式。
+                    AgentInitializer.initializeFloatingBall(
+                            App.this,
+                            Collections.singletonList(FloatingBallHiddenActivity.class.getName())
+                    );
+                });
     }
 
     public static App getInstance() {

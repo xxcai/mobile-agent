@@ -5,6 +5,8 @@ import android.content.Context;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.debug.SessionDebugTranscriptStore;
+import com.hh.agent.android.viewcontext.ActivityViewContextSourcePolicy;
+import com.hh.agent.android.viewcontext.ViewContextSourcePolicyRegistry;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.android.floating.FloatingBallManager;
@@ -56,6 +58,18 @@ public class AgentInitializer {
                                   IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
                                   Runnable callback) {
+        initialize(application,
+                voiceRecognizer,
+                tools,
+                ActivityViewContextSourcePolicy.EMPTY,
+                callback);
+    }
+
+    public static void initialize(Context application,
+                                  IVoiceRecognizer voiceRecognizer,
+                                  Map<String, ToolExecutor> tools,
+                                  ActivityViewContextSourcePolicy viewContextSourcePolicy,
+                                  Runnable callback) {
         int toolCount = tools != null ? tools.size() : 0;
         AgentLogs.info(TAG, "initialize_start", "tool_count=" + toolCount);
 
@@ -69,6 +83,7 @@ public class AgentInitializer {
         // 0. 设置语音识别器
         VoiceRecognizerHolder.getInstance().setRecognizer(voiceRecognizer);
         SessionDebugTranscriptStore.initialize(application);
+        ViewContextSourcePolicyRegistry.setActivePolicy(viewContextSourcePolicy);
 
         // 1. 创建 AndroidToolManager
         AndroidToolManager toolManager = new AndroidToolManager(application);
