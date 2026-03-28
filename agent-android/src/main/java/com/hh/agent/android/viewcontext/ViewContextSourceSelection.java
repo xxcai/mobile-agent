@@ -9,6 +9,7 @@ public final class ViewContextSourceSelection {
 
     public enum Status {
         POLICY_MATCHED,
+        FALLBACK_RESOLVED,
         NO_POLICY_MATCH
     }
 
@@ -34,12 +35,20 @@ public final class ViewContextSourceSelection {
         return new ViewContextSourceSelection(Status.NO_POLICY_MATCH, null, null);
     }
 
+    public static ViewContextSourceSelection fallbackResolved(String source) {
+        return new ViewContextSourceSelection(Status.FALLBACK_RESOLVED, source, null);
+    }
+
     public Status getStatus() {
         return status;
     }
 
     public boolean hasPolicyMatch() {
         return status == Status.POLICY_MATCHED;
+    }
+
+    public boolean hasResolvedSource() {
+        return source != null && !source.isEmpty();
     }
 
     @Nullable
