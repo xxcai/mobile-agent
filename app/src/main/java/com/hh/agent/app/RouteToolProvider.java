@@ -2,7 +2,11 @@ package com.hh.agent.app;
 
 import com.hh.agent.android.route.AllowAllUriAccessPolicy;
 import com.hh.agent.android.route.AndroidRouteRuntime;
+import com.hh.agent.android.route.MiniAppQuerySource;
+import com.hh.agent.android.route.NativeRouteRegistry;
 import com.hh.agent.android.route.NoOpRouteScorer;
+import com.hh.agent.android.route.QuerySourceBackedMiniAppRouteBridge;
+import com.hh.agent.android.route.RegistryBackedNativeRouteBridge;
 import com.hh.agent.android.route.RouteResolver;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.OpenResolvedRouteTool;

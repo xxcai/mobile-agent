@@ -1,16 +1,13 @@
-package com.hh.agent.app;
-
-import com.hh.agent.android.route.NativeRouteBridge;
-import com.hh.agent.android.route.NativeRouteRecord;
+package com.hh.agent.android.route;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class RegistryBackedNativeRouteBridge implements NativeRouteBridge {
+public final class RegistryBackedNativeRouteBridge implements NativeRouteBridge {
     private final NativeRouteRegistry nativeRouteRegistry;
 
-    RegistryBackedNativeRouteBridge(NativeRouteRegistry nativeRouteRegistry) {
+    public RegistryBackedNativeRouteBridge(NativeRouteRegistry nativeRouteRegistry) {
         if (nativeRouteRegistry == null) {
             throw new IllegalArgumentException("nativeRouteRegistry cannot be null");
         }
@@ -64,12 +61,11 @@ final class RegistryBackedNativeRouteBridge implements NativeRouteBridge {
 
     private NativeRouteRecord toRecord(NativeRouteRegistryEntry entry) {
         String uri = entry.getUri();
-        String description = entry.getDescription();
         return new NativeRouteRecord(
                 uri,
                 entry.getModule(),
                 deriveTitle(uri),
-                description
+                entry.getDescription()
         );
     }
 

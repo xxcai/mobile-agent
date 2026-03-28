@@ -1,8 +1,8 @@
-package com.hh.agent.app;
+package com.hh.agent.android.route;
 
 import java.util.List;
 
-interface MiniAppQuerySource {
+public interface MiniAppQuerySource {
 
     List<MiniAppQueryResult> search(String query);
 }

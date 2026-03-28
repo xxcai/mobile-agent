@@ -1,20 +1,17 @@
-package com.hh.agent.app;
+package com.hh.agent.android.route;
 
 import android.util.Log;
-
-import com.hh.agent.android.route.MiniAppRouteBridge;
-import com.hh.agent.android.route.MiniAppRouteRecord;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class QuerySourceBackedMiniAppRouteBridge implements MiniAppRouteBridge {
+public final class QuerySourceBackedMiniAppRouteBridge implements MiniAppRouteBridge {
     private static final String TAG = "MiniAppRouteBridge";
 
     private final MiniAppQuerySource miniAppQuerySource;
 
-    QuerySourceBackedMiniAppRouteBridge(MiniAppQuerySource miniAppQuerySource) {
+    public QuerySourceBackedMiniAppRouteBridge(MiniAppQuerySource miniAppQuerySource) {
         if (miniAppQuerySource == null) {
             throw new IllegalArgumentException("miniAppQuerySource cannot be null");
         }

@@ -1,34 +1,37 @@
-package com.hh.agent.app;
+package com.hh.agent.android.route;
 
-final class MiniAppQueryResult {
+public final class NativeRouteRegistryEntry {
     private final String uri;
-    private final String appName;
+    private final String module;
     private final String description;
 
-    MiniAppQueryResult(String uri, String appName, String description) {
+    public NativeRouteRegistryEntry(String uri, String module) {
+        this(uri, module, null);
+    }
+
+    public NativeRouteRegistryEntry(String uri, String module, String description) {
         this.uri = requireText(uri, "uri");
-        this.appName = requireText(appName, "appName");
+        this.module = requireText(module, "module");
         this.description = normalizeText(description);
     }
 
-    String getUri() {
+    public String getUri() {
         return uri;
     }
 
-    String getAppName() {
-        return appName;
+    public String getModule() {
+        return module;
     }
 
-    String getDescription() {
+    public String getDescription() {
         return description;
     }
 
     private static String requireText(String value, String fieldName) {
-        String normalized = normalizeText(value);
-        if (normalized == null) {
+        if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldName + " cannot be null or empty");
         }
-        return normalized;
+        return value.trim();
     }
 
     private static String normalizeText(String value) {

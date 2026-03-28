@@ -1,5 +1,8 @@
 package com.hh.agent.app;
 
+import com.hh.agent.android.route.NativeRouteRegistry;
+import com.hh.agent.android.route.NativeRouteRegistryEntry;
+
 import java.util.ArrayList;
 import java.util.List;
 

@@ -1,5 +1,8 @@
 package com.hh.agent.app;
 
+import com.hh.agent.android.route.MiniAppQueryResult;
+import com.hh.agent.android.route.MiniAppQuerySource;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
