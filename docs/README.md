@@ -12,6 +12,7 @@
 - [Android 工具扩展指南](./guides/android-tool-extension.md)
 - [Android Skill 扩展指南](./guides/android-skill-extension.md)
 - [LLM Provider 扩展指南](./guides/llm-provider-extension.md)
+- [Android Route Tooling 接入指南](./guides/android-route-tooling.md)
 
 ## Protocols
 
