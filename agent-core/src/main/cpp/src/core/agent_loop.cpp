@@ -274,6 +274,18 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     callback(event);
                 }
             });
+
+        if (stop_requested_ && !stream_complete) {
+            loop_exit_reason = "cancel";
+            ICRAW_LOG_INFO("[AgentLoop][stream_cancelled] iteration={} text_length={} reasoning_length={}",
+                    iteration, accumulated_text.length(), accumulated_reasoning.length());
+
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = "cancel";
+            callback(event);
+            break;
+        }
         
         ICRAW_LOG_INFO("[AgentLoop][stream_complete] iteration={} stream_complete={} text_length={} reasoning_length={} tool_call_count={}",
             iteration, stream_complete, accumulated_text.length(), accumulated_reasoning.length(), final_tool_calls.size());
@@ -446,6 +458,18 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             event.data["tool_use_id"] = result.tool_use_id;
             event.data["content"] = result.content;
             callback(event);
+        }
+
+        if (stop_requested_) {
+            loop_exit_reason = "cancel";
+            ICRAW_LOG_INFO("[AgentLoop][tool_phase_cancelled] iteration={} tool_result_count={}",
+                    iteration, tool_results.size());
+
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = "cancel";
+            callback(event);
+            break;
         }
     }
 
@@ -737,6 +761,9 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
 
 void AgentLoop::stop() {
     stop_requested_ = true;
+    if (llm_provider_) {
+        llm_provider_->cancel_active_request();
+    }
 }
 
 void AgentLoop::set_config(const AgentConfig& config) {

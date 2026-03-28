@@ -93,6 +93,10 @@ public class MainPresenter implements MainContract.Presenter {
         return mobileAgentApi;
     }
 
+    public boolean isStreaming() {
+        return streamingManager.isStreaming();
+    }
+
     public String getSessionKey() {
         return sessionKey;
     }
@@ -162,6 +166,9 @@ public class MainPresenter implements MainContract.Presenter {
         Message assistantMessage = new Message();
         assistantMessage.setRole("response");
         assistantMessage.setTimestamp(System.currentTimeMillis());
+
+        // 先进入 streaming 状态，避免后续 showLoading() 提前禁用“取消”按钮。
+        streamingManager.beginStreaming();
 
         // 显示思考中提示（同步执行，确保 thinking 消息在 API 调用前创建）
         if (streamingView != null) {
@@ -249,6 +256,7 @@ public class MainPresenter implements MainContract.Presenter {
                     AgentLogs.warn(TAG, "stream_parse_error_finish", "session_key=" + sessionKey);
                 }
                 if ("stop".equals(finishReason)
+                        || "cancel".equals(finishReason)
                         || "tool_calls".equals(finishReason)
                         || "max_iterations".equals(finishReason)) {
                     AgentLogs.info(TAG, "stream_finish", "finish_reason=" + finishReason);
@@ -261,8 +269,10 @@ public class MainPresenter implements MainContract.Presenter {
                 }
                 if (streamingView != null && messageListView != null) {
                     mainHandler.post(() -> {
-                        streamingView.hideThinking();
-                        messageListView.hideLoading();
+                        if (!"tool_calls".equals(finishReason)) {
+                            streamingView.hideThinking();
+                            messageListView.hideLoading();
+                        }
                         // 传递带有完成状态的 Message
                         streamingView.onStreamMessageEnd(assistantMessage, finishReason);
                     });

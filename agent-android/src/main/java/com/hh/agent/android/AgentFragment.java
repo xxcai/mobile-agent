@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.hh.agent.android.contract.MainContract;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.presenter.MainPresenter;
-import com.hh.agent.android.presenter.StreamingManager;
 import com.hh.agent.android.ui.MessageAdapter;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
@@ -47,7 +46,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private View voiceRecordingOverlay;
     private MessageAdapter adapter;
     private MainPresenter presenter;
-    private StreamingManager streamingManager;
     private boolean isRecording = false;
     private boolean permissionGranted = false;
     // 当前正在更新的 response 消息，用于流式增量更新
@@ -88,9 +86,6 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         presenter = MainPresenter.getInstance(resolveSessionKey());
         presenter.attachView(this, this);
-
-        // 初始化 StreamingManager
-        streamingManager = new StreamingManager(presenter.getMobileAgentApi());
 
         // 加载历史消息
         presenter.loadMessages();
@@ -137,12 +132,10 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
         // 设置发送按钮点击事件
         btnSend.setOnClickListener(v -> {
-            if (streamingManager.isStreaming()) {
+            if (presenter != null && presenter.isStreaming()) {
                 // 取消流式响应
                 presenter.cancelStream();
-                // 清除 AI 相关的中间消息（thinking, tool_use, tool_result）
-                adapter.removeThinkingMessage();
-                adapter.removeAiMessages();
+                cleanupCancelledTurn();
                 // 重置状态（按钮恢复，用户输入保留在 etMessage）
                 resetStreamingState();
             } else {
@@ -307,8 +300,20 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void onStreamMessageEnd(Message message, String finishReason) {
+        Long currentResponseTimestamp = currentResponseMessage != null ? currentResponseMessage.getTimestamp() : null;
+
         // 如果 finish_reason 是 tool_calls，LLM 还要继续执行工具，不删除 thinking
         if ("tool_calls".equals(finishReason)) {
+            return;
+        }
+
+        if ("cancel".equals(finishReason)) {
+            AgentLogs.info("AgentFragment", "stream_cancelled", "finish_reason=" + finishReason);
+            cleanupCancelledTurn(currentResponseTimestamp);
+            if (adapter.getItemCount() > 0) {
+                rvMessages.scrollToPosition(adapter.getItemCount() - 1);
+            }
+            currentResponseMessage = null;
             return;
         }
 
@@ -350,7 +355,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         }
 
         // 检查是否为错误类型的 finish_reason
-        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error", "cancel"};
+        String[] errorFinishReasons = {"content_filter", "max_tokens", "length", "model_overloaded", "rate_limit", "error", "http_error", "parse_error"};
         for (String errorType : errorFinishReasons) {
             if (errorType.equals(finishReason)) {
                 AgentLogs.warn("AgentFragment", "stream_finish_reason_error", "finish_reason=" + finishReason);
@@ -392,7 +397,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
 
     @Override
     public void showLoading() {
-        if (btnSend != null) {
+        if (btnSend != null && (presenter == null || !presenter.isStreaming())) {
             btnSend.setEnabled(false);
         }
     }
@@ -407,7 +412,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void showThinking() {
         // 切换按钮为取消状态
-        btnSend.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        btnSend.setImageResource(R.drawable.ic_cancel);
         btnSend.setContentDescription(getString(R.string.cancel_button));
 
         Message thinkingMsg = new Message();
@@ -430,7 +435,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
      */
     private void resetSendButton() {
         btnSend.setEnabled(true);
-        btnSend.setImageResource(android.R.drawable.ic_menu_send);
+        btnSend.setImageResource(R.drawable.ic_sent);
         btnSend.setContentDescription(getString(R.string.send_button));
     }
 
@@ -441,6 +446,19 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 清理当前响应消息引用，避免新消息触发旧回调
         currentResponseMessage = null;
         resetSendButton();
+    }
+
+    private void cleanupCancelledTurn() {
+        Long currentResponseTimestamp = currentResponseMessage != null ? currentResponseMessage.getTimestamp() : null;
+        cleanupCancelledTurn(currentResponseTimestamp);
+    }
+
+    private void cleanupCancelledTurn(@Nullable Long currentResponseTimestamp) {
+        hideThinking();
+        if (currentResponseTimestamp != null) {
+            adapter.removeResponseMessage(currentResponseTimestamp);
+        }
+        adapter.clearActiveToolUiResponse();
     }
 
     @Override

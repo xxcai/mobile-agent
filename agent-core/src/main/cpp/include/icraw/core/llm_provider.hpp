@@ -5,6 +5,7 @@
 #include <memory>
 #include <functional>
 #include <map>
+#include <atomic>
 #include <optional>
 #include "icraw/types.hpp"
 #include "icraw/core/http_client.hpp"
@@ -146,6 +147,7 @@ public:
     virtual std::string get_provider_name() const = 0;
     virtual std::vector<std::string> get_supported_models() const = 0;
     virtual void set_http_client(std::unique_ptr<HttpClient> client) = 0;
+    virtual void cancel_active_request() = 0;
 
     // Build request body for OpenAI-compatible API
     virtual nlohmann::json build_request_body(const ChatCompletionRequest& request) const;
@@ -174,6 +176,7 @@ public:
     std::vector<std::string> get_supported_models() const override;
 
     void set_http_client(std::unique_ptr<HttpClient> client) override;
+    void cancel_active_request() override;
 
 protected:
     void set_provider_name(std::string provider_name);
@@ -189,6 +192,7 @@ protected:
     std::string provider_name_ = "generic";
     std::unique_ptr<HttpClient> http_client_;
     std::unique_ptr<StreamParser> stream_parser_;
+    std::atomic<bool> cancel_requested_{false};
 };
 
 } // namespace icraw

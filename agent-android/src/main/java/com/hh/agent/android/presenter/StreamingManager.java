@@ -30,6 +30,7 @@ public class StreamingManager {
 
     private final MobileAgentApi api;
     private final AtomicBoolean isStreaming = new AtomicBoolean(false);
+    private final AtomicBoolean cancelPending = new AtomicBoolean(false);
     private StreamingCallback callback;
 
     /**
@@ -60,13 +61,22 @@ public class StreamingManager {
     }
 
     /**
+     * 预先标记进入流式状态，用于 UI 在真正发起 native 请求前切到“可取消”状态。
+     */
+    public void beginStreaming() {
+        cancelPending.set(false);
+        isStreaming.set(true);
+    }
+
+    /**
      * 发送流式消息
      *
      * @param content 消息内容
      * @param sessionKey 会话 key
      */
     public void sendMessageStream(String content, String sessionKey) {
-        // 设置流式状态
+        // 设置流式状态（允许重复调用，保持幂等）
+        cancelPending.set(false);
         isStreaming.set(true);
         SessionDebugTranscriptStore store = SessionDebugTranscriptStore.getInstance();
         SessionDebugTranscriptStore.SessionTranscript sessionTranscript =
@@ -79,7 +89,7 @@ public class StreamingManager {
                 if (sessionTranscript != null) {
                     sessionTranscript.onTextDelta(text);
                 }
-                if (callback != null) {
+                if (!cancelPending.get() && callback != null) {
                     callback.onTextDelta(text);
                 }
             }
@@ -89,7 +99,7 @@ public class StreamingManager {
                 if (sessionTranscript != null) {
                     sessionTranscript.onReasoningDelta(text);
                 }
-                if (callback != null) {
+                if (!cancelPending.get() && callback != null) {
                     callback.onReasoningDelta(text);
                 }
             }
@@ -99,7 +109,7 @@ public class StreamingManager {
                 if (sessionTranscript != null) {
                     sessionTranscript.onToolUse(id, name, argumentsJson);
                 }
-                if (callback != null) {
+                if (!cancelPending.get() && callback != null) {
                     callback.onToolUse(id, name, argumentsJson);
                 }
             }
@@ -109,15 +119,18 @@ public class StreamingManager {
                 if (sessionTranscript != null) {
                     sessionTranscript.onToolResult(id, result);
                 }
-                if (callback != null) {
+                if (!cancelPending.get() && callback != null) {
                     callback.onToolResult(id, result);
                 }
             }
 
             @Override
             public void onMessageEnd(String finishReason) {
-                // 清除流式状态
-                isStreaming.set(false);
+                cancelPending.set(false);
+                if (!"tool_calls".equals(finishReason)) {
+                    // tool_calls 只是进入工具执行阶段，还不是整轮 turn 结束。
+                    isStreaming.set(false);
+                }
                 if (sessionTranscript != null) {
                     sessionTranscript.onMessageEnd(finishReason);
                 }
@@ -129,6 +142,7 @@ public class StreamingManager {
             @Override
             public void onError(String errorCode, String errorMessage) {
                 // 清除流式状态
+                cancelPending.set(false);
                 isStreaming.set(false);
                 if (sessionTranscript != null) {
                     sessionTranscript.onError(errorCode, errorMessage);
@@ -150,10 +164,9 @@ public class StreamingManager {
      */
     public void cancel() {
         if (isStreaming.get()) {
+            cancelPending.set(true);
             // 调用 NativeAgent 取消流式请求
             NativeAgent.cancelStream();
-            // 清除流式状态
-            isStreaming.set(false);
         }
     }
 }
