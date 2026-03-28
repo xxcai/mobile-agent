@@ -11,6 +11,7 @@
 
 - [Android 工具扩展指南](./guides/android-tool-extension.md)
 - [Android Skill 扩展指南](./guides/android-skill-extension.md)
+- [Android Route Tooling 接入指南](./guides/android-route-tooling.md)
 
 ## Protocols
 
