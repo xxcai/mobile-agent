@@ -27,20 +27,43 @@
 
 ## 当前接入边界
 
-当前 route tooling 的实现类仍然是两个业务 `ToolExecutor`：
+当前 route tooling 已经有两套接入方式：
 
-- `resolve_route`
-- `open_resolved_route`
+- 默认 shortcut runtime 路径
+  - `resolve_route`
+  - `open_resolved_route`
+- 兼容/调试路径
+  - 旧 `ToolExecutor` 版 `resolve_route`
+  - 旧 `ToolExecutor` 版 `open_resolved_route`
 
-工具注册入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
+默认 shortcut 注册入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
+兼容 `ToolExecutor` 注册入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
 
 需要注意：
 
-- 它们当前主要用于专门的调试/验证入口
-- 默认 app 初始化路径已经切到 `run_shortcut`
-- route tooling 还没有迁移为原生 `ShortcutExecutor`
+- 默认 app 初始化路径已经通过 `run_shortcut` 暴露 route tooling
+- `ToolChannelTestActivity` 的 route probes 也已经切到 `run_shortcut`
+- 旧 `ToolExecutor` 版 route tooling 仅保留为兼容/调试链路
+- agent 默认应先命中 `route_navigator` skill，再按 skill 规程调用 `run_shortcut`
+- 如果缺少 route shortcut 的详细定义或参数结构，应先调用 `describe_shortcut`
 
-因此本文档描述的是 route tooling 自身的 contract 和宿主接入点，不代表它已经进入默认 shortcut runtime 暴露面。
+因此当前 route tooling 的推荐协议是：
+
+```json
+{
+  "shortcut": "resolve_route",
+  "args": { ... }
+}
+```
+
+和：
+
+```json
+{
+  "shortcut": "open_resolved_route",
+  "args": { ... }
+}
+```
 
 ## resolve_route
 
@@ -107,7 +130,8 @@ App 层当前只需要提供或组装以下能力：
 - miniapp query source
 - `HostRouteInvoker`
 
-实际组装入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
+默认 shortcut 组装入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
+旧 `ToolExecutor` 兼容组装入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
 
 说明：
 
@@ -194,7 +218,7 @@ App 层当前只需要提供或组装以下能力：
 接真实 miniapp 查询时，优先改：
 
 - [DefaultMockMiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockMiniAppQuerySource.java)
-- 或新增真实 `MiniAppQuerySource` 实现并在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java) 中切换
+- 或新增真实 `MiniAppQuerySource` 实现并在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java) 中切换
 
 通常不需要改：
 
