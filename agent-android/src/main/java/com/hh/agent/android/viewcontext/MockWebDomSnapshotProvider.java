@@ -7,6 +7,7 @@ import androidx.annotation.Nullable;
 
 import com.hh.agent.android.channel.ViewContextToolChannel;
 import com.hh.agent.android.log.AgentLogs;
+import com.hh.agent.android.thread.MainThreadRunner;
 import com.hh.agent.core.tool.ToolResult;
 
 /**
@@ -20,23 +21,57 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
     private static final String OBSERVATION_MODE_MOCK_WEBVIEW_DOM = "mock_webview_dom";
     private static final String MOCK_WEB_DOM =
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
+    private static final long WEBVIEW_ACCESS_TIMEOUT_MS = 1500L;
 
     private final StableForegroundActivityProvider stableForegroundActivityProvider;
     private final WebViewFinder webViewFinder;
+    private final MainThreadRunner mainThreadRunner;
 
     public MockWebDomSnapshotProvider(StableForegroundActivityProvider stableForegroundActivityProvider,
-                                      WebViewFinder webViewFinder) {
+                                      WebViewFinder webViewFinder,
+                                      MainThreadRunner mainThreadRunner) {
         this.stableForegroundActivityProvider = stableForegroundActivityProvider;
         this.webViewFinder = webViewFinder;
+        this.mainThreadRunner = mainThreadRunner;
     }
 
     @Override
     public ToolResult getCurrentWebDomSnapshot(String targetHint) {
-        Activity activity = stableForegroundActivityProvider.getStableForegroundActivity();
-        @Nullable WebViewFinder.WebViewFindResult findResult = webViewFinder.findPrimaryWebView(activity);
+        Activity activity;
+        WebViewFinder.WebViewFindResult findResult;
+        String pageUrl = null;
+        String pageTitle = null;
+        try {
+            activity = mainThreadRunner.call(
+                    () -> stableForegroundActivityProvider.getStableForegroundActivity(),
+                    WEBVIEW_ACCESS_TIMEOUT_MS
+            );
+            findResult = mainThreadRunner.call(
+                    () -> webViewFinder.findPrimaryWebView(activity),
+                    WEBVIEW_ACCESS_TIMEOUT_MS
+            );
+            if (findResult != null) {
+                final WebView webView = findResult.webView;
+                pageUrl = mainThreadRunner.call(
+                        () -> safeString(webView.getUrl()),
+                        WEBVIEW_ACCESS_TIMEOUT_MS
+                );
+                pageTitle = mainThreadRunner.call(
+                        () -> safeString(webView.getTitle()),
+                        WEBVIEW_ACCESS_TIMEOUT_MS
+                );
+            }
+        } catch (Exception exception) {
+            AgentLogs.warn("MockWebDomSnapshotProvider", "collect_failed", "message=" + exception.getMessage());
+            return ToolResult.error("dom_capture_failed", exception.getMessage())
+                    .with("channel", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("source", SOURCE_WEB_DOM)
+                    .with("interactionDomain", INTERACTION_DOMAIN_WEB)
+                    .with("mock", true)
+                    .with("targetHint", targetHint);
+        }
+
         String activityClassName = activity != null ? activity.getClass().getName() : null;
-        String pageUrl = findResult != null ? safeString(findResult.webView.getUrl()) : null;
-        String pageTitle = findResult != null ? safeString(findResult.webView.getTitle()) : null;
         AgentLogs.info("MockWebDomSnapshotProvider", "collect_start",
                 "activity=" + activityClassName
                         + " candidates=" + (findResult != null ? findResult.candidateCount : 0)
@@ -86,7 +121,8 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
                         return InProcessViewHierarchyDumper.getCurrentStableForegroundActivity();
                     }
                 },
-                new WebViewFinder()
+                new WebViewFinder(),
+                new MainThreadRunner()
         );
     }
 
