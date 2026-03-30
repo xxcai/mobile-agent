@@ -100,6 +100,8 @@ public final class ShortcutDefinition {
         private final String description;
         private final List<String> tips = new ArrayList<>();
         private final LinkedHashMap<String, ParamSpec> params = new LinkedHashMap<>();
+        private String rawArgsSchemaJson;
+        private String rawArgsExampleJson;
         private String risk;
         private String domain;
         private String requiredSkill;
@@ -146,6 +148,16 @@ public final class ShortcutDefinition {
             return addParam(name, description, "string", required, example);
         }
 
+        public Builder argsSchema(String argsSchemaJson) {
+            this.rawArgsSchemaJson = requireText(argsSchemaJson, "argsSchemaJson");
+            return this;
+        }
+
+        public Builder argsExample(String argsExampleJson) {
+            this.rawArgsExampleJson = requireText(argsExampleJson, "argsExampleJson");
+            return this;
+        }
+
         public Builder intParam(String name, String description, boolean required) {
             return addParam(name, description, "integer", required, null);
         }
@@ -163,6 +175,20 @@ public final class ShortcutDefinition {
         }
 
         public ShortcutDefinition build() {
+            if (rawArgsSchemaJson != null || rawArgsExampleJson != null) {
+                return new ShortcutDefinition(
+                        name,
+                        title,
+                        description,
+                        risk,
+                        domain,
+                        requiredSkill,
+                        tips,
+                        rawArgsSchemaJson != null ? rawArgsSchemaJson : "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
+                        rawArgsExampleJson != null ? rawArgsExampleJson : "{}"
+                );
+            }
+
             JsonObject properties = new JsonObject();
             JsonArray required = new JsonArray();
             JsonObject argsExample = new JsonObject();
