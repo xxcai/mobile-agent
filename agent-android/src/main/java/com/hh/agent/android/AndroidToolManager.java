@@ -44,7 +44,7 @@ public class AndroidToolManager implements AndroidToolCallback {
 
     /**
      * Initialize and load tools from configuration.
-     * Note: Built-in tools are now registered via registerTool() from app layer.
+     * Note: Default app-owned business capabilities should now be registered via shortcut APIs.
      */
     public void initialize() {
         AgentLogs.info("AndroidToolManager", "initialize_start",
@@ -71,12 +71,13 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     /**
-     * Register a ToolExecutor to the tool manager.
-     * This allows app layer to dynamically register custom tools at runtime.
+     * Legacy compatibility entry for registering ToolExecutor.
+     * New business capabilities should use registerShortcut/registerShortcuts instead.
      *
      * @param executor The ToolExecutor to register
      * @throws IllegalArgumentException if a tool with the same name is already registered
      */
+    @Deprecated
     public void registerTool(ToolExecutor executor) {
         if (executor == null) {
             throw new IllegalArgumentException("ToolExecutor cannot be null");
@@ -95,14 +96,17 @@ public class AndroidToolManager implements AndroidToolCallback {
         // Add the tool to the registry
         tools.put(toolName, executor);
         AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName);
+        AgentLogs.warn("AndroidToolManager", "legacy_tool_registration_used",
+                "tool_name=" + toolName + " recommended_path=registerShortcut");
     }
 
     /**
-     * Get all registered tools.
+     * Legacy compatibility accessor for ToolExecutor registrations.
      * Returns a copy of the internal tools map to prevent external modification.
      *
      * @return Map of tool name to ToolExecutor (never null, may be empty)
      */
+    @Deprecated
     public Map<String, ToolExecutor> getRegisteredTools() {
         return new HashMap<>(tools);
     }
@@ -160,11 +164,12 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     /**
-     * Unregister a tool by name.
+     * Legacy compatibility entry for unregistering ToolExecutor by name.
      *
      * @param toolName The name of the tool to unregister
      * @return true if the tool was found and removed, false if tool did not exist
      */
+    @Deprecated
     public boolean unregisterTool(String toolName) {
         if (toolName == null || toolName.trim().isEmpty()) {
             return false;
@@ -182,13 +187,15 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     /**
-     * Register multiple tools at once with atomicity.
+     * Legacy compatibility entry for registering ToolExecutor map with atomicity.
      * Validates all tools first, then applies changes only if all validations pass.
+     * New business capabilities should use registerShortcuts instead.
      *
      * @param toolsToRegister Map of tool name to ToolExecutor to register
      * @return true if all tools were registered successfully
      * @throws IllegalArgumentException if validation fails (null tool, empty name, duplicate, or conflict with existing)
      */
+    @Deprecated
     public boolean registerTools(Map<String, ToolExecutor> toolsToRegister) {
         if (toolsToRegister == null) {
             throw new IllegalArgumentException("Tools map cannot be null");
@@ -220,19 +227,22 @@ public class AndroidToolManager implements AndroidToolCallback {
             ToolExecutor executor = entry.getValue();
             tools.put(toolName, executor);
             AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName + " mode=batch");
+            AgentLogs.warn("AndroidToolManager", "legacy_tool_registration_used",
+                    "tool_name=" + toolName + " mode=batch recommended_path=registerShortcuts");
         }
 
         return true;
     }
 
     /**
-     * Unregister multiple tools at once with atomicity.
+     * Legacy compatibility entry for unregistering ToolExecutor map with atomicity.
      * Validates all tool names exist first, then applies changes only if all validations pass.
      *
      * @param toolNames List of tool names to unregister
      * @return true if all tools were unregistered successfully
      * @throws IllegalArgumentException if any tool does not exist
      */
+    @Deprecated
     public boolean unregisterTools(ArrayList<String> toolNames) {
         if (toolNames == null) {
             throw new IllegalArgumentException("Tool names list cannot be null");

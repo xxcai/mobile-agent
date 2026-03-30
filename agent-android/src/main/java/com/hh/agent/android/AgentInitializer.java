@@ -53,9 +53,10 @@ public class AgentInitializer {
      * 初始化 Agent
      * @param application Application Context
      * @param voiceRecognizer 语音识别器实现（可传入 null 使用默认实现）
-     * @param tools 要注册的工具 Map
+     * @param tools 要注册的遗留工具 Map。新业务能力应优先使用 shortcut 初始化重载
      * @param callback 初始化完成回调（Agent 核心初始化完成后调用）
      */
+    @Deprecated
     public static void initialize(Context application,
                                   IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
@@ -75,6 +76,7 @@ public class AgentInitializer {
         initializeInternal(application, voiceRecognizer, null, shortcuts, viewContextSourcePolicy, callback);
     }
 
+    @Deprecated
     public static void initialize(Context application,
                                   IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
@@ -96,6 +98,10 @@ public class AgentInitializer {
 
         if (tools == null && shortcuts == null) {
             AgentLogs.warn(TAG, "tools_map_null", null);
+        }
+        if (tools != null && !tools.isEmpty()) {
+            AgentLogs.warn(TAG, "legacy_tool_initializer_used",
+                    "tool_count=" + toolCount + " recommended_path=initialize(..., shortcuts, ...)");
         }
         if (callback == null) {
             AgentLogs.warn(TAG, "initialize_callback_null", null);
