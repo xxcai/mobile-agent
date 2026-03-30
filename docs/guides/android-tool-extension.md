@@ -11,6 +11,7 @@
 - Tool 实现在宿主 `app` 层
 - Tool 接口定义在 `agent-core` 的 `com.hh.agent.core.tool`
 - Tool 注册与多通道 schema 生成由 `agent-android` 的 `AgentInitializer` 和 `AndroidToolManager` 完成
+- 已注册的 `ToolExecutor` 当前会自动适配为 shortcut，并通过 `run_shortcut` 暴露给 LLM
 - `NativeMobileAgentApi` 当前位于 `com.hh.agent.core.api.impl`
 
 如果需要添加复杂工作流而不是单个工具，请参考 [Android Skill 扩展指南](./android-skill-extension.md)。
@@ -143,7 +144,8 @@ AgentInitializer.initialize(
 1. 创建 `AndroidToolManager`
 2. 调用 `registerTools(tools)`
 3. 调用 `initialize()`
-4. 生成 tools schema 并传给 `NativeMobileAgentApi`
+4. 已注册的 `ToolExecutor` 自动通过 `ToolExecutorShortcutAdapter` 接入 `ShortcutRuntime`
+5. 生成 tools schema 并传给 `NativeMobileAgentApi`
 
 因此外部通常不需要手动 new `AndroidToolManager` 再逐个注册。
 
@@ -191,34 +193,33 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 当前 Android 侧已经支持多通道工具：
 
-- `call_android_tool`
-  宿主 App 业务工具通道
+- `run_shortcut`
+  宿主 App 业务 shortcut runtime 通道
 - `android_view_context_tool`
   页面观察通道，负责拿当前页面的 `nativeViewXml` / observation snapshot
 - `android_gesture_tool`
   UI 执行通道，当前支持 observation 引用参数，并已具备真实 in-process 执行能力
 
-其中你在宿主 `app` 层注册的 `ToolExecutor`，目前都会被聚合进 `call_android_tool`。
+其中你在宿主 `app` 层注册的 `ToolExecutor`，当前会自动经 `ToolExecutorShortcutAdapter` 进入 `run_shortcut`。
 
 也就是说，业务 Tool 的实际调用格式仍然是：
 
 ```json
 {
-  "function": "my_tool",
+  "shortcut": "my_tool",
   "args": {
     "value": "demo"
   }
 }
 ```
 
-当前 `call_android_tool` 的 schema 会自动聚合每个工具的：
+当前 `run_shortcut` 的 schema 会自动聚合每个工具的：
 
 - 工具描述
-- 常见意图示例（如果提供）
 - 参数 schema
 - 最小参数样例
 
-因此新增业务 Tool 时，通常只需要补好 `ToolDefinition`，不需要再手改统一提示词。
+因此新增业务 Tool 时，通常只需要补好 `ToolDefinition`，不需要再手改统一提示词；`ShortcutRuntime` 会直接复用 `ToolDefinition` 中的参数 schema 和 example。
 
 `android_view_context_tool` 和 `android_gesture_tool` 这两个通道现在推荐配合使用：
 
@@ -249,6 +250,15 @@ return ToolResult.error("execution_failed", e.getMessage());
 - `app/src/main/java/com/hh/agent/tool/SendImMessageTool.java`
 
 可以直接按这些实现的结构新增。
+
+## 当前兼容状态
+
+当前仓库中仍然保留 `LegacyAndroidToolChannel` 的实现代码，但它不是默认注册通道。
+
+这意味着：
+
+- 新增业务 Tool 时，不应再围绕 `call_android_tool` 编写新文档或新 skill
+- 当前默认路径应视为：`ToolExecutor` -> `ToolExecutorShortcutAdapter` -> `ShortcutRuntime` -> `run_shortcut`
 
 ## 最小接入模板
 

@@ -54,11 +54,11 @@ always: false
 
 ### 步骤 1
 
-调用 `call_android_tool`，function 为 `my_tool`。
+调用 `run_shortcut`，shortcut 为 `my_tool`。
 
 ```json
 {
-  "function": "my_tool",
+  "shortcut": "my_tool",
   "args": {
     "value": "demo"
   }
@@ -116,12 +116,12 @@ Skill 正文没有强制格式，但建议至少包含：
 
 ## 与 Tool 的关系
 
-当前 Android 侧已经支持多通道工具，但宿主应用中注册的业务 Tool 仍然通过统一的 `call_android_tool` 包装调用。
+当前 Android 侧已经支持多通道工具，宿主应用中注册的业务 `ToolExecutor` 当前会自动适配为 shortcut，并通过统一的 `run_shortcut` 暴露调用。
 
 当前通道包括：
 
-- `call_android_tool`
-  用于宿主 App 业务工具，例如联系人、消息、通知、剪贴板
+- `run_shortcut`
+  用于宿主 App 业务 shortcut，例如联系人、消息、通知、剪贴板
 - `android_gesture_tool`
   用于页面内点击、滚动等 UI 手势
 
@@ -131,14 +131,14 @@ Skill 正文没有强制格式，但建议至少包含：
 
 ```json
 {
-  "function": "search_contacts",
+  "shortcut": "search_contacts",
   "args": {
     "query": "张三"
   }
 }
 ```
 
-而不是直接写成“调用 `search_contacts` function”。
+而不是继续使用旧的 `call_android_tool.function` 协议。
 
 如果后续某个 Skill 需要明确驱动点击或滑动，可以单独使用 `android_gesture_tool`，例如：
 
@@ -174,7 +174,7 @@ Skill 正文没有强制格式，但建议至少包含：
 - `app/src/main/assets/workspace/skills/im_sender/SKILL.md`
 - `agent-core/src/main/assets/workspace/skills/chinese_writer/SKILL.md`
 
-其中 `im_sender` 更接近 Android 场景下通过 `call_android_tool` 调用宿主工具的真实写法。
+其中 `im_sender` 更接近 Android 场景下通过宿主业务通道调用工具的真实写法；如果该示例仍使用旧的 `call_android_tool` 协议，新增 skill 应优先按 `run_shortcut` 的新格式编写。
 
 ## 生效方式
 
@@ -190,6 +190,6 @@ Skill 不是热更新注册的。通常需要：
 
 - 先确保 Skill 文件最终被打进应用 assets
 - 检查 workspace 目录下是否真的存在 `skills/<name>/SKILL.md`
-- 确保 Skill 中引用的工具名和 `ToolExecutor#getName()` 返回值一致
+- 确保 Skill 中引用的 shortcut 名和 `ToolExecutor#getName()` 返回值一致
 - 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的描述、意图示例和参数样例来写调用
 - 如果 Skill 依赖 `requiredBins` / `requiredEnvs` / `os`，确认运行环境满足要求
