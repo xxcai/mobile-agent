@@ -62,6 +62,8 @@ public class DescribeShortcutChannelTest {
         assertEquals("shortcut_not_supported", result.getString("error"));
         assertEquals("describe_shortcut", result.getString("channel"));
         assertEquals("unknown_shortcut", result.getString("shortcut"));
+        assertTrue(result.getString("message").contains("read skills/<skill_name>/SKILL.md"));
+        assertTrue(result.getString("message").contains("instead of calling describe_shortcut"));
     }
 
     private static final class RecordingShortcutExecutor implements ShortcutExecutor {

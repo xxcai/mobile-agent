@@ -52,7 +52,9 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",
-                            "Shortcut '" + shortcutName + "' is not supported")
+                            "Shortcut '" + shortcutName + "' is not supported. "
+                                    + "If this is a skill name, read skills/<skill_name>/SKILL.md with read_file "
+                                    + "instead of calling describe_shortcut.")
                     .with("channel", CHANNEL_NAME)
                     .with("shortcut", shortcutName);
         }
