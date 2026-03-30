@@ -40,17 +40,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView outputView;
 
-    private static final class SchemaSummary {
-        boolean containsLegacyChannel;
-        boolean containsGestureChannel;
-        boolean containsViewContextChannel;
-        String legacyDescription = "";
-        String legacyFunctionDescription = "";
-        String legacyArgsDescription = "";
-        String gestureDescription = "";
-        String viewContextDescription = "";
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -133,47 +122,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         params.bottomMargin = dp(8);
         container.addView(button, params);
-    }
-
-    private void runChannelSummarySection() {
-        StringBuilder report = new StringBuilder();
-        try {
-            AndroidToolManager manager = buildTestToolManager();
-            SchemaSummary summary = buildSchemaSummary(manager);
-            appendChannelSummary(report, manager, summary);
-        } catch (Exception e) {
-            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
-        }
-        outputView.setText(report.toString());
-    }
-
-    private void runIntentMappingSection() {
-        StringBuilder report = new StringBuilder();
-        try {
-            AndroidToolManager manager = buildTestToolManager();
-            SchemaSummary summary = buildSchemaSummary(manager);
-            appendIntentMappingChecks(report, summary);
-        } catch (Exception e) {
-            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
-        }
-        outputView.setText(report.toString());
-    }
-
-    private void runSkillCompatibilitySection() {
-        StringBuilder report = new StringBuilder();
-        appendImSenderCompatibilityNote(report);
-        outputView.setText(report.toString());
-    }
-
-    private void runContractChecksSection() {
-        StringBuilder report = new StringBuilder();
-        try {
-            AndroidToolManager manager = buildTestToolManager();
-            appendContractChecks(report, manager);
-        } catch (Exception e) {
-            report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
-        }
-        outputView.setText(report.toString());
     }
 
     private void runRuntimeCasesSection() {
@@ -645,42 +593,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         return tools;
     }
 
-    private SchemaSummary buildSchemaSummary(AndroidToolManager manager) throws Exception {
-        SchemaSummary summary = new SchemaSummary();
-        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
-        JSONArray tools = schema.getJSONArray("tools");
-        for (int i = 0; i < tools.length(); i++) {
-            JSONObject function = tools.getJSONObject(i).getJSONObject("function");
-            if ("call_android_tool".equals(function.optString("name"))) {
-                summary.containsLegacyChannel = true;
-                summary.legacyDescription = function.optString("description");
-                JSONObject parameters = function.optJSONObject("parameters");
-                if (parameters != null) {
-                    JSONObject properties = parameters.optJSONObject("properties");
-                    if (properties != null) {
-                        JSONObject functionProperty = properties.optJSONObject("function");
-                        JSONObject argsProperty = properties.optJSONObject("args");
-                        summary.legacyFunctionDescription = functionProperty != null
-                                ? functionProperty.optString("description")
-                                : "";
-                        summary.legacyArgsDescription = argsProperty != null
-                                ? argsProperty.optString("description")
-                                : "";
-                    }
-                }
-            }
-            if ("android_gesture_tool".equals(function.optString("name"))) {
-                summary.containsGestureChannel = true;
-                summary.gestureDescription = function.optString("description");
-            }
-            if ("android_view_context_tool".equals(function.optString("name"))) {
-                summary.containsViewContextChannel = true;
-                summary.viewContextDescription = function.optString("description");
-            }
-        }
-        return summary;
-    }
-
     private void runCase(StringBuilder report,
                          AndroidToolManager manager,
                          String title,
@@ -697,135 +609,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append('\n');
     }
 
-    private void appendChannelSummary(StringBuilder report,
-                                      AndroidToolManager manager,
-                                      SchemaSummary summary) {
-        report.append("# Channel Summary\n");
-        report.append("registered_channels=").append(manager.getRegisteredChannels().keySet()).append('\n');
-        report.append("legacy_present=").append(summary.containsLegacyChannel).append('\n');
-        report.append("gesture_present=").append(summary.containsGestureChannel).append('\n');
-        report.append("view_context_present=").append(summary.containsViewContextChannel).append('\n');
-        report.append("legacy_description=").append(summary.legacyDescription).append('\n');
-        report.append("legacy_function_description=").append(summary.legacyFunctionDescription).append('\n');
-        report.append("legacy_args_description=").append(summary.legacyArgsDescription).append('\n');
-        report.append("gesture_description=").append(summary.gestureDescription).append('\n');
-        report.append("view_context_description=").append(summary.viewContextDescription).append("\n\n");
-    }
-
-    private void appendIntentMappingChecks(StringBuilder report, SchemaSummary summary) {
-        report.append("# Intent Mapping\n");
-        report.append("send message -> call_android_tool/send_im_message\n");
-        report.append("search contact -> call_android_tool/search_contacts\n");
-        report.append("tap coordinates -> android_gesture_tool/tap\n");
-        report.append("swipe screen -> android_gesture_tool/swipe\n");
-        report.append("inspect current screen -> android_view_context_tool/runtime_auto\n");
-        report.append("legacy_summary_has_business_hint=")
-                .append(summary.legacyDescription.contains("业务工具"))
-                .append('\n');
-        report.append("gesture_summary_has_coordinate_hint=")
-                .append(summary.gestureDescription.contains("屏幕坐标"))
-                .append('\n');
-        report.append("view_context_has_perception_hint=")
-                .append(summary.viewContextDescription.contains("视图上下文"))
-                .append("\n\n");
-    }
-
-    private void appendImSenderCompatibilityNote(StringBuilder report) {
-        report.append("# Skill Compatibility\n");
-        report.append("Existing Android skills that still emit {function,args} remain compatible via call_android_tool.\n\n");
-        report.append("This screen is intentionally focused on the IM sender path.\n\n");
-    }
-
-    private void appendContractChecks(StringBuilder report, AndroidToolManager manager) throws Exception {
-        report.append("# Contract Checks\n");
-        JSONObject schema = new JSONObject(manager.generateToolsJsonString());
-        report.append("schema_version=").append(schema.optInt("version", -1)).append('\n');
-        report.append("tool_count=").append(schema.getJSONArray("tools").length()).append('\n');
-        report.append("registered_tools=").append(manager.getRegisteredTools().keySet()).append('\n');
-
-        JSONObject gestureFunction = findFunction(schema.getJSONArray("tools"), "android_gesture_tool");
-        report.append("gesture_tool_present=").append(gestureFunction != null ? "PASS" : "FAIL").append('\n');
-        if (gestureFunction == null) {
-            report.append('\n');
-            return;
-        }
-
-        JSONObject gestureParameters = gestureFunction.optJSONObject("parameters");
-        JSONObject gestureProperties = gestureParameters != null
-                ? gestureParameters.optJSONObject("properties")
-                : null;
-        JSONArray gestureRequired = gestureParameters != null
-                ? gestureParameters.optJSONArray("required")
-                : null;
-        JSONObject actionProperty = gestureProperties != null
-                ? gestureProperties.optJSONObject("action")
-                : null;
-        JSONObject directionProperty = gestureProperties != null
-                ? gestureProperties.optJSONObject("direction")
-                : null;
-        JSONObject amountProperty = gestureProperties != null
-                ? gestureProperties.optJSONObject("amount")
-                : null;
-        JSONObject observationProperty = gestureProperties != null
-                ? gestureProperties.optJSONObject("observation")
-                : null;
-        JSONObject observationProperties = observationProperty != null
-                ? observationProperty.optJSONObject("properties")
-                : null;
-
-        report.append("gesture_action_required=")
-                .append(asPassFail(arrayContains(gestureRequired, "action")))
-                .append('\n');
-        report.append("gesture_action_enum_has_tap_swipe=")
-                .append(asPassFail(arrayContains(actionProperty != null ? actionProperty.optJSONArray("enum") : null, "tap")
-                        && arrayContains(actionProperty != null ? actionProperty.optJSONArray("enum") : null, "swipe")))
-                .append('\n');
-        report.append("gesture_direction_enum_has_down_up=")
-                .append(asPassFail(arrayContains(directionProperty != null ? directionProperty.optJSONArray("enum") : null, "down")
-                        && arrayContains(directionProperty != null ? directionProperty.optJSONArray("enum") : null, "up")))
-                .append('\n');
-        report.append("gesture_amount_default_medium=")
-                .append(asPassFail("medium".equals(amountProperty != null
-                        ? amountProperty.optString("default", "")
-                        : "")))
-                .append('\n');
-        report.append("gesture_observation_has_snapshot_id=")
-                .append(asPassFail(observationProperties != null && observationProperties.has("snapshotId")))
-                .append('\n');
-        report.append("gesture_observation_has_referenced_bounds=")
-                .append(asPassFail(observationProperties != null && observationProperties.has("referencedBounds")))
-                .append("\n\n");
-    }
-
-    private JSONObject findFunction(JSONArray tools, String functionName) throws Exception {
-        for (int index = 0; index < tools.length(); index++) {
-            JSONObject tool = tools.getJSONObject(index);
-            JSONObject function = tool.optJSONObject("function");
-            if (function == null) {
-                continue;
-            }
-            if (functionName.equals(function.optString("name"))) {
-                return function;
-            }
-        }
-        return null;
-    }
-
-    private boolean arrayContains(JSONArray array, String expected) {
-        if (array == null || expected == null) {
-            return false;
-        }
-        for (int index = 0; index < array.length(); index++) {
-            if (expected.equals(array.optString(index, null))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String asPassFail(boolean passed) {
-        return passed ? "PASS" : "FAIL";
-    }
 
     private void appendRuntimeCases(StringBuilder report, AndroidToolManager manager) {
         report.append("# Runtime Cases\n");
