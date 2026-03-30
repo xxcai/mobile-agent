@@ -14,12 +14,10 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
-import com.hh.agent.app.RouteShortcutProvider;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.event.AgentEventListener;
-import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.SearchContactsTool;
 import com.hh.agent.tool.SendImMessageTool;
@@ -27,19 +25,17 @@ import com.hh.agent.tool.SendImMessageTool;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
- * App-level test entry retained as a separate launcher target.
- * Used to validate tool channel behavior without adding test hooks into agent-core/agent-android.
- * This screen intentionally keeps some legacy call_android_tool probes for comparison and fallback testing.
+ * App-level IM-focused test entry retained as a separate launcher target.
+ * Used to validate message sending related tool/runtime behavior without adding test hooks
+ * into agent-core/agent-android.
  */
 public class ToolChannelTestActivity extends AppCompatActivity {
 
-    private static final String PROBE_SESSION_KEY_PREFIX = "native:route-probe";
+    private static final String PROBE_SESSION_KEY_PREFIX = "native:im-probe";
     private static final String BUILTIN_READ_FILE_TOOL = "read_file";
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView outputView;
@@ -58,7 +54,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("Tool Channel Tests");
+        setTitle("IM Tool Tests");
         setContentView(createContentView());
     }
 
@@ -70,7 +66,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         int padding = dp(16);
         container.setPadding(padding, padding, padding, padding);
 
-        addSectionHeader(container, "Core Runtime");
+        addSectionHeader(container, "IM Runtime");
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
         addActionButton(container, "Run Business WebView Context", v -> runBusinessWebViewContextProbe());
@@ -102,39 +98,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                         "点击发送消息按钮",
                         "android_view_context_tool",
                         "android_gesture_tool"));
-        addActionButton(container, "Probe LLM Structure Route", v ->
-                runLlmRouteProbe(
-                        "看看当前页面结构",
-                        "android_view_context_tool",
-                        null));
-
-        addSectionHeader(container, "Route Tooling");
-        addActionButton(container, "Resolve Route URI", v ->
-                runResolveRouteProbe("{\"uri\":\"ui://myapp.search/selectActivity\",\"targetTypeHint\":\"native\"}"));
-        addActionButton(container, "Resolve Route Native Module", v ->
-                runResolveRouteProbe("{\"targetTypeHint\":\"native\",\"nativeModule\":\"myapp.im\",\"keywords_csv\":\"群聊,创建\"}"));
-        addActionButton(container, "Resolve Route MiniApp", v ->
-                runResolveRouteProbe("{\"targetTypeHint\":\"miniapp\",\"miniAppName\":\"报销\",\"keywords_csv\":\"报销,费用报销\"}"));
-        addActionButton(container, "Resolve Route Keywords", v ->
-                runResolveRouteProbe("{\"keywords_csv\":\"报销\"}"));
-        addActionButton(container, "Open Resolved Native Route", v ->
-                runOpenResolvedRouteProbe(
-                        "{\"targetType\":\"native\",\"uri\":\"ui://myapp.im/createGroup\",\"title\":\"创建群聊\"}",
-                        false));
-        addActionButton(container, "Open Resolved MiniApp Route", v ->
-                runOpenResolvedRouteProbe(
-                        "{\"targetType\":\"miniapp\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}",
-                        false));
-        addActionButton(container, "Open Route From Container", v ->
-                runOpenResolvedRouteProbe(
-                        "{\"targetType\":\"miniapp\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}",
-                        true));
-
-        addSectionHeader(container, "Legacy Diagnostics");
-        addActionButton(container, "Run Channel Summary", v -> runChannelSummarySection());
-        addActionButton(container, "Run Intent Mapping", v -> runIntentMappingSection());
-        addActionButton(container, "Run Skill Compatibility", v -> runSkillCompatibilitySection());
-        addActionButton(container, "Run Contract Checks", v -> runContractChecksSection());
 
         outputView = new TextView(this);
         outputView.setTextIsSelectable(true);
@@ -222,57 +185,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             report.append("Unexpected test failure: ").append(e.getMessage()).append('\n');
         }
         outputView.setText(report.toString());
-    }
-
-    private void runResolveRouteProbe(String argumentsJson) {
-        StringBuilder report = new StringBuilder();
-        report.append("# Resolve Route Probe\n");
-        report.append("input=").append(argumentsJson).append("\n\n");
-        try {
-            AndroidToolManager manager = buildTestToolManager();
-            String raw = manager.callTool(
-                    "run_shortcut",
-                    "{\"shortcut\":\"resolve_route\",\"args\":" + argumentsJson + "}");
-            report.append("raw_result=").append(raw).append('\n');
-        } catch (Exception e) {
-            report.append("error=").append(e.getMessage()).append('\n');
-        }
-        outputView.setText(report.toString());
-    }
-
-    private void runOpenResolvedRouteProbe(String argumentsJson, boolean launchContainerFirst) {
-        StringBuilder report = new StringBuilder();
-        report.append("# Open Resolved Route Probe\n");
-        report.append("launch_container_first=").append(launchContainerFirst).append('\n');
-        report.append("input=").append(argumentsJson).append("\n\n");
-        outputView.setText(report.toString());
-
-        if (launchContainerFirst) {
-            startActivity(new Intent(this, ContainerActivity.class));
-        }
-
-        mainHandler.postDelayed(() -> {
-            Thread worker = new Thread(() -> {
-                try {
-                    AndroidToolManager manager = buildTestToolManager();
-                    String raw = manager.callTool(
-                            "run_shortcut",
-                            "{\"shortcut\":\"open_resolved_route\",\"args\":" + argumentsJson + "}");
-                    mainHandler.post(() -> {
-                        StringBuilder next = new StringBuilder(outputView.getText());
-                        next.append("raw_result=").append(raw).append('\n');
-                        outputView.setText(next.toString());
-                    });
-                } catch (Exception e) {
-                    mainHandler.post(() -> {
-                        StringBuilder next = new StringBuilder(outputView.getText());
-                        next.append("error=").append(e.getMessage()).append('\n');
-                        outputView.setText(next.toString());
-                    });
-                }
-            });
-            worker.start();
-        }, launchContainerFirst ? 300L : 0L);
     }
 
     private void runLiveViewContextProbe(boolean launchContainerFirst) {
@@ -720,8 +632,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
     private AndroidToolManager buildTestToolManager() {
         AndroidToolManager manager = new AndroidToolManager(this);
-        List<ShortcutExecutor> shortcuts = new ArrayList<>(RouteShortcutProvider.createShortcuts(this));
-        manager.registerShortcuts(shortcuts);
         // Debug-only legacy path registration. Default app startup no longer exposes these tools this way.
         manager.registerTools(buildTestTools());
         manager.initialize();
@@ -806,8 +716,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("# Intent Mapping\n");
         report.append("send message -> call_android_tool/send_im_message\n");
         report.append("search contact -> call_android_tool/search_contacts\n");
-        report.append("resolve route -> run_shortcut/resolve_route\n");
-        report.append("open resolved route -> run_shortcut/open_resolved_route\n");
         report.append("tap coordinates -> android_gesture_tool/tap\n");
         report.append("swipe screen -> android_gesture_tool/swipe\n");
         report.append("inspect current screen -> android_view_context_tool/runtime_auto\n");
@@ -825,7 +733,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private void appendImSenderCompatibilityNote(StringBuilder report) {
         report.append("# Skill Compatibility\n");
         report.append("Existing Android skills that still emit {function,args} remain compatible via call_android_tool.\n\n");
-        report.append("Route tooling probes in this screen now use run_shortcut for resolve_route/open_resolved_route.\n\n");
+        report.append("This screen is intentionally focused on the IM sender path.\n\n");
     }
 
     private void appendContractChecks(StringBuilder report, AndroidToolManager manager) throws Exception {

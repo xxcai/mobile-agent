@@ -24,9 +24,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Shared debug probe entry for MainActivity mock chat pages.
- * It keeps verification on the real chat UI instead of routing back to ToolChannelTestActivity.
- * Business fallback probes intentionally retain the legacy call_android_tool path for comparison.
+ * Shared IM debug probe entry for MainActivity mock chat pages.
+ * It keeps message sending related verification on the real chat UI instead of routing back
+ * to ToolChannelTestActivity.
  */
 public final class MockChatProbeRunner {
 

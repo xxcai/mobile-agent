@@ -159,7 +159,7 @@ public class ChatListFragment extends Fragment {
         Map<String, ToolExecutor> tools = new HashMap<>();
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
-        // Debug-only legacy registration used by local mock chat probes.
+        // Debug-only IM registration used by local mock chat probes.
         manager.registerTools(tools);
         manager.initialize();
         return manager;
