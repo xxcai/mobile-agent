@@ -1,5 +1,6 @@
 package com.hh.agent.android;
 
+import com.hh.agent.android.channel.DescribeShortcutChannel;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
@@ -38,6 +39,7 @@ public class AndroidToolManagerTest {
         Map<String, ?> channels = manager.getRegisteredChannels();
 
         assertTrue(channels.containsKey(ShortcutRuntimeChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(DescribeShortcutChannel.CHANNEL_NAME));
         assertTrue(channels.containsKey(GestureToolChannel.CHANNEL_NAME));
         assertTrue(channels.containsKey(ViewContextToolChannel.CHANNEL_NAME));
         assertFalse(channels.containsKey("call_android_tool"));

@@ -2,6 +2,7 @@ package com.hh.agent.android;
 
 import android.content.Context;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
+import com.hh.agent.android.channel.DescribeShortcutChannel;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
@@ -38,6 +39,7 @@ public class AndroidToolManager implements AndroidToolCallback {
     public AndroidToolManager(Context context) {
         this.context = context;
         registerChannel(new ShortcutRuntimeChannel(shortcutRuntime));
+        registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());
         registerChannel(new ViewContextToolChannel());
     }
