@@ -27,21 +27,16 @@
 
 ## 当前接入边界
 
-当前 route tooling 已经有两套接入方式：
+当前 route tooling 通过默认 shortcut runtime 路径接入：
 
-- 默认 shortcut runtime 路径
-  - `resolve_route`
-  - `open_resolved_route`
-- 兼容/调试路径
-  - 旧 `ToolExecutor` 版 `resolve_route`
-  - 旧 `ToolExecutor` 版 `open_resolved_route`
+- `resolve_route`
+- `open_resolved_route`
 
 默认 shortcut 注册入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
 
 需要注意：
 
 - 默认 app 初始化路径已经通过 `run_shortcut` 暴露 route tooling
-- 旧 `ToolExecutor` 版 route tooling 仅保留为兼容/调试链路
 - agent 默认应先命中 `route_navigator` skill，再按 skill 规程调用 `run_shortcut`
 - 如果缺少 route shortcut 的详细定义或参数结构，应先调用 `describe_shortcut`
 

@@ -53,7 +53,7 @@ AgentInitializer.setLogger(yourAgentLogger);
 - `app/src/main/java/com/hh/agent/app/App.java`
 - `agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java`
 - `agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java`
-- `agent-core/src/main/java/com/hh/agent/core/tool/`
+- `agent-core/src/main/java/com/hh/agent/core/shortcut/`
 
 ## 步骤 1: 创建 Shortcut 类
 
@@ -211,13 +211,14 @@ return ToolResult.error("execution_failed", e.getMessage());
 }
 ```
 
-当前 `run_shortcut` 的 schema 会自动聚合每个工具的：
+当前 `run_shortcut` 顶层 schema 已经收窄，不会再全量暴露所有 shortcut 细节。
 
-- 工具描述
-- 参数 schema
-- 最小参数样例
+因此新增业务 shortcut 时，通常只需要补好 `ShortcutDefinition`，并在需要时通过：
 
-因此新增业务 shortcut 时，通常只需要补好 `ShortcutDefinition`，不需要再手改统一提示词；`ShortcutRuntime` 会直接复用其中的参数 schema 和 example。
+- `describe_shortcut`
+  按需查询某个 shortcut 的描述、参数 schema 和最小参数样例
+- 对应 skill
+  告诉 Agent 什么时候该使用这个 shortcut
 
 `android_view_context_tool` 和 `android_gesture_tool` 这两个通道现在推荐配合使用：
 
@@ -247,14 +248,14 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 可以直接按这些实现的结构新增。
 
-## 当前兼容状态
+## 当前默认路径
 
-当前仓库中仍然保留 `LegacyAndroidToolChannel` 的实现代码，但它不是默认注册通道。
+当前仓库已经删除 `LegacyAndroidToolChannel` 和 `call_android_tool` 旧路径。
 
-这意味着：
+新增业务 shortcut 时，应默认使用：
 
-- 新增业务 shortcut 时，不应再围绕 `call_android_tool` 编写新文档或新 skill
-- 当前默认路径应视为：`ShortcutExecutor` -> `ShortcutRuntime` -> `run_shortcut`
+- `ShortcutExecutor` -> `ShortcutRuntime` -> `run_shortcut`
+- 如缺少 shortcut 细节，则先调用 `describe_shortcut`
 
 ## 最小接入模板
 

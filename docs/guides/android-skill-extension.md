@@ -154,7 +154,7 @@ Skill 正文没有强制格式，但建议至少包含：
 }
 ```
 
-而不是继续使用旧的 `call_android_tool.function` 协议。
+而不是使用已经移除的 `call_android_tool.function` 协议。
 
 如果后续某个 Skill 需要明确驱动点击或滑动，可以单独使用 `android_gesture_tool`，例如：
 
