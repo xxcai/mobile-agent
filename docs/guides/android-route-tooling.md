@@ -25,14 +25,22 @@
 - native: `ui://myapp.im/createGroup`
 - miniapp: `h5://1001001`
 
-## 对外 Tool
+## 当前接入边界
 
-当前通过 `call_android_tool` 暴露两个 business tool：
+当前 route tooling 的实现类仍然是两个业务 `ToolExecutor`：
 
 - `resolve_route`
 - `open_resolved_route`
 
 工具注册入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
+
+需要注意：
+
+- 它们当前主要用于专门的调试/验证入口
+- 默认 app 初始化路径已经切到 `run_shortcut`
+- route tooling 还没有迁移为原生 `ShortcutExecutor`
+
+因此本文档描述的是 route tooling 自身的 contract 和宿主接入点，不代表它已经进入默认 shortcut runtime 暴露面。
 
 ## resolve_route
 

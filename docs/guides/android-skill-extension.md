@@ -116,16 +116,21 @@ Skill 正文没有强制格式，但建议至少包含：
 
 ## 与 Tool 的关系
 
-当前 Android 侧已经支持多通道工具，宿主应用中注册的业务 `ToolExecutor` 当前会自动适配为 shortcut，并通过统一的 `run_shortcut` 暴露调用。
+当前 Android 侧已经支持多通道工具，宿主应用中注册的业务 `ShortcutExecutor` 会通过统一的 `run_shortcut` 暴露调用。
 
 当前通道包括：
 
 - `run_shortcut`
-  用于宿主 App 业务 shortcut，例如联系人、消息、通知、剪贴板
+  用于宿主 App 业务 shortcut，例如联系人、消息等业务原子动作
 - `android_gesture_tool`
   用于页面内点击、滚动等 UI 手势
 
 其中 `android_gesture_tool` 当前已经具备真实 in-process 执行能力，但仍应优先用于“先看页面，再执行元素动作”的场景，而不是替代业务工具。
+
+当前 app 示例实际注入的 shortcut 只有：
+
+- `search_contacts`
+- `send_im_message`
 
 因此在 Skill 中，调用方式应写成：
 
@@ -174,7 +179,7 @@ Skill 正文没有强制格式，但建议至少包含：
 - `app/src/main/assets/workspace/skills/im_sender/SKILL.md`
 - `agent-core/src/main/assets/workspace/skills/chinese_writer/SKILL.md`
 
-其中 `im_sender` 更接近 Android 场景下通过宿主业务通道调用工具的真实写法；如果该示例仍使用旧的 `call_android_tool` 协议，新增 skill 应优先按 `run_shortcut` 的新格式编写。
+其中 `im_sender` 更接近 Android 场景下通过宿主业务通道调用工具的真实写法；新增 skill 应优先按 `run_shortcut` 的新格式编写，并把 shortcut 选择规则写成操作规程，而不是只给参数示例。
 
 ## 生效方式
 
@@ -190,6 +195,6 @@ Skill 不是热更新注册的。通常需要：
 
 - 先确保 Skill 文件最终被打进应用 assets
 - 检查 workspace 目录下是否真的存在 `skills/<name>/SKILL.md`
-- 确保 Skill 中引用的 shortcut 名和 `ToolExecutor#getName()` 返回值一致
-- 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的描述、意图示例和参数样例来写调用
+- 确保 Skill 中引用的 shortcut 名和 `ShortcutDefinition#getName()` 返回值一致
+- 如果 Skill 依赖业务 shortcut，优先参考 `ShortcutDefinition` 中的描述、参数样例和 `requiredSkill`/`domain` 元数据来写调用
 - 如果 Skill 依赖 `requiredBins` / `requiredEnvs` / `os`，确认运行环境满足要求
