@@ -5,6 +5,7 @@ import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
 import com.hh.agent.core.tool.ToolResult;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
@@ -76,9 +77,22 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
             }
             if (definition.getRequiredSkill() != null) {
                 result.with("requiredSkill", definition.getRequiredSkill());
+                result.withJson("governance", buildGovernanceJson(definition).toString());
             }
         }
         return result;
+    }
+
+    private JSONObject buildGovernanceJson(ShortcutDefinition definition) {
+        try {
+            return new JSONObject()
+                    .put("mode", "advisory")
+                    .put("requiredSkill", definition.getRequiredSkill())
+                    .put("message", "This shortcut should normally be selected via the "
+                            + definition.getRequiredSkill() + " skill.");
+        } catch (JSONException e) {
+            throw new IllegalStateException("Failed to serialize governance metadata", e);
+        }
     }
 
     private String buildShortcutChoicesDescription() {

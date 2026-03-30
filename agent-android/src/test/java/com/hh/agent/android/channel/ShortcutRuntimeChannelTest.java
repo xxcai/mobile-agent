@@ -59,6 +59,9 @@ public class ShortcutRuntimeChannelTest {
         assertEquals("send_im_message", result.getString("shortcut"));
         assertEquals("im", result.getString("domain"));
         assertEquals("im_sender", result.getString("requiredSkill"));
+        JSONObject governance = result.getJSONObject("governance");
+        assertEquals("advisory", governance.getString("mode"));
+        assertEquals("im_sender", governance.getString("requiredSkill"));
     }
 
     @Test
