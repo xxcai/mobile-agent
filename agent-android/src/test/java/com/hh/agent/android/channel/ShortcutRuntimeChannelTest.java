@@ -8,6 +8,7 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class ShortcutRuntimeChannelTest {
@@ -31,6 +32,15 @@ public class ShortcutRuntimeChannelTest {
         assertEquals("object", properties.getJSONObject("args").getString("type"));
         assertEquals("send_im_message",
                 properties.getJSONObject("shortcut").getJSONArray("enum").getString(0));
+        assertFalse(properties.getJSONObject("shortcut")
+                .getString("description")
+                .contains("requiredSkill="));
+        assertFalse(properties.getJSONObject("args")
+                .getString("description")
+                .contains("schema="));
+        assertFalse(properties.getJSONObject("args")
+                .getString("description")
+                .contains("example="));
     }
 
     @Test

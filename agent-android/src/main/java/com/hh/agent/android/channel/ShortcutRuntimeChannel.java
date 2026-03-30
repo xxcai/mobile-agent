@@ -7,8 +7,6 @@ import com.hh.agent.core.shortcut.ShortcutRuntime;
 import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
-import java.util.List;
-
 /**
  * Top-level channel that routes stable shortcut names through the shortcut runtime.
  */
@@ -36,6 +34,7 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                         CHANNEL_NAME,
                         "运行已注册的 shortcut runtime 原子动作。"
                                 + "适用于宿主业务能力编排；由 skill 决定何时选择哪个 shortcut。"
+                                + "如果缺少某个 shortcut 的详细定义或参数结构，应通过后续 discovery 能力按需查询，不要自行猜测业务路径。"
                                 + "协议固定为 {\"shortcut\":\"能力名\",\"args\":{...}}。")
                 .property("shortcut", ToolSchemaBuilder.string()
                         .description(buildShortcutChoicesDescription())
@@ -84,46 +83,16 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     }
 
     private String[] getShortcutNames() {
-        List<ShortcutDefinition> definitions = shortcutRuntime.listDefinitions();
-        String[] names = new String[definitions.size()];
-        for (int index = 0; index < definitions.size(); index++) {
-            names[index] = definitions.get(index).getName();
-        }
-        return names;
+        return shortcutRuntime.getRegisteredShortcuts().keySet().toArray(new String[0]);
     }
 
     private String buildShortcutChoicesDescription() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("要运行的 shortcut 名称，只能从 enum 列表中选择。")
-                .append("优先依据 skill 指导选择，不要自行猜测业务路径：\n");
-
-        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
-            builder.append("- ").append(definition.getName())
-                    .append(": ").append(definition.getDescription());
-            if (definition.getRequiredSkill() != null) {
-                builder.append("；requiredSkill=").append(definition.getRequiredSkill());
-            }
-            if (definition.getDomain() != null) {
-                builder.append("；domain=").append(definition.getDomain());
-            }
-            builder.append('\n');
-        }
-        return builder.toString().trim();
+        return "要运行的 shortcut 名称。当前顶层 schema 不再展开所有 shortcut 的详细定义。"
+                + "应优先依据 skill 选择；如果缺少定义或参数结构，应先通过 discovery 能力查询，不要自行猜测业务路径。";
     }
 
     private String buildArgsDescription() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("传给 shortcut 的 JSON 参数对象。args 的字段结构由所选 shortcut 决定。")
-                .append("最小可用样例如下：\n");
-
-        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
-            builder.append("- ").append(definition.getName())
-                    .append(": schema=")
-                    .append(definition.getArgsSchema())
-                    .append("；example=")
-                    .append(definition.getArgsExample())
-                    .append('\n');
-        }
-        return builder.toString().trim();
+        return "传给 shortcut 的 JSON 参数对象。args 的字段结构由目标 shortcut 定义决定。"
+                + "顶层 schema 不再默认展开所有 shortcut 的参数 schema/example；需要时应通过 discovery 能力按需查询。";
     }
 }
