@@ -4,6 +4,15 @@
 
 Skill 用来描述复杂工作流程。Tool 提供单次能力调用，Skill 负责把多个步骤和决策规则组织起来交给 Agent 使用。
 
+当前工程里的 Skill 应明确区分两类：
+
+- `shortcut-guided skill`
+  这类 skill 的核心职责是指导 Agent 选择和串联 `run_shortcut` 下的业务原子动作，例如联系人搜索、发消息、路由解析和页面打开。
+- `visual-operation skill`
+  这类 skill 的核心职责是指导 Agent 使用 `android_view_context_tool` 与 `android_gesture_tool` 做页面观察、定位、点击、滑动和受控补读。
+
+不要把所有 skill 都强行写成 shortcut-first。只有“业务原子能力明确、可稳定封装”的场景才应该优先使用 shortcut。
+
 ## Skill 的加载位置
 
 当前工程里，Skill 会从 workspace 的 `skills/` 目录加载。对 Android 宿主来说，初始化流程是：
@@ -127,10 +136,12 @@ Skill 正文没有强制格式，但建议至少包含：
 
 其中 `android_gesture_tool` 当前已经具备真实 in-process 执行能力，但仍应优先用于“先看页面，再执行元素动作”的场景，而不是替代业务工具。
 
-当前 app 示例实际注入的 shortcut 只有：
+当前 app 示例实际注入的 shortcut 有：
 
 - `search_contacts`
 - `send_im_message`
+- `resolve_route`
+- `open_resolved_route`
 
 因此在 Skill 中，调用方式应写成：
 
@@ -177,9 +188,16 @@ Skill 正文没有强制格式，但建议至少包含：
 当前工程中的 Skill 示例：
 
 - `app/src/main/assets/workspace/skills/im_sender/SKILL.md`
-- `agent-core/src/main/assets/workspace/skills/chinese_writer/SKILL.md`
+- `app/src/main/assets/workspace/skills/route_navigator/SKILL.md`
+- `app/src/main/assets/workspace/skills/moments_summary/SKILL.md`
+- `app/src/main/assets/workspace/skills/cloud_space_summary/SKILL.md`
 
-其中 `im_sender` 更接近 Android 场景下通过宿主业务通道调用工具的真实写法；新增 skill 应优先按 `run_shortcut` 的新格式编写，并把 shortcut 选择规则写成操作规程，而不是只给参数示例。
+其中：
+
+- `im_sender` 和 `route_navigator` 属于 `shortcut-guided skill`
+- `moments_summary` 和 `cloud_space_summary` 属于 `visual-operation skill`
+
+新增 skill 时，应先判断它属于哪一类，再决定是围绕 `run_shortcut` 写规程，还是围绕 `android_view_context_tool` / `android_gesture_tool` 写规程。
 
 ## 生效方式
 
