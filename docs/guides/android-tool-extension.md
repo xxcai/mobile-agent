@@ -239,6 +239,118 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 下一阶段计划切到“Activity 内构造 `MotionEvent` 并通过 `dispatchTouchEvent` 注入”的主路径，以统一 `tap / swipe / long_press / double_tap` 的手势模拟方式。
 
+## `web_dom` / `android_web_action_tool` 扩展顺序
+
+如果你要在当前工程里继续补真实 H5 DOM 抓取和 Web 动作注入，建议按下面的顺序推进，不要一开始就同时改所有层。
+
+### 第 1 步：先完善 WebView 选择策略
+
+主入口：
+
+- [WebViewFinder.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/viewcontext/WebViewFinder.java)
+
+优先关注的方法：
+
+- `findPrimaryWebView(...)`
+- `collectCandidates(...)`
+- `isVisibleCandidate(...)`
+- `computeVisibleArea(...)`
+
+推荐做法：
+
+- 优先在 `findPrimaryWebView(...)` 内升级“主 WebView 选择”规则
+- 如果只需要补候选过滤，优先收敛到 `isVisibleCandidate(...)`
+- 如果需要从“面积最大”升级为“面积 + ready 状态 + 其他优先级”，也尽量先集中在 `findPrimaryWebView(...)`
+
+### 第 2 步：再替换真实 DOM 抓取
+
+主入口：
+
+- [WebDomSnapshotProvider.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/viewcontext/WebDomSnapshotProvider.java)
+- [MockWebDomSnapshotProvider.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/viewcontext/MockWebDomSnapshotProvider.java)
+- [MainThreadRunner.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/thread/MainThreadRunner.java)
+
+优先关注的方法：
+
+- `MockWebDomSnapshotProvider.getCurrentWebDomSnapshot(...)`
+- `MockWebDomSnapshotProvider.createDefault()`
+
+推荐做法：
+
+- 先保持 `WebDomSnapshotProvider` 接口不变
+- 在 `getCurrentWebDomSnapshot(...)` 中把 mock DOM 替换为真实 DOM 抓取
+- 使用 `MainThreadRunner.call(...)` 包裹：
+  - 前台 `Activity` 获取
+  - `WebViewFinder.findPrimaryWebView(...)`
+  - `WebView` 属性访问
+  - 后续 `evaluateJavascript(...)` 发起逻辑
+- 如果真实实现已经明显复杂到不适合继续放在 mock 类里，新增 `RealWebDomSnapshotProvider`，然后只调整 `createDefault()` 的实例化
+
+### 第 3 步：再替换真实 Web 动作注入
+
+主入口：
+
+- [WebActionExecutor.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/WebActionExecutor.java)
+- [MockWebActionExecutor.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/MockWebActionExecutor.java)
+- [WebActionRequest.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/WebActionRequest.java)
+
+优先关注的方法：
+
+- `MockWebActionExecutor.execute(...)`
+
+推荐做法：
+
+- 首版先只支持一个动作，例如 `click`
+- 在 `execute(...)` 内按 `request.action` 做有限分支
+- 先基于 `request.selector` 和 `request.observation.snapshotId` 完成真实执行
+- 保持既有返回字段不变，只替换内部执行逻辑
+
+### 第 4 步：最后才微调 channel 接线
+
+主入口：
+
+- [WebDomViewContextSourceHandler.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
+- [WebActionToolChannel.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
+
+优先关注的方法：
+
+- `WebDomViewContextSourceHandler.execute(...)`
+- `WebActionToolChannel.execute(...)`
+- `WebActionToolChannel.validate(...)`
+
+推荐做法：
+
+- 这两层只保留参数校验、provider / executor 调度和统一结果包装
+- 除非字段契约确实需要扩展，否则尽量不要在这里塞真实业务逻辑
+- 不要把真实 Web 动作逻辑混回现有 `android_gesture_tool`
+
+### 不建议动的稳定边界
+
+除非明确评审通过，否则不要顺手改这些稳定边界：
+
+- [ViewContextToolChannel.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java)
+- 现有 `android_gesture_tool` 的 native touch 路径
+- 已冻结字段：
+  - `source=web_dom`
+  - `interactionDomain=web`
+  - `channel=android_web_action_tool`
+
+### 建议联调入口
+
+优先使用：
+
+- [ToolChannelTestActivity.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/app/src/main/java/com/hh/agent/ToolChannelTestActivity.java)
+- [BusinessWebActivity.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/app/src/main/java/com/hh/agent/BusinessWebActivity.java)
+
+当前仓库已经准备了：
+
+- debug panel
+- `Static / Delayed / Form` 本地模板页
+- `Run View Context`
+- `Run Web Action`
+
+推荐先在这些入口完成基线联调，再接真实业务 WebView 页面。
+
 ## 当前示例工具
 
 当前 `app` 中已有的工具实现：
