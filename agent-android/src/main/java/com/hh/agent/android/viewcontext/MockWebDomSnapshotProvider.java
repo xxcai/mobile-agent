@@ -6,6 +6,7 @@ import android.webkit.WebView;
 import androidx.annotation.Nullable;
 
 import com.hh.agent.android.channel.ViewContextToolChannel;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.core.tool.ToolResult;
 
 /**
@@ -36,6 +37,10 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
         String activityClassName = activity != null ? activity.getClass().getName() : null;
         String pageUrl = findResult != null ? safeString(findResult.webView.getUrl()) : null;
         String pageTitle = findResult != null ? safeString(findResult.webView.getTitle()) : null;
+        AgentLogs.info("MockWebDomSnapshotProvider", "collect_start",
+                "activity=" + activityClassName
+                        + " candidates=" + (findResult != null ? findResult.candidateCount : 0)
+                        + " target_hint=" + targetHint);
 
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 activityClassName,
@@ -45,6 +50,11 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
                 null,
                 MOCK_WEB_DOM
         );
+        AgentLogs.info("MockWebDomSnapshotProvider", "collect_complete",
+                "snapshot_id=" + snapshot.snapshotId
+                        + " page_url=" + pageUrl
+                        + " selection_reason="
+                        + (findResult != null ? findResult.selectionReason : "no_visible_webview"));
 
         return ToolResult.success()
                 .with("channel", ViewContextToolChannel.CHANNEL_NAME)

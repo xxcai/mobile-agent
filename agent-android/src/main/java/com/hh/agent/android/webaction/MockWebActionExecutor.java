@@ -1,5 +1,6 @@
 package com.hh.agent.android.webaction;
 
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.core.tool.ToolResult;
 
 /**
@@ -9,6 +10,8 @@ public final class MockWebActionExecutor implements WebActionExecutor {
 
     @Override
     public ToolResult execute(WebActionRequest request) {
+        AgentLogs.info("MockWebActionExecutor", "execute",
+                "action=" + request.action + " selector=" + request.selector);
         return ToolResult.success()
                 .with("channel", "android_web_action_tool")
                 .with("domain", "web")

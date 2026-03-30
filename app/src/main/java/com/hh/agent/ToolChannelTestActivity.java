@@ -360,6 +360,8 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         intent.putExtra(BusinessWebActivity.EXTRA_HTML_CONTENT, "runtime auto probe");
         intent.putExtra(BusinessWebActivity.EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE, true);
         intent.putExtra(BusinessWebActivity.EXTRA_PROBE_TARGET_HINT, "业务页面");
+        intent.putExtra(BusinessWebActivity.EXTRA_ENABLE_DEBUG_CONTROLS, true);
+        intent.putExtra(BusinessWebActivity.EXTRA_PAGE_TEMPLATE_ASSET, "business_page_form.html");
         startActivity(intent);
     }
 
