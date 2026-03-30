@@ -11,7 +11,6 @@ import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.tool.AndroidToolCallback;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
-import com.hh.agent.core.shortcut.ToolExecutorShortcutAdapter;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.core.tool.ToolResult;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
@@ -19,6 +18,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -94,7 +94,6 @@ public class AndroidToolManager implements AndroidToolCallback {
 
         // Add the tool to the registry
         tools.put(toolName, executor);
-        shortcutRuntime.register(new ToolExecutorShortcutAdapter(executor));
         AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName);
     }
 
@@ -116,6 +115,15 @@ public class AndroidToolManager implements AndroidToolCallback {
 
     public Map<String, ShortcutExecutor> getRegisteredShortcuts() {
         return shortcutRuntime.getRegisteredShortcuts();
+    }
+
+    public void registerShortcuts(Collection<? extends ShortcutExecutor> shortcutExecutors) {
+        if (shortcutExecutors == null) {
+            throw new IllegalArgumentException("Shortcut executors cannot be null");
+        }
+        for (ShortcutExecutor executor : shortcutExecutors) {
+            registerShortcut(executor);
+        }
     }
 
     /**
@@ -211,7 +219,6 @@ public class AndroidToolManager implements AndroidToolCallback {
             String toolName = entry.getKey();
             ToolExecutor executor = entry.getValue();
             tools.put(toolName, executor);
-            shortcutRuntime.register(new ToolExecutorShortcutAdapter(executor));
             AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName + " mode=batch");
         }
 

@@ -13,10 +13,12 @@ import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.android.WorkspaceManager;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -67,13 +69,32 @@ public class AgentInitializer {
 
     public static void initialize(Context application,
                                   IVoiceRecognizer voiceRecognizer,
+                                  Collection<? extends ShortcutExecutor> shortcuts,
+                                  ActivityViewContextSourcePolicy viewContextSourcePolicy,
+                                  Runnable callback) {
+        initializeInternal(application, voiceRecognizer, null, shortcuts, viewContextSourcePolicy, callback);
+    }
+
+    public static void initialize(Context application,
+                                  IVoiceRecognizer voiceRecognizer,
                                   Map<String, ToolExecutor> tools,
                                   ActivityViewContextSourcePolicy viewContextSourcePolicy,
                                   Runnable callback) {
-        int toolCount = tools != null ? tools.size() : 0;
-        AgentLogs.info(TAG, "initialize_start", "tool_count=" + toolCount);
+        initializeInternal(application, voiceRecognizer, tools, null, viewContextSourcePolicy, callback);
+    }
 
-        if (tools == null) {
+    private static void initializeInternal(Context application,
+                                           IVoiceRecognizer voiceRecognizer,
+                                           Map<String, ToolExecutor> tools,
+                                           Collection<? extends ShortcutExecutor> shortcuts,
+                                           ActivityViewContextSourcePolicy viewContextSourcePolicy,
+                                           Runnable callback) {
+        int toolCount = tools != null ? tools.size() : 0;
+        int shortcutCount = shortcuts != null ? shortcuts.size() : 0;
+        AgentLogs.info(TAG, "initialize_start",
+                "tool_count=" + toolCount + " shortcut_count=" + shortcutCount);
+
+        if (tools == null && shortcuts == null) {
             AgentLogs.warn(TAG, "tools_map_null", null);
         }
         if (callback == null) {
@@ -88,8 +109,13 @@ public class AgentInitializer {
         // 1. 创建 AndroidToolManager
         AndroidToolManager toolManager = new AndroidToolManager(application);
 
-        // 2. 批量注册工具
-        toolManager.registerTools(tools);
+        // 2. 批量注册工具 / shortcuts
+        if (tools != null) {
+            toolManager.registerTools(tools);
+        }
+        if (shortcuts != null) {
+            toolManager.registerShortcuts(shortcuts);
+        }
         toolManager.initialize();
 
         // 3. 读取配置文件
