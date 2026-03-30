@@ -37,12 +37,10 @@
   - 旧 `ToolExecutor` 版 `open_resolved_route`
 
 默认 shortcut 注册入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
-兼容 `ToolExecutor` 注册入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
 
 需要注意：
 
 - 默认 app 初始化路径已经通过 `run_shortcut` 暴露 route tooling
-- `ToolChannelTestActivity` 的 route probes 也已经切到 `run_shortcut`
 - 旧 `ToolExecutor` 版 route tooling 仅保留为兼容/调试链路
 - agent 默认应先命中 `route_navigator` skill，再按 skill 规程调用 `run_shortcut`
 - 如果缺少 route shortcut 的详细定义或参数结构，应先调用 `describe_shortcut`
@@ -131,7 +129,6 @@ App 层当前只需要提供或组装以下能力：
 - `HostRouteInvoker`
 
 默认 shortcut 组装入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
-旧 `ToolExecutor` 兼容组装入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
 
 说明：
 
@@ -198,13 +195,12 @@ App 层当前只需要提供或组装以下能力：
 
 - [DemoHostRouteInvoker.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DemoHostRouteInvoker.java)
 - [RouteNativeDemoActivity.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/RouteNativeDemoActivity.java)
-- [ToolChannelTestActivity.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/ToolChannelTestActivity.java)
 
 这些实现的作用是：
 
 - 验证 route tooling contract
 - 验证 `ContainerActivity` 收起和跳转时序
-- 提供最小手工测试入口
+- 提供最小 demo 入口
 
 它们不是正式业务页面或正式宿主路由实现。
 

@@ -25,8 +25,7 @@ import java.util.regex.Pattern;
 
 /**
  * Shared IM debug probe entry for MainActivity mock chat pages.
- * It keeps message sending related verification on the real chat UI instead of routing back
- * to ToolChannelTestActivity.
+ * It keeps message sending related verification on the real chat UI.
  */
 public final class MockChatProbeRunner {
 
