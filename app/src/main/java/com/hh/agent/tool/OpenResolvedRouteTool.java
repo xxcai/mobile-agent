@@ -9,6 +9,11 @@ import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
 
+/**
+ * Legacy ToolExecutor-based route opener retained for compatibility/debug paths.
+ * New route runtime integration should prefer OpenResolvedRouteShortcut.
+ */
+@Deprecated
 public final class OpenResolvedRouteTool implements ToolExecutor {
     private final AndroidRouteRuntime routeRuntime;
 

@@ -29,7 +29,7 @@ public class App extends Application {
         AgentInitializer.initialize(
                 this,
                 new MockVoiceRecognizer(),
-                AppShortcutProvider.createShortcuts(),
+                AppShortcutProvider.createShortcuts(this),
                 DefaultActivityViewContextSourcePolicy.create(),
                 () -> {
                     Log.d(TAG, "Agent initialized successfully");

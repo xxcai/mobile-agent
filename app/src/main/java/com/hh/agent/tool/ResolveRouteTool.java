@@ -12,8 +12,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Business tool that resolves route hints into structured route targets.
+ * Legacy ToolExecutor-based route resolver retained for compatibility/debug paths.
+ * New route runtime integration should prefer ResolveRouteShortcut.
  */
+@Deprecated
 public final class ResolveRouteTool implements ToolExecutor {
     private final AndroidRouteRuntime routeRuntime;
 

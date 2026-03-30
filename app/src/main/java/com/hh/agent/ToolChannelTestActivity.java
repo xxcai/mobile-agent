@@ -14,11 +14,12 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
-import com.hh.agent.app.RouteToolProvider;
+import com.hh.agent.app.RouteShortcutProvider;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.gesture.GestureExecutorRegistry;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.event.AgentEventListener;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
@@ -28,7 +29,9 @@ import com.hh.agent.tool.SendImMessageTool;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -230,8 +233,8 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         try {
             AndroidToolManager manager = buildTestToolManager();
             String raw = manager.callTool(
-                    "call_android_tool",
-                    "{\"function\":\"resolve_route\",\"args\":" + argumentsJson + "}");
+                    "run_shortcut",
+                    "{\"shortcut\":\"resolve_route\",\"args\":" + argumentsJson + "}");
             report.append("raw_result=").append(raw).append('\n');
         } catch (Exception e) {
             report.append("error=").append(e.getMessage()).append('\n');
@@ -255,8 +258,8 @@ public class ToolChannelTestActivity extends AppCompatActivity {
                 try {
                     AndroidToolManager manager = buildTestToolManager();
                     String raw = manager.callTool(
-                            "call_android_tool",
-                            "{\"function\":\"open_resolved_route\",\"args\":" + argumentsJson + "}");
+                            "run_shortcut",
+                            "{\"shortcut\":\"open_resolved_route\",\"args\":" + argumentsJson + "}");
                     mainHandler.post(() -> {
                         StringBuilder next = new StringBuilder(outputView.getText());
                         next.append("raw_result=").append(raw).append('\n');
@@ -719,6 +722,8 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
     private AndroidToolManager buildTestToolManager() {
         AndroidToolManager manager = new AndroidToolManager(this);
+        List<ShortcutExecutor> shortcuts = new ArrayList<>(RouteShortcutProvider.createShortcuts(this));
+        manager.registerShortcuts(shortcuts);
         // Debug-only legacy path registration. Default app startup no longer exposes these tools this way.
         manager.registerTools(buildTestTools());
         manager.initialize();
@@ -731,7 +736,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
-        tools.putAll(RouteToolProvider.createRouteTools(this));
         return tools;
     }
 
@@ -807,6 +811,8 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("send message -> call_android_tool/send_im_message\n");
         report.append("search contact -> call_android_tool/search_contacts\n");
         report.append("read clipboard -> call_android_tool/read_clipboard\n");
+        report.append("resolve route -> run_shortcut/resolve_route\n");
+        report.append("open resolved route -> run_shortcut/open_resolved_route\n");
         report.append("tap coordinates -> android_gesture_tool/tap\n");
         report.append("swipe screen -> android_gesture_tool/swipe\n");
         report.append("inspect current screen -> android_view_context_tool/runtime_auto\n");
@@ -824,6 +830,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
     private void appendImSenderCompatibilityNote(StringBuilder report) {
         report.append("# Skill Compatibility\n");
         report.append("Existing Android skills that still emit {function,args} remain compatible via call_android_tool.\n\n");
+        report.append("Route tooling probes in this screen now use run_shortcut for resolve_route/open_resolved_route.\n\n");
     }
 
     private void appendContractChecks(StringBuilder report, AndroidToolManager manager) throws Exception {
