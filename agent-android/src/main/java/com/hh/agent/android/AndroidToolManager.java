@@ -3,12 +3,14 @@ package com.hh.agent.android;
 import android.content.Context;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.GestureToolChannel;
-import com.hh.agent.android.channel.LegacyAndroidToolChannel;
+import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.tool.AndroidToolCallback;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
+import com.hh.agent.core.shortcut.ShortcutRuntime;
 import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.core.tool.ToolResult;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
@@ -29,11 +31,12 @@ public class AndroidToolManager implements AndroidToolCallback {
 
     private Context context;
     private final Map<String, ToolExecutor> tools = new HashMap<>();
+    private final ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
     public AndroidToolManager(Context context) {
         this.context = context;
-        registerChannel(new LegacyAndroidToolChannel(tools));
+        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());
         registerChannel(new ViewContextToolChannel());
     }
@@ -101,6 +104,16 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public Map<String, ToolExecutor> getRegisteredTools() {
         return new HashMap<>(tools);
+    }
+
+    public void registerShortcut(ShortcutExecutor executor) {
+        shortcutRuntime.register(executor);
+        AgentLogs.info("AndroidToolManager", "shortcut_registered",
+                "shortcut_name=" + executor.getDefinition().getName());
+    }
+
+    public Map<String, ShortcutExecutor> getRegisteredShortcuts() {
+        return shortcutRuntime.getRegisteredShortcuts();
     }
 
     /**
