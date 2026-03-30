@@ -60,7 +60,8 @@ std::string PromptBuilder::build_full() const {
             // Level 2: Skills summary (metadata only, on-demand loading)
             ss << "# Available Skills\n\n";
             ss << "The following skills extend your capabilities. ";
-            ss << "To use a skill, read its SKILL.md file using read_file tool.\n\n";
+            ss << "To use a skill, read its SKILL.md file using read_file tool. ";
+            ss << "Use workspace-relative paths like skills/<skill_name>/SKILL.md, not absolute paths.\n\n";
             ss << skill_loader_->build_skills_summary(skills);
         }
     }
@@ -126,7 +127,8 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
             // Level 2: Skills summary (metadata only, on-demand loading)
             ss << "# Available Skills\n\n";
             ss << "The following skills extend your capabilities. ";
-            ss << "To use a skill, read its SKILL.md file using read_file tool.\n\n";
+            ss << "To use a skill, read its SKILL.md file using read_file tool. ";
+            ss << "Use workspace-relative paths like skills/<skill_name>/SKILL.md, not absolute paths.\n\n";
             ss << skill_loader_->build_skills_summary(skills);
         }
     }
