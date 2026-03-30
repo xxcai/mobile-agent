@@ -30,8 +30,7 @@ public class ShortcutRuntimeChannelTest {
         assertEquals("args", parameters.getJSONArray("required").getString(1));
         assertEquals("string", properties.getJSONObject("shortcut").getString("type"));
         assertEquals("object", properties.getJSONObject("args").getString("type"));
-        assertEquals("send_im_message",
-                properties.getJSONObject("shortcut").getJSONArray("enum").getString(0));
+        assertFalse(properties.getJSONObject("shortcut").has("enum"));
         assertFalse(properties.getJSONObject("shortcut")
                 .getString("description")
                 .contains("requiredSkill="));
