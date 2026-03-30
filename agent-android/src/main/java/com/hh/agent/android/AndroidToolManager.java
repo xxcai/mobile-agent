@@ -5,6 +5,7 @@ import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.LegacyAndroidToolChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
+import com.hh.agent.android.channel.WebActionToolChannel;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
@@ -35,6 +36,7 @@ public class AndroidToolManager implements AndroidToolCallback {
         this.context = context;
         registerChannel(new LegacyAndroidToolChannel(tools));
         registerChannel(new GestureToolChannel());
+        registerChannel(new WebActionToolChannel());
         registerChannel(new ViewContextToolChannel());
     }
 

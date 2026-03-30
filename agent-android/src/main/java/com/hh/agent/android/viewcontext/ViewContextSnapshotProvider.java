@@ -7,6 +7,7 @@ import com.hh.agent.core.tool.ToolResult;
  */
 public final class ViewContextSnapshotProvider {
 
+    private static final String INTERACTION_DOMAIN_NATIVE = "native";
     private static final String SOURCE_NATIVE_XML = "native_xml";
     private static final String OBSERVATION_SCOPE_CURRENT_TURN = "current_turn";
 
@@ -23,12 +24,15 @@ public final class ViewContextSnapshotProvider {
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 dumpResult.activityClassName,
                 SOURCE_NATIVE_XML,
+                INTERACTION_DOMAIN_NATIVE,
                 targetHint,
-                dumpResult.xml
+                dumpResult.xml,
+                null
         );
 
         return ToolResult.success()
                 .with("source", SOURCE_NATIVE_XML)
+                .with("interactionDomain", INTERACTION_DOMAIN_NATIVE)
                 .with("mock", false)
                 .with("targetHint", targetHint)
                 .with("activityClassName", dumpResult.activityClassName)
