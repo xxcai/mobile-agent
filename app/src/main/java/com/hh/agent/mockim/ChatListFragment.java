@@ -90,7 +90,7 @@ public class ChatListFragment extends Fragment {
                 AndroidToolManager manager = buildToolManager(activity);
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"source\":\"native_xml\",\"targetHint\":\"张三\"}");
+                        "{\"targetHint\":\"张三\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
                     report = "# 点张三\nview_context_result=" + viewContextResult;
