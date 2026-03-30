@@ -34,6 +34,7 @@ import java.util.Map;
 /**
  * App-level test entry retained as a separate launcher target.
  * Used to validate tool channel behavior without adding test hooks into agent-core/agent-android.
+ * This screen intentionally keeps some legacy call_android_tool probes for comparison and fallback testing.
  */
 public class ToolChannelTestActivity extends AppCompatActivity {
 
@@ -718,6 +719,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
     private AndroidToolManager buildTestToolManager() {
         AndroidToolManager manager = new AndroidToolManager(this);
+        // Debug-only legacy path registration. Default app startup no longer exposes these tools this way.
         manager.registerTools(buildTestTools());
         manager.initialize();
         return manager;

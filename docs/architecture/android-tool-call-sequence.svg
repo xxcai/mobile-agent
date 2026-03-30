@@ -40,9 +40,9 @@
 <line x1="1266.8500000000001" y1="70" x2="1266.8500000000001" y2="696" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
 <line x1="1456.8250000000003" y1="70" x2="1456.8250000000003" y2="696" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
 <line x1="84.6" y1="118" x2="242.4" y2="118" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#seq-arrow)" />
-<text x="163.5" y="112" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)">initialize(tools, ...)</text>
+<text x="163.5" y="112" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)">initialize(shortcuts, ...)</text>
 <line x1="242.4" y1="158" x2="435.95000000000005" y2="158" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#seq-arrow)" />
-<text x="339.175" y="152" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)">create and register tools/channels</text>
+<text x="339.175" y="152" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-muted)">create and register shortcuts/channels</text>
 <polyline points="435.95000000000005,198 465.95000000000005,198 465.95000000000005,218 435.95000000000005,218" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#seq-arrow)" />
 <text x="471.95000000000005" y="208" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">buildToolDefinition()</text>
 <line x1="435.95000000000005" y1="268" x2="693.8500000000001" y2="268" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#seq-arrow)" />

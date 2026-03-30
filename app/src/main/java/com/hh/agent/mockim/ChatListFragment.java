@@ -163,6 +163,7 @@ public class ChatListFragment extends Fragment {
         tools.put("read_clipboard", new ReadClipboardTool(activity));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
+        // Debug-only legacy registration used by local mock chat probes.
         manager.registerTools(tools);
         manager.initialize();
         return manager;

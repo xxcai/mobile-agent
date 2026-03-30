@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 /**
  * Shared debug probe entry for MainActivity mock chat pages.
  * It keeps verification on the real chat UI instead of routing back to ToolChannelTestActivity.
+ * Business fallback probes intentionally retain the legacy call_android_tool path for comparison.
  */
 public final class MockChatProbeRunner {
 
@@ -168,6 +169,7 @@ public final class MockChatProbeRunner {
         tools.put("read_clipboard", new ReadClipboardTool(activity));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
+        // Debug-only legacy registration used to compare old business fallback linkage.
         manager.registerTools(tools);
         manager.initialize();
         return manager;

@@ -65,7 +65,7 @@ Java / JNI / runtime / LLM / HTTP / MCP 关键链路已开始向该格式收口�
 ```text
 [NativeMobileAgentApi][history_query_complete] session_key=native:default message_count=12
 [NativeAgentJni][stream_start] input_length=38
-[AndroidTools][tool_call_complete] tool_name=call_android_tool result_length=128
+[AndroidTools][tool_call_complete] tool_name=run_shortcut result_length=128
 [MobileAgent][chat_stream_complete] history_count=15
 [AgentLoop][tool_call_execute_complete] tool_id=toolu_xxx result_success=true bytes_written=128
 [LlmProvider][chat_request_complete] mode=non_stream duration_ms=840 response_length=512
