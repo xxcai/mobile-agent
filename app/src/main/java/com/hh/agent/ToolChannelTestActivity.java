@@ -21,8 +21,6 @@ import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import com.hh.agent.core.event.AgentEventListener;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.tool.DisplayNotificationTool;
-import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;
 import com.hh.agent.tool.SendImMessageTool;
 
@@ -732,8 +730,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
 
     private Map<String, ToolExecutor> buildTestTools() {
         Map<String, ToolExecutor> tools = new HashMap<>();
-        tools.put("display_notification", new DisplayNotificationTool(this));
-        tools.put("read_clipboard", new ReadClipboardTool(this));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
         return tools;
@@ -810,7 +806,6 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         report.append("# Intent Mapping\n");
         report.append("send message -> call_android_tool/send_im_message\n");
         report.append("search contact -> call_android_tool/search_contacts\n");
-        report.append("read clipboard -> call_android_tool/read_clipboard\n");
         report.append("resolve route -> run_shortcut/resolve_route\n");
         report.append("open resolved route -> run_shortcut/open_resolved_route\n");
         report.append("tap coordinates -> android_gesture_tool/tap\n");

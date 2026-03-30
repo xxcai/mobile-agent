@@ -13,8 +13,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.tool.DisplayNotificationTool;
-import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;
 import com.hh.agent.tool.SendImMessageTool;
 
@@ -165,8 +163,6 @@ public final class MockChatProbeRunner {
     private static AndroidToolManager buildToolManager(AppCompatActivity activity) {
         AndroidToolManager manager = new AndroidToolManager(activity);
         Map<String, ToolExecutor> tools = new HashMap<>();
-        tools.put("display_notification", new DisplayNotificationTool(activity));
-        tools.put("read_clipboard", new ReadClipboardTool(activity));
         tools.put("search_contacts", new SearchContactsTool());
         tools.put("send_im_message", new SendImMessageTool());
         // Debug-only legacy registration used to compare old business fallback linkage.
