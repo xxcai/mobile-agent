@@ -1,0 +1,41 @@
+{
+  "feature_names": [
+    "text_count",
+    "text_coverage",
+    "text_width",
+    "text_center",
+    "text_left_aligned",
+    "button_keyword",
+    "input_keyword",
+    "contrast",
+    "edge_density",
+    "low_variance",
+    "high_variance",
+    "wide_shape",
+    "extra_wide_shape",
+    "large_area",
+    "medium_area",
+    "no_text",
+    "image_source",
+    "visual_source",
+    "text_source",
+    "card_text_layout",
+    "square_shape"
+  ],
+  "labels": [
+    "background",
+    "button",
+    "input",
+    "card",
+    "image"
+  ],
+  "seed": 20260327,
+  "train_accuracy": 0.9998117647058824,
+  "test_accuracy": 0.9994666666666666,
+  "architecture": [
+    21,
+    32,
+    16,
+    5
+  ]
+}

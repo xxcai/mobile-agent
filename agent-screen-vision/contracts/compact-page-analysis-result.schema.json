@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenvision.local/schemas/compact-page-analysis-result.schema.json",
+  "title": "CompactPageAnalysisResult",
+  "type": "object",
+  "required": ["page", "elapsedMs", "taskGoal", "summary", "sections", "items", "texts", "controls"],
+  "properties": {
+    "page": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "elapsedMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "recognitionElapsedMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "postProcessElapsedMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "taskGoal": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "bbox", "importance", "summaryText", "collapsedItemCount"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["header", "modal", "primary", "bottom_bar", "floating", "dense_list", "secondary"]
+          },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "importance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "summaryText": { "type": "string" },
+          "collapsedItemCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sectionId", "bbox", "importance", "summaryText", "textIds", "controlIds"],
+        "properties": {
+          "id": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "importance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "summaryText": { "type": "string" },
+          "textIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "controlIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sectionId", "itemId", "text", "bbox", "confidence", "importance", "role"],
+        "properties": {
+          "id": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "itemId": { "type": "string" },
+          "text": { "type": "string" },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "importance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": ["primary_action", "secondary_action", "input", "navigation", "content", "supporting", "decoration"]
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sectionId", "itemId", "type", "label", "bbox", "confidence", "importance", "role"],
+        "properties": {
+          "id": { "type": "string" },
+          "sectionId": { "type": "string" },
+          "itemId": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["button", "input", "image", "card", "icon_button", "tab", "checkbox", "radio", "switch", "avatar", "text_link", "unknown"]
+          },
+          "label": { "type": "string" },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "importance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": ["primary_action", "secondary_action", "input", "navigation", "content", "supporting", "decoration"]
+          }
+        }
+      }
+    },
+    "debug": {
+      "type": "object",
+      "required": ["sectionSources", "rows", "dropSummary"],
+      "properties": {
+        "sectionSources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sectionId", "type", "source"],
+            "properties": {
+              "sectionId": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["header", "modal", "primary", "bottom_bar", "floating", "dense_list", "secondary"]
+              },
+              "source": { "type": "string" },
+              "bbox": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sectionId", "itemId", "rowIndex", "bbox", "anchorType", "anchorIds", "collapsed"],
+            "properties": {
+              "sectionId": { "type": "string" },
+              "itemId": { "type": "string" },
+              "rowIndex": { "type": "integer", "minimum": 0 },
+              "bbox": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": { "type": "integer" }
+              },
+              "anchorType": { "type": "string" },
+              "anchorIds": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "collapsed": { "type": "boolean" }
+            }
+          }
+        },
+        "dropSummary": {
+          "type": "object",
+          "required": ["texts", "controls"],
+          "properties": {
+            "texts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["reason", "count"],
+                "properties": {
+                  "reason": { "type": "string" },
+                  "count": { "type": "integer", "minimum": 0 }
+                }
+              }
+            },
+            "controls": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["reason", "count"],
+                "properties": {
+                  "reason": { "type": "string" },
+                  "count": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

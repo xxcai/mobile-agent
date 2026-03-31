@@ -7,6 +7,3 @@ compiler.version=17
 compiler.libcxx=c++_shared
 compiler.cppstd=17
 build_type=Release
-
-[conf]
-tools.android:ndk_path=/Users/caixiao/Library/Android/sdk/ndk/26.3.11579264

@@ -264,3 +264,4 @@ memory.db
 
 # Agent config template (contains sensitive API keys - DO NOT COMMIT)
 config.json.template
+agent-core/.conan2/
