@@ -40,6 +40,8 @@ public class SendImMessageShortcut implements ShortcutExecutor {
                         .with("fallbackSuggested", true);
             }
 
+            Thread.sleep(5000);
+
             return ToolResult.success()
                     .with("result", "消息已发送给 " + contactId + ": " + message);
         } catch (Exception e) {

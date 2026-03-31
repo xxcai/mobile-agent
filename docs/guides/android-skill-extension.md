@@ -187,6 +187,7 @@ Skill 正文没有强制格式，但建议至少包含：
 
 当前工程中的 Skill 示例：
 
+- `app/src/main/assets/workspace/skills/contact_resolver/SKILL.md`
 - `app/src/main/assets/workspace/skills/im_sender/SKILL.md`
 - `app/src/main/assets/workspace/skills/route_navigator/SKILL.md`
 - `app/src/main/assets/workspace/skills/moments_summary/SKILL.md`
@@ -194,7 +195,7 @@ Skill 正文没有强制格式，但建议至少包含：
 
 其中：
 
-- `im_sender` 和 `route_navigator` 属于 `shortcut-guided skill`
+- `contact_resolver`、`im_sender` 和 `route_navigator` 属于 `shortcut-guided skill`
 - `moments_summary` 和 `cloud_space_summary` 属于 `visual-operation skill`
 
 新增 skill 时，应先判断它属于哪一类，再决定是围绕 `run_shortcut` 写规程，还是围绕 `android_view_context_tool` / `android_gesture_tool` 写规程。

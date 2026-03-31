@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
@@ -83,6 +84,28 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         return result;
     }
 
+    @Override
+    public boolean shouldExposeInnerToolInToolUi() {
+        return true;
+    }
+
+    @Override
+    public ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        String shortcutName = extractShortcutName(argumentsJson);
+        if (shortcutName == null || shortcutName.isEmpty()) {
+            return ToolUiDecision.hidden();
+        }
+        ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
+        if (executor == null) {
+            return ToolUiDecision.hidden();
+        }
+        ShortcutDefinition definition = executor.getDefinition();
+        if (definition == null) {
+            return ToolUiDecision.hidden();
+        }
+        return ToolUiDecision.visible(definition.getTitle(), definition.getDescription());
+    }
+
     private JSONObject buildGovernanceJson(ShortcutDefinition definition) {
         try {
             return new JSONObject()
@@ -103,5 +126,37 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     private String buildArgsDescription() {
         return "传给 shortcut 的 JSON 参数对象。args 的字段结构由目标 shortcut 定义决定。"
                 + "顶层 schema 不再默认展开所有 shortcut 的参数 schema/example；需要时应先调用 describe_shortcut 按需查询。";
+    }
+
+    private String extractShortcutName(String argumentsJson) {
+        String normalized = normalizeArgumentsJson(argumentsJson);
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        try {
+            JSONObject payload = new JSONObject(normalized);
+            String shortcutName = payload.optString("shortcut", "").trim();
+            return shortcutName.isEmpty() ? null : shortcutName;
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    private String normalizeArgumentsJson(String argumentsJson) {
+        if (argumentsJson == null) {
+            return null;
+        }
+        String normalized = argumentsJson.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() >= 2
+                && normalized.startsWith("\"")
+                && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+        }
+        return normalized;
     }
 }

@@ -12,13 +12,11 @@ import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.tool.AndroidToolCallback;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
-import com.hh.agent.core.tool.ToolExecutor;
 import com.hh.agent.core.tool.ToolResult;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,7 +30,6 @@ public class AndroidToolManager implements AndroidToolCallback {
     private static AndroidToolManager activeInstance;
 
     private Context context;
-    private final Map<String, ToolExecutor> tools = new HashMap<>();
     private final ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
@@ -50,7 +47,8 @@ public class AndroidToolManager implements AndroidToolCallback {
      */
     public void initialize() {
         AgentLogs.info("AndroidToolManager", "initialize_start",
-                "channel_count=" + channels.size() + " tool_count=" + tools.size());
+                "channel_count=" + channels.size()
+                        + " shortcut_count=" + shortcutRuntime.getRegisteredShortcuts().size());
         activeInstance = this;
 
         // Register callback with NativeMobileAgentApi
@@ -63,54 +61,6 @@ public class AndroidToolManager implements AndroidToolCallback {
             return ToolUiDecision.hidden();
         }
         return activeInstance.buildToolUiPolicyResolver().resolve(toolName, argumentsJson);
-    }
-
-    public static Map<String, ToolExecutor> getActiveRegisteredTools() {
-        if (activeInstance == null) {
-            return new HashMap<>();
-        }
-        return activeInstance.getRegisteredTools();
-    }
-
-    /**
-     * Legacy compatibility entry for registering ToolExecutor.
-     * New business capabilities should use registerShortcut/registerShortcuts instead.
-     *
-     * @param executor The ToolExecutor to register
-     * @throws IllegalArgumentException if a tool with the same name is already registered
-     */
-    @Deprecated
-    public void registerTool(ToolExecutor executor) {
-        if (executor == null) {
-            throw new IllegalArgumentException("ToolExecutor cannot be null");
-        }
-
-        String toolName = executor.getName();
-        if (toolName == null || toolName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Tool name cannot be null or empty");
-        }
-
-        // Check for duplicate tool registration
-        if (tools.containsKey(toolName)) {
-            throw new IllegalArgumentException("Tool with name '" + toolName + "' is already registered");
-        }
-
-        // Add the tool to the registry
-        tools.put(toolName, executor);
-        AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName);
-        AgentLogs.warn("AndroidToolManager", "legacy_tool_registration_used",
-                "tool_name=" + toolName + " recommended_path=registerShortcut");
-    }
-
-    /**
-     * Legacy compatibility accessor for ToolExecutor registrations.
-     * Returns a copy of the internal tools map to prevent external modification.
-     *
-     * @return Map of tool name to ToolExecutor (never null, may be empty)
-     */
-    @Deprecated
-    public Map<String, ToolExecutor> getRegisteredTools() {
-        return new HashMap<>(tools);
     }
 
     public void registerShortcut(ShortcutExecutor executor) {
@@ -165,113 +115,6 @@ public class AndroidToolManager implements AndroidToolCallback {
         return new ToolUiPolicyResolver(getRegisteredChannels());
     }
 
-    /**
-     * Legacy compatibility entry for unregistering ToolExecutor by name.
-     *
-     * @param toolName The name of the tool to unregister
-     * @return true if the tool was found and removed, false if tool did not exist
-     */
-    @Deprecated
-    public boolean unregisterTool(String toolName) {
-        if (toolName == null || toolName.trim().isEmpty()) {
-            return false;
-        }
-
-        if (!tools.containsKey(toolName)) {
-            AgentLogs.warn("AndroidToolManager", "tool_unregister_skipped", "tool_name=" + toolName);
-            return false;
-        }
-
-        tools.remove(toolName);
-        AgentLogs.info("AndroidToolManager", "tool_unregistered", "tool_name=" + toolName);
-
-        return true;
-    }
-
-    /**
-     * Legacy compatibility entry for registering ToolExecutor map with atomicity.
-     * Validates all tools first, then applies changes only if all validations pass.
-     * New business capabilities should use registerShortcuts instead.
-     *
-     * @param toolsToRegister Map of tool name to ToolExecutor to register
-     * @return true if all tools were registered successfully
-     * @throws IllegalArgumentException if validation fails (null tool, empty name, duplicate, or conflict with existing)
-     */
-    @Deprecated
-    public boolean registerTools(Map<String, ToolExecutor> toolsToRegister) {
-        if (toolsToRegister == null) {
-            throw new IllegalArgumentException("Tools map cannot be null");
-        }
-
-        if (toolsToRegister.isEmpty()) {
-            return true;
-        }
-
-        // Validate all tools first (atomic check)
-        for (Map.Entry<String, ToolExecutor> entry : toolsToRegister.entrySet()) {
-            String toolName = entry.getKey();
-            ToolExecutor executor = entry.getValue();
-
-            if (executor == null) {
-                throw new IllegalArgumentException("ToolExecutor cannot be null");
-            }
-            if (toolName == null || toolName.trim().isEmpty()) {
-                throw new IllegalArgumentException("Tool name cannot be null or empty");
-            }
-            if (tools.containsKey(toolName)) {
-                throw new IllegalArgumentException("Tool with name '" + toolName + "' already exists");
-            }
-        }
-
-        // All validations passed, now register all tools
-        for (Map.Entry<String, ToolExecutor> entry : toolsToRegister.entrySet()) {
-            String toolName = entry.getKey();
-            ToolExecutor executor = entry.getValue();
-            tools.put(toolName, executor);
-            AgentLogs.info("AndroidToolManager", "tool_registered", "tool_name=" + toolName + " mode=batch");
-            AgentLogs.warn("AndroidToolManager", "legacy_tool_registration_used",
-                    "tool_name=" + toolName + " mode=batch recommended_path=registerShortcuts");
-        }
-
-        return true;
-    }
-
-    /**
-     * Legacy compatibility entry for unregistering ToolExecutor map with atomicity.
-     * Validates all tool names exist first, then applies changes only if all validations pass.
-     *
-     * @param toolNames List of tool names to unregister
-     * @return true if all tools were unregistered successfully
-     * @throws IllegalArgumentException if any tool does not exist
-     */
-    @Deprecated
-    public boolean unregisterTools(ArrayList<String> toolNames) {
-        if (toolNames == null) {
-            throw new IllegalArgumentException("Tool names list cannot be null");
-        }
-
-        if (toolNames.isEmpty()) {
-            return true;
-        }
-
-        // Validate all tools exist first (atomic check)
-        for (String toolName : toolNames) {
-            if (toolName == null || toolName.trim().isEmpty()) {
-                throw new IllegalArgumentException("Tool name cannot be null or empty");
-            }
-            if (!tools.containsKey(toolName)) {
-                throw new IllegalArgumentException("Tool with name '" + toolName + "' does not exist");
-            }
-        }
-
-        // All validations passed, now unregister all tools
-        for (String toolName : toolNames) {
-            tools.remove(toolName);
-            AgentLogs.info("AndroidToolManager", "tool_unregistered", "tool_name=" + toolName + " mode=batch");
-        }
-
-        return true;
-    }
 
     /**
      * 动态生成 tools.json

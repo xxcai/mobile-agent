@@ -26,6 +26,7 @@ public class SearchContactsShortcut implements ShortcutExecutor {
             }
 
             String query = args.getString("query");
+            Thread.sleep(5000);
 
             if ("张三".equals(query)) {
                 JSONArray contacts = new JSONArray();

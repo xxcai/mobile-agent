@@ -24,15 +24,10 @@ import com.hh.agent.R;
 import com.hh.agent.android.AndroidToolManager;
 import com.hh.agent.mockim.adapter.ChatConversationAdapter;
 import com.hh.agent.mockim.model.ChatConversation;
-import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.tool.SearchContactsTool;
-import com.hh.agent.tool.SendImMessageTool;
 
 import org.json.JSONObject;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -156,11 +151,6 @@ public class ChatListFragment extends Fragment {
 
     private AndroidToolManager buildToolManager(AppCompatActivity activity) {
         AndroidToolManager manager = new AndroidToolManager(activity);
-        Map<String, ToolExecutor> tools = new HashMap<>();
-        tools.put("search_contacts", new SearchContactsTool());
-        tools.put("send_im_message", new SendImMessageTool());
-        // Debug-only IM registration used by local mock chat probes.
-        manager.registerTools(tools);
         manager.initialize();
         return manager;
     }

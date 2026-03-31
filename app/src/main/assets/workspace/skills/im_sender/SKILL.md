@@ -7,18 +7,25 @@ always: false
 
 # IM 消息发送助手
 
+**CRITICAL — 当联系人尚未明确时，MUST 先用 `read_file` 读取并遵循 `skills/contact_resolver/SKILL.md`，先得到稳定的 `contact_id`，再执行发送。**
+**CRITICAL — 调用 `send_im_message` 前，MUST 先读取 `skills/im_sender/references/send-im-message.md`，不要猜测参数或成功条件。**
+
 当用户的目标是“把一段信息传递给某个人”时，使用此 skill。
 
 ## 使用原则
 
-- 优先使用 `run_shortcut`
-- 当前 skill 推荐的 shortcut 只有两个：
-  - `search_contacts`
+- 这是一个 shortcut-guided skill：先依据本 skill 决定流程，再调用具体 shortcut
+- 当前 skill 只推荐一个 shortcut：
   - `send_im_message`
-- 不要跳过联系人搜索直接猜测联系人 ID
-- 当存在多个同名联系人时，必须让用户确认目标对象
+- `im_sender` 是 skill 名，不是 shortcut 名
+- 不要对 `im_sender` 调用 `describe_shortcut`
+- 不要调用 `run_shortcut`，`shortcut` 为 `im_sender`
+- 当联系人尚未明确时，不要在本 skill 内自己处理联系人搜索；应先遵循 `contact_resolver`
+- `send_im_message` 的调用约束和错误处理细节在 `skills/im_sender/references/send-im-message.md`
+- 对发送类请求，只有在当前回合 `send_im_message` 成功返回后，才能向用户确认“已发送”
 - 当当前证据不足以安全发送时，不要继续执行发送动作
 - 不要为了完成发送而绕去 `android_gesture_tool` 模拟点击发送按钮
+- 不要把上一轮已经发送成功的结果，当作这一轮“再发一条”或“继续发给他”的完成证据
 
 ## 触发条件
 
@@ -38,26 +45,31 @@ always: false
 - 用户要打开聊天页、点击发送按钮、滚动聊天列表
 - 用户要总结消息内容，而不是发送消息
 
+## 入口分类
+
+进入本 skill 后，先判断当前属于哪一类输入。
+
+### 类型 A：联系人已明确的发送请求
+
+例如：
+
+- 当前会话里已经有稳定的 `contact_id`
+- 当前用户只是在补充或确认消息内容
+
+这类输入可以直接进入发送步骤。
+
+### 类型 B：续轮续发请求
+
+例如：
+
+- “再发一条”
+- “继续发给他”
+- “再告诉李四一次”
+- “同样发给张三”
+
+这类输入表示新的发送动作，但可能依赖上一轮上下文中的联系人或消息目标。
+
 ## 推荐 Shortcut
-
-### `search_contacts`
-
-适用场景：
-
-- 已经知道联系人姓名或关键字，但还没有联系人 ID
-- 需要确认是否存在目标联系人
-- 需要处理同名联系人分支
-
-调用格式：
-
-```json
-{
-  "shortcut": "search_contacts",
-  "args": {
-    "query": "张三"
-  }
-}
-```
 
 ### `send_im_message`
 
@@ -81,68 +93,17 @@ always: false
 
 ## 工作流程
 
-### 步骤 1：提取发送目标和消息内容
+### 步骤 1：先确认联系人是否已经明确
 
-先从用户请求中判断两件事：
+如果当前还没有稳定的 `contact_id`：
 
-- 联系人姓名或关键字
-- 消息内容是否已经明确
+- 不要直接调用 `send_im_message`
+- 先读取并遵循 `skills/contact_resolver/SKILL.md`
+- 先完成联系人解析，再回到本 skill
 
-如果联系人姓名无法提取，不要继续调用 shortcut，先向用户确认要发给谁。
+### 步骤 2：确认消息内容
 
-如果消息内容无法提取，也不要直接发送，先确认要发送什么。
-
-### 步骤 2：搜索联系人
-
-先调用 `run_shortcut`，使用 `search_contacts`。
-
-```json
-{
-  "shortcut": "search_contacts",
-  "args": {
-    "query": "联系人姓名或关键字"
-  }
-}
-```
-
-### 步骤 3：处理联系人搜索结果
-
-#### 无匹配
-
-如果返回空结果：
-
-- 告诉用户未找到联系人
-- 建议用户确认姓名或提供更多信息
-- 不要继续调用 `send_im_message`
-
-#### 单一匹配
-
-如果只有一个联系人：
-
-- 直接进入发送步骤
-- 不需要额外确认“是不是这个人”，除非用户表述本身存在歧义
-
-#### 多个匹配
-
-如果出现多个联系人：
-
-- 列出候选项
-- 让用户明确选择
-- 在用户确认之前，不要调用 `send_im_message`
-
-推荐表达：
-
-```text
-找到 2 位联系人：
-1. 张三（技术部）
-2. 张三（市场部）
-
-请问您要发送给哪一位？
-```
-
-### 步骤 4：确认消息内容
-
-如果用户最初没有明确消息内容：
+如果消息内容还不明确：
 
 - 先追问消息内容
 - 不要发送空消息
@@ -153,12 +114,17 @@ always: false
 请问您想发送什么消息？
 ```
 
-### 步骤 5：发送消息
+### 步骤 3：发送消息
 
 当且仅当以下条件同时满足时，才能调用 `send_im_message`：
 
 - 联系人 ID 已明确
 - 消息内容已明确
+
+调用前：
+
+- 先读取 `skills/im_sender/references/send-im-message.md`
+- 确认当前要传的是稳定 `contact_id`，不是候选序号或自然语言选择结果
 
 调用：
 
@@ -171,6 +137,21 @@ always: false
   }
 }
 ```
+
+### 步骤 4：只有执行成功后才能确认已发送
+
+如果本轮还没有成功调用 `send_im_message`：
+
+- 不要说“已发送”
+- 不要说“已再次发送”
+- 不要用口头确认代替实际执行
+
+如果用户说的是“再发一条”“继续发给他”“再告诉李四一次”这类续发表达：
+
+- 仍然要把它视为新的发送动作
+- 必须重新走本 skill 的发送流程
+- 不能因为上一轮已经给某个人发过消息，就直接宣称这轮也已经发出
+- 如果联系人上下文不再明确，应先回到 `contact_resolver`
 
 ## 结果处理
 
@@ -242,16 +223,15 @@ always: false
 
 Agent：
 
-1. 调用 `search_contacts`
-2. 得到单一匹配 `李四(产品部, id=003)`
-3. 调用 `send_im_message`
-4. 返回：
+1. 若联系人尚未明确，先通过 `contact_resolver` 得到单一匹配 `李四(产品部, id=003)`
+2. 调用 `send_im_message`
+3. 返回：
 
 ```text
 消息已发送给李四：明天下午3点开会。
 ```
 
-### 示例 2：多个匹配，先确认
+### 示例 2：多个匹配，先通过联系人解析确认
 
 用户：
 
@@ -261,9 +241,10 @@ Agent：
 
 Agent：
 
-1. 调用 `search_contacts`
-2. 得到多个张三
-3. 返回：
+1. 先进入 `contact_resolver`
+2. 由 `contact_resolver` 调用 `search_contacts`
+3. 得到多个张三
+4. 返回：
 
 ```text
 找到 2 位联系人：
@@ -283,18 +264,36 @@ Agent：
 
 Agent：
 
-1. 调用 `search_contacts`
-2. 得到单一匹配
-3. 追问：
+1. 若联系人尚未明确，先通过 `contact_resolver` 得到单一匹配
+2. 追问：
 
 ```text
 请问您想发送什么消息？
 ```
 
+### 示例 4：用户要求“再发一条”
+
+上一轮 Agent 已成功发出一条消息。
+
+用户：
+
+```text
+再发一条，告诉他今晚加班
+```
+
+Agent：
+
+1. 将其视为新的发送动作
+2. 不能直接沿用上一轮成功结果作为这轮完成证据
+3. 如果联系人上下文仍明确，可以复用联系人并继续发送流程
+4. 如果联系人上下文不明确，先回到 `contact_resolver`
+5. 只有本轮 `send_im_message` 成功后，才能确认“已发送”
+
 ## 禁止事项
 
-- 不要跳过 `search_contacts` 直接构造联系人 ID
-- 不要在多个候选联系人之间自行猜测
 - 不要在消息内容缺失时发送空消息
 - 不要把失败结果描述成成功
+- 不要在没有执行 `send_im_message` 的情况下声称“已发送”
+- 不要把“再发一条”理解成可以直接沿用上一轮结果并口头完成
 - 不要为了完成发送而绕去 `android_gesture_tool` 模拟业务发送
+- 不要把 skill 名 `im_sender` 当成 shortcut 去 `run_shortcut` 或 `describe_shortcut`

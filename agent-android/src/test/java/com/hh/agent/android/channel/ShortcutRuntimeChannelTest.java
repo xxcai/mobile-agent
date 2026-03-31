@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
@@ -77,6 +78,33 @@ public class ShortcutRuntimeChannelTest {
         assertEquals("shortcut_not_supported", result.getString("error"));
         assertEquals("run_shortcut", result.getString("channel"));
         assertEquals("unknown_shortcut", result.getString("shortcut"));
+    }
+
+    @Test
+    public void resolveInnerToolUiDecisionUsesShortcutDefinition() {
+        ShortcutRuntime runtime = new ShortcutRuntime();
+        runtime.register(new RecordingShortcutExecutor());
+        ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(runtime);
+
+        assertTrue(channel.shouldExposeInnerToolInToolUi());
+
+        ToolUiDecision decision = channel.resolveInnerToolUiDecision(
+                "{\"shortcut\":\"send_im_message\",\"args\":{\"contact_id\":\"003\",\"message\":\"test\"}}");
+
+        assertTrue(decision.isVisible());
+        assertEquals("发送消息", decision.getTitle());
+        assertEquals("向指定联系人发送文本消息", decision.getDescription());
+    }
+
+    @Test
+    public void resolveInnerToolUiDecisionHidesUnknownShortcut() {
+        ShortcutRuntime runtime = new ShortcutRuntime();
+        ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(runtime);
+
+        ToolUiDecision decision = channel.resolveInnerToolUiDecision(
+                "{\"shortcut\":\"unknown_shortcut\",\"args\":{}}");
+
+        assertFalse(decision.isVisible());
     }
 
     private static final class RecordingShortcutExecutor implements ShortcutExecutor {
