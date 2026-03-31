@@ -71,6 +71,7 @@ public class ToolChannelTestActivity extends AppCompatActivity {
         addSectionHeader(container, "Core Runtime");
         addActionButton(container, "Run Runtime Cases", v -> runRuntimeCasesSection());
         addActionButton(container, "Run Live View Context", v -> runLiveViewContextProbe(false));
+        addActionButton(container, "打开屏幕快照探针", v -> openScreenSnapshotProbe());
         addActionButton(container, "Run Business WebView Context", v -> runBusinessWebViewContextProbe());
         addActionButton(container, "Run Container View Context", v -> runLiveViewContextProbe(true));
         addActionButton(container, "Run Observation Bound Gesture", v -> runObservationBoundGestureProbe());
@@ -343,6 +344,10 @@ public class ToolChannelTestActivity extends AppCompatActivity {
             next.append("parse_error=").append(e.getMessage()).append('\n');
         }
         outputView.setText(next.toString());
+    }
+
+    private void openScreenSnapshotProbe() {
+        startActivity(new Intent(this, ScreenSnapshotProbeActivity.class));
     }
 
     private void runBusinessWebViewContextProbe() {

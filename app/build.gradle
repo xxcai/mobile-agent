@@ -33,8 +33,8 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation project(':agent-core')
     implementation project(':agent-android')
+    implementation project(':agent-screen-vision')
 
-    // Markwon Markdown 渲染库
     implementation 'io.noties.markwon:core:4.6.2'
     implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
     implementation 'io.noties.markwon:ext-tables:4.6.2'
@@ -43,5 +43,4 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
-// Apply config-template.gradle for copying config.json.template to assets
 apply from: rootProject.file('config-template.gradle')

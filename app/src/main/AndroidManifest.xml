@@ -14,7 +14,7 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
 
-        <!-- 启动界面 -->
+        <!-- 閸氼垰濮╅悾宀勬桨 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -74,6 +74,9 @@
             android:name=".FloatingBallHiddenActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".ScreenSnapshotProbeActivity"
+            android:exported="false" />
     </application>
 
 </manifest>
