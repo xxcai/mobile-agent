@@ -4,6 +4,18 @@
 
 Skill 用来描述复杂工作流程。Tool 提供单次能力调用，Skill 负责把多个步骤和决策规则组织起来交给 Agent 使用。
 
+如果要为 AI 或协作者编写新的 Skill，先阅读：
+
+- [android-skill-authoring-spec.md](/Users/caixiao/Workspace/projects/mobile-agent/docs/guides/android-skill-authoring-spec.md)
+
+该文档总结了当前仓库中已经验证过的 Skill 编写规格，包括：
+
+- Skill 与 shortcut 的边界
+- 什么时候拆 Skill
+- 什么时候引入 `references/`
+- 如何避免前后规则冲突
+- 当前仓库推荐的 Skill 编写风格
+
 当前工程里的 Skill 应明确区分两类：
 
 - `shortcut-guided skill`
