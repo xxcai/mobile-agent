@@ -12,8 +12,10 @@
 
 本文档主要基于本仓库当前已经验证过的写法：
 
+- 共享规则优先收敛到 `agent_shared/SKILL.md`
 - Skill 主文档负责规程、路由和约束
 - Reference 文档负责参数、错误、细节说明
+- `PromptBuilder` 与 skills summary 只保留最小前置协议
 - 不依赖运行时硬拦截，优先靠清晰规程减少错误调用
 
 ## 1. 总体原则
@@ -32,6 +34,7 @@ Skill 是行为规程，不是可执行动作。
 
 - `im_sender` 是 skill 名，不是 shortcut 名
 - `contact_resolver` 是 skill 名，不是 shortcut 名
+- `route_navigator` 是 skill 名，不是 shortcut 名
 
 ### 1.2 Skill 负责路由，Shortcut 负责执行
 
@@ -154,8 +157,9 @@ skills/
 推荐写法：
 
 ```md
-**CRITICAL — 当联系人尚未明确时，MUST 先用 `read_file` 读取并遵循 `skills/contact_resolver/SKILL.md`。**
-**CRITICAL — 调用 `send_im_message` 前，MUST 先读取 `skills/im_sender/references/send-im-message.md`。**
+**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
+**CRITICAL — 当联系人尚未明确时，第二步 MUST 读取 `skills/contact_resolver/SKILL.md`。**
+**CRITICAL — 调用 `send_im_message` 前，MUST 读取 `skills/im_sender/references/send-im-message.md`。**
 ```
 
 重点：
@@ -234,7 +238,8 @@ skills/
 
 正确做法：
 
-- 在 Skill 中反复明确“这是 skill 名，不是 shortcut 名”
+- 在共享 skill 或业务 skill 开头明确“这是 skill 名，不是 shortcut 名”
+- 在 skills summary 顶层说明中统一告诉模型：skill 要先 `read_file`
 - 真正可执行的动作放在“推荐 Shortcut”小节里
 
 ### 7.2 不要让规则前后打架
@@ -297,6 +302,7 @@ skills/
 
 新增一个 shortcut-guided skill 时，至少满足：
 
+- 如存在共享规程，文首先接入 `skills/agent_shared/SKILL.md`
 - 明确该 Skill 负责什么，不负责什么
 - 明确推荐哪些 shortcut
 - 明确 Skill 名不是 shortcut 名
@@ -324,6 +330,7 @@ skills/
 
 可直接参考这些文件：
 
+- [agent_shared/SKILL.md](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/agent_shared/SKILL.md)
 - [contact_resolver/SKILL.md](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/contact_resolver/SKILL.md)
 - [contact-selection.md](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/contact_resolver/references/contact-selection.md)
 - [im_sender/SKILL.md](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/workspace/skills/im_sender/SKILL.md)
@@ -331,6 +338,7 @@ skills/
 
 这些文件共同体现了当前仓库中较成熟的 Skill 写法：
 
+- 先接共享规程
 - 先拆职责
 - 再写规程
 - 细节下沉到 reference
