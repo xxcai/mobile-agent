@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Form Local Page</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #fffaf0;
+      color: #1f2937;
+    }
+    .hero {
+      padding: 24px 20px;
+      background: linear-gradient(135deg, #ea580c, #fb923c);
+      color: white;
+    }
+    .panel {
+      margin: 16px;
+      padding: 20px;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 10px 24px rgba(124, 45, 18, 0.08);
+    }
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border: 1px solid #fdba74;
+      border-radius: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 10px;
+      background: #ea580c;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <h1 id="debug-title">Mock Form Page</h1>
+  </section>
+  <section class="panel">
+    <label for="expense-name">Expense Name</label>
+    <input id="expense-name" name="expense_name" value="Taxi" />
+    <label for="expense-amount">Amount</label>
+    <input id="expense-amount" name="expense_amount" value="86.50" />
+    <button id="debug-submit" data-debug-action="submit">Submit Expense</button>
+  </section>
+</body>
+</html>

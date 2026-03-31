@@ -6,6 +6,7 @@ import com.hh.agent.android.channel.DescribeShortcutChannel;
 import com.hh.agent.android.channel.GestureToolChannel;
 import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
+import com.hh.agent.android.channel.WebActionToolChannel;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
@@ -38,6 +39,7 @@ public class AndroidToolManager implements AndroidToolCallback {
         registerChannel(new ShortcutRuntimeChannel(shortcutRuntime));
         registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());
+        registerChannel(new WebActionToolChannel());
         registerChannel(new ViewContextToolChannel());
     }
 
