@@ -60,9 +60,20 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                     .with("shortcut", shortcutName);
         }
 
-        ToolResult result = shortcutRuntime.execute(shortcutName, args);
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
-        ShortcutDefinition definition = executor != null ? executor.getDefinition() : null;
+        if (executor == null) {
+            return ToolResult.error("shortcut_not_supported",
+                            "Shortcut '" + shortcutName + "' is not supported. "
+                                    + "If this is a skill name, read skills/" + shortcutName
+                                    + "/SKILL.md with read_file before calling run_shortcut.")
+                    .with("channel", CHANNEL_NAME)
+                    .with("shortcut", shortcutName)
+                    .with("requestedShortcut", shortcutName)
+                    .with("suggestedSkillPath", "skills/" + shortcutName + "/SKILL.md");
+        }
+
+        ToolResult result = shortcutRuntime.execute(shortcutName, args);
+        ShortcutDefinition definition = executor.getDefinition();
 
         if (result == null) {
             return ToolResult.error("execution_failed", "Shortcut returned null result")

@@ -9,16 +9,16 @@ always: false
 
 当任务需要把“某个人”解析成稳定联系人目标时，使用此 skill。
 
-**CRITICAL — 涉及候选序号、候选描述或续轮联系人选择时，MUST 先读取 `skills/contact_resolver/references/contact-selection.md`，不要猜测 `contact_id`。**
+**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
+**CRITICAL — 涉及候选序号、候选描述或续轮联系人选择时，第二步 MUST 读取 `skills/contact_resolver/references/contact-selection.md`。**
+**CRITICAL — 在完成上述步骤之前，不要调用任何业务 shortcut。**
+**CRITICAL — 不要猜测 `contact_id`。**
 
 ## 使用原则
 
 - 这是一个 shortcut-guided skill：先依据本 skill 判断联系人状态，再调用具体 shortcut
 - 当前 skill 只推荐一个 shortcut：
   - `search_contacts`
-- `contact_resolver` 是 skill 名，不是 shortcut 名
-- 不要对 `contact_resolver` 调用 `describe_shortcut`
-- 不要调用 `run_shortcut`，`shortcut` 为 `contact_resolver`
 - 当联系人尚未明确时，不要直接调用 `send_im_message`
 - 当上一轮已经给出候选联系人，而用户这一轮只回复序号或候选描述时，应优先承接上一轮候选结果
 - 详细候选选择规则在 `skills/contact_resolver/references/contact-selection.md`
@@ -217,7 +217,6 @@ Agent：
 
 ## 禁止事项
 
-- 不要把 skill 名 `contact_resolver` 当成 shortcut 去 `run_shortcut` 或 `describe_shortcut`
 - 不要因为用户只回复 `1`，就重新启动新的意图识别流程
 - 不要在已经有明确候选列表时重复搜索同一个联系人
 - 不要在联系人尚未明确时直接调用 `send_im_message`

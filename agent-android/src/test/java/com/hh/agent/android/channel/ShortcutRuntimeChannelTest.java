@@ -78,6 +78,8 @@ public class ShortcutRuntimeChannelTest {
         assertEquals("shortcut_not_supported", result.getString("error"));
         assertEquals("run_shortcut", result.getString("channel"));
         assertEquals("unknown_shortcut", result.getString("shortcut"));
+        assertTrue(result.getString("message").contains("read skills/unknown_shortcut/SKILL.md"));
+        assertEquals("skills/unknown_shortcut/SKILL.md", result.getString("suggestedSkillPath"));
     }
 
     @Test
