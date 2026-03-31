@@ -60,7 +60,12 @@ std::string PromptBuilder::build_full() const {
             // Level 2: Skills summary (metadata only, on-demand loading)
             ss << "# Available Skills\n\n";
             ss << "The following skills extend your capabilities. ";
-            ss << "To use a skill, read its SKILL.md file using read_file tool.\n\n";
+            ss << "Skills and shortcuts are different. ";
+            ss << "To use a skill, read its SKILL.md file using read_file tool. ";
+            ss << "Use workspace-relative paths like skills/<skill_name>/SKILL.md, not absolute paths. ";
+            ss << "Shortcuts are executable actions: inspect them with describe_shortcut(\"<shortcut_name>\") ";
+            ss << "and execute them with run_shortcut. Do not call describe_shortcut on a skill name. ";
+            ss << "For action requests such as sending a message, do not claim success unless the corresponding shortcut execution succeeded in the current turn.\n\n";
             ss << skill_loader_->build_skills_summary(skills);
         }
     }
@@ -126,7 +131,12 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
             // Level 2: Skills summary (metadata only, on-demand loading)
             ss << "# Available Skills\n\n";
             ss << "The following skills extend your capabilities. ";
-            ss << "To use a skill, read its SKILL.md file using read_file tool.\n\n";
+            ss << "Skills and shortcuts are different. ";
+            ss << "To use a skill, read its SKILL.md file using read_file tool. ";
+            ss << "Use workspace-relative paths like skills/<skill_name>/SKILL.md, not absolute paths. ";
+            ss << "Shortcuts are executable actions: inspect them with describe_shortcut(\"<shortcut_name>\") ";
+            ss << "and execute them with run_shortcut. Do not call describe_shortcut on a skill name. ";
+            ss << "For action requests such as sending a message, do not claim success unless the corresponding shortcut execution succeeded in the current turn.\n\n";
             ss << skill_loader_->build_skills_summary(skills);
         }
     }

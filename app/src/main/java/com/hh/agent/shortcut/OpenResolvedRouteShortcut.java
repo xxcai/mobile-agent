@@ -1,18 +1,20 @@
-package com.hh.agent.tool;
+package com.hh.agent.shortcut;
 
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.RouteOpenResult;
 import com.hh.agent.android.route.RouteTarget;
-import com.hh.agent.core.tool.ToolDefinition;
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutDefinition;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;
-
 import org.json.JSONObject;
 
-public final class OpenResolvedRouteTool implements ToolExecutor {
+/**
+ * Shortcut that opens a previously resolved route target.
+ */
+public final class OpenResolvedRouteShortcut implements ShortcutExecutor {
     private final AndroidRouteRuntime routeRuntime;
 
-    public OpenResolvedRouteTool(AndroidRouteRuntime routeRuntime) {
+    public OpenResolvedRouteShortcut(AndroidRouteRuntime routeRuntime) {
         if (routeRuntime == null) {
             throw new IllegalArgumentException("routeRuntime cannot be null");
         }
@@ -20,14 +22,14 @@ public final class OpenResolvedRouteTool implements ToolExecutor {
     }
 
     @Override
-    public String getName() {
-        return "open_resolved_route";
-    }
-
-    @Override
-    public ToolDefinition getDefinition() {
-        return ToolDefinition.builder("打开已解析目标", "根据已解析的 targetType、uri、title 打开目标页面")
-                .intentExamples("打开已经解析好的报销页面", "打开刚刚解析出的创建群聊页面")
+    public ShortcutDefinition getDefinition() {
+        return ShortcutDefinition.builder(
+                        "open_resolved_route",
+                        "打开已解析目标",
+                        "根据已解析的 targetType、uri、title 打开目标页面")
+                .domain("route")
+                .requiredSkill("route_navigator")
+                .risk("navigate")
                 .stringParam("targetType", "native 或 miniapp", true, "miniapp")
                 .stringParam("uri", "已解析的目标 URI", true, "h5://1001001")
                 .stringParam("title", "已解析的目标标题", true, "费控报销")

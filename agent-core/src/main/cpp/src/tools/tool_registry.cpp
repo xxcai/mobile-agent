@@ -401,8 +401,17 @@ std::string ToolRegistry::read_file_tool(const nlohmann::json& params) {
     }
 #else
     // Unix-like: direct path handling
-    std::filesystem::path filepath(path);
-    if (filepath.is_relative()) {
+    std::string path_to_use = path;
+    bool starts_with_slash = !path.empty() && path[0] == '/';
+
+    if (starts_with_slash) {
+        // Keep behavior aligned with is_path_allowed(): treat "/skills/xxx"
+        // as workspace-relative "skills/xxx" rather than filesystem root.
+        path_to_use = path.substr(1);
+    }
+
+    std::filesystem::path filepath(path_to_use);
+    if (filepath.is_relative() || starts_with_slash) {
         filepath = std::filesystem::path(base_path_) / filepath;
     }
 #endif

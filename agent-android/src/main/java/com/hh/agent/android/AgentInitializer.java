@@ -13,12 +13,12 @@ import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.android.WorkspaceManager;
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
 
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Agent 初始化器
@@ -47,35 +47,22 @@ public class AgentInitializer {
         return AgentLogs.getLogger();
     }
 
-    /**
-     * 初始化 Agent
-     * @param application Application Context
-     * @param voiceRecognizer 语音识别器实现（可传入 null 使用默认实现）
-     * @param tools 要注册的工具 Map
-     * @param callback 初始化完成回调（Agent 核心初始化完成后调用）
-     */
     public static void initialize(Context application,
                                   IVoiceRecognizer voiceRecognizer,
-                                  Map<String, ToolExecutor> tools,
-                                  Runnable callback) {
-        initialize(application,
-                voiceRecognizer,
-                tools,
-                ActivityViewContextSourcePolicy.EMPTY,
-                callback);
-    }
-
-    public static void initialize(Context application,
-                                  IVoiceRecognizer voiceRecognizer,
-                                  Map<String, ToolExecutor> tools,
+                                  Collection<? extends ShortcutExecutor> shortcuts,
                                   ActivityViewContextSourcePolicy viewContextSourcePolicy,
                                   Runnable callback) {
-        int toolCount = tools != null ? tools.size() : 0;
-        AgentLogs.info(TAG, "initialize_start", "tool_count=" + toolCount);
+        initializeInternal(application, voiceRecognizer, shortcuts, viewContextSourcePolicy, callback);
+    }
 
-        if (tools == null) {
-            AgentLogs.warn(TAG, "tools_map_null", null);
-        }
+    private static void initializeInternal(Context application,
+                                           IVoiceRecognizer voiceRecognizer,
+                                           Collection<? extends ShortcutExecutor> shortcuts,
+                                           ActivityViewContextSourcePolicy viewContextSourcePolicy,
+                                           Runnable callback) {
+        int shortcutCount = shortcuts != null ? shortcuts.size() : 0;
+        AgentLogs.info(TAG, "initialize_start",
+                "shortcut_count=" + shortcutCount);
         if (callback == null) {
             AgentLogs.warn(TAG, "initialize_callback_null", null);
         }
@@ -88,8 +75,10 @@ public class AgentInitializer {
         // 1. 创建 AndroidToolManager
         AndroidToolManager toolManager = new AndroidToolManager(application);
 
-        // 2. 批量注册工具
-        toolManager.registerTools(tools);
+        // 2. 批量注册 shortcuts
+        if (shortcuts != null) {
+            toolManager.registerShortcuts(shortcuts);
+        }
         toolManager.initialize();
 
         // 3. 读取配置文件

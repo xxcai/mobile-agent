@@ -25,14 +25,38 @@
 - native: `ui://myapp.im/createGroup`
 - miniapp: `h5://1001001`
 
-## 对外 Tool
+## 当前接入边界
 
-当前通过 `call_android_tool` 暴露两个 business tool：
+当前 route tooling 通过默认 shortcut runtime 路径接入：
 
 - `resolve_route`
 - `open_resolved_route`
 
-工具注册入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
+默认 shortcut 注册入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
+
+需要注意：
+
+- 默认 app 初始化路径已经通过 `run_shortcut` 暴露 route tooling
+- agent 默认应先命中 `route_navigator` skill，再按 skill 规程调用 `run_shortcut`
+- 如果缺少 route shortcut 的详细定义或参数结构，应先调用 `describe_shortcut`
+
+因此当前 route tooling 的推荐协议是：
+
+```json
+{
+  "shortcut": "resolve_route",
+  "args": { ... }
+}
+```
+
+和：
+
+```json
+{
+  "shortcut": "open_resolved_route",
+  "args": { ... }
+}
+```
 
 ## resolve_route
 
@@ -99,7 +123,7 @@ App 层当前只需要提供或组装以下能力：
 - miniapp query source
 - `HostRouteInvoker`
 
-实际组装入口在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java)。
+默认 shortcut 组装入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
 
 说明：
 
@@ -166,13 +190,12 @@ App 层当前只需要提供或组装以下能力：
 
 - [DemoHostRouteInvoker.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DemoHostRouteInvoker.java)
 - [RouteNativeDemoActivity.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/RouteNativeDemoActivity.java)
-- [ToolChannelTestActivity.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/ToolChannelTestActivity.java)
 
 这些实现的作用是：
 
 - 验证 route tooling contract
 - 验证 `ContainerActivity` 收起和跳转时序
-- 提供最小手工测试入口
+- 提供最小 demo 入口
 
 它们不是正式业务页面或正式宿主路由实现。
 
@@ -186,7 +209,7 @@ App 层当前只需要提供或组装以下能力：
 接真实 miniapp 查询时，优先改：
 
 - [DefaultMockMiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockMiniAppQuerySource.java)
-- 或新增真实 `MiniAppQuerySource` 实现并在 [RouteToolProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteToolProvider.java) 中切换
+- 或新增真实 `MiniAppQuerySource` 实现并在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java) 中切换
 
 通常不需要改：
 

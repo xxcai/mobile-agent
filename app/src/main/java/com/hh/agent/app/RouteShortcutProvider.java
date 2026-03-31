@@ -8,18 +8,19 @@ import com.hh.agent.android.route.NoOpRouteScorer;
 import com.hh.agent.android.route.QuerySourceBackedMiniAppRouteBridge;
 import com.hh.agent.android.route.RegistryBackedNativeRouteBridge;
 import com.hh.agent.android.route.RouteResolver;
-import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.tool.OpenResolvedRouteTool;
-import com.hh.agent.tool.ResolveRouteTool;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
+import com.hh.agent.shortcut.OpenResolvedRouteShortcut;
+import com.hh.agent.shortcut.ResolveRouteShortcut;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
-public final class RouteToolProvider {
-    private RouteToolProvider() {
+public final class RouteShortcutProvider {
+
+    private RouteShortcutProvider() {
     }
 
-    public static Map<String, ToolExecutor> createRouteTools(android.content.Context context) {
+    public static List<ShortcutExecutor> createShortcuts(android.content.Context context) {
         NativeRouteRegistry nativeRouteRegistry = DefaultNativeRouteRegistry.create();
         MiniAppQuerySource miniAppQuerySource = DefaultMockMiniAppQuerySource.create();
         AndroidRouteRuntime routeRuntime = new AndroidRouteRuntime(
@@ -29,9 +30,10 @@ public final class RouteToolProvider {
                         new RegistryBackedNativeRouteBridge(nativeRouteRegistry),
                         new QuerySourceBackedMiniAppRouteBridge(miniAppQuerySource)),
                 new DemoHostRouteInvoker(context));
-        Map<String, ToolExecutor> tools = new HashMap<>();
-        tools.put("resolve_route", new ResolveRouteTool(routeRuntime));
-        tools.put("open_resolved_route", new OpenResolvedRouteTool(routeRuntime));
-        return tools;
+
+        List<ShortcutExecutor> shortcuts = new ArrayList<>();
+        shortcuts.add(new ResolveRouteShortcut(routeRuntime));
+        shortcuts.add(new OpenResolvedRouteShortcut(routeRuntime));
+        return shortcuts;
     }
 }

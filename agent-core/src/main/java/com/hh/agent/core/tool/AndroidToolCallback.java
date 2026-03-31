@@ -9,7 +9,7 @@ public interface AndroidToolCallback {
     /**
      * Call an Android tool channel with the given name and raw parameters.
      *
-     * @param toolName The outer tool channel name (e.g., "call_android_tool")
+     * @param toolName The outer tool channel name (e.g., "run_shortcut")
      * @param argsJson JSON string containing the original tool parameters
      * @return JSON string serialized from the structured tool result
      */

@@ -63,10 +63,10 @@
 <rect x="2011.04" y="453.5" width="139.25" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
 <rect x="1960.99" y="513.5" width="239.35000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
 <rect x="1329.8050000000003" y="499.25" width="160.70000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-<text x="208.275" y="206" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Host app registers\nToolExecutor(s)&quot;</text>
+<text x="208.275" y="206" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Host app registers\nShortcutExecutor(s)&quot;</text>
 <text x="556.9" y="206" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;AgentInitializer&quot;</text>
 <text x="848.325" y="206" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;AndroidToolManager&quot;</text>
-<text x="1410.1550000000002" y="116" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;LegacyAndroidToolChannel\n(call_android_tool)&quot;</text>
+<text x="1410.1550000000002" y="116" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;ShortcutRuntimeChannel\n(run_shortcut)&quot;</text>
 <text x="1410.1550000000002" y="176" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;GestureToolChannel\n(android_gesture_tool)&quot;</text>
 <text x="1410.1550000000002" y="236" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;ViewContextToolChannel\n(android_view_context_tool)&quot;</text>
 <text x="1410.1550000000002" y="363" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;NativeMobileAgentApi /\nNativeAgent&quot;</text>

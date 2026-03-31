@@ -28,7 +28,7 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "执行当前宿主页面内的 Android UI 动作。tap 应先读取 android_view_context_tool，再基于最新 observation 点击目标；swipe 也应先读取 android_view_context_tool，并且必须在 observation 中明确指定要滚动的容器 bounds，运行时再在当前 Activity 内注入真实触摸事件。不要猜测裸坐标，不要在没有最新 observation 的情况下调用本工具。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具；这类任务应使用 call_android_tool。")
+                        "执行当前宿主页面内的 Android UI 动作。tap 应先读取 android_view_context_tool，再基于最新 observation 点击目标；swipe 也应先读取 android_view_context_tool，并且必须在 observation 中明确指定要滚动的容器 bounds，运行时再在当前 Activity 内注入真实触摸事件。不要猜测裸坐标，不要在没有最新 observation 的情况下调用本工具。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务 shortcut；这类任务应优先使用 run_shortcut。")
                 .property("action", ToolSchemaBuilder.string()
                         .description(buildActionDescription())
                         .enumValues(getActionNames()), true)

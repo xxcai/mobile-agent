@@ -4,6 +4,15 @@
 
 Skill 用来描述复杂工作流程。Tool 提供单次能力调用，Skill 负责把多个步骤和决策规则组织起来交给 Agent 使用。
 
+当前工程里的 Skill 应明确区分两类：
+
+- `shortcut-guided skill`
+  这类 skill 的核心职责是指导 Agent 选择和串联 `run_shortcut` 下的业务原子动作，例如联系人搜索、发消息、路由解析和页面打开。
+- `visual-operation skill`
+  这类 skill 的核心职责是指导 Agent 使用 `android_view_context_tool` 与 `android_gesture_tool` 做页面观察、定位、点击、滑动和受控补读。
+
+不要把所有 skill 都强行写成 shortcut-first。只有“业务原子能力明确、可稳定封装”的场景才应该优先使用 shortcut。
+
 ## Skill 的加载位置
 
 当前工程里，Skill 会从 workspace 的 `skills/` 目录加载。对 Android 宿主来说，初始化流程是：
@@ -54,11 +63,11 @@ always: false
 
 ### 步骤 1
 
-调用 `call_android_tool`，function 为 `my_tool`。
+调用 `run_shortcut`，shortcut 为 `my_tool`。
 
 ```json
 {
-  "function": "my_tool",
+  "shortcut": "my_tool",
   "args": {
     "value": "demo"
   }
@@ -116,29 +125,36 @@ Skill 正文没有强制格式，但建议至少包含：
 
 ## 与 Tool 的关系
 
-当前 Android 侧已经支持多通道工具，但宿主应用中注册的业务 Tool 仍然通过统一的 `call_android_tool` 包装调用。
+当前 Android 侧已经支持多通道工具，宿主应用中注册的业务 `ShortcutExecutor` 会通过统一的 `run_shortcut` 暴露调用。
 
 当前通道包括：
 
-- `call_android_tool`
-  用于宿主 App 业务工具，例如联系人、消息、通知、剪贴板
+- `run_shortcut`
+  用于宿主 App 业务 shortcut，例如联系人、消息等业务原子动作
 - `android_gesture_tool`
   用于页面内点击、滚动等 UI 手势
 
 其中 `android_gesture_tool` 当前已经具备真实 in-process 执行能力，但仍应优先用于“先看页面，再执行元素动作”的场景，而不是替代业务工具。
 
+当前 app 示例实际注入的 shortcut 有：
+
+- `search_contacts`
+- `send_im_message`
+- `resolve_route`
+- `open_resolved_route`
+
 因此在 Skill 中，调用方式应写成：
 
 ```json
 {
-  "function": "search_contacts",
+  "shortcut": "search_contacts",
   "args": {
     "query": "张三"
   }
 }
 ```
 
-而不是直接写成“调用 `search_contacts` function”。
+而不是使用已经移除的 `call_android_tool.function` 协议。
 
 如果后续某个 Skill 需要明确驱动点击或滑动，可以单独使用 `android_gesture_tool`，例如：
 
@@ -171,10 +187,18 @@ Skill 正文没有强制格式，但建议至少包含：
 
 当前工程中的 Skill 示例：
 
+- `app/src/main/assets/workspace/skills/contact_resolver/SKILL.md`
 - `app/src/main/assets/workspace/skills/im_sender/SKILL.md`
-- `agent-core/src/main/assets/workspace/skills/chinese_writer/SKILL.md`
+- `app/src/main/assets/workspace/skills/route_navigator/SKILL.md`
+- `app/src/main/assets/workspace/skills/moments_summary/SKILL.md`
+- `app/src/main/assets/workspace/skills/cloud_space_summary/SKILL.md`
 
-其中 `im_sender` 更接近 Android 场景下通过 `call_android_tool` 调用宿主工具的真实写法。
+其中：
+
+- `contact_resolver`、`im_sender` 和 `route_navigator` 属于 `shortcut-guided skill`
+- `moments_summary` 和 `cloud_space_summary` 属于 `visual-operation skill`
+
+新增 skill 时，应先判断它属于哪一类，再决定是围绕 `run_shortcut` 写规程，还是围绕 `android_view_context_tool` / `android_gesture_tool` 写规程。
 
 ## 生效方式
 
@@ -190,6 +214,6 @@ Skill 不是热更新注册的。通常需要：
 
 - 先确保 Skill 文件最终被打进应用 assets
 - 检查 workspace 目录下是否真的存在 `skills/<name>/SKILL.md`
-- 确保 Skill 中引用的工具名和 `ToolExecutor#getName()` 返回值一致
-- 如果 Skill 依赖业务 Tool，优先参考 `ToolExecutor#getDefinition()` 中的描述、意图示例和参数样例来写调用
+- 确保 Skill 中引用的 shortcut 名和 `ShortcutDefinition#getName()` 返回值一致
+- 如果 Skill 依赖业务 shortcut，优先参考 `ShortcutDefinition` 中的描述、参数样例和 `requiredSkill`/`domain` 元数据来写调用
 - 如果 Skill 依赖 `requiredBins` / `requiredEnvs` / `os`，确认运行环境满足要求

@@ -320,7 +320,7 @@ adb logcat -v time AgentAndroid:D '*:S' | rg '\[AndroidToolManager\]\[(tool_call
 按通道过滤：
 
 ```bash
-adb logcat -v time AgentAndroid:D '*:S' | rg 'channel=call_android_tool'
+adb logcat -v time AgentAndroid:D '*:S' | rg 'channel=run_shortcut'
 ```
 
 离线过滤：

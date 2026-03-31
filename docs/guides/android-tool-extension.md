@@ -8,9 +8,10 @@
 
 当前工具能力的接入方式是：
 
-- Tool 实现在宿主 `app` 层
-- Tool 接口定义在 `agent-core` 的 `com.hh.agent.core.tool`
-- Tool 注册与多通道 schema 生成由 `agent-android` 的 `AgentInitializer` 和 `AndroidToolManager` 完成
+- shortcut 实现在宿主 `app` 层
+- shortcut 接口定义在 `agent-core` 的 `com.hh.agent.core.shortcut`
+- shortcut 注册与多通道 schema 生成由 `agent-android` 的 `AgentInitializer` 和 `AndroidToolManager` 完成
+- 已注册的业务 shortcut 会通过 `run_shortcut` 暴露给 LLM
 - `NativeMobileAgentApi` 当前位于 `com.hh.agent.core.api.impl`
 
 如果需要添加复杂工作流而不是单个工具，请参考 [Android Skill 扩展指南](./android-skill-extension.md)。
@@ -21,18 +22,16 @@
 
 ## 当前注册机制
 
-当前代码不是在 `Activity` 里逐个注册 Tool，而是在应用初始化时一次性传入 `Map<String, ToolExecutor>`：
+当前代码不是在 `Activity` 里逐个注册 Tool，而是在应用初始化时一次性传入 `Collection<? extends ShortcutExecutor>`：
 
 ```java
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 
-Map<String, ToolExecutor> tools = new HashMap<>();
-tools.put("display_notification", new DisplayNotificationTool(this));
-tools.put("read_clipboard", new ReadClipboardTool(this));
-tools.put("search_contacts", new SearchContactsTool());
-tools.put("send_im_message", new SendImMessageTool());
+List<ShortcutExecutor> shortcuts = new ArrayList<>();
+shortcuts.add(new SearchContactsShortcut());
+shortcuts.add(new SendImMessageShortcut());
 
-AgentInitializer.initialize(this, voiceRecognizer, tools, () -> {
+AgentInitializer.initialize(this, voiceRecognizer, shortcuts, viewContextSourcePolicy, () -> {
     // Agent 初始化完成
 });
 ```
@@ -54,37 +53,33 @@ AgentInitializer.setLogger(yourAgentLogger);
 - `app/src/main/java/com/hh/agent/app/App.java`
 - `agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java`
 - `agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java`
-- `agent-core/src/main/java/com/hh/agent/core/tool/`
+- `agent-core/src/main/java/com/hh/agent/core/shortcut/`
 
-## 步骤 1: 创建 Tool 类
+## 步骤 1: 创建 Shortcut 类
 
 建议放在宿主应用的工具目录，例如：
 
 ```text
-app/src/main/java/com/hh/agent/tool/MyTool.java
+app/src/main/java/com/hh/agent/shortcut/MyShortcut.java
 ```
 
 示例：
 
 ```java
-package com.hh.agent.tool;
+package com.hh.agent.shortcut;
 
-import com.hh.agent.core.tool.ToolDefinition;
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutDefinition;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;
 import org.json.JSONObject;
 
-public class MyTool implements ToolExecutor {
+public class MyShortcut implements ShortcutExecutor {
 
     @Override
-    public String getName() {
-        return "my_tool";
-    }
-
-    @Override
-    public ToolDefinition getDefinition() {
-        return ToolDefinition.builder("执行示例业务动作", "处理一个字符串值并返回结果")
-                .intentExamples("执行 demo 工具", "调用 my_tool 处理一个值")
+    public ShortcutDefinition getDefinition() {
+        return ShortcutDefinition.builder("my_tool", "执行示例业务动作", "处理一个字符串值并返回结果")
+                .domain("demo")
+                .requiredSkill("my_skill")
                 .stringParam("value", "示例参数", true, "demo")
                 .build();
     }
@@ -103,13 +98,15 @@ public class MyTool implements ToolExecutor {
 
 注意点：
 
-- 接口包名是 `com.hh.agent.core.tool.ToolExecutor`，不是旧文档中的 `com.hh.agent.library.ToolExecutor`
-- `getName()` 返回值要和注册到 `Map` 里的 key 保持一致
-- `getDefinition()` 负责提供模型选择工具所需的结构化信息
-- `ToolDefinition` 当前通过 builder/DSL 构建，核心字段包括：
+- 接口包名是 `com.hh.agent.core.shortcut.ShortcutExecutor`
+- `ShortcutDefinition.builder(name, title, description)` 的 `name` 就是对外暴露的 shortcut 名
+- `getDefinition()` 负责提供模型选择 shortcut 所需的结构化信息
+- `ShortcutDefinition` 当前通过 builder/DSL 构建，核心字段包括：
+  - `name`
   - `title`
   - `description`
-  - `intentExamples`（可选）
+  - `domain`
+  - `requiredSkill`
   - 参数定义及其 example
 - `description` 建议认真填写，它会直接进入传给 LLM 的工具说明文本，影响工具匹配质量
 - `execute(...)` 的入参类型是 `org.json.JSONObject`
@@ -118,20 +115,21 @@ public class MyTool implements ToolExecutor {
 
 ## 步骤 2: 在应用初始化时注册
 
-把 Tool 放进传给 `AgentInitializer.initialize(...)` 的 `Map<String, ToolExecutor>` 中。
+把 shortcut 放进传给 `AgentInitializer.initialize(...)` 的 `Collection<? extends ShortcutExecutor>` 中。
 
 示例：
 
 ```java
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 
-Map<String, ToolExecutor> tools = new HashMap<>();
-tools.put("my_tool", new MyTool());
+List<ShortcutExecutor> shortcuts = new ArrayList<>();
+shortcuts.add(new MyShortcut());
 
 AgentInitializer.initialize(
         this,
         voiceRecognizer,
-        tools,
+        shortcuts,
+        viewContextSourcePolicy,
         () -> {
             // 初始化完成后的逻辑
         }
@@ -141,15 +139,17 @@ AgentInitializer.initialize(
 `AgentInitializer` 内部会完成这些事：
 
 1. 创建 `AndroidToolManager`
-2. 调用 `registerTools(tools)`
+2. 调用 `registerShortcuts(shortcuts)`
 3. 调用 `initialize()`
-4. 生成 tools schema 并传给 `NativeMobileAgentApi`
+4. 已注册的 `ShortcutExecutor` 接入 `ShortcutRuntime`
+5. 生成 tools schema 并传给 `NativeMobileAgentApi`
 
 因此外部通常不需要手动 new `AndroidToolManager` 再逐个注册。
 
 当前相关类型位置：
 
-- `ToolExecutor` / `ToolDefinition` / `ToolResult`: `com.hh.agent.core.tool`
+- `ShortcutExecutor` / `ShortcutDefinition`: `com.hh.agent.core.shortcut`
+- `ToolResult`: `com.hh.agent.core.tool`
 - `NativeMobileAgentApi`: `com.hh.agent.core.api.impl`
 - `AgentEventListener`: `com.hh.agent.core.event`
 
@@ -191,34 +191,34 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 当前 Android 侧已经支持多通道工具：
 
-- `call_android_tool`
-  宿主 App 业务工具通道
+- `run_shortcut`
+  宿主 App 业务 shortcut runtime 通道
 - `android_view_context_tool`
   页面观察通道，负责拿当前页面的 `nativeViewXml` / observation snapshot
 - `android_gesture_tool`
   UI 执行通道，当前支持 observation 引用参数，并已具备真实 in-process 执行能力
 
-其中你在宿主 `app` 层注册的 `ToolExecutor`，目前都会被聚合进 `call_android_tool`。
+其中你在宿主 `app` 层注册的 `ShortcutExecutor`，会通过 `ShortcutRuntime` 进入 `run_shortcut`。
 
 也就是说，业务 Tool 的实际调用格式仍然是：
 
 ```json
 {
-  "function": "my_tool",
+  "shortcut": "my_tool",
   "args": {
     "value": "demo"
   }
 }
 ```
 
-当前 `call_android_tool` 的 schema 会自动聚合每个工具的：
+当前 `run_shortcut` 顶层 schema 已经收窄，不会再全量暴露所有 shortcut 细节。
 
-- 工具描述
-- 常见意图示例（如果提供）
-- 参数 schema
-- 最小参数样例
+因此新增业务 shortcut 时，通常只需要补好 `ShortcutDefinition`，并在需要时通过：
 
-因此新增业务 Tool 时，通常只需要补好 `ToolDefinition`，不需要再手改统一提示词。
+- `describe_shortcut`
+  按需查询某个 shortcut 的描述、参数 schema 和最小参数样例
+- 对应 skill
+  告诉 Agent 什么时候该使用这个 shortcut
 
 `android_view_context_tool` 和 `android_gesture_tool` 这两个通道现在推荐配合使用：
 
@@ -355,28 +355,30 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 当前 `app` 中已有的工具实现：
 
-- `app/src/main/java/com/hh/agent/tool/DisplayNotificationTool.java`
-- `app/src/main/java/com/hh/agent/tool/ReadClipboardTool.java`
-- `app/src/main/java/com/hh/agent/tool/SearchContactsTool.java`
-- `app/src/main/java/com/hh/agent/tool/SendImMessageTool.java`
+- `app/src/main/java/com/hh/agent/shortcut/SearchContactsShortcut.java`
+- `app/src/main/java/com/hh/agent/shortcut/SendImMessageShortcut.java`
 
 可以直接按这些实现的结构新增。
+
+## 当前默认路径
+
+当前仓库已经删除 `LegacyAndroidToolChannel` 和 `call_android_tool` 旧路径。
+
+新增业务 shortcut 时，应默认使用：
+
+- `ShortcutExecutor` -> `ShortcutRuntime` -> `run_shortcut`
+- 如缺少 shortcut 细节，则先调用 `describe_shortcut`
 
 ## 最小接入模板
 
 如果你只需要一个最小可运行模板，可以直接套下面这段：
 
 ```java
-public class MyTool implements ToolExecutor {
+public class MyShortcut implements ShortcutExecutor {
 
     @Override
-    public String getName() {
-        return "my_tool";
-    }
-
-    @Override
-    public ToolDefinition getDefinition() {
-        return ToolDefinition.builder("执行示例业务动作", "处理一个字符串值并返回结果")
+    public ShortcutDefinition getDefinition() {
+        return ShortcutDefinition.builder("my_tool", "执行示例业务动作", "处理一个字符串值并返回结果")
                 .stringParam("value", "示例参数", true, "demo")
                 .build();
     }

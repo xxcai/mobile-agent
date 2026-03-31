@@ -1,9 +1,9 @@
 flowchart LR
     subgraph Host["Host App / Java"]
-        host["Host app registers\nToolExecutor(s)"]
+        host["Host app registers\nShortcutExecutor(s)"]
         init["AgentInitializer"]
         manager["AndroidToolManager"]
-        legacy["LegacyAndroidToolChannel\n(call_android_tool)"]
+        shortcut["ShortcutRuntimeChannel\n(run_shortcut)"]
         gesture["GestureToolChannel\n(android_gesture_tool)"]
         view["ViewContextToolChannel\n(android_view_context_tool)"]
     end
@@ -21,7 +21,7 @@ flowchart LR
 
     host --> init
     init --> manager
-    manager --> legacy
+    manager --> shortcut
     manager --> gesture
     manager --> view
 

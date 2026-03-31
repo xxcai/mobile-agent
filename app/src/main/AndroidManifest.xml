@@ -26,31 +26,6 @@
         </activity>
 
         <activity
-            android:name=".ToolChannelTestActivity"
-            android:exported="true"
-            android:label="@string/tool_test_launcher_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".TouchDispatchProbeActivity"
-            android:exported="false"
-            android:label="@string/touch_dispatch_probe_launcher_name" />
-
-        <activity
-            android:name=".RecyclerViewSwipeProbeActivity"
-            android:exported="false"
-            android:label="@string/recycler_swipe_probe_launcher_name" />
-
-        <activity
-            android:name=".LongPressDoubleTapProbeActivity"
-            android:exported="false"
-            android:label="@string/long_press_double_tap_probe_launcher_name" />
-
-        <activity
             android:name=".ChatDetailActivity"
             android:exported="false" />
 

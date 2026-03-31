@@ -42,7 +42,7 @@
 这会直接影响意图路由：
 
 - 容易硬选一个不匹配的业务工具
-- 容易忽略 `call_android_tool.function` 里真正可选的业务能力
+- 容易忽略 `run_shortcut.shortcut` 里真正可选的业务能力
 - 容易在边界场景下过早或过晚地考虑视觉链路
 
 因此当前展示改成了更接近“路由卡片”的样式。
@@ -77,18 +77,18 @@ Required first: ...
 
 ## 一个更直观的例子
 
-以 `call_android_tool` 为例，当前 prompt 中它更接近下面这种阅读体验：
+以 `run_shortcut` 为例，当前 prompt 中它更接近下面这种阅读体验：
 
 ```text
-## call_android_tool
-Route role: 调用宿主 App 已注册的业务工具。适用于联系人、消息、通知、剪贴板等业务能力。不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。
+## run_shortcut
+Route role: 运行宿主 App 已注册的业务 shortcut。适用于联系人、消息等业务能力。不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。
 
 Input shape:
-Required first: function, args
-- function: string (required) - 要调用的业务工具名称，只能从 enum 列表中选择。按用户意图选择最匹配的工具
-  Choose from: search_contacts, send_im_message, read_clipboard, display_notification
-- args: object (required) - args 的字段结构由所选 function 决定
-  Nested shape is defined by the selected tool or described above.
+- Required first: shortcut, args
+- shortcut: string (required) - 要调用的业务 shortcut 名称，只能从 enum 列表中选择。优先依据 skill 指导选择
+  Choose from: search_contacts, send_im_message
+- args: object (required) - args 的字段结构由所选 shortcut 决定
+  Nested shape is defined by the selected shortcut or described above.
 ```
 
 而 `android_gesture_tool` 会更像：
@@ -116,7 +116,7 @@ Required first: action
 
 它的价值在于：
 
-- 当用户意图明显落在 `call_android_tool.function` 的候选能力里时，模型更容易先走业务通道
+- 当用户意图明显落在 `run_shortcut.shortcut` 的候选能力里时，模型更容易先走业务通道
 - 当用户意图明显超出这些业务能力，且更像页面元素选择、坐标点击、列表滑动时，模型更容易意识到这不是现有业务工具能直接完成的目标
 - 这样可以减少“先乱调一个业务工具再说”的情况
 
