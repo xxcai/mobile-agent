@@ -120,12 +120,13 @@ public class WorkspaceManager {
 
         for (String skillName : skillNames) {
             File targetSkillDir = new File(skillsDir, skillName);
-            if (!targetSkillDir.exists()) {
-                AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
-                copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
+            if (targetSkillDir.exists()) {
+                AgentLogs.debug(TAG, "builtin_skill_overwrite", "skill_name=" + skillName);
+                deleteRecursively(targetSkillDir);
             } else {
-                AgentLogs.debug(TAG, "builtin_skill_skip", "skill_name=" + skillName);
+                AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
             }
+            copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
         }
     }
 
@@ -171,6 +172,21 @@ public class WorkspaceManager {
                 // If not a file, try as directory
                 copyAssetDirectory(assetSubPath, destSubPath);
             }
+        }
+    }
+
+    private void deleteRecursively(File file) throws IOException {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+
+        if (file.exists() && !file.delete()) {
+            throw new IOException("Failed to delete " + file.getAbsolutePath());
         }
     }
 
