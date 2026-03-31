@@ -12,6 +12,9 @@ public final class ViewObservationSnapshot {
     public final long createdAtEpochMs;
     public final boolean currentTurnOnly;
     public final String nativeViewXml;
+    public final String visualObservationJson;
+    public final String screenSnapshot;
+    public final String hybridObservationJson;
 
     public ViewObservationSnapshot(String snapshotId,
                                    String activityClassName,
@@ -19,7 +22,10 @@ public final class ViewObservationSnapshot {
                                    String targetHint,
                                    long createdAtEpochMs,
                                    boolean currentTurnOnly,
-                                   String nativeViewXml) {
+                                   String nativeViewXml,
+                                   String visualObservationJson,
+                                   String screenSnapshot,
+                                   String hybridObservationJson) {
         this.snapshotId = snapshotId;
         this.activityClassName = activityClassName;
         this.source = source;
@@ -27,5 +33,8 @@ public final class ViewObservationSnapshot {
         this.createdAtEpochMs = createdAtEpochMs;
         this.currentTurnOnly = currentTurnOnly;
         this.nativeViewXml = nativeViewXml;
+        this.visualObservationJson = visualObservationJson;
+        this.screenSnapshot = screenSnapshot;
+        this.hybridObservationJson = hybridObservationJson;
     }
 }

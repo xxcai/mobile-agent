@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
@@ -14,7 +15,7 @@ final class ScreenSnapshotViewContextSourceHandler extends AbstractViewContextSo
 
     @Override
     public String getSourceDescription() {
-        return "screen_snapshot 当前返回 mock screenshot 引用";
+        return "screen_snapshot returns screenshot-backed OCR and UI analysis when a visual analyzer is installed";
     }
 
     @Override
@@ -23,9 +24,7 @@ final class ScreenSnapshotViewContextSourceHandler extends AbstractViewContextSo
 
     @Override
     public ToolResult execute(JSONObject params, String targetHint) {
-        return buildBaseResult(getSourceName(), targetHint)
-                .with("nativeViewXml", (String) null)
-                .with("webDom", (String) null)
-                .with("screenSnapshot", ViewContextToolChannel.MOCK_SCREEN_SNAPSHOT);
+        return ViewContextSnapshotProvider.getCurrentScreenSnapshot(targetHint)
+                .with("channel", ViewContextToolChannel.CHANNEL_NAME);
     }
 }

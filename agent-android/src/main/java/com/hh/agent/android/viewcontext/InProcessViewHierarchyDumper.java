@@ -34,6 +34,13 @@ public final class InProcessViewHierarchyDumper {
         if (activity == null) {
             return DumpResult.error("Foreground activity did not stabilize in time");
         }
+        return dumpHierarchy(activity, targetHint);
+    }
+
+    static DumpResult dumpHierarchy(@Nullable Activity activity, @Nullable String targetHint) {
+        if (activity == null) {
+            return DumpResult.error("Foreground activity did not stabilize in time");
+        }
 
         final Activity stableActivity = activity;
         final WeakReference<Activity> activityRef = new WeakReference<>(stableActivity);

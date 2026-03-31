@@ -11,8 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * View-context channel used to validate perception-channel routing.
- * Native XML is produced from the in-process host view tree; DOM / screenshot remain mock.
+ * View-context channel used to route the current page observation to the right perception source.
  */
 public class ViewContextToolChannel implements AndroidToolChannelExecutor {
 
@@ -24,7 +23,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     static final String SOURCE_ALL = "all";
 
     static final String MOCK_WEB_DOM =
-            "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">张三</button></div></body></html>";
+            "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">寮犱笁</button></div></body></html>";
 
     static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
     private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
@@ -47,11 +46,9 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "获取当前界面的视图上下文，用于在业务工具不能直接完成目标时先“看清界面”。"
-                                + "视图来源由 runtime 根据当前 Activity 和页面结构自动选择；当前支持 "
-                                + SOURCE_NATIVE_XML + " 与 " + SOURCE_WEB_DOM + "。")
+                        "Get the current page context for downstream reasoning when direct business tools cannot finish the task. Prefer hybridObservation.summary for page understanding, hybridObservation.actionableNodes for target selection, and hybridObservation.conflicts for confidence checks. Use nativeViewXml, screenVisionCompact, or webDom only as raw fallback evidence.")
                 .property("targetHint", ToolSchemaBuilder.string()
-                        .description("用户当前想操作的目标提示，可选。用于帮助后续视图定位，例如“第二个卡片”或“发送按钮”。"), false);
+                        .description("Optional hint about the target the user wants to act on, such as send button or second card."), false);
         return builder.build();
     }
 
@@ -93,6 +90,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         LinkedHashMap<String, ViewContextSourceHandler> handlers = new LinkedHashMap<>();
         register(handlers, new NativeXmlViewContextSourceHandler());
         register(handlers, new WebDomViewContextSourceHandler());
+        register(handlers, new ScreenSnapshotViewContextSourceHandler());
         return handlers;
     }
 
@@ -104,5 +102,4 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         }
         handlers.put(sourceName, handler);
     }
-
 }

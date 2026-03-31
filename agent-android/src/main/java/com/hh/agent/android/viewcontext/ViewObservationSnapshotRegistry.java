@@ -18,6 +18,33 @@ public final class ViewObservationSnapshotRegistry {
                                                          String source,
                                                          String targetHint,
                                                          String nativeViewXml) {
+        return createSnapshot(activityClassName, source, targetHint, nativeViewXml, null, null, null);
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot) {
+        return createSnapshot(
+                activityClassName,
+                source,
+                targetHint,
+                nativeViewXml,
+                visualObservationJson,
+                screenSnapshot,
+                null
+        );
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot,
+                                                         String hybridObservationJson) {
         ViewObservationSnapshot snapshot = new ViewObservationSnapshot(
                 "obs_" + UUID.randomUUID().toString().replace("-", ""),
                 activityClassName,
@@ -25,7 +52,10 @@ public final class ViewObservationSnapshotRegistry {
                 targetHint,
                 System.currentTimeMillis(),
                 true,
-                nativeViewXml
+                nativeViewXml,
+                visualObservationJson,
+                screenSnapshot,
+                hybridObservationJson
         );
         LATEST_SNAPSHOT.set(snapshot);
         return snapshot;
