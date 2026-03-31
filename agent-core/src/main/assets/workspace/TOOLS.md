@@ -47,6 +47,21 @@ When the user asks about page elements, visible cards, buttons, positions, or th
 
 Do not jump directly to gesture execution when the task still depends on understanding the current UI structure.
 
+## View Context Result Priorities
+
+After calling `android_view_context_tool`, interpret the result in this order:
+
+1. Use `hybridObservation.summary` for page-level understanding.
+2. Use `hybridObservation.actionableNodes` to choose visible targets and derive `observation.referencedBounds`.
+3. Check `hybridObservation.conflicts` before trusting weak or ambiguous candidates.
+4. Fall back to raw `nativeViewXml`, `screenVisionCompact`, or `webDom` only when `hybridObservation` is missing or insufficient for the current target.
+
+When `hybridObservation.actionableNodes` is present:
+
+- Prefer nodes with `source=fused` first.
+- Then prefer nodes with `source=native`.
+- Treat nodes with `source=vision_only` as weaker evidence and avoid using them for taps unless there is no better current-turn target evidence.
+
 ## Gesture Tool Rules
 
 For `android_gesture_tool`, always follow these rules:
@@ -94,7 +109,7 @@ Example `swipe`:
   "observation": {
     "snapshotId": "obs_xxx",
     "referencedBounds": "[0,287][1216,2381]",
-    "targetDescriptor": "朋友圈列表"
+    "targetDescriptor": "feed list"
   }
 }
 ```

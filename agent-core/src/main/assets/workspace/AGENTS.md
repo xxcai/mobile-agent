@@ -27,6 +27,7 @@ Tools are provided via function calling. Key points:
 - Do not switch to UI only because of temporary execution failure, permission issues, or missing arguments.
 - Treat "no suitable business tool" and "business tool failed this time" as different situations.
 - Use `android_view_context_tool` before `android_gesture_tool` when the current screen structure is still unclear.
+- After `android_view_context_tool`, prefer `hybridObservation.summary` for page understanding, `hybridObservation.actionableNodes` for target selection, and `hybridObservation.conflicts` for confidence checks. Inspect raw `nativeViewXml` or `screenVisionCompact` only as fallback evidence.
 - Do not guess tap or swipe coordinates.
 - When repeated tool results no longer change the evidence, stop exploring and answer with the best supported result.
 - Show progress quickly: begin the main response immediately, then choose the first tool call.
