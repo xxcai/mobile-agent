@@ -104,6 +104,11 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
     std::ostringstream ss;
 
     ss << "<skills>\n";
+    ss << "  <usage>";
+    ss << "Read a skill with read_file(\"skills/&lt;skill_name&gt;/SKILL.md\") before taking action. "
+       << "Skill names are workflow guides, not shortcut names. "
+       << "Do not call run_shortcut or describe_shortcut with a skill name.";
+    ss << "</usage>\n";
     for (const auto& skill : skills) {
         bool available = true;
         std::string missing_reason;

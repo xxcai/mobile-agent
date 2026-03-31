@@ -7,8 +7,10 @@ always: false
 
 # IM 消息发送助手
 
-**CRITICAL — 当联系人尚未明确时，MUST 先用 `read_file` 读取并遵循 `skills/contact_resolver/SKILL.md`，先得到稳定的 `contact_id`，再执行发送。**
-**CRITICAL — 调用 `send_im_message` 前，MUST 先读取 `skills/im_sender/references/send-im-message.md`，不要猜测参数或成功条件。**
+**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
+**CRITICAL — 如果联系人尚未明确，第二步 MUST 读取 `skills/contact_resolver/SKILL.md`，先得到稳定的 `contact_id`。**
+**CRITICAL — 在完成前两步之前，不要调用任何业务 shortcut。**
+**CRITICAL — 调用 `send_im_message` 前，MUST 读取 `skills/im_sender/references/send-im-message.md`，不要猜测参数或成功条件。**
 
 当用户的目标是“把一段信息传递给某个人”时，使用此 skill。
 
@@ -17,15 +19,10 @@ always: false
 - 这是一个 shortcut-guided skill：先依据本 skill 决定流程，再调用具体 shortcut
 - 当前 skill 只推荐一个 shortcut：
   - `send_im_message`
-- `im_sender` 是 skill 名，不是 shortcut 名
-- 不要对 `im_sender` 调用 `describe_shortcut`
-- 不要调用 `run_shortcut`，`shortcut` 为 `im_sender`
 - 当联系人尚未明确时，不要在本 skill 内自己处理联系人搜索；应先遵循 `contact_resolver`
 - `send_im_message` 的调用约束和错误处理细节在 `skills/im_sender/references/send-im-message.md`
-- 对发送类请求，只有在当前回合 `send_im_message` 成功返回后，才能向用户确认“已发送”
 - 当当前证据不足以安全发送时，不要继续执行发送动作
 - 不要为了完成发送而绕去 `android_gesture_tool` 模拟点击发送按钮
-- 不要把上一轮已经发送成功的结果，当作这一轮“再发一条”或“继续发给他”的完成证据
 
 ## 触发条件
 

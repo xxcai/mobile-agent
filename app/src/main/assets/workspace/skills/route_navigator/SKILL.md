@@ -7,6 +7,10 @@ always: false
 
 # 页面跳转助手
 
+**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
+**CRITICAL — 在读完 shared 之前，不要调用 `run_shortcut("route_navigator")` 或 `describe_shortcut("route_navigator")`。**
+**CRITICAL — 在完成目标判断前，不要直接调用 `resolve_route` 或 `open_resolved_route`。**
+
 当用户的目标是“进入某个页面或业务入口”时，使用此 skill。
 
 ## 使用原则
