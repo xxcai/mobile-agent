@@ -14,6 +14,12 @@
 - 已注册的业务 shortcut 会通过 `run_shortcut` 暴露给 LLM
 - `NativeMobileAgentApi` 当前位于 `com.hh.agent.core.api.impl`
 
+当前推荐搭配方式是：
+
+- 新增业务原子能力时，先新增 `ShortcutExecutor`
+- 再补对应 skill 或接入现有 skill
+- 如某个 shortcut 的细节较多，再补 `references/`
+
 如果需要添加复杂工作流而不是单个工具，请参考 [Android Skill 扩展指南](./android-skill-extension.md)。
 
 如果你要扩展的是页面感知 / UI 执行链路，而不是宿主业务工具，先看：
