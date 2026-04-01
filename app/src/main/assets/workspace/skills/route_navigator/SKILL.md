@@ -20,6 +20,9 @@ always: false
   - `resolve_route`
   - `open_resolved_route`
 - 先解析，再打开；不要跳过解析步骤直接猜测目标 URI
+- 当页面打开还带有 route 参数时，先查看 `open_resolved_route` 的定义，再按其 schema 组装参数
+- route 参数一律放在 `routeArgs` 里，不要把 `source`、`payload`、`page`、`module` 这类页面参数直接放到 `open_resolved_route` 顶层
+- 当 manifest 声明某个参数需要编码时，必须在对应 `routeArgs.<name>` 中显式提供 `encoded: true|false`
 - 当解析结果是多个候选项时，必须让用户确认目标
 - 当解析线索不足时，必须先追问，不要直接尝试打开
 - 不要为了完成页面跳转而绕去 `android_gesture_tool` 模拟点击页面入口
@@ -71,6 +74,7 @@ always: false
 - 已经拿到明确的 `targetType`、`uri`、`title`
 - 已完成候选确认
 - 可以正式执行页面打开
+- 如页面还需要 route 参数，按 `routeArgs` 传入
 
 调用格式：
 
@@ -80,10 +84,31 @@ always: false
   "args": {
     "targetType": "miniapp",
     "uri": "h5://1001001",
-    "title": "费控报销"
+    "title": "费控报销",
+    "routeArgs": {
+      "someParam": {
+        "value": "raw value",
+        "encoded": false
+      }
+    }
   }
 }
 ```
+
+参数约束：
+
+- `open_resolved_route` 顶层只放目标信息：
+  - `targetType`
+  - `uri`
+  - `title`
+  - 可选 `routeArgs`
+- 如果没有 route 参数，不要伪造 `routeArgs`
+- 如果有 route 参数：
+  - 每个参数名都作为 `routeArgs` 的 key
+  - 每项格式固定为 `{ "value": "...", "encoded": true|false }`
+- 如果参数值是你刚根据用户自然语言整理出的原始值，通常传 `encoded: false`
+- 如果用户明确给的是已经编码后的值，或你明确知道该值已经完成所需编码，才传 `encoded: true`
+- 不确定 shortcut 细节时，先调用 `describe_shortcut("open_resolved_route")`，不要猜参数结构
 
 ## 工作流程
 
@@ -172,6 +197,15 @@ always: false
 - 已经有明确的 `uri`
 - 已经有明确的 `title`
 
+如果页面还需要 route 参数：
+
+- 先根据用户输入整理出原始参数值
+- 再放进 `routeArgs`
+- 不要把 route 参数直接写到顶层 `args`
+- 若该参数需要编码：
+  - 原始值传 `encoded: false`
+  - 已编码值传 `encoded: true`
+
 调用：
 
 ```json
@@ -180,7 +214,13 @@ always: false
   "args": {
     "targetType": "已解析的目标类型",
     "uri": "已解析的目标 URI",
-    "title": "已解析的目标标题"
+    "title": "已解析的目标标题",
+    "routeArgs": {
+      "参数名": {
+        "value": "参数值",
+        "encoded": false
+      }
+    }
   }
 }
 ```
@@ -219,6 +259,8 @@ always: false
 处理：
 
 - 重新检查 `resolve_route` 的输出
+- 重新检查 `open_resolved_route` 是否误把 route 参数放到了顶层
+- 重新检查需要编码的参数是否放在 `routeArgs` 中，并显式提供了 `encoded`
 - 必要时重新解析，不要直接盲目重试
 
 ### `execution_failed`
@@ -253,7 +295,77 @@ Agent：
 已为您打开费控报销。
 ```
 
-### 示例 2：多个候选，先确认
+### 示例 2：带 route 参数的 native 页面
+
+用户：
+
+```text
+打开创建群聊页面，source 用 agent card
+```
+
+Agent：
+
+1. 调用 `resolve_route`
+2. 得到 `resolved`，target 为 `ui://myapp.im/createGroup`
+3. 因为页面带 route 参数，先确认 `open_resolved_route` 的参数格式
+4. 调用：
+
+```json
+{
+  "shortcut": "open_resolved_route",
+  "args": {
+    "targetType": "native",
+    "uri": "ui://myapp.im/createGroup",
+    "title": "createGroup",
+    "routeArgs": {
+      "source": {
+        "value": "agent card",
+        "encoded": false
+      }
+    }
+  }
+}
+```
+
+5. 返回：
+
+```text
+已为您打开创建群聊页面。
+```
+
+### 示例 3：需要编码的结构化参数
+
+用户：
+
+```text
+打开报销记录页面，payload 传 {"tab":"message"}
+```
+
+Agent：
+
+1. 调用 `resolve_route`
+2. 得到 `resolved`，target 为 `ui://myapp.expense/records`
+3. 把用户给出的结构化负载整理成参数原始值
+4. 调用：
+
+```json
+{
+  "shortcut": "open_resolved_route",
+  "args": {
+    "targetType": "native",
+    "uri": "ui://myapp.expense/records",
+    "title": "records",
+    "routeArgs": {
+      "payload": {
+        "value": "{\"tab\":\"message\"}",
+        "encoded": false
+      }
+    }
+  }
+}
+```
+
+### 示例 4：多个候选，先确认
 
 用户：
 
@@ -275,7 +387,7 @@ Agent：
 请问您要打开哪一个？
 ```
 
-### 示例 3：线索不足，先追问
+### 示例 5：线索不足，先追问
 
 用户：
 
@@ -297,5 +409,7 @@ Agent：
 - 不要跳过 `resolve_route` 直接猜测 URI
 - 不要在多个候选目标之间自行选择
 - 不要在线索不足时直接打开页面
+- 不要把 route 参数直接塞到 `open_resolved_route.args` 顶层
+- 不要在缺少 `encoded` 时假装已经满足了需要编码的参数契约
 - 不要把打开失败描述成成功
 - 不要为了进入页面绕去 `android_gesture_tool` 模拟点击页面入口

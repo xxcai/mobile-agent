@@ -1,0 +1,33 @@
+{
+  "module": "myapp.app",
+  "routes": [
+    {
+      "path": "ui://myapp.im/createGroup",
+      "description": "创建群聊页面",
+      "params": [
+        {
+          "name": "source",
+          "required": false,
+          "description": "入口来源；如果最终拼到 query 参数里且包含中文、空格或保留字符，需要按 url 编码；调用侧需要显式标记当前值是否已编码。",
+          "encode": "url"
+        }
+      ]
+    },
+    {
+      "path": "ui://myapp.search/selectActivity",
+      "description": "搜索页范围选择页面"
+    },
+    {
+      "path": "ui://myapp.expense/records",
+      "description": "报销记录页面",
+      "params": [
+        {
+          "name": "payload",
+          "required": false,
+          "description": "报销过滤条件；如果需要传递结构化负载，先转紧凑 JSON 再做 base64，调用侧需要显式标记当前值是否已编码。",
+          "encode": "base64"
+        }
+      ]
+    }
+  ]
+}
