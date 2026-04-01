@@ -90,6 +90,13 @@
 4. 若不能唯一收敛，则继续走全局 native route 召回
 5. 如果多个目标同时命中，返回 `candidates`
 
+当前 LLM 编排边界是：
+
+- `resolved`：直接打开
+- `candidates`：先尝试受控代选；若不能唯一判定，则定向追问
+- `not_found`：不自动重试，只向用户说明未命中并提示补充线索
+- `insufficient_hint`：直接追问更具体的页面、模块或小程序信息
+
 ### 输出
 
 `resolve_route` 返回 `RouteResolution`，状态包括：
@@ -110,6 +117,51 @@
 - native source 内部保留模块和页面描述
 - miniapp source 内部保留 `appName`
 - 对外统一映射成 `RouteTarget.title`
+
+### `candidates` 的 LLM 处理边界
+
+当前允许 LLM 直接代选的前提是：
+
+- 用户原话里存在显式区分词
+- 且该区分词能唯一映射到单个候选
+
+当前允许作为显式区分词的主要类型：
+
+- `module` 词，例如：`登录`、`账号安全`、`审批`
+- 业务域词，例如：`IM`、`报销`、`通讯录`
+- 入口来源词，例如：`首页入口`、`消息入口`
+- 页面限定短语，例如：`登录里的`、`设置里的`
+
+以下情况不允许直接代选，必须追问：
+
+- 只有泛词，例如：`详情`、`设置`、`记录`、`密码`
+- 区分词同时映射到多个候选
+- 候选跨模块且用户原话没有提供足够差异线索
+
+推荐追问方式：
+
+- 围绕候选差异直接追问，例如：
+  - `您要打开登录里的修改密码，还是账号安全里的修改密码？`
+- 不要机械抛出完整候选列表后只问“您要哪一个”
+
+### `not_found` 的 LLM 处理边界
+
+当 `resolve_route` 返回 `not_found` 时：
+
+- 本回合只允许两种动作：
+  - 向用户说明未找到
+  - 给出补充线索建议
+- 本回合禁止：
+  - 再次调用 `resolve_route`
+  - 改写 `keywords_csv` 后重试
+  - 把原词拆成更短关键词再试
+  - 猜测 `open_resolved_route`
+
+建议补充的信息类型：
+
+- `module` / 业务域词
+- 页面功能词
+- 常见别名或口语化叫法
 
 ## open_resolved_route
 
@@ -178,8 +230,15 @@
   - 传原始值时显式传 `encoded=false`
   - 传已编码值时显式传 `encoded=true`
 - 如果收到错误 `routeArgs.<name>.encoded is required`，应补上 `encoded` 后重试，不要继续猜测
-- 如果 `resolve_route` 返回 `candidates`，先让用户确认，不要在多个候选之间自行单选
+- 如果 `resolve_route` 返回 `candidates`：
+  - 只有用户原话中存在显式区分词且能唯一映射时，才允许直接代选
+  - 否则必须围绕候选差异追问，不要机械复述完整候选列表
 - 用户一旦明确回复“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”这类确认语句，应直接把上一轮候选映射为一个明确 target，并调用 `open_resolved_route`
+- 如果上一轮已经围绕候选差异追问，而用户只回复“登录 / 账号安全 / 设置 / IM / 报销”这类差异词，也应直接映射回上一轮候选并调用 `open_resolved_route`
+- 如果 `resolve_route` 返回 `not_found`：
+  - 不自动 rewrite
+  - 不自动再次调用 `resolve_route`
+  - 只回抛给用户，并提示补模块 / 功能 / 别名线索
 
 ### encode + encoded 规则
 
@@ -374,14 +433,20 @@ native registry model 和 bridge 适配器位于 `agent-android`：
 - `encode=url` 路径可正确补编码
 - `encode=base64` 路径可正确补编码
 - 当故意缺少 `encoded` 时，LLM 能根据错误 message 修正并重试
-- 当 `resolve_route` 返回多个 `candidates` 时，LLM 会先让用户确认
+- 当 `resolve_route` 返回多个 `candidates` 时，LLM 已支持：
+  - 用户原话含显式区分词时直接代选
+  - 无法唯一判定时围绕候选差异定向追问
 - 用户确认候选后，LLM 会继续命中 `route_navigator` 并直接调用 `open_resolved_route`
+- 当 `resolve_route` 返回 `not_found` 时，LLM 会：
+  - 只调用一次 `resolve_route`
+  - 不自动重试
+  - 只提示补模块 / 功能 / 别名信息
 
 当前仍未增强的部分：
 
 - route 召回虽然已支持 `keywords`，但仍主要依赖字符串包含匹配
-- 尚未引入 LLM 在 `candidates` 层做自动判断
 - 尚未引入 `not_found` 后的 query rewrite
+- 尚未引入代码层的候选选择强约束 shortcut
 
 ## App 层接入点
 
