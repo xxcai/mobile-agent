@@ -5,7 +5,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 final class RouteManifestParser {
 
@@ -35,6 +37,7 @@ final class RouteManifestParser {
     private RouteManifestRoute parseRoute(JSONObject routeJson) throws JSONException {
         String path = requireText(routeJson, "path");
         String description = normalizeText(routeJson.optString("description", null));
+        List<String> keywords = parseKeywords(routeJson.optJSONArray("keywords"));
         JSONArray paramsJson = routeJson.optJSONArray("params");
         List<RouteManifestParam> params = new ArrayList<>();
         if (paramsJson != null) {
@@ -43,7 +46,21 @@ final class RouteManifestParser {
                 params.add(parseParam(paramJson));
             }
         }
-        return new RouteManifestRoute(path, description, params);
+        return new RouteManifestRoute(path, description, keywords, params);
+    }
+
+    private List<String> parseKeywords(JSONArray keywordsJson) {
+        if (keywordsJson == null || keywordsJson.length() == 0) {
+            return new ArrayList<>();
+        }
+        Set<String> normalized = new LinkedHashSet<>();
+        for (int i = 0; i < keywordsJson.length(); i++) {
+            String keyword = normalizeText(keywordsJson.optString(i, null));
+            if (keyword != null) {
+                normalized.add(keyword);
+            }
+        }
+        return new ArrayList<>(normalized);
     }
 
     private RouteManifestParam parseParam(JSONObject paramJson) throws JSONException {

@@ -9,6 +9,7 @@ import com.hh.agent.android.route.QuerySourceBackedMiniAppRouteBridge;
 import com.hh.agent.android.route.RegistryBackedNativeRouteBridge;
 import com.hh.agent.android.route.RouteResolver;
 import com.hh.agent.app.manifest.AndroidRouteManifestAssetSource;
+import com.hh.agent.app.manifest.ManifestBackedRouteModuleResolver;
 import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
 import com.hh.agent.app.manifest.RouteManifestAssetSource;
 import com.hh.agent.app.manifest.RouteManifestLoader;
@@ -28,6 +29,7 @@ public final class RouteShortcutProvider {
     public static List<ShortcutExecutor> createShortcuts(android.content.Context context) {
         AndroidRouteManifestAssetSource assetSource = new AndroidRouteManifestAssetSource(context);
         NativeRouteRegistry nativeRouteRegistry = createNativeRouteRegistry(assetSource);
+        ManifestBackedRouteModuleResolver routeModuleResolver = createRouteModuleResolver(assetSource);
         ManifestBackedRouteUriComposer routeUriComposer = createRouteUriComposer(assetSource);
         MiniAppQuerySource miniAppQuerySource = DefaultMockMiniAppQuerySource.create();
         AndroidRouteRuntime routeRuntime = new AndroidRouteRuntime(
@@ -39,7 +41,7 @@ public final class RouteShortcutProvider {
                 new DemoHostRouteInvoker(context));
 
         List<ShortcutExecutor> shortcuts = new ArrayList<>();
-        shortcuts.add(new ResolveRouteShortcut(routeRuntime));
+        shortcuts.add(new ResolveRouteShortcut(routeRuntime, routeModuleResolver));
         shortcuts.add(new OpenResolvedRouteShortcut(routeRuntime, routeUriComposer));
         return shortcuts;
     }
@@ -62,6 +64,14 @@ public final class RouteShortcutProvider {
             return ManifestBackedRouteUriComposer.fromAssetSource(assetSource);
         } catch (IOException | IllegalArgumentException exception) {
             throw new IllegalStateException("Failed to build route uri composer", exception);
+        }
+    }
+
+    static ManifestBackedRouteModuleResolver createRouteModuleResolver(RouteManifestAssetSource assetSource) {
+        try {
+            return ManifestBackedRouteModuleResolver.fromAssetSource(assetSource);
+        } catch (IOException | IllegalArgumentException exception) {
+            throw new IllegalStateException("Failed to build route module resolver", exception);
         }
     }
 }

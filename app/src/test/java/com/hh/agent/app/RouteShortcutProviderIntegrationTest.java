@@ -1,6 +1,7 @@
 package com.hh.agent.app;
 
 import com.hh.agent.android.route.NativeRouteRegistry;
+import com.hh.agent.app.manifest.ManifestBackedRouteModuleResolver;
 import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
 import com.hh.agent.app.manifest.RouteManifestAssetSource;
 
@@ -25,10 +26,12 @@ public class RouteShortcutProviderIntegrationTest {
 
         NativeRouteRegistry registry = RouteShortcutProvider.createNativeRouteRegistry(assetSource);
 
-        assertEquals(3, registry.getEntries().size());
+        assertEquals(6, registry.getEntries().size());
         assertEquals("ui://myapp.im/createGroup", registry.getEntries().get(0).getUri());
         assertEquals("myapp.app", registry.getEntries().get(0).getModule());
         assertEquals("ui://myapp.expense/records", registry.getEntries().get(2).getUri());
+        assertEquals("ui://myapp.login/resetPassword", registry.getEntries().get(3).getUri());
+        assertEquals("myapp.settings", registry.getEntries().get(5).getModule());
     }
 
     @Test
@@ -43,6 +46,16 @@ public class RouteShortcutProviderIntegrationTest {
                         .put("encoded", false)));
 
         assertEquals("ui://myapp.im/createGroup?source=agent+card", uri);
+    }
+
+    @Test
+    public void createRouteModuleResolver_buildsResolverFromManifestAssets() throws Exception {
+        TestFileRouteManifestAssetSource assetSource = new TestFileRouteManifestAssetSource(
+                Paths.get("src/main/assets/mobile_agent/manifests"));
+
+        ManifestBackedRouteModuleResolver resolver = RouteShortcutProvider.createRouteModuleResolver(assetSource);
+
+        assertEquals("myapp.app", resolver.inferModule(java.util.Arrays.asList("创建群聊", "建群")));
     }
 
     private static final class TestFileRouteManifestAssetSource implements RouteManifestAssetSource {

@@ -82,6 +82,14 @@
 - `miniAppName` 适用于已知小程序名称
 - `keywords` 是兜底线索
 
+当前 native route 的召回顺序是：
+
+1. 如果已知精确 `uri`，直接走 `uri_direct`
+2. 如果只给了 `keywords`，runtime 会先尝试根据 manifest `routes[].keywords` 推断单一 `nativeModule`
+3. 若成功收敛到单一 module，优先走 module 内召回
+4. 若不能唯一收敛，则继续走全局 native route 召回
+5. 如果多个目标同时命中，返回 `candidates`
+
 ### 输出
 
 `resolve_route` 返回 `RouteResolution`，状态包括：
@@ -170,6 +178,8 @@
   - 传原始值时显式传 `encoded=false`
   - 传已编码值时显式传 `encoded=true`
 - 如果收到错误 `routeArgs.<name>.encoded is required`，应补上 `encoded` 后重试，不要继续猜测
+- 如果 `resolve_route` 返回 `candidates`，先让用户确认，不要在多个候选之间自行单选
+- 用户一旦明确回复“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”这类确认语句，应直接把上一轮候选映射为一个明确 target，并调用 `open_resolved_route`
 
 ### encode + encoded 规则
 
@@ -204,6 +214,8 @@
 demo 当前提供的样例文件是：
 
 - [app.json](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/mobile_agent/manifests/app.json)
+- [login.json](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/mobile_agent/manifests/login.json)
+- [settings.json](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/assets/mobile_agent/manifests/settings.json)
 
 运行时会扫描 `mobile_agent/manifests/` 目录下所有 `.json` 文件，并合并成 `NativeRouteRegistry`。
 
@@ -216,6 +228,7 @@ demo 当前提供的样例文件是：
     {
       "path": "ui://myapp.im/createGroup",
       "description": "创建群聊页面",
+      "keywords": ["IM", "群聊", "建群", "创建群聊"],
       "params": [
         {
           "name": "source",
@@ -235,6 +248,7 @@ demo 当前提供的样例文件是：
 - 顶层 `routes`：必填数组，可为空但不能缺失
 - `routes[].path`：必填，基础 URI
 - `routes[].description`：选填，页面说明
+- `routes[].keywords`：选填，召回词面数组；首阶段类型固定为 `string[]`
 - `routes[].params`：选填，参数声明数组
 - `params[].name`：必填
 - `params[].required`：选填，默认 `false`
@@ -247,6 +261,34 @@ demo 当前提供的样例文件是：
 - `shortcuts`
 - `skills`
 - route 级别的 `module`
+- `moduleKeywords` / `routeKeywords` 一类类型化字段
+
+### keywords 约束
+
+`routes[].keywords` 的设计边界如下：
+
+- 仅用于召回增强
+- 第一阶段固定为纯字符串数组
+- 不区分“module 词”和“route 词”
+- 不承担唯一定位责任
+- 命中多个 route 或多个 module 时，合法结果是 `candidates`
+
+建议：
+
+- 每个 route 控制在 3-8 个关键词
+- 同时放入：
+  - 页面常见别名
+  - 业务域 / module 线索
+
+例如：
+
+```json
+{
+  "path": "ui://myapp.login/resetPassword",
+  "description": "修改密码页面",
+  "keywords": ["登录", "密码", "修改密码", "忘记密码", "找回密码"]
+}
+```
 
 ### 当前代码落点
 
@@ -254,6 +296,7 @@ manifest 相关实现位于：
 
 - [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestLoader.java)
 - [RouteManifestParser.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestParser.java)
+- [ManifestBackedRouteModuleResolver.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/ManifestBackedRouteModuleResolver.java)
 - [ManifestBackedRouteUriComposer.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/ManifestBackedRouteUriComposer.java)
 
 native registry model 和 bridge 适配器位于 `agent-android`：
@@ -263,6 +306,22 @@ native registry model 和 bridge 适配器位于 `agent-android`：
 - [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java)
 
 当前运行时已经由 manifest 驱动，不再依赖 `DefaultNativeRouteRegistry` 参与装配。
+
+### 当前召回能力边界
+
+当前 native route 召回已经包含：
+
+- `uri`
+- `module`
+- path 末段页面名
+- `description`
+- route `keywords`
+
+其中：
+
+- module-first 收缩由 [ResolveRouteShortcut.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/shortcut/ResolveRouteShortcut.java) 在进入 resolver 前完成
+- route `keywords` 命中由 [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java) 负责
+- 当前仍使用字符串包含匹配，不包含 embedding、query rewrite 或 LLM 候选判定
 
 ## 验证入口
 
@@ -281,6 +340,32 @@ native registry model 和 bridge 适配器位于 `agent-android`：
 
 成功用例会打开 [RouteNativeDemoActivity.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/RouteNativeDemoActivity.java) 展示最终 URI。
 
+### 召回手工测试样本
+
+当前 demo 已补最小冲突样本，可直接用 LLM 对话验证召回行为。
+
+建议至少覆盖：
+
+1. 单 module 单 route 命中
+   输入：`打开忘记密码页面`
+   预期：命中 `ui://myapp.login/resetPassword`
+
+2. 同 module 多 route 候选
+   输入：`打开登录密码页面`
+   预期：优先收缩到 `myapp.login`，再因同 module 下多个 route 同时命中而返回 `candidates`
+
+3. 多 module 冲突候选
+   输入：`打开修改密码页面`
+   预期：`myapp.login/changePassword` 与 `myapp.settings/changePassword` 同时命中，返回 `candidates`
+4. 候选确认后直接打开
+   输入：
+   - `打开修改密码页面`
+   - `第一个`
+   预期：
+   - 第一轮返回 `candidates`
+   - 第二轮直接打开 `ui://myapp.login/changePassword`
+   - 不应再出现 `open_schema`、`open_uri` 这类不存在或不应使用的 shortcut
+
 ### LLM 端到端验证
 
 当前已验证：
@@ -289,11 +374,14 @@ native registry model 和 bridge 适配器位于 `agent-android`：
 - `encode=url` 路径可正确补编码
 - `encode=base64` 路径可正确补编码
 - 当故意缺少 `encoded` 时，LLM 能根据错误 message 修正并重试
+- 当 `resolve_route` 返回多个 `candidates` 时，LLM 会先让用户确认
+- 用户确认候选后，LLM 会继续命中 `route_navigator` 并直接调用 `open_resolved_route`
 
 当前仍未增强的部分：
 
-- route 自然语言召回仍主要依赖 `uri/module/title/description` 的字符串命中
-- 对多别名页面的召回能力仍需要单独 feature 处理
+- route 召回虽然已支持 `keywords`，但仍主要依赖字符串包含匹配
+- 尚未引入 LLM 在 `candidates` 层做自动判断
+- 尚未引入 `not_found` 后的 query rewrite
 
 ## App 层接入点
 

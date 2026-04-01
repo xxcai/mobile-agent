@@ -30,7 +30,11 @@ final class RouteManifest {
     NativeRouteRegistry toNativeRouteRegistry() {
         List<NativeRouteRegistryEntry> entries = new ArrayList<>();
         for (RouteManifestRoute route : routes) {
-            entries.add(new NativeRouteRegistryEntry(route.getPath(), module, route.getDescription()));
+            entries.add(new NativeRouteRegistryEntry(
+                    route.getPath(),
+                    module,
+                    route.getDescription(),
+                    route.getKeywords()));
         }
         return new NativeRouteRegistry(entries);
     }

@@ -42,7 +42,7 @@ public class RouteManifestLoaderTest {
                 .addFile("mobile_agent/manifests/app.json", "{\n"
                         + "  \"module\": \"myapp.app\",\n"
                         + "  \"routes\": [\n"
-                        + "    {\"path\": \"ui://myapp.im/createGroup\", \"description\": \"创建群聊页面\"},\n"
+                        + "    {\"path\": \"ui://myapp.im/createGroup\", \"description\": \"创建群聊页面\", \"keywords\": [\"IM\", \"群聊\"]},\n"
                         + "    {\"path\": \"ui://myapp.expense/records\", \"description\": \"报销记录页面\", \"params\": [{\"name\": \"payload\", \"required\": true}]}\n"
                         + "  ]\n"
                         + "}");
@@ -53,6 +53,22 @@ public class RouteManifestLoaderTest {
         assertEquals("ui://myapp.im/createGroup", registry.getEntries().get(0).getUri());
         assertEquals("myapp.app", registry.getEntries().get(0).getModule());
         assertEquals("报销记录页面", registry.getEntries().get(1).getDescription());
+    }
+
+    @Test
+    public void loadManifests_parsesKeywordsAsNormalizedDistinctList() throws Exception {
+        InMemoryRouteManifestAssetSource assetSource = new InMemoryRouteManifestAssetSource("app.json")
+                .addFile("mobile_agent/manifests/app.json", "{\n"
+                        + "  \"module\": \"myapp.app\",\n"
+                        + "  \"routes\": [{\"path\": \"ui://myapp.im/createGroup\", \"keywords\": [\"IM\", \"群聊\", \"IM\", \"  建群  \"]}]\n"
+                        + "}");
+
+        RouteManifest manifest = new RouteManifestLoader(assetSource).loadManifests().get(0);
+
+        assertEquals(3, manifest.getRoutes().get(0).getKeywords().size());
+        assertEquals("IM", manifest.getRoutes().get(0).getKeywords().get(0));
+        assertEquals("群聊", manifest.getRoutes().get(0).getKeywords().get(1));
+        assertEquals("建群", manifest.getRoutes().get(0).getKeywords().get(2));
     }
 
     @Test

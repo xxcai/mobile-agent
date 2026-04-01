@@ -4,6 +4,7 @@
     {
       "path": "ui://myapp.im/createGroup",
       "description": "创建群聊页面",
+      "keywords": ["IM", "群聊", "建群", "创建群聊"],
       "params": [
         {
           "name": "source",
@@ -15,11 +16,13 @@
     },
     {
       "path": "ui://myapp.search/selectActivity",
-      "description": "搜索页范围选择页面"
+      "description": "搜索页范围选择页面",
+      "keywords": ["搜索", "搜索范围", "范围选择"]
     },
     {
       "path": "ui://myapp.expense/records",
       "description": "报销记录页面",
+      "keywords": ["报销", "报销记录", "费用记录"],
       "params": [
         {
           "name": "payload",

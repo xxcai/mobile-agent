@@ -7,11 +7,14 @@ import java.util.List;
 final class RouteManifestRoute {
     private final String path;
     private final String description;
+    private final List<String> keywords;
     private final List<RouteManifestParam> params;
 
-    RouteManifestRoute(String path, String description, List<RouteManifestParam> params) {
+    RouteManifestRoute(String path, String description, List<String> keywords, List<RouteManifestParam> params) {
         this.path = requireText(path, "path");
         this.description = normalizeText(description);
+        this.keywords = Collections.unmodifiableList(new ArrayList<>(
+                keywords == null ? Collections.emptyList() : keywords));
         this.params = Collections.unmodifiableList(new ArrayList<>(params == null ? Collections.emptyList() : params));
     }
 
@@ -21,6 +24,10 @@ final class RouteManifestRoute {
 
     String getDescription() {
         return description;
+    }
+
+    List<String> getKeywords() {
+        return keywords;
     }
 
     List<RouteManifestParam> getParams() {

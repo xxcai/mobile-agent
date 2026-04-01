@@ -20,6 +20,8 @@ always: false
   - `resolve_route`
   - `open_resolved_route`
 - 先解析，再打开；不要跳过解析步骤直接猜测目标 URI
+- 如果上一轮刚给用户列出 route `candidates`，而用户这一轮回复“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”这类确认语句，当前回合仍然继续使用本 skill
+- 候选一旦被用户明确确认，直接用该候选的 `targetType + uri + title` 调用 `open_resolved_route`
 - 当页面打开还带有 route 参数时，先查看 `open_resolved_route` 的定义，再按其 schema 组装参数
 - route 参数一律放在 `routeArgs` 里，不要把 `source`、`payload`、`page`、`module` 这类页面参数直接放到 `open_resolved_route` 顶层
 - 当 manifest 声明某个参数需要编码时，必须在对应 `routeArgs.<name>` 中显式提供 `encoded: true|false`
@@ -38,6 +40,13 @@ always: false
 - “去云文档”
 - “打开通讯录”
 - “进入 IM 建群页面”
+- 在上一轮刚列出 route 候选后，用户回复：
+  - “第一个”
+  - “第二个”
+  - “前者”
+  - “后者”
+  - “login 那个”
+  - “账号安全那个”
 
 以下情况通常不应使用本 skill：
 
@@ -156,6 +165,15 @@ always: false
 - 列出候选目标
 - 让用户明确选择
 - 在用户确认之前，不要调用 `open_resolved_route`
+- 用户确认之后，不要重新发明新的 shortcut 名，也不要脱离当前候选上下文重新猜测
+
+用户确认后的处理：
+
+- 如果用户明确说“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”
+- 直接把用户选择映射到上一轮候选列表中的一个目标
+- 然后立刻调用 `open_resolved_route`
+- 不要再调用其他不存在的 shortcut
+- 不需要重新做一次无关的 route 解析，除非候选上下文已经丢失
 
 推荐表达：
 
@@ -387,7 +405,50 @@ Agent：
 请问您要打开哪一个？
 ```
 
-### 示例 5：线索不足，先追问
+### 示例 5：用户确认候选后直接打开
+
+上一轮 Agent 已返回：
+
+```text
+我找到了 2 个可能的目标：
+1. changePassword（来自 login 模块）
+2. changePassword（来自 settings 模块）
+
+请问您要打开哪一个？
+```
+
+用户：
+
+```text
+第一个
+```
+
+Agent：
+
+1. 把“第一个”映射到上一轮第 1 个候选：
+   - `targetType = native`
+   - `uri = ui://myapp.login/changePassword`
+   - `title = changePassword`
+2. 直接调用：
+
+```json
+{
+  "shortcut": "open_resolved_route",
+  "args": {
+    "targetType": "native",
+    "uri": "ui://myapp.login/changePassword",
+    "title": "changePassword"
+  }
+}
+```
+
+3. 返回：
+
+```text
+已为您打开修改密码页面。
+```
+
+### 示例 6：线索不足，先追问
 
 用户：
 
@@ -409,6 +470,7 @@ Agent：
 - 不要跳过 `resolve_route` 直接猜测 URI
 - 不要在多个候选目标之间自行选择
 - 不要在线索不足时直接打开页面
+- 不要在候选确认回合发明不存在的 shortcut 名，例如 `open_schema`
 - 不要把 route 参数直接塞到 `open_resolved_route.args` 顶层
 - 不要在缺少 `encoded` 时假装已经满足了需要编码的参数契约
 - 不要把打开失败描述成成功
