@@ -116,4 +116,31 @@ public class RouteResolverBridgeTest {
         assertEquals("not_found", json.getString("status"));
         assertEquals("bridge_not_connected_or_no_match", json.getJSONObject("diagnostics").getString("reason"));
     }
+
+    @Test
+    public void returnsCandidatesWhenKeywordMatchesMultipleNativeRoutes() throws Exception {
+        NativeRouteRegistry registry = new NativeRouteRegistry(java.util.Arrays.asList(
+                new NativeRouteRegistryEntry(
+                        "ui://myapp.login/resetPassword",
+                        "myapp.login",
+                        "登录页找回密码页面",
+                        java.util.Collections.singletonList("密码")),
+                new NativeRouteRegistryEntry(
+                        "ui://myapp.settings/changePassword",
+                        "myapp.settings",
+                        "账号安全修改密码页面",
+                        java.util.Collections.singletonList("密码"))));
+        RouteResolver resolver = new RouteResolver(
+                new AllowAllUriAccessPolicy(),
+                new NoOpRouteScorer(),
+                new RegistryBackedNativeRouteBridge(registry),
+                null);
+
+        RouteResolution result = resolver.resolve(RouteHint.fromJson(new JSONObject()
+                .put("keywords", new JSONArray().put("密码"))));
+
+        JSONObject json = result.toJson();
+        assertEquals("candidates", json.getString("status"));
+        assertEquals(2, json.getJSONArray("candidates").length());
+    }
 }

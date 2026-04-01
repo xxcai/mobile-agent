@@ -72,7 +72,8 @@ public final class RegistryBackedNativeRouteBridge implements NativeRouteBridge 
     private boolean matchesKeyword(NativeRouteRegistryEntry entry, List<String> keywords) {
         String pageSegment = deriveTitle(entry.getUri()).toLowerCase();
         String description = entry.getDescription() == null ? "" : entry.getDescription();
-        String haystack = (entry.getUri() + " " + entry.getModule() + " " + pageSegment + " " + description)
+        String haystack = (entry.getUri() + " " + entry.getModule() + " " + pageSegment + " " + description
+                + " " + joinKeywords(entry.getKeywords()))
                 .toLowerCase();
         for (String keyword : keywords) {
             if (keyword != null && haystack.contains(keyword.toLowerCase())) {
@@ -88,5 +89,12 @@ public final class RegistryBackedNativeRouteBridge implements NativeRouteBridge 
             return uri.substring(slashIndex + 1);
         }
         return uri;
+    }
+
+    private String joinKeywords(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return "";
+        }
+        return String.join(" ", keywords);
     }
 }

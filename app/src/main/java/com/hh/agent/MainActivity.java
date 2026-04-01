@@ -1,5 +1,6 @@
 package com.hh.agent;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
 
@@ -46,6 +47,10 @@ public class MainActivity extends AppCompatActivity {
         tabContacts.setOnClickListener(v -> showEmailTab());
         tabDiscover.setOnClickListener(v -> showDiscoverTab());
         tabProfile.setOnClickListener(v -> showBusinessTab());
+        homeTitleView.setOnLongClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, RouteManualVerificationActivity.class));
+            return true;
+        });
     }
 
     private void showChatsTab() {

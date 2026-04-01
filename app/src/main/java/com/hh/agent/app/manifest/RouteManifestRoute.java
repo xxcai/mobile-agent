@@ -1,45 +1,37 @@
-package com.hh.agent.android.route;
+package com.hh.agent.app.manifest;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public final class NativeRouteRegistryEntry {
-    private final String uri;
-    private final String module;
+final class RouteManifestRoute {
+    private final String path;
     private final String description;
     private final List<String> keywords;
+    private final List<RouteManifestParam> params;
 
-    public NativeRouteRegistryEntry(String uri, String module) {
-        this(uri, module, null, Collections.emptyList());
-    }
-
-    public NativeRouteRegistryEntry(String uri, String module, String description) {
-        this(uri, module, description, Collections.emptyList());
-    }
-
-    public NativeRouteRegistryEntry(String uri, String module, String description, List<String> keywords) {
-        this.uri = requireText(uri, "uri");
-        this.module = requireText(module, "module");
+    RouteManifestRoute(String path, String description, List<String> keywords, List<RouteManifestParam> params) {
+        this.path = requireText(path, "path");
         this.description = normalizeText(description);
         this.keywords = Collections.unmodifiableList(new ArrayList<>(
                 keywords == null ? Collections.emptyList() : keywords));
+        this.params = Collections.unmodifiableList(new ArrayList<>(params == null ? Collections.emptyList() : params));
     }
 
-    public String getUri() {
-        return uri;
+    String getPath() {
+        return path;
     }
 
-    public String getModule() {
-        return module;
-    }
-
-    public String getDescription() {
+    String getDescription() {
         return description;
     }
 
-    public List<String> getKeywords() {
+    List<String> getKeywords() {
         return keywords;
+    }
+
+    List<RouteManifestParam> getParams() {
+        return params;
     }
 
     private static String requireText(String value, String fieldName) {
