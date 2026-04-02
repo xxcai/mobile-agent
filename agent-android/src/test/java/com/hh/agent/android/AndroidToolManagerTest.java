@@ -148,6 +148,44 @@ public class AndroidToolManagerTest {
         assertEquals("001", result.getJSONObject("payload").getString("contact_id"));
     }
 
+    @Test
+    public void resolveCandidateSelectionRestoresRoutePayloadForSession() throws Exception {
+        AndroidToolManager manager = new AndroidToolManager(null);
+        manager.registerShortcut(new ShortcutExecutor() {
+            @Override
+            public ShortcutDefinition getDefinition() {
+                return ShortcutDefinition.builder("resolve_route", "解析页面跳转", "返回多个 route 候选")
+                        .stringParam("query", "query", true, "密码")
+                        .build();
+            }
+
+            @Override
+            public ToolResult execute(JSONObject args) {
+                return ToolResult.success().withJson("candidateSelection", buildRouteCandidateSelectionJson());
+            }
+        });
+
+        manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "resolve_route")
+                .put("args", new JSONObject().put("query", "密码"))
+                .toString(), "native:container");
+
+        String raw = manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "resolve_candidate_selection")
+                .put("args", new JSONObject()
+                        .put("selectionText", "login 那个")
+                        .put("domain", "route"))
+                .toString(), "native:container");
+
+        JSONObject result = new JSONObject(raw);
+        assertTrue(result.getBoolean("success"));
+        assertEquals("native", result.getJSONObject("payload").getString("targetType"));
+        assertEquals("ui://myapp.login/resetPassword",
+                result.getJSONObject("payload").getString("uri"));
+        assertEquals("登录页找回密码页面",
+                result.getJSONObject("payload").getString("title"));
+    }
+
     private static Collection<AndroidToolChannelExecutor> createTestChannels(ShortcutRuntime shortcutRuntime) {
         return Arrays.asList(
                 new ShortcutRuntimeChannel(shortcutRuntime),
@@ -197,6 +235,41 @@ public class AndroidToolManagerTest {
                     .toString();
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to build test candidate selection", exception);
+        }
+    }
+
+    private static String buildRouteCandidateSelectionJson() {
+        try {
+            return new JSONObject()
+                    .put("domain", "route")
+                    .put("items", new org.json.JSONArray()
+                            .put(new JSONObject()
+                                    .put("index", 1)
+                                    .put("label", "登录页找回密码页面")
+                                    .put("stableKey", "native:ui://myapp.login/resetPassword")
+                                    .put("aliases", new org.json.JSONArray()
+                                            .put("login 那个")
+                                            .put("找回密码")
+                                            .put("登录页"))
+                                    .put("payload", new JSONObject()
+                                            .put("targetType", "native")
+                                            .put("uri", "ui://myapp.login/resetPassword")
+                                            .put("title", "登录页找回密码页面")))
+                            .put(new JSONObject()
+                                    .put("index", 2)
+                                    .put("label", "账号安全修改密码页面")
+                                    .put("stableKey", "native:ui://myapp.settings/changePassword")
+                                    .put("aliases", new org.json.JSONArray()
+                                            .put("settings 那个")
+                                            .put("修改密码")
+                                            .put("账号安全"))
+                                    .put("payload", new JSONObject()
+                                            .put("targetType", "native")
+                                            .put("uri", "ui://myapp.settings/changePassword")
+                                            .put("title", "账号安全修改密码页面"))))
+                    .toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to build route candidate selection", exception);
         }
     }
 

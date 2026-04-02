@@ -353,10 +353,10 @@ demo 当前提供的样例文件是：
 
 manifest 相关实现位于：
 
-- [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestLoader.java)
-- [RouteManifestParser.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestParser.java)
-- [ManifestBackedRouteModuleResolver.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/ManifestBackedRouteModuleResolver.java)
-- [ManifestBackedRouteUriComposer.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/ManifestBackedRouteUriComposer.java)
+- [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/manifest/RouteManifestLoader.java)
+- [RouteManifestParser.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/manifest/RouteManifestParser.java)
+- [ManifestBackedRouteModuleResolver.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/manifest/ManifestBackedRouteModuleResolver.java)
+- [ManifestBackedRouteUriComposer.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/manifest/ManifestBackedRouteUriComposer.java)
 
 native registry model 和 bridge 适配器位于 `agent-android`：
 
@@ -519,7 +519,7 @@ App 层当前只需要提供或组装以下能力：
 接真实 native 名单时，优先改：
 
 - `app` 各模块下的 `src/main/assets/mobile_agent/manifests/<module>.json`
-- 如有需要，扩展 [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestLoader.java) 的扫描或校验规则
+- 如有需要，扩展 [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/manifest/RouteManifestLoader.java) 的扫描或校验规则
 
 接真实 wecode 查询时，优先改：
 
