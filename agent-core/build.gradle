@@ -5,6 +5,7 @@ plugins {
 android {
     namespace 'com.hh.agent.library'
     compileSdk 34
+    buildToolsVersion '34.0.0'
 
     defaultConfig {
         minSdk 24
@@ -44,7 +45,7 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
+            version "3.31.6"
         }
     }
 

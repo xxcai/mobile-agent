@@ -98,7 +98,7 @@ public final class RealWebActionExecutor implements WebActionExecutor {
     }
 
     private ViewObservationSnapshot validateSnapshot(WebActionRequest request,
-                                                     WebViewJsBridge.WebViewHandle handle) {
+                                                     WebViewJsBridge.WebViewHandle handle) throws Exception {
         if (request.observation == null) {
             return null;
         }
@@ -125,10 +125,16 @@ public final class RealWebActionExecutor implements WebActionExecutor {
         String currentPageUrl = jsBridge.getCurrentPageUrl(handle);
         if (latest.pageUrl != null
                 && currentPageUrl != null
+                && !urlsReferToSameLocalAssetPage(latest.pageUrl, currentPageUrl)
                 && !latest.pageUrl.equals(currentPageUrl)) {
             return null;
         }
         return latest;
+    }
+
+    private boolean urlsReferToSameLocalAssetPage(String snapshotPageUrl, String currentPageUrl) {
+        return snapshotPageUrl.startsWith("file:///android_asset/")
+                && "about:blank".equals(currentPageUrl);
     }
 
     private ToolResult staleObservation() {

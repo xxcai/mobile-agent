@@ -3,6 +3,7 @@ package com.hh.agent.android.viewcontext;
 import android.app.Activity;
 
 import com.hh.agent.android.channel.ViewContextToolChannel;
+import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.web.WebDomScriptFactory;
 import com.hh.agent.android.web.WebViewJsBridge;
 import com.hh.agent.core.tool.ToolResult;
@@ -27,14 +28,32 @@ public final class RealWebDomSnapshotProvider implements WebDomSnapshotProvider 
 
     @Override
     public ToolResult getCurrentWebDomSnapshot(String targetHint) {
+        WebViewJsBridge.WebViewHandle handle = null;
+        Activity activity = null;
+        String raw = null;
+        String decoded = null;
         try {
-            WebViewJsBridge.WebViewHandle handle = jsBridge.requireWebView();
-            Activity activity = handle.activity;
-            String raw = jsBridge.evaluate(handle.webView, WebDomScriptFactory.buildSnapshotScript());
-            String decoded = WebViewJsBridge.decodeJsResult(raw);
+            handle = jsBridge.requireWebView();
+            activity = handle.activity;
+            AgentLogs.info("RealWebDomSnapshotProvider", "collect_start",
+                    "activity=" + activityClassName(activity)
+                            + " candidates=" + handle.candidateCount
+                            + " target_hint=" + targetHint
+                            + " selection_reason=" + handle.selectionReason);
+
+            raw = jsBridge.evaluate(handle.webView, WebDomScriptFactory.buildSnapshotScript());
+            AgentLogs.info("RealWebDomSnapshotProvider", "evaluate_complete",
+                    "raw_length=" + safeLength(raw));
+
+            decoded = WebViewJsBridge.decodeJsResult(raw);
+            AgentLogs.info("RealWebDomSnapshotProvider", "decode_complete",
+                    "decoded_length=" + safeLength(decoded));
+
             JSONObject payload = new JSONObject(decoded);
-            String pageUrl = safeString(payload.optString("pageUrl", handle.webView.getUrl()));
-            String pageTitle = safeString(payload.optString("pageTitle", handle.webView.getTitle()));
+            String fallbackPageUrl = jsBridge.getCurrentPageUrl(handle);
+            String fallbackPageTitle = jsBridge.getCurrentPageTitle(handle);
+            String pageUrl = safeString(payload.optString("pageUrl", fallbackPageUrl));
+            String pageTitle = safeString(payload.optString("pageTitle", fallbackPageTitle));
 
             ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                     activity != null ? activity.getClass().getName() : null,
@@ -61,19 +80,61 @@ public final class RealWebDomSnapshotProvider implements WebDomSnapshotProvider 
                     .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                     .with("pageUrl", pageUrl)
                     .with("pageTitle", pageTitle)
-                    .with("nativeViewXml", (String) null)
-                    .with("webDom", payload.toString())
-                    .with("webDomFormat", "json")
-                    .with("screenSnapshot", (String) null)
-                    .with("webViewCandidateCount", handle.candidateCount)
-                    .with("webViewSelectionReason", handle.selectionReason);
+                     .with("nativeViewXml", (String) null)
+                     .with("webDom", payload.toString())
+                     .with("webDomFormat", "json")
+                     .with("screenSnapshot", (String) null)
+                     .with("webViewCandidateCount", handle.candidateCount)
+                     .with("webViewSelectionReason", handle.selectionReason);
         } catch (Exception exception) {
+            String failureStage = determineFailureStage(handle, raw, decoded);
+            AgentLogs.warn("RealWebDomSnapshotProvider", "collect_failed",
+                    "stage=" + failureStage
+                            + " activity=" + activityClassName(activity)
+                            + " candidates=" + candidateCount(handle)
+                            + " selection_reason=" + selectionReason(handle)
+                            + " message=" + exception.getMessage());
             return ToolResult.error("dom_capture_failed", exception.getMessage())
                     .with("channel", ViewContextToolChannel.CHANNEL_NAME)
                     .with("source", SOURCE_WEB_DOM)
                     .with("interactionDomain", INTERACTION_DOMAIN_WEB)
-                    .with("targetHint", targetHint);
+                    .with("targetHint", targetHint)
+                    .with("failureStage", failureStage)
+                    .with("activityClassName", activityClassName(activity))
+                    .with("webViewCandidateCount", candidateCount(handle))
+                    .with("webViewSelectionReason", selectionReason(handle))
+                    .with("rawJsResult", raw)
+                    .with("decodedJsResult", decoded);
         }
+    }
+
+    private String determineFailureStage(WebViewJsBridge.WebViewHandle handle, String raw, String decoded) {
+        if (handle == null) {
+            return "require_webview";
+        }
+        if (raw == null) {
+            return "evaluate_javascript";
+        }
+        if (decoded == null) {
+            return "decode_js_result";
+        }
+        return "parse_payload";
+    }
+
+    private String activityClassName(Activity activity) {
+        return activity != null ? activity.getClass().getName() : null;
+    }
+
+    private int candidateCount(WebViewJsBridge.WebViewHandle handle) {
+        return handle != null ? handle.candidateCount : 0;
+    }
+
+    private String selectionReason(WebViewJsBridge.WebViewHandle handle) {
+        return handle != null ? handle.selectionReason : null;
+    }
+
+    private int safeLength(String value) {
+        return value != null ? value.length() : 0;
     }
 
     private String safeString(String value) {

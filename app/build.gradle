@@ -5,6 +5,8 @@ plugins {
 android {
     namespace 'com.hh.agent'
     compileSdk 34
+    buildToolsVersion '34.0.0'
+    buildToolsVersion '34.0.0'
 
     defaultConfig {
         applicationId "com.hh.agent"
@@ -25,6 +27,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -41,6 +49,8 @@ dependencies {
     implementation 'io.noties.markwon:ext-tasklist:4.6.2'
 
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'androidx.test:core:1.5.0'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
 }
 
 // Apply config-template.gradle for copying config.json.template to assets

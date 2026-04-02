@@ -108,8 +108,29 @@ public class WebViewJsBridge {
     }
 
     @Nullable
-    public String getCurrentPageUrl(WebViewHandle handle) {
-        return handle.webView != null ? handle.webView.getUrl() : null;
+    public String getCurrentPageUrl(WebViewHandle handle) throws Exception {
+        if (handle == null || handle.webView == null) {
+            return null;
+        }
+        return mainThreadRunner.call(new MainThreadRunner.MainThreadCallable<String>() {
+            @Override
+            public String call() {
+                return handle.webView.getUrl();
+            }
+        }, DEFAULT_TIMEOUT_MS);
+    }
+
+    @Nullable
+    public String getCurrentPageTitle(WebViewHandle handle) throws Exception {
+        if (handle == null || handle.webView == null) {
+            return null;
+        }
+        return mainThreadRunner.call(new MainThreadRunner.MainThreadCallable<String>() {
+            @Override
+            public String call() {
+                return handle.webView.getTitle();
+            }
+        }, DEFAULT_TIMEOUT_MS);
     }
 
     public static String decodeJsResult(@Nullable String raw) {

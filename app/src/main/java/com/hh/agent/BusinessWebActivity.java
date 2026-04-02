@@ -145,32 +145,7 @@ public class BusinessWebActivity extends AppCompatActivity {
                         new JSONObject().put("targetHint", targetHint).toString());
                 JSONObject result = new JSONObject(resultJson);
                 latestSnapshotId = result.optString("snapshotId", null);
-                String actualSource = result.optString("source", "<none>");
-                String actualDomain = result.optString("interactionDomain", "<none>");
-                String actualActivity = result.optString("activityClassName", "<none>");
-                boolean pass = result.optBoolean("success", false)
-                        && "web_dom".equals(actualSource)
-                        && "web".equals(actualDomain)
-                        && BusinessWebActivity.class.getName().equals(actualActivity);
-                report = "# Business WebView Context Probe\n"
-                        + "test_item=view_context_runtime_web_dom\n"
-                        + "input.target_hint=" + targetHint + "\n"
-                        + "input.template=" + currentTemplateAsset + "\n"
-                        + "expected.source=web_dom\n"
-                        + "expected.interactionDomain=web\n"
-                        + "expected.activityClassName=" + BusinessWebActivity.class.getName() + "\n"
-                        + "actual.success=" + result.optBoolean("success", false) + "\n"
-                        + "actual.source=" + actualSource + "\n"
-                        + "actual.interactionDomain=" + actualDomain + "\n"
-                        + "actual.selectionStatus=" + result.optString("selectionStatus", "<none>") + "\n"
-                        + "actual.activityClassName=" + actualActivity + "\n"
-                        + "actual.observationMode=" + result.optString("observationMode", "<none>") + "\n"
-                        + "actual.snapshotId=" + result.optString("snapshotId", "<none>") + "\n"
-                        + "actual.pageUrl=" + result.optString("pageUrl", "<none>") + "\n"
-                        + "actual.pageTitle=" + result.optString("pageTitle", "<none>") + "\n"
-                        + "actual.webViewCandidateCount=" + result.optString("webViewCandidateCount", "<none>") + "\n"
-                        + "actual.webViewSelectionReason=" + result.optString("webViewSelectionReason", "<none>") + "\n"
-                        + "result=" + (pass ? "PASS" : "FAIL");
+                report = formatViewContextProbeReport(result, targetHint, currentTemplateAsset);
             } catch (Exception e) {
                 report = "# Business WebView Context Probe\n"
                         + "test_item=view_context_runtime_web_dom\n"
@@ -188,6 +163,40 @@ public class BusinessWebActivity extends AppCompatActivity {
             });
         });
         worker.start();
+    }
+
+    static String formatViewContextProbeReport(JSONObject result, String targetHint, String templateAsset) {
+        String actualSource = result.optString("source", "<none>");
+        String actualDomain = result.optString("interactionDomain", "<none>");
+        String actualActivity = result.optString("activityClassName", "<none>");
+        boolean pass = result.optBoolean("success", false)
+                && "web_dom".equals(actualSource)
+                && "web".equals(actualDomain)
+                && BusinessWebActivity.class.getName().equals(actualActivity);
+        return "# Business WebView Context Probe\n"
+                + "test_item=view_context_runtime_web_dom\n"
+                + "input.target_hint=" + targetHint + "\n"
+                + "input.template=" + templateAsset + "\n"
+                + "expected.source=web_dom\n"
+                + "expected.interactionDomain=web\n"
+                + "expected.activityClassName=" + BusinessWebActivity.class.getName() + "\n"
+                + "actual.success=" + result.optBoolean("success", false) + "\n"
+                + "actual.source=" + actualSource + "\n"
+                + "actual.interactionDomain=" + actualDomain + "\n"
+                + "actual.selectionStatus=" + result.optString("selectionStatus", "<none>") + "\n"
+                + "actual.activityClassName=" + actualActivity + "\n"
+                + "actual.observationMode=" + result.optString("observationMode", "<none>") + "\n"
+                + "actual.snapshotId=" + result.optString("snapshotId", "<none>") + "\n"
+                + "actual.pageUrl=" + result.optString("pageUrl", "<none>") + "\n"
+                + "actual.pageTitle=" + result.optString("pageTitle", "<none>") + "\n"
+                + "actual.webViewCandidateCount=" + result.optString("webViewCandidateCount", "<none>") + "\n"
+                + "actual.webViewSelectionReason=" + result.optString("webViewSelectionReason", "<none>") + "\n"
+                + "actual.failureStage=" + result.optString("failureStage", "<none>") + "\n"
+                + "actual.error=" + result.optString("error", "<none>") + "\n"
+                + "actual.message=" + result.optString("message", "<none>") + "\n"
+                + "actual.rawJsResult=" + result.optString("rawJsResult", "<none>") + "\n"
+                + "actual.decodedJsResult=" + result.optString("decodedJsResult", "<none>") + "\n"
+                + "result=" + (pass ? "PASS" : "FAIL");
     }
 
     private void runWebActionProbe() {

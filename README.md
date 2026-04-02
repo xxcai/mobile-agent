@@ -108,6 +108,14 @@ agent-android/
 - NDK `26.3.11579264`
 - Java 21
 
+ARM64 Linux 下如果需要直接完成 NDK 构建，当前已验证可用的 SDK 目录是：
+
+- `/home/tony/Android/android-sdk-aarch64`
+
+仓库内 `dist/android-sdk-aarch64/` 仍是后续目标态，当前尚未落地。
+
+具体用法见：`docs/android-sdk-aarch64.md`
+
 ### 构建项目
 
 构建 `agent-core` 前，先在 `agent-core/` 目录准备 Android C++ 依赖：

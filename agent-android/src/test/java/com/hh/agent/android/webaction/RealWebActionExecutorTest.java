@@ -209,6 +209,35 @@ public class RealWebActionExecutorTest {
         assertEquals(false, json.getBoolean("mock"));
     }
 
+    @Test
+    public void execute_acceptsAssetSnapshotWhenCurrentWebViewUrlIsAboutBlank() throws Exception {
+        FakeBridge bridge = new FakeBridge();
+        bridge.pageUrl = "about:blank";
+        bridge.rawEvalResult = "\"{\\\"ok\\\":true,\\\"ref\\\":\\\"node-8\\\",\\\"tag\\\":\\\"BUTTON\\\"}\"";
+        RealWebActionExecutor executor = new RealWebActionExecutor(bridge);
+        String snapshotId = ViewObservationSnapshotRegistry.createSnapshot(
+                "com.hh.agent.BusinessWebActivity",
+                "web_dom",
+                "web",
+                "submit",
+                null,
+                "{}",
+                "file:///android_asset/",
+                "Form Local Page"
+        ).snapshotId;
+
+        ToolResult result = executor.execute(WebActionRequest.fromJson(new JSONObject()
+                .put("action", "click")
+                .put("selector", "#debug-submit")
+                .put("observation", new JSONObject().put("snapshotId", snapshotId))));
+        JSONObject json = new JSONObject(result.toJsonString());
+
+        assertTrue(json.getBoolean("success"));
+        assertEquals("android_web_action_tool", json.getString("channel"));
+        assertEquals("web", json.getString("domain"));
+        assertEquals("click", json.getString("action"));
+    }
+
     private static final class FakeBridge extends WebViewJsBridge {
 
         private String rawEvalResult;
