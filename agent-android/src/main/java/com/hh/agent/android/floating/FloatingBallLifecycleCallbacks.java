@@ -7,6 +7,11 @@ import android.os.Looper;
 
 import com.hh.agent.android.log.AgentLogs;
 
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.ProcessLifecycleOwner;
+
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,8 +40,8 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
             new WeakReference<>(null);
     private static final Object OBSERVER_LOCK = new Object();
     private static final List<StableActivityObserver> STABLE_ACTIVITY_OBSERVERS = new ArrayList<>();
-    private int foregroundActivityCount = 0;
     private Activity currentForegroundActivity;
+    private boolean appInForeground;
 
     public FloatingBallLifecycleCallbacks(Application application,
                                           List<String> hiddenActivityClassNames) {
@@ -45,24 +50,37 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         if (hiddenActivityClassNames != null) {
             this.hiddenActivityClassNames.addAll(hiddenActivityClassNames);
         }
+        this.appInForeground = ProcessLifecycleOwner.get()
+                .getLifecycle()
+                .getCurrentState()
+                .isAtLeast(Lifecycle.State.STARTED);
+        ProcessLifecycleOwner.get().getLifecycle().addObserver(new DefaultLifecycleObserver() {
+            @Override
+            public void onStart(LifecycleOwner owner) {
+                appInForeground = true;
+                AgentLogs.debug(TAG, "process_on_start", null);
+                updateFloatingBallVisibility();
+            }
+
+            @Override
+            public void onStop(LifecycleOwner owner) {
+                appInForeground = false;
+                AgentLogs.debug(TAG, "process_on_stop", null);
+                updateFloatingBallVisibility();
+            }
+        });
     }
 
     @Override
     public void onActivityStarted(Activity activity) {
-        foregroundActivityCount++;
         currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         currentForegroundActivityRef = new WeakReference<>(activity);
-        AgentLogs.debug(TAG, "activity_started", "foreground_count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_started", "activity=" + activity.getClass().getName());
         updateFloatingBallVisibility();
     }
 
     @Override
     public void onActivityStopped(Activity activity) {
-        foregroundActivityCount--;
-        if (foregroundActivityCount < 0) {
-            foregroundActivityCount = 0;
-        }
-
         if (activity == currentForegroundActivity) {
             currentForegroundActivity = null;
         }
@@ -71,7 +89,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
             currentForegroundActivityRef = new WeakReference<>(null);
         }
 
-        AgentLogs.debug(TAG, "activity_stopped", "foreground_count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_stopped", "activity=" + activity.getClass().getName());
         updateFloatingBallVisibility();
     }
 
@@ -113,7 +131,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     private void updateFloatingBallVisibility() {
         FloatingBallManager.getInstance(application).updateVisibility(
-                foregroundActivityCount > 0,
+                appInForeground,
                 shouldHideForActivity(currentForegroundActivity)
         );
     }
