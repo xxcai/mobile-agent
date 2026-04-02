@@ -19,6 +19,8 @@ always: false
 - 当前 skill 推荐的 shortcut 只有两个：
   - `resolve_route`
   - `open_resolved_route`
+- 当用户明确说了 `we码`、`WeCode`、`微码` 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "wecode"`，不要只传泛关键词
+- 当用户明确说了“原生页面”或明确排除 we码 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "native"`
 - 先解析，再打开；不要跳过解析步骤直接猜测目标 URI
 - 当解析结果是多个候选项时，必须让用户确认目标
 - 当解析线索不足时，必须先追问，不要直接尝试打开
@@ -58,6 +60,7 @@ always: false
 {
   "shortcut": "resolve_route",
   "args": {
+    "targetTypeHint": "wecode",
     "weCodeName": "报销",
     "keywords_csv": "报销,费用报销"
   }
@@ -95,6 +98,15 @@ always: false
 - 原生模块名
 - we码名称
 - 页面关键字
+
+提取后先判断用户是否已经给了明确类型偏好：
+
+- 明确提到 `we码`、`WeCode`、`微码`：
+  - 传 `targetTypeHint: "wecode"`
+- 明确提到“原生页面”“原生模块”：
+  - 传 `targetTypeHint: "native"`
+- 没有明确类型偏好：
+  - `targetTypeHint` 可不传
 
 如果用户请求里完全没有足够线索，不要直接调用 `open_resolved_route`，先追问要打开哪个页面或入口。
 

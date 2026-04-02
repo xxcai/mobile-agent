@@ -81,7 +81,7 @@ public final class RouteResolver {
     private List<RouteTarget> collectCandidates(RouteHint routeHint) {
         List<RouteTarget> candidates = new ArrayList<>();
 
-        if (nativeRouteBridge != null) {
+        if (nativeRouteBridge != null && shouldSearchNative(routeHint)) {
             if (routeHint.getNativeModule() != null) {
                 candidates.addAll(mapNative(nativeRouteBridge.searchByModule(
                         routeHint.getNativeModule(),
@@ -91,7 +91,7 @@ public final class RouteResolver {
             }
         }
 
-        if (weCodeRouteBridge != null) {
+        if (weCodeRouteBridge != null && shouldSearchWeCode(routeHint)) {
             String weCodeQuery = selectWeCodeQuery(routeHint);
             if (weCodeQuery != null) {
                 candidates.addAll(mapWeCode(weCodeRouteBridge.search(weCodeQuery)));
@@ -143,6 +143,14 @@ public final class RouteResolver {
             return routeHint.getKeywords().get(0);
         }
         return null;
+    }
+
+    private boolean shouldSearchNative(RouteHint routeHint) {
+        return !RouteHint.TARGET_TYPE_WECODE.equals(routeHint.getTargetTypeHint());
+    }
+
+    private boolean shouldSearchWeCode(RouteHint routeHint) {
+        return !RouteHint.TARGET_TYPE_NATIVE.equals(routeHint.getTargetTypeHint());
     }
 
     private JSONObject diagnostics(String key, String value) {
