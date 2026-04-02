@@ -11,27 +11,37 @@ public final class WebActionRequest {
 
     public final String action;
     @Nullable
+    public final String ref;
+    @Nullable
     public final String selector;
     @Nullable
     public final String text;
     @Nullable
+    public final String script;
+    @Nullable
     public final JSONObject observation;
 
     private WebActionRequest(String action,
+                             @Nullable String ref,
                              @Nullable String selector,
                              @Nullable String text,
+                             @Nullable String script,
                              @Nullable JSONObject observation) {
         this.action = action;
+        this.ref = ref;
         this.selector = selector;
         this.text = text;
+        this.script = script;
         this.observation = observation;
     }
 
     public static WebActionRequest fromJson(JSONObject params) {
         return new WebActionRequest(
                 params.optString("action", "").trim(),
+                normalize(params.optString("ref", null)),
                 normalize(params.optString("selector", null)),
                 normalize(params.optString("text", null)),
+                normalize(params.optString("script", null)),
                 params.optJSONObject("observation")
         );
     }
