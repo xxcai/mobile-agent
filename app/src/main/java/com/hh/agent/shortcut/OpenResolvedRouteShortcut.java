@@ -30,7 +30,7 @@ public final class OpenResolvedRouteShortcut implements ShortcutExecutor {
                 .domain("route")
                 .requiredSkill("route_navigator")
                 .risk("navigate")
-                .stringParam("targetType", "native 或 miniapp", true, "miniapp")
+                .stringParam("targetType", "native 或 wecode", true, "wecode")
                 .stringParam("uri", "已解析的目标 URI", true, "h5://1001001")
                 .stringParam("title", "已解析的目标标题", true, "费控报销")
                 .build();

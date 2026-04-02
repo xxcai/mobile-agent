@@ -72,7 +72,7 @@ public class RouteOpenerTest {
 
     private RouteTarget validTarget() {
         return new RouteTarget.Builder()
-                .targetType(RouteHint.TARGET_TYPE_MINIAPP)
+                .targetType(RouteHint.TARGET_TYPE_WECODE)
                 .uri("h5://1001001")
                 .title("费控报销")
                 .build();

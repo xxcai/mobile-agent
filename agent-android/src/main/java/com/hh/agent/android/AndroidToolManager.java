@@ -31,11 +31,28 @@ public class AndroidToolManager implements AndroidToolCallback {
     private static AndroidToolManager activeInstance;
 
     private Context context;
-    private final ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
+    private final ShortcutRuntime shortcutRuntime;
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
     public AndroidToolManager(Context context) {
+        this(context, new ShortcutRuntime(), null);
+    }
+
+    AndroidToolManager(Context context,
+                       ShortcutRuntime shortcutRuntime,
+                       Collection<? extends AndroidToolChannelExecutor> initialChannels) {
         this.context = context;
+        this.shortcutRuntime = shortcutRuntime != null ? shortcutRuntime : new ShortcutRuntime();
+        if (initialChannels == null) {
+            registerDefaultChannels();
+            return;
+        }
+        for (AndroidToolChannelExecutor channel : initialChannels) {
+            registerChannel(channel);
+        }
+    }
+
+    private void registerDefaultChannels() {
         registerChannel(new ShortcutRuntimeChannel(shortcutRuntime));
         registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());

@@ -1,11 +1,11 @@
 package com.hh.agent.android.route;
 
-public final class MiniAppQueryResult {
+public final class WeCodeQueryResult {
     private final String uri;
     private final String appName;
     private final String description;
 
-    public MiniAppQueryResult(String uri, String appName, String description) {
+    public WeCodeQueryResult(String uri, String appName, String description) {
         this.uri = requireText(uri, "uri");
         this.appName = requireText(appName, "appName");
         this.description = normalizeText(description);

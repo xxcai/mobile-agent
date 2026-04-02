@@ -49,7 +49,7 @@ public class RouteResolverBridgeTest {
     }
 
     @Test
-    public void returnsCandidatesWhenNativeAndMiniAppBothMatch() throws Exception {
+    public void returnsCandidatesWhenNativeAndWeCodeBothMatch() throws Exception {
         RouteResolver resolver = new RouteResolver(
                 new AllowAllUriAccessPolicy(),
                 new NoOpRouteScorer(),
@@ -73,7 +73,7 @@ public class RouteResolverBridgeTest {
                                 "查看报销记录"));
                     }
                 },
-                query -> Collections.singletonList(new MiniAppRouteRecord(
+                query -> Collections.singletonList(new WeCodeRouteRecord(
                         "h5://1001001",
                         "费控报销",
                         "费用报销入口")));

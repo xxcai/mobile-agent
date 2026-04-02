@@ -2,18 +2,23 @@ package com.hh.agent.android;
 
 import com.hh.agent.android.channel.DescribeShortcutChannel;
 import com.hh.agent.android.channel.GestureToolChannel;
+import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
+import com.hh.agent.android.channel.WebActionToolChannel;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
+import com.hh.agent.core.shortcut.ShortcutRuntime;
 import com.hh.agent.core.tool.ToolResult;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.json.JSONObject;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -34,20 +39,23 @@ public class AndroidToolManagerTest {
 
     @Test
     public void defaultChannelsExposeShortcutRuntimeAndExcludeLegacyChannel() {
-        AndroidToolManager manager = new AndroidToolManager(null);
+        ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
+        AndroidToolManager manager = new AndroidToolManager(null, shortcutRuntime, createTestChannels(shortcutRuntime));
 
         Map<String, ?> channels = manager.getRegisteredChannels();
 
         assertTrue(channels.containsKey(ShortcutRuntimeChannel.CHANNEL_NAME));
         assertTrue(channels.containsKey(DescribeShortcutChannel.CHANNEL_NAME));
         assertTrue(channels.containsKey(GestureToolChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(WebActionToolChannel.CHANNEL_NAME));
         assertTrue(channels.containsKey(ViewContextToolChannel.CHANNEL_NAME));
         assertFalse(channels.containsKey("call_android_tool"));
     }
 
     @Test
     public void registerShortcutsExposesInjectedShortcutThroughRunShortcut() throws Exception {
-        AndroidToolManager manager = new AndroidToolManager(null);
+        ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
+        AndroidToolManager manager = new AndroidToolManager(null, shortcutRuntime, createTestChannels(shortcutRuntime));
         manager.registerShortcut(new ShortcutExecutor() {
             @Override
             public ShortcutDefinition getDefinition() {
@@ -72,6 +80,16 @@ public class AndroidToolManagerTest {
         assertEquals("张三", result.getString("query"));
     }
 
+    private static Collection<AndroidToolChannelExecutor> createTestChannels(ShortcutRuntime shortcutRuntime) {
+        return Arrays.asList(
+                new ShortcutRuntimeChannel(shortcutRuntime),
+                new DescribeShortcutChannel(shortcutRuntime),
+                new NamedNoOpChannel(GestureToolChannel.CHANNEL_NAME),
+                new NamedNoOpChannel(WebActionToolChannel.CHANNEL_NAME),
+                new NamedNoOpChannel(ViewContextToolChannel.CHANNEL_NAME)
+        );
+    }
+
     private static final class NoOpAgentLogger implements AgentLogger {
         @Override
         public void d(String tag, String message) {
@@ -91,6 +109,29 @@ public class AndroidToolManagerTest {
 
         @Override
         public void e(String tag, String message, Throwable throwable) {
+        }
+    }
+
+    private static final class NamedNoOpChannel implements AndroidToolChannelExecutor {
+        private final String channelName;
+
+        private NamedNoOpChannel(String channelName) {
+            this.channelName = channelName;
+        }
+
+        @Override
+        public String getChannelName() {
+            return channelName;
+        }
+
+        @Override
+        public JSONObject buildToolDefinition() {
+            return new JSONObject();
+        }
+
+        @Override
+        public ToolResult execute(JSONObject params) {
+            return ToolResult.success();
         }
     }
 }

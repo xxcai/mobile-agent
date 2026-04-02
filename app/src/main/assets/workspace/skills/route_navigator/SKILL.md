@@ -1,6 +1,6 @@
 ---
 name: route_navigator
-description: 页面跳转助手。帮助 Agent 解析用户想去的页面、原生模块或小程序入口，并在目标明确后打开对应页面。当用户要求打开某个页面、进入某个入口、跳到某个模块、小程序或业务页面时使用。
+description: 页面跳转助手。帮助 Agent 解析用户想去的页面、原生模块或 we码（WeCode / 微码）入口，并在目标明确后打开对应页面。当用户要求打开某个页面、进入某个入口、跳到某个模块、we码或业务页面时使用。
 emoji: "🧭"
 always: false
 ---
@@ -30,7 +30,7 @@ always: false
 
 - “打开报销入口”
 - “进入创建群聊页面”
-- “打开费控小程序”
+- “打开费控 we码”
 - “跳到审批详情”
 - “去云文档”
 - “打开通讯录”
@@ -49,8 +49,8 @@ always: false
 适用场景：
 
 - 用户表达的是“想去哪里”，但还没有明确 target
-- 需要根据 URI、原生模块、小程序名称或关键词解析目标
-- 需要确认是 native 页面还是 miniapp
+- 需要根据 URI、原生模块、we码名称或关键词解析目标
+- 需要确认是 native 页面还是 we码
 
 调用格式：
 
@@ -58,7 +58,7 @@ always: false
 {
   "shortcut": "resolve_route",
   "args": {
-    "miniAppName": "报销",
+    "weCodeName": "报销",
     "keywords_csv": "报销,费用报销"
   }
 }
@@ -78,7 +78,7 @@ always: false
 {
   "shortcut": "open_resolved_route",
   "args": {
-    "targetType": "miniapp",
+    "targetType": "wecode",
     "uri": "h5://1001001",
     "title": "费控报销"
   }
@@ -93,7 +93,7 @@ always: false
 
 - 精确 URI
 - 原生模块名
-- 小程序名称
+- we码名称
 - 页面关键字
 
 如果用户请求里完全没有足够线索，不要直接调用 `open_resolved_route`，先追问要打开哪个页面或入口。
@@ -109,7 +109,7 @@ always: false
     "targetTypeHint": "可选",
     "uri": "可选",
     "nativeModule": "可选",
-    "miniAppName": "可选",
+    "weCodeName": "可选",
     "keywords_csv": "可选，多个关键词用英文逗号分隔"
   }
 }
@@ -136,7 +136,7 @@ always: false
 
 ```text
 我找到了 2 个可能的目标：
-1. 费控报销（小程序）
+1. 费控报销（we码）
 2. 差旅报销（原生页面）
 
 请问您要打开哪一个？
@@ -147,13 +147,13 @@ always: false
 如果解析结果是 `insufficient_hint`：
 
 - 说明当前线索不足
-- 追问更具体的页面名、模块名或小程序名
+- 追问更具体的页面名、模块名或 we码名
 - 不要继续调用 `open_resolved_route`
 
 推荐表达：
 
 ```text
-我还无法确定您要打开哪个入口。请再告诉我是哪个页面、模块或小程序。
+我还无法确定您要打开哪个入口。请再告诉我是哪个页面、模块或 we码。
 ```
 
 #### `not_found`
@@ -269,7 +269,7 @@ Agent：
 
 ```text
 我找到了 2 个可能的目标：
-1. 费控报销（小程序）
+1. 费控报销（we码）
 2. 差旅报销（原生页面）
 
 请问您要打开哪一个？
@@ -289,7 +289,7 @@ Agent：
 2. 追问：
 
 ```text
-请问您想打开哪个页面、模块或小程序？
+请问您想打开哪个页面、模块或 we码？
 ```
 
 ## 禁止事项
