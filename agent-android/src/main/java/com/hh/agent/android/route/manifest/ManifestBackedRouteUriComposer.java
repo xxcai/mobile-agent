@@ -1,4 +1,4 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
 import org.json.JSONObject;
 

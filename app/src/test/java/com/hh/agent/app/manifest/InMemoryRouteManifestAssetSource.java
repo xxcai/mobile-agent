@@ -1,5 +1,7 @@
 package com.hh.agent.app.manifest;
 
+import com.hh.agent.android.route.manifest.RouteManifestAssetSource;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;

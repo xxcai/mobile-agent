@@ -1,7 +1,6 @@
 ---
 name: contact_resolver
 description: 联系人解析助手。帮助 Agent 根据姓名、关键词或上一轮候选选择结果，解析出稳定的联系人目标和 contact_id。当用户要给某人发消息、提醒某人、联系某人，且联系人尚未明确时使用。
-emoji: "👤"
 always: false
 ---
 
@@ -9,16 +8,16 @@ always: false
 
 当任务需要把“某个人”解析成稳定联系人目标时，使用此 skill。
 
-**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
 **CRITICAL — 涉及候选序号、候选描述或续轮联系人选择时，第二步 MUST 读取 `skills/contact_resolver/references/contact-selection.md`。**
-**CRITICAL — 在完成上述步骤之前，不要调用任何业务 shortcut。**
+**CRITICAL — 在联系人状态未判断清楚前，不要调用 `search_contacts` 或 `send_im_message`。**
 **CRITICAL — 不要猜测 `contact_id`。**
 
 ## 使用原则
 
 - 这是一个 shortcut-guided skill：先依据本 skill 判断联系人状态，再调用具体 shortcut
-- 当前 skill 只推荐一个 shortcut：
+- 当前 skill 推荐的 shortcut：
   - `search_contacts`
+  - `resolve_candidate_selection`
 - 当联系人尚未明确时，不要直接调用 `send_im_message`
 - 当上一轮已经给出候选联系人，而用户这一轮只回复序号或候选描述时，应优先承接上一轮候选结果
 - 详细候选选择规则在 `skills/contact_resolver/references/contact-selection.md`
@@ -125,9 +124,27 @@ always: false
 
 此时：
 
-- 不要重新搜索联系人
-- 直接把当前输入解释为候选选择
-- 输出明确联系人结果，供后续 skill 使用
+- 先调用 `resolve_candidate_selection`
+- 调用时传：
+
+```json
+{
+  "shortcut": "resolve_candidate_selection",
+  "args": {
+    "selectionText": "用户本轮原话，例如 第一个 / 技术部那个",
+    "domain": "contact"
+  }
+}
+```
+
+- 如果 `resolve_candidate_selection` 成功：
+  - 不要重新搜索联系人
+  - 直接使用返回的 `payload.contact_id`
+  - 输出明确联系人结果，供后续 skill 使用
+- 如果 `resolve_candidate_selection` 失败：
+  - 若错误明确提示参数格式不对，先按返回的 `expectedArgs` / `argsExample` 修正参数后重试一次
+  - 再判断是否需要重新 `search_contacts`
+- 不要在 `resolve_candidate_selection` 失败后自行猜测 `contact_id`
 - 不要把候选序号直接当成 `contact_id`
 
 ### 步骤 3：处理搜索结果
@@ -211,9 +228,10 @@ Agent：
 
 Agent：
 
-1. 将 `1` 解释为选择第一个候选联系人
-2. 不要重新调用 `search_contacts`
-3. 输出明确联系人结果，供 `im_sender` 使用
+1. 先调用 `resolve_candidate_selection`
+2. 若成功，不要重新调用 `search_contacts`
+3. 使用返回的稳定 `contact_id`
+4. 输出明确联系人结果，供 `im_sender` 使用
 
 ## 禁止事项
 

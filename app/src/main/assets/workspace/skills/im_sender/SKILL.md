@@ -1,15 +1,13 @@
 ---
 name: im_sender
 description: 发送即时消息助手。帮助 Agent 搜索联系人并发送 IM 消息。当用户要求发消息、通知某人、提醒某人、联系某人，或隐含意图是向某人传递信息时使用。
-emoji: "💬"
 always: false
 ---
 
 # IM 消息发送助手
 
-**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
 **CRITICAL — 如果联系人尚未明确，第二步 MUST 读取 `skills/contact_resolver/SKILL.md`，先得到稳定的 `contact_id`。**
-**CRITICAL — 在完成前两步之前，不要调用任何业务 shortcut。**
+**CRITICAL — 在联系人未明确前，不要调用 `send_im_message`。**
 **CRITICAL — 调用 `send_im_message` 前，MUST 读取 `skills/im_sender/references/send-im-message.md`，不要猜测参数或成功条件。**
 
 当用户的目标是“把一段信息传递给某个人”时，使用此 skill。

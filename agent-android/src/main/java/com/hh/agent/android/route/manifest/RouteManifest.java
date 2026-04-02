@@ -1,4 +1,4 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
 import com.hh.agent.android.route.NativeRouteRegistry;
 import com.hh.agent.android.route.NativeRouteRegistryEntry;
@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class RouteManifest {
+public final class RouteManifest {
     private final String module;
     private final List<RouteManifestRoute> routes;
 
@@ -19,15 +19,15 @@ final class RouteManifest {
         this.routes = Collections.unmodifiableList(new ArrayList<>(routes));
     }
 
-    String getModule() {
+    public String getModule() {
         return module;
     }
 
-    List<RouteManifestRoute> getRoutes() {
+    public List<RouteManifestRoute> getRoutes() {
         return routes;
     }
 
-    NativeRouteRegistry toNativeRouteRegistry() {
+    public NativeRouteRegistry toNativeRouteRegistry() {
         List<NativeRouteRegistryEntry> entries = new ArrayList<>();
         for (RouteManifestRoute route : routes) {
             entries.add(new NativeRouteRegistryEntry(

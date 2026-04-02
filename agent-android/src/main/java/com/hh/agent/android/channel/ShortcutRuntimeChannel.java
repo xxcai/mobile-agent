@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.selection.CandidateSelectionStateStore;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
@@ -17,12 +18,19 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     public static final String CHANNEL_NAME = "run_shortcut";
 
     private final ShortcutRuntime shortcutRuntime;
+    private final CandidateSelectionStateStore selectionStateStore;
 
     public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime) {
+        this(shortcutRuntime, null);
+    }
+
+    public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime,
+                                  CandidateSelectionStateStore selectionStateStore) {
         if (shortcutRuntime == null) {
             throw new IllegalArgumentException("ShortcutRuntime cannot be null");
         }
         this.shortcutRuntime = shortcutRuntime;
+        this.selectionStateStore = selectionStateStore;
     }
 
     @Override
@@ -59,6 +67,17 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                     .with("channel", CHANNEL_NAME)
                     .with("shortcut", shortcutName);
         }
+        JSONObject effectiveArgs = copyJson(args);
+        String sessionKey = params.optString("_sessionKey", null);
+        if (sessionKey != null && !sessionKey.trim().isEmpty()) {
+            try {
+                effectiveArgs.put("_sessionKey", sessionKey.trim());
+            } catch (Exception exception) {
+                return ToolResult.error("invalid_args", "Failed to inject session context into shortcut args")
+                        .with("channel", CHANNEL_NAME)
+                        .with("shortcut", shortcutName);
+            }
+        }
 
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
@@ -72,7 +91,7 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                     .with("suggestedSkillPath", "skills/" + shortcutName + "/SKILL.md");
         }
 
-        ToolResult result = shortcutRuntime.execute(shortcutName, args);
+        ToolResult result = shortcutRuntime.execute(shortcutName, effectiveArgs);
         ShortcutDefinition definition = executor.getDefinition();
 
         if (result == null) {
@@ -92,6 +111,7 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                 result.withJson("governance", buildGovernanceJson(definition).toString());
             }
         }
+        maybePersistCandidateSelection(params, result);
         return result;
     }
 
@@ -169,5 +189,31 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                     .replace("\\\\", "\\");
         }
         return normalized;
+    }
+
+    private void maybePersistCandidateSelection(JSONObject params, ToolResult result) {
+        if (selectionStateStore == null || result == null) {
+            return;
+        }
+        String sessionKey = params.optString("_sessionKey", null);
+        if (sessionKey == null || sessionKey.trim().isEmpty()) {
+            return;
+        }
+        try {
+            JSONObject root = new JSONObject(result.toJsonString());
+            JSONObject candidateSelection = root.optJSONObject("candidateSelection");
+            if (candidateSelection != null && candidateSelection.length() > 0) {
+                selectionStateStore.save(sessionKey, candidateSelection);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private JSONObject copyJson(JSONObject source) {
+        try {
+            return new JSONObject(source.toString());
+        } catch (JSONException exception) {
+            throw new IllegalStateException("Failed to copy shortcut args", exception);
+        }
     }
 }

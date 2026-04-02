@@ -1,6 +1,7 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
 import com.hh.agent.android.route.NativeRouteRegistry;
+import com.hh.agent.app.manifest.InMemoryRouteManifestAssetSource;
 
 import org.junit.Test;
 

@@ -1,4 +1,6 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
+
+import com.hh.agent.app.manifest.InMemoryRouteManifestAssetSource;
 
 import org.json.JSONObject;
 import org.junit.Test;
