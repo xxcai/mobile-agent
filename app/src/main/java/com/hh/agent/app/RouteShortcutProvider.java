@@ -2,12 +2,12 @@ package com.hh.agent.app;
 
 import com.hh.agent.android.route.AllowAllUriAccessPolicy;
 import com.hh.agent.android.route.AndroidRouteRuntime;
-import com.hh.agent.android.route.MiniAppQuerySource;
 import com.hh.agent.android.route.NativeRouteRegistry;
 import com.hh.agent.android.route.NoOpRouteScorer;
-import com.hh.agent.android.route.QuerySourceBackedMiniAppRouteBridge;
+import com.hh.agent.android.route.QuerySourceBackedWeCodeRouteBridge;
 import com.hh.agent.android.route.RegistryBackedNativeRouteBridge;
 import com.hh.agent.android.route.RouteResolver;
+import com.hh.agent.android.route.WeCodeQuerySource;
 import com.hh.agent.app.manifest.AndroidRouteManifestAssetSource;
 import com.hh.agent.app.manifest.ManifestBackedRouteModuleResolver;
 import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
@@ -31,13 +31,13 @@ public final class RouteShortcutProvider {
         NativeRouteRegistry nativeRouteRegistry = createNativeRouteRegistry(assetSource);
         ManifestBackedRouteModuleResolver routeModuleResolver = createRouteModuleResolver(assetSource);
         ManifestBackedRouteUriComposer routeUriComposer = createRouteUriComposer(assetSource);
-        MiniAppQuerySource miniAppQuerySource = DefaultMockMiniAppQuerySource.create();
+        WeCodeQuerySource weCodeQuerySource = DefaultMockWeCodeQuerySource.create();
         AndroidRouteRuntime routeRuntime = new AndroidRouteRuntime(
                 new RouteResolver(
                         new AllowAllUriAccessPolicy(),
                         new NoOpRouteScorer(),
                         new RegistryBackedNativeRouteBridge(nativeRouteRegistry),
-                        new QuerySourceBackedMiniAppRouteBridge(miniAppQuerySource)),
+                        new QuerySourceBackedWeCodeRouteBridge(weCodeQuerySource)),
                 new DemoHostRouteInvoker(context));
 
         List<ShortcutExecutor> shortcuts = new ArrayList<>();

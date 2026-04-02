@@ -1,11 +1,11 @@
 package com.hh.agent.android.route;
 
-public final class MiniAppRouteRecord {
+public final class WeCodeRouteRecord {
     private final String uri;
     private final String title;
     private final String description;
 
-    public MiniAppRouteRecord(String uri, String title, String description) {
+    public WeCodeRouteRecord(String uri, String title, String description) {
         this.uri = requireText(uri, "uri");
         this.title = requireText(title, "title");
         this.description = normalizeText(description);

@@ -23,7 +23,7 @@ final class DemoHostRouteInvoker implements HostRouteInvoker {
             Intent intent = new Intent(appContext, BusinessWebActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.putExtra(BusinessWebActivity.EXTRA_TITLE, deriveTitle(uri));
-            intent.putExtra(BusinessWebActivity.EXTRA_HTML_CONTENT, buildMiniAppHtml(uri));
+            intent.putExtra(BusinessWebActivity.EXTRA_HTML_CONTENT, buildWeCodeHtml(uri));
             appContext.startActivity(intent);
             return;
         }
@@ -46,8 +46,8 @@ final class DemoHostRouteInvoker implements HostRouteInvoker {
         return uri;
     }
 
-    private String buildMiniAppHtml(String uri) {
-        return "<p>Mini app route opened.</p><p><strong>URI:</strong> " + escapeHtml(uri) + "</p>";
+    private String buildWeCodeHtml(String uri) {
+        return "<p>WeCode route opened.</p><p><strong>URI:</strong> " + escapeHtml(uri) + "</p>";
     }
 
     private String escapeHtml(String value) {

@@ -37,8 +37,8 @@ public final class OpenResolvedRouteShortcut implements ShortcutExecutor {
                 .domain("route")
                 .requiredSkill("route_navigator")
                 .risk("navigate")
-                .argsSchema("{\"type\":\"object\",\"properties\":{\"targetType\":{\"type\":\"string\",\"description\":\"native 或 miniapp\"},\"uri\":{\"type\":\"string\",\"description\":\"已解析的基础目标 URI\"},\"title\":{\"type\":\"string\",\"description\":\"已解析的目标标题\"},\"routeArgs\":{\"type\":\"object\",\"description\":\"可选，按参数名传入对象。每项格式为 {\\\"value\\\":\\\"...\\\",\\\"encoded\\\":true|false}；当 manifest 声明了 encode 时必须显式提供 encoded。\"}},\"required\":[\"targetType\",\"uri\",\"title\"]}")
-                .argsExample("{\"targetType\":\"native\",\"uri\":\"ui://myapp.im/createGroup\",\"title\":\"createGroup\",\"routeArgs\":{\"source\":{\"value\":\"agent card\",\"encoded\":false}}}")
+                .argsSchema("{\"type\":\"object\",\"properties\":{\"targetType\":{\"type\":\"string\",\"description\":\"native 或 wecode\"},\"uri\":{\"type\":\"string\",\"description\":\"已解析的基础目标 URI\"},\"title\":{\"type\":\"string\",\"description\":\"已解析的目标标题\"},\"routeArgs\":{\"type\":\"object\",\"description\":\"可选，按参数名传入对象。每项格式为 {\\\"value\\\":\\\"...\\\",\\\"encoded\\\":true|false}；当 manifest 声明了 encode 时必须显式提供 encoded。\"}},\"required\":[\"targetType\",\"uri\",\"title\"]}")
+                .argsExample("{\"targetType\":\"wecode\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}")
                 .build();
     }
 

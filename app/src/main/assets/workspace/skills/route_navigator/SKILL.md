@@ -1,6 +1,6 @@
 ---
 name: route_navigator
-description: 页面跳转助手。帮助 Agent 解析用户想去的页面、原生模块或小程序入口，并在目标明确后打开对应页面。当用户要求打开某个页面、进入某个入口、跳到某个模块、小程序或业务页面时使用。
+description: 页面跳转助手。帮助 Agent 解析用户想去的页面、原生模块或 we码（WeCode / 微码）入口，并在目标明确后打开对应页面。当用户要求打开某个页面、进入某个入口、跳到某个模块、we码或业务页面时使用。
 emoji: "🧭"
 always: false
 ---
@@ -19,6 +19,8 @@ always: false
 - 当前 skill 推荐的 shortcut 只有两个：
   - `resolve_route`
   - `open_resolved_route`
+- 当用户明确说了 `we码`、`WeCode`、`微码` 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "wecode"`，不要只传泛关键词
+- 当用户明确说了“原生页面”或明确排除 we码 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "native"`
 - 先解析，再打开；不要跳过解析步骤直接猜测目标 URI
 - 当 `resolve_route` 返回 `candidates` 时，先尝试做受控判定：只有存在显式区分词且能唯一映射到一个候选，才允许直接代选
 - 如果上一轮刚给用户列出 route `candidates`，而用户这一轮回复“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”这类确认语句，当前回合仍然继续使用本 skill
@@ -40,7 +42,7 @@ always: false
 
 - “打开报销入口”
 - “进入创建群聊页面”
-- “打开费控小程序”
+- “打开费控 we码”
 - “跳到审批详情”
 - “去云文档”
 - “打开通讯录”
@@ -72,8 +74,8 @@ always: false
 适用场景：
 
 - 用户表达的是“想去哪里”，但还没有明确 target
-- 需要根据 URI、原生模块、小程序名称或关键词解析目标
-- 需要确认是 native 页面还是 miniapp
+- 需要根据 URI、原生模块、we码名称或关键词解析目标
+- 需要确认是 native 页面还是 we码
 
 调用格式：
 
@@ -81,7 +83,8 @@ always: false
 {
   "shortcut": "resolve_route",
   "args": {
-    "miniAppName": "报销",
+    "targetTypeHint": "wecode",
+    "weCodeName": "报销",
     "keywords_csv": "报销,费用报销"
   }
 }
@@ -102,7 +105,7 @@ always: false
 {
   "shortcut": "open_resolved_route",
   "args": {
-    "targetType": "miniapp",
+    "targetType": "wecode",
     "uri": "h5://1001001",
     "title": "费控报销",
     "routeArgs": {
@@ -138,8 +141,17 @@ always: false
 
 - 精确 URI
 - 原生模块名
-- 小程序名称
+- we码名称
 - 页面关键字
+
+提取后先判断用户是否已经给了明确类型偏好：
+
+- 明确提到 `we码`、`WeCode`、`微码`：
+  - 传 `targetTypeHint: "wecode"`
+- 明确提到“原生页面”“原生模块”：
+  - 传 `targetTypeHint: "native"`
+- 没有明确类型偏好：
+  - `targetTypeHint` 可不传
 
 如果用户请求里完全没有足够线索，不要直接调用 `open_resolved_route`，先追问要打开哪个页面或入口。
 
@@ -154,7 +166,7 @@ always: false
     "targetTypeHint": "可选",
     "uri": "可选",
     "nativeModule": "可选",
-    "miniAppName": "可选",
+    "weCodeName": "可选",
     "keywords_csv": "可选，多个关键词用英文逗号分隔"
   }
 }
@@ -238,7 +250,7 @@ always: false
 
 ```text
 我找到了 2 个可能的目标：
-1. 费控报销（小程序）
+1. 费控报销（we码）
 2. 差旅报销（原生页面）
 
 请问您要打开哪一个？
@@ -266,13 +278,13 @@ always: false
 如果解析结果是 `insufficient_hint`：
 
 - 说明当前线索不足
-- 追问更具体的页面名、模块名或小程序名
+- 追问更具体的页面名、模块名或 we码名
 - 不要继续调用 `open_resolved_route`
 
 推荐表达：
 
 ```text
-我还无法确定您要打开哪个入口。请再告诉我是哪个页面、模块或小程序。
+我还无法确定您要打开哪个入口。请再告诉我是哪个页面、模块或 we码。
 ```
 
 #### `not_found`
@@ -510,7 +522,7 @@ Agent：
 
 ```text
 我找到了 2 个可能的目标：
-1. 费控报销（小程序）
+1. 费控报销（we码）
 2. 差旅报销（原生页面）
 
 请问您要打开哪一个？
@@ -668,7 +680,7 @@ Agent：
 2. 追问：
 
 ```text
-请问您想打开哪个页面、模块或小程序？
+请问您想打开哪个页面、模块或 we码？
 ```
 
 ### 示例 10：`not_found` 后给补充建议

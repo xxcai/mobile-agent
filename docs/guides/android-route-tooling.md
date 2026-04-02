@@ -18,12 +18,12 @@
 ## 支持的目标类型
 
 - 原生页面：URI 使用 `ui://...`
-- 小程序页面：URI 使用 `h5://数字编号`
+- we码（WeCode / 微码）页面：URI 使用 `h5://数字编号`
 
 示例：
 
 - native: `ui://myapp.im/createGroup`
-- miniapp: `h5://1001001`
+- wecode: `h5://1001001`
 
 ## 当前接入边界
 
@@ -72,14 +72,14 @@
 - `targetTypeHint`
 - `uri`
 - `nativeModule`
-- `miniAppName`
+- `weCodeName`
 - `keywords`
 
 其中：
 
 - `uri` 适用于已知精确目标
 - `nativeModule` 适用于已知原生模块但不知道具体页面
-- `miniAppName` 适用于已知小程序名称
+- `weCodeName` 适用于已知 we码名称
 - `keywords` 是兜底线索
 
 当前 native route 的召回顺序是：
@@ -115,7 +115,7 @@
 说明：
 
 - native source 内部保留模块和页面描述
-- miniapp source 内部保留 `appName`
+- wecode source 内部保留 `appName`
 - 对外统一映射成 `RouteTarget.title`
 
 ### `candidates` 的 LLM 处理边界
@@ -452,8 +452,8 @@ native registry model 和 bridge 适配器位于 `agent-android`：
 
 App 层当前只需要提供或组装以下能力：
 
+- wecode query source
 - native route manifest assets
-- miniapp query source
 - `HostRouteInvoker`
 
 默认 shortcut 组装入口在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java)。
@@ -463,14 +463,14 @@ App 层当前只需要提供或组装以下能力：
 - route tooling 的通用运行时、source model 和 bridge 适配器已经下沉到 `agent-android/src/main/java/com/hh/agent/android/route/`
 - App 层主要保留 manifest 资源、demo invoker 和最终装配代码
 
-### MiniApp
+### WeCode
 
-当前 miniapp 侧使用 App mock query source 驱动，但 query source contract 和 bridge 适配器位于 `agent-android`：
+当前 wecode 侧使用 App mock query source 驱动，但 query source contract 和 bridge 适配器位于 `agent-android`：
 
-- [MiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/MiniAppQuerySource.java)
-- [MiniAppQueryResult.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/MiniAppQueryResult.java)
-- [QuerySourceBackedMiniAppRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedMiniAppRouteBridge.java)
-- [DefaultMockMiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockMiniAppQuerySource.java)
+- [WeCodeQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/WeCodeQuerySource.java)
+- [WeCodeQueryResult.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/WeCodeQueryResult.java)
+- [QuerySourceBackedWeCodeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedWeCodeRouteBridge.java)
+- [DefaultMockWeCodeQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockWeCodeQuerySource.java)
 
 当前 query result 最小字段：
 
@@ -480,10 +480,25 @@ App 层当前只需要提供或组装以下能力：
 
 注意：
 
-- miniapp 内部 source 允许保留 `appName`
+- wecode 内部 source 允许保留 `appName`
 - 映射到 `RouteTarget` 时统一使用 `title`
-- miniapp URI 必须使用 `h5://数字编号`
+- wecode URI 必须使用 `h5://数字编号`
 
+后续接真实查询时，优先替换 [DefaultMockWeCodeQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockWeCodeQuerySource.java) 或直接新增真实 `WeCodeQuerySource` 实现。
+
+查询失败约定：
+
+- bridge 返回空列表
+- bridge 内记日志
+- 不向 resolver 抛异常
+
+如果真实查询仍然满足：
+
+- 单 query 输入
+- `h5://数字编号` URI
+- `appName` + `description` 输出
+
+通常不需要修改 [QuerySourceBackedWeCodeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedWeCodeRouteBridge.java) 本身。
 ## Demo 与正式能力边界
 
 以下实现当前是 demo / 验证用途：
@@ -506,10 +521,10 @@ App 层当前只需要提供或组装以下能力：
 - `app` 各模块下的 `src/main/assets/mobile_agent/manifests/<module>.json`
 - 如有需要，扩展 [RouteManifestLoader.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/manifest/RouteManifestLoader.java) 的扫描或校验规则
 
-接真实 miniapp 查询时，优先改：
+接真实 wecode 查询时，优先改：
 
-- [DefaultMockMiniAppQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockMiniAppQuerySource.java)
-- 或新增真实 `MiniAppQuerySource` 实现并在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java) 中切换
+- [DefaultMockWeCodeQuerySource.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/DefaultMockWeCodeQuerySource.java)
+- 或新增真实 `WeCodeQuerySource` 实现并在 [RouteShortcutProvider.java](/Users/caixiao/Workspace/projects/mobile-agent/app/src/main/java/com/hh/agent/app/RouteShortcutProvider.java) 中切换
 
 通常不需要改：
 
@@ -517,6 +532,8 @@ App 层当前只需要提供或组装以下能力：
 - [RouteHint.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteHint.java)
 - [RouteResolution.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteResolution.java)
 - [RouteTarget.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteTarget.java)
+- [RegistryBackedNativeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RegistryBackedNativeRouteBridge.java)
+- [QuerySourceBackedWeCodeRouteBridge.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/QuerySourceBackedWeCodeRouteBridge.java)
 - [RouteOpener.java](/Users/caixiao/Workspace/projects/mobile-agent/agent-android/src/main/java/com/hh/agent/android/route/RouteOpener.java)
 
 ## 手工测试清单
@@ -552,7 +569,7 @@ App 层当前只需要提供或组装以下能力：
   - bridge 适配器
 - `app`
   - native route manifest assets
-  - miniapp query source 数据源
+  - wecode query source 数据源
   - manifest loader / URI composer
   - `DemoHostRouteInvoker`
   - 调试入口和 demo 页面
