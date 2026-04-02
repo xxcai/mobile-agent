@@ -1,9 +1,9 @@
 package com.hh.agent.app;
 
 import com.hh.agent.android.route.NativeRouteRegistry;
-import com.hh.agent.app.manifest.ManifestBackedRouteModuleResolver;
-import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
-import com.hh.agent.app.manifest.RouteManifestAssetSource;
+import com.hh.agent.android.route.manifest.ManifestBackedRouteModuleResolver;
+import com.hh.agent.android.route.manifest.ManifestBackedRouteUriComposer;
+import com.hh.agent.android.route.manifest.RouteManifestAssetSource;
 
 import org.json.JSONObject;
 import org.junit.Test;

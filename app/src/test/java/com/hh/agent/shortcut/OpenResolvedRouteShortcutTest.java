@@ -2,13 +2,13 @@ package com.hh.agent.shortcut;
 
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.HostRouteInvoker;
-import com.hh.agent.android.route.MiniAppRouteBridge;
 import com.hh.agent.android.route.NativeRouteBridge;
 import com.hh.agent.android.route.NoOpHostRouteInvoker;
 import com.hh.agent.android.route.RouteOpener;
 import com.hh.agent.android.route.RouteResolver;
+import com.hh.agent.android.route.WeCodeRouteBridge;
+import com.hh.agent.android.route.manifest.ManifestBackedRouteUriComposer;
 import com.hh.agent.app.manifest.InMemoryRouteManifestAssetSource;
-import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
 
 import org.json.JSONObject;
 import org.junit.Test;
@@ -74,7 +74,7 @@ public class OpenResolvedRouteShortcutTest {
                 null,
                 null,
                 emptyNativeBridge(),
-                emptyMiniAppBridge());
+                emptyWeCodeBridge());
         RouteOpener routeOpener = new RouteOpener(
                 () -> com.hh.agent.android.route.HostForegroundPreparationResult.success(true, true),
                 hostRouteInvoker);
@@ -100,7 +100,7 @@ public class OpenResolvedRouteShortcutTest {
         };
     }
 
-    private MiniAppRouteBridge emptyMiniAppBridge() {
+    private WeCodeRouteBridge emptyWeCodeBridge() {
         return query -> Collections.emptyList();
     }
 

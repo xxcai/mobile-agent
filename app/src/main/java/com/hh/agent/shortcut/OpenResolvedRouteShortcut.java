@@ -3,7 +3,7 @@ package com.hh.agent.shortcut;
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.RouteOpenResult;
 import com.hh.agent.android.route.RouteTarget;
-import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
+import com.hh.agent.android.route.manifest.ManifestBackedRouteUriComposer;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;

@@ -1,10 +1,10 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class RouteManifestRoute {
+public final class RouteManifestRoute {
     private final String path;
     private final String description;
     private final List<String> keywords;
@@ -18,19 +18,19 @@ final class RouteManifestRoute {
         this.params = Collections.unmodifiableList(new ArrayList<>(params == null ? Collections.emptyList() : params));
     }
 
-    String getPath() {
+    public String getPath() {
         return path;
     }
 
-    String getDescription() {
+    public String getDescription() {
         return description;
     }
 
-    List<String> getKeywords() {
+    public List<String> getKeywords() {
         return keywords;
     }
 
-    List<RouteManifestParam> getParams() {
+    public List<RouteManifestParam> getParams() {
         return params;
     }
 

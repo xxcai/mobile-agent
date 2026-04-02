@@ -1,6 +1,6 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
-enum RouteManifestEncoding {
+public enum RouteManifestEncoding {
     URL("url"),
     BASE64("base64"),
     BASE64URL("base64url");

@@ -1,6 +1,6 @@
-package com.hh.agent.app.manifest;
+package com.hh.agent.android.route.manifest;
 
-final class RouteManifestParam {
+public final class RouteManifestParam {
     private final String name;
     private final boolean required;
     private final String description;
@@ -13,19 +13,19 @@ final class RouteManifestParam {
         this.encoding = encoding;
     }
 
-    String getName() {
+    public String getName() {
         return name;
     }
 
-    boolean isRequired() {
+    public boolean isRequired() {
         return required;
     }
 
-    String getDescription() {
+    public String getDescription() {
         return description;
     }
 
-    RouteManifestEncoding getEncoding() {
+    public RouteManifestEncoding getEncoding() {
         return encoding;
     }
 
