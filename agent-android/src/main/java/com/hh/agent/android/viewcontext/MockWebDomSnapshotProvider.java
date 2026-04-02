@@ -83,7 +83,9 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
                 INTERACTION_DOMAIN_WEB,
                 targetHint,
                 null,
-                MOCK_WEB_DOM
+                MOCK_WEB_DOM,
+                pageUrl,
+                pageTitle
         );
         AgentLogs.info("MockWebDomSnapshotProvider", "collect_complete",
                 "snapshot_id=" + snapshot.snapshotId

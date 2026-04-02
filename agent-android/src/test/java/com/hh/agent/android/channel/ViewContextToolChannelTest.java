@@ -1,8 +1,10 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.viewcontext.RuntimeViewContextSourceResolver;
-import com.hh.agent.android.viewcontext.WebDomSnapshotProvider;
 import com.hh.agent.android.viewcontext.ViewContextSourceSelection;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshot;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshotRegistry;
+import com.hh.agent.android.viewcontext.WebDomSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
@@ -43,9 +45,11 @@ public class ViewContextToolChannelTest {
         assertEquals("web", result.getString("interactionDomain"));
         assertEquals("contact", result.getString("targetHint"));
         assertEquals("FALLBACK_RESOLVED", result.getString("selectionStatus"));
-        assertEquals("mock_webview_dom", result.getString("observationMode"));
-        assertEquals("html", result.getString("webDomFormat"));
-        assertTrue(result.getString("webDom").contains("mock-root"));
+        assertEquals("json_web_dom", result.getString("observationMode"));
+        assertEquals("json", result.getString("webDomFormat"));
+        assertTrue(result.getString("webDom").contains("json_tree"));
+        assertEquals("https://example.test/form", result.getString("pageUrl"));
+        assertEquals("Mock Page", result.getString("pageTitle"));
     }
 
     @Test
@@ -80,6 +84,23 @@ public class ViewContextToolChannelTest {
         assertEquals("com.hh.agent.BusinessWebActivity", result.getString("matchedActivityClassName"));
     }
 
+    @Test
+    public void createSnapshot_preservesPageMetadata() {
+        ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
+                "com.hh.agent.BusinessWebActivity",
+                ViewContextToolChannel.SOURCE_WEB_DOM,
+                "web",
+                "submit button",
+                null,
+                "{\"format\":\"json_tree\"}",
+                "https://example.test/form",
+                "Mock Page"
+        );
+
+        assertEquals("https://example.test/form", snapshot.pageUrl);
+        assertEquals("Mock Page", snapshot.pageTitle);
+    }
+
     private ViewContextToolChannel channelWithMockWebDom(RuntimeViewContextSourceResolver resolver) {
         Map<String, ViewContextSourceHandler> handlers = new LinkedHashMap<>();
         handlers.put(ViewContextToolChannel.SOURCE_NATIVE_XML, new NativeXmlViewContextSourceHandler());
@@ -92,14 +113,16 @@ public class ViewContextToolChannelTest {
                         .with("interactionDomain", "web")
                         .with("mock", true)
                         .with("targetHint", targetHint)
-                        .with("observationMode", "mock_webview_dom")
+                        .with("observationMode", "json_web_dom")
                         .with("snapshotId", "obs_web_mock")
                         .with("snapshotCreatedAtEpochMs", 1L)
                         .with("snapshotScope", "current_turn")
                         .with("snapshotCurrentTurnOnly", true)
+                        .with("pageUrl", "https://example.test/form")
+                        .with("pageTitle", "Mock Page")
                         .with("nativeViewXml", (String) null)
-                        .with("webDom", "<html><body><div id=\"mock-root\"></div></body></html>")
-                        .with("webDomFormat", "html")
+                        .with("webDom", "{\"format\":\"json_tree\",\"tree\":{\"tag\":\"body\"}}")
+                        .with("webDomFormat", "json")
                         .with("screenSnapshot", (String) null);
             }
         }));

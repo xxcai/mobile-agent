@@ -1,7 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
-import com.hh.agent.android.webaction.MockWebActionExecutor;
+import com.hh.agent.android.webaction.RealWebActionExecutor;
 import com.hh.agent.android.webaction.WebActionExecutor;
 import com.hh.agent.android.webaction.WebActionRequest;
 import com.hh.agent.core.tool.ToolResult;
@@ -18,7 +18,7 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
     private final WebActionExecutor executor;
 
     public WebActionToolChannel() {
-        this(new MockWebActionExecutor());
+        this(null);
     }
 
     WebActionToolChannel(WebActionExecutor executor) {
@@ -34,14 +34,18 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "执行当前宿主页面内的 Web DOM 动作。该通道只消费 web observation，适用于 click、input、scroll 等基于 DOM 的操作；不要把它用于原生触摸注入。")
+                        "执行当前宿主页面内的 Web DOM 动作。该通道只消费 web observation，适用于 click、input、eval_js、scroll_to_bottom 等基于 DOM 的操作；不要把它用于原生触摸注入。")
                 .property("action", ToolSchemaBuilder.string()
                         .description("Web 动作类型。")
-                        .enumValues("click", "input", "scroll"), true)
+                        .enumValues("click", "input", "eval_js", "scroll_to_bottom"), true)
+                .property("ref", ToolSchemaBuilder.string()
+                        .description("由 web_dom observation 提供的同回合节点引用。"), false)
                 .property("selector", ToolSchemaBuilder.string()
                         .description("目标 DOM 元素的 CSS selector。"), false)
                 .property("text", ToolSchemaBuilder.string()
                         .description("当 action=input 时写入的文本。"), false)
+                .property("script", ToolSchemaBuilder.string()
+                        .description("当 action=eval_js 时执行的 JavaScript 代码。"), false)
                 .property("observation", ToolSchemaBuilder.object()
                         .description("基于 web observation 执行时的引用信息。")
                         .property("snapshotId", ToolSchemaBuilder.string()
@@ -59,7 +63,7 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
             if (validationResult != null) {
                 return validationResult;
             }
-            return executor.execute(request);
+            return getExecutor().execute(request);
         } catch (Exception e) {
             return ToolResult.error("execution_failed", e.getMessage())
                     .with("channel", CHANNEL_NAME)
@@ -75,7 +79,8 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
         }
         if (!"click".equals(request.action)
                 && !"input".equals(request.action)
-                && !"scroll".equals(request.action)) {
+                && !"eval_js".equals(request.action)
+                && !"scroll_to_bottom".equals(request.action)) {
             return ToolResult.error("invalid_args", "Unsupported web action '" + request.action + "'")
                     .with("channel", CHANNEL_NAME)
                     .with("domain", "web");
@@ -100,9 +105,10 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
                             "Call android_view_context_tool first, then retry the web action with observation.snapshotId.");
         }
         if (("click".equals(request.action) || "input".equals(request.action))
-                && (request.selector == null || request.selector.isEmpty())) {
+                && isEmpty(request.ref)
+                && isEmpty(request.selector)) {
             return ToolResult.error("invalid_args",
-                            request.action + " requires a non-empty 'selector'")
+                            request.action + " requires a non-empty 'ref' or 'selector'")
                     .with("channel", CHANNEL_NAME)
                     .with("domain", "web");
         }
@@ -111,6 +117,19 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
                     .with("channel", CHANNEL_NAME)
                     .with("domain", "web");
         }
+        if ("eval_js".equals(request.action) && isEmpty(request.script)) {
+            return ToolResult.error("invalid_args", "eval_js requires a non-empty 'script'")
+                    .with("channel", CHANNEL_NAME)
+                    .with("domain", "web");
+        }
         return null;
+    }
+
+    private boolean isEmpty(String value) {
+        return value == null || value.isEmpty();
+    }
+
+    private WebActionExecutor getExecutor() {
+        return executor != null ? executor : RealWebActionExecutor.createDefault();
     }
 }

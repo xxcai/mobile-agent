@@ -2,9 +2,13 @@ plugins {
     id 'com.android.library'
 }
 
+def agentCoreCmakeVersion = providers.gradleProperty("agentCoreCmakeVersion").getOrElse("3.22.1")
+def agentCoreNdkVersion = providers.gradleProperty("agentCoreNdkVersion").getOrElse("26.3.11579264")
+
 android {
     namespace 'com.hh.agent.library'
     compileSdk 34
+    buildToolsVersion '34.0.0'
 
     defaultConfig {
         minSdk 24
@@ -44,11 +48,11 @@ android {
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
-            version "3.22.1"
+            version agentCoreCmakeVersion
         }
     }
 
-    ndkVersion "26.3.11579264"
+    ndkVersion agentCoreNdkVersion
 }
 
 dependencies {

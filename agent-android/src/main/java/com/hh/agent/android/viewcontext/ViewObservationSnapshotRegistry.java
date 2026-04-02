@@ -25,6 +25,8 @@ public final class ViewObservationSnapshotRegistry {
                 DOMAIN_NATIVE,
                 targetHint,
                 nativeViewXml,
+                null,
+                null,
                 null
         );
     }
@@ -35,6 +37,26 @@ public final class ViewObservationSnapshotRegistry {
                                                          String targetHint,
                                                          String nativeViewXml,
                                                          String webDom) {
+        return createSnapshot(
+                activityClassName,
+                source,
+                interactionDomain,
+                targetHint,
+                nativeViewXml,
+                webDom,
+                null,
+                null
+        );
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String interactionDomain,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String webDom,
+                                                         String pageUrl,
+                                                         String pageTitle) {
         ViewObservationSnapshot snapshot = new ViewObservationSnapshot(
                 "obs_" + UUID.randomUUID().toString().replace("-", ""),
                 activityClassName,
@@ -44,7 +66,9 @@ public final class ViewObservationSnapshotRegistry {
                 System.currentTimeMillis(),
                 true,
                 nativeViewXml,
-                webDom
+                webDom,
+                pageUrl,
+                pageTitle
         );
         LATEST_SNAPSHOT.set(snapshot);
         return snapshot;

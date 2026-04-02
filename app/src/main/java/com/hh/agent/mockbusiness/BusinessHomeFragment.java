@@ -1,5 +1,6 @@
 package com.hh.agent.mockbusiness;
 
+import android.content.pm.ApplicationInfo;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -47,6 +48,7 @@ public class BusinessHomeFragment extends Fragment {
         bindAttendanceCard(view);
         bindTodoList(view, MockBusinessRepository.getTodoItems());
         bindTopMore(view);
+        bindDebugEntry(view);
         adjustQuickActionPages(view);
     }
 
@@ -136,6 +138,24 @@ public class BusinessHomeFragment extends Fragment {
                 .setOnClickListener(v -> openWebPage("业务总览", MockBusinessRepository.getMoreHtml()));
     }
 
+    private void bindDebugEntry(View root) {
+        View debugEntry = root.findViewById(R.id.businessDebugEntry);
+        if (!isDebugBuild()) {
+            debugEntry.setVisibility(View.GONE);
+            return;
+        }
+        debugEntry.setVisibility(View.VISIBLE);
+        debugEntry.setOnClickListener(v -> openDebugWebPage());
+    }
+
+    private boolean isDebugBuild() {
+        return isDebuggable(requireContext().getApplicationInfo());
+    }
+
+    static boolean isDebuggable(ApplicationInfo applicationInfo) {
+        return (applicationInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+
     private void adjustQuickActionPages(View root) {
         HorizontalScrollView scrollView = root.findViewById(R.id.quickActionScrollView);
         View pageOne = root.findViewById(R.id.quickActionPageOne);
@@ -156,6 +176,16 @@ public class BusinessHomeFragment extends Fragment {
         Intent intent = new Intent(requireContext(), BusinessWebActivity.class);
         intent.putExtra(BusinessWebActivity.EXTRA_TITLE, title);
         intent.putExtra(BusinessWebActivity.EXTRA_HTML_CONTENT, htmlContent);
+        startActivity(intent);
+    }
+
+    private void openDebugWebPage() {
+        Intent intent = new Intent(requireContext(), BusinessWebActivity.class);
+        intent.putExtra(BusinessWebActivity.EXTRA_TITLE, "业务调试页");
+        intent.putExtra(BusinessWebActivity.EXTRA_ENABLE_DEBUG_CONTROLS, true);
+        intent.putExtra(BusinessWebActivity.EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE, true);
+        intent.putExtra(BusinessWebActivity.EXTRA_PROBE_TARGET_HINT, "debug submit button");
+        intent.putExtra(BusinessWebActivity.EXTRA_PAGE_TEMPLATE_ASSET, "business_page_form.html");
         startActivity(intent);
     }
 }
