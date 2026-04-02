@@ -1,18 +1,18 @@
 ---
 name: agent_shared
 description: Agent 共享规则。提供所有业务 skill 共用的执行规程，包括 skill 与 shortcut 的区别、读取 skill 和 reference 的顺序、路径规则、完成态判断和通用 fallback 约束。
-emoji: "📘"
-always: false
+always: true
 ---
 
 # Agent 共享规则
 
-本 skill 提供所有业务 skill 共用的执行规程。
+本 skill 作为常驻共享规则，提供所有业务 skill 共用的执行规程。
 
 **CRITICAL — 命中某个业务 skill 时，MUST 先读取该 skill，再决定是否调用任何业务 shortcut。**
 **CRITICAL — skill 名不是 shortcut 名；不要对 skill 名调用 `run_shortcut` 或 `describe_shortcut`。**
 **CRITICAL — 所有 skill 与 reference 一律使用 workspace 相对路径读取。**
 **CRITICAL — 没有当前回合执行成功，不要宣称任务已经完成。**
+**CRITICAL — 当本轮输入明显是在选择上一轮候选项时，优先使用 `resolve_candidate_selection`；不要在已有候选状态时直接重跑原始搜索类 shortcut。**
 
 ## 默认执行顺序
 

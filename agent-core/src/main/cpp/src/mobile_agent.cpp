@@ -1,4 +1,5 @@
 #include "icraw/mobile_agent.hpp"
+#include "icraw/platform/android/android_tools.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include "icraw/core/skill_loader.hpp"
 #include "icraw/tools/tool_registry.hpp"
@@ -160,6 +161,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
                               const std::string& message,
                               AgentEventCallback callback) {
     const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    icraw::g_android_tools.set_current_session_id(effective_session_id);
     auto session_entries = memory_manager_->get_recent_messages(
         config_.agent.memory_window, effective_session_id);
     std::vector<Message> session_history;
@@ -245,6 +247,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
     agent_loop_->maybe_consolidate_memory(new_messages);
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] session_id={} history_count={}",
             effective_session_id, session_history.size());
+    icraw::g_android_tools.clear_current_session_id();
 }
 
 void MobileAgent::clear_history() {

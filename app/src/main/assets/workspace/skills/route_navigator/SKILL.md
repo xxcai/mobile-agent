@@ -1,14 +1,11 @@
 ---
 name: route_navigator
 description: 页面跳转助手。帮助 Agent 解析用户想去的页面、原生模块或 we码（WeCode / 微码）入口，并在目标明确后打开对应页面。当用户要求打开某个页面、进入某个入口、跳到某个模块、we码或业务页面时使用。
-emoji: "🧭"
 always: false
 ---
 
 # 页面跳转助手
 
-**CRITICAL — 第一步 MUST 先用 `read_file` 读取并遵循 `skills/agent_shared/SKILL.md`。**
-**CRITICAL — 在读完 shared 之前，不要调用 `run_shortcut("route_navigator")` 或 `describe_shortcut("route_navigator")`。**
 **CRITICAL — 在完成目标判断前，不要直接调用 `resolve_route` 或 `open_resolved_route`。**
 
 当用户的目标是“进入某个页面或业务入口”时，使用此 skill。
@@ -16,9 +13,10 @@ always: false
 ## 使用原则
 
 - 优先使用 `run_shortcut`
-- 当前 skill 推荐的 shortcut 只有两个：
+- 当前 skill 推荐的 shortcut：
   - `resolve_route`
   - `open_resolved_route`
+  - `resolve_candidate_selection`
 - 当用户明确说了 `we码`、`WeCode`、`微码` 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "wecode"`，不要只传泛关键词
 - 当用户明确说了“原生页面”或明确排除 we码 时，调用 `resolve_route` 必须显式传 `targetTypeHint: "native"`
 - 先解析，再打开；不要跳过解析步骤直接猜测目标 URI
@@ -207,10 +205,25 @@ always: false
 用户确认后的处理：
 
 - 如果用户明确说“第一个 / 第二个 / 前者 / 后者 / login 那个 / settings 那个”
-- 直接把用户选择映射到上一轮候选列表中的一个目标
+- 先调用 `resolve_candidate_selection`
+- 调用时传：
+
+```json
+{
+  "shortcut": "resolve_candidate_selection",
+  "args": {
+    "selectionText": "用户本轮原话",
+    "domain": "route"
+  }
+}
+```
+
+- 如果成功，直接使用返回 `payload` 中的 `targetType`、`uri`、`title`
 - 然后立刻调用 `open_resolved_route`
 - 不要再调用其他不存在的 shortcut
-- 不需要重新做一次无关的 route 解析，除非候选上下文已经丢失
+- 不需要重新做一次无关的 route 解析，除非当前 session 中没有候选上下文或解析失败
+- 如果失败且错误明确提示参数格式不对，先按返回的 `expectedArgs` / `argsExample` 修正参数后重试一次
+- 不要在 `resolve_candidate_selection` 失败后自行猜测目标 `uri`
 
 追问后差异词确认的处理：
 
@@ -220,7 +233,8 @@ always: false
   - `登录`
   - `账号安全`
   - `设置`
-- 直接把该差异词映射到上一轮候选中的一个目标
+- 先调用 `resolve_candidate_selection`
+- 成功后直接取返回 `payload`
 - 然后立刻调用 `open_resolved_route`
 - 不要再试探任何新的 shortcut 名，例如 `changePassword`
 

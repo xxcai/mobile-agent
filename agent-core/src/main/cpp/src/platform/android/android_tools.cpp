@@ -18,9 +18,9 @@ std::string AndroidTools::call_tool(const std::string& tool_name, const nlohmann
     }
 
     try {
-        ICRAW_LOG_INFO("[AndroidTools][tool_call_start] tool_name={}", tool_name);
+        ICRAW_LOG_INFO("[AndroidTools][tool_call_start] tool_name={} session_id={}", tool_name, current_session_id_);
         ICRAW_LOG_DEBUG("[AndroidTools][tool_call_debug] tool_name={} args={}", tool_name, args.dump());
-        std::string result = callback_->call_tool(tool_name, args);
+        std::string result = callback_->call_tool(tool_name, args, current_session_id_);
         ICRAW_LOG_INFO("[AndroidTools][tool_call_complete] tool_name={} result_length={}", tool_name, result.size());
         ICRAW_LOG_DEBUG("[AndroidTools][tool_call_debug] tool_name={} result={}", tool_name, result);
         return result;
@@ -32,6 +32,14 @@ std::string AndroidTools::call_tool(const std::string& tool_name, const nlohmann
         result["message"] = e.what();
         return result.dump();
     }
+}
+
+void AndroidTools::set_current_session_id(const std::string& session_id) {
+    current_session_id_ = session_id;
+}
+
+void AndroidTools::clear_current_session_id() {
+    current_session_id_.clear();
 }
 
 // Global instance

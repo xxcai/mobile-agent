@@ -425,7 +425,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     // Get method ID (can be cached, it's static)
     jclass cls = env->GetObjectClass(callback);
     jmethodID method_id = env->GetMethodID(cls, "callTool",
-        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     env->DeleteLocalRef(cls);
 
     // Create a C++ callback that delegates to Java
@@ -434,7 +434,9 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
         JniCallback(JavaVM* jvm, jobject o, jmethodID mid)
             : java_vm_(jvm), callback_(o), method_id_(mid) {}
 
-        std::string call_tool(const std::string& tool_name, const nlohmann::json& args) override {
+        std::string call_tool(const std::string& tool_name,
+                              const nlohmann::json& args,
+                              const std::string& session_key) override {
             if (!callback_ || !method_id_) {
                 nlohmann::json error;
                 error["success"] = false;
@@ -464,8 +466,9 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
 
             jstring j_tool_name = env->NewStringUTF(tool_name.c_str());
             jstring j_args = env->NewStringUTF(args.dump().c_str());
+            jstring j_session_key = env->NewStringUTF(session_key.c_str());
 
-            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args);
+            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args, j_session_key);
 
             std::string result;
             if (j_result) {
@@ -481,6 +484,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
 
             env->DeleteLocalRef(j_tool_name);
             env->DeleteLocalRef(j_args);
+            env->DeleteLocalRef(j_session_key);
             if (j_result) env->DeleteLocalRef(j_result);
 
             // Detach thread if we attached it

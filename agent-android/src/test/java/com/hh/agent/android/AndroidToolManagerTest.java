@@ -80,6 +80,74 @@ public class AndroidToolManagerTest {
         assertEquals("张三", result.getString("query"));
     }
 
+    @Test
+    public void resolveCandidateSelectionUsesSessionScopedLatestCandidates() throws Exception {
+        AndroidToolManager manager = new AndroidToolManager(null);
+        manager.registerShortcut(new ShortcutExecutor() {
+            @Override
+            public ShortcutDefinition getDefinition() {
+                return ShortcutDefinition.builder("search_contacts", "查找联系人", "按姓名搜索")
+                        .stringParam("query", "query", true, "张三")
+                        .build();
+            }
+
+            @Override
+            public ToolResult execute(JSONObject args) {
+                return ToolResult.success().withJson("candidateSelection", buildCandidateSelectionJson());
+            }
+        });
+
+        manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "search_contacts")
+                .put("args", new JSONObject().put("query", "张三"))
+                .toString(), "native:container");
+
+        String raw = manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "resolve_candidate_selection")
+                .put("args", new JSONObject()
+                        .put("selectionText", "技术部那个")
+                        .put("domain", "contact"))
+                .toString(), "native:container");
+
+        JSONObject result = new JSONObject(raw);
+        assertTrue(result.getBoolean("success"));
+        assertEquals("001", result.getJSONObject("payload").getString("contact_id"));
+    }
+
+    @Test
+    public void resolveCandidateSelectionSupportsSelectionIndexAlias() throws Exception {
+        AndroidToolManager manager = new AndroidToolManager(null);
+        manager.registerShortcut(new ShortcutExecutor() {
+            @Override
+            public ShortcutDefinition getDefinition() {
+                return ShortcutDefinition.builder("search_contacts", "查找联系人", "按姓名搜索")
+                        .stringParam("query", "query", true, "张三")
+                        .build();
+            }
+
+            @Override
+            public ToolResult execute(JSONObject args) {
+                return ToolResult.success().withJson("candidateSelection", buildCandidateSelectionJson());
+            }
+        });
+
+        manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "search_contacts")
+                .put("args", new JSONObject().put("query", "张三"))
+                .toString(), "native:container");
+
+        String raw = manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "resolve_candidate_selection")
+                .put("args", new JSONObject()
+                        .put("selection_index", 1)
+                        .put("domain", "contact"))
+                .toString(), "native:container");
+
+        JSONObject result = new JSONObject(raw);
+        assertTrue(result.getBoolean("success"));
+        assertEquals("001", result.getJSONObject("payload").getString("contact_id"));
+    }
+
     private static Collection<AndroidToolChannelExecutor> createTestChannels(ShortcutRuntime shortcutRuntime) {
         return Arrays.asList(
                 new ShortcutRuntimeChannel(shortcutRuntime),
@@ -109,6 +177,26 @@ public class AndroidToolManagerTest {
 
         @Override
         public void e(String tag, String message, Throwable throwable) {
+        }
+    }
+
+    private static String buildCandidateSelectionJson() {
+        try {
+            return new JSONObject()
+                    .put("domain", "contact")
+                    .put("items", new org.json.JSONArray()
+                            .put(new JSONObject()
+                                    .put("index", 1)
+                                    .put("label", "张三（技术部）")
+                                    .put("aliases", new org.json.JSONArray().put("技术部那个"))
+                                    .put("payload", new JSONObject().put("contact_id", "001")))
+                            .put(new JSONObject()
+                                    .put("index", 2)
+                                    .put("label", "张三（市场部）")
+                                    .put("payload", new JSONObject().put("contact_id", "002"))))
+                    .toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to build test candidate selection", exception);
         }
     }
 

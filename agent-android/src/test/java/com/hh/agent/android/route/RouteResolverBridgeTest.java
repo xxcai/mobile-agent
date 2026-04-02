@@ -84,6 +84,13 @@ public class RouteResolverBridgeTest {
         JSONObject json = result.toJson();
         assertEquals("candidates", json.getString("status"));
         assertEquals(2, json.getJSONArray("candidates").length());
+        JSONObject candidateSelection = json.getJSONObject("candidateSelection");
+        assertEquals("route", candidateSelection.getString("domain"));
+        assertEquals(2, candidateSelection.getJSONArray("items").length());
+        assertEquals("native:ui://myapp.expense/records",
+                candidateSelection.getJSONArray("items").getJSONObject(0).getString("stableKey"));
+        assertEquals("ui://myapp.expense/records",
+                candidateSelection.getJSONArray("items").getJSONObject(0).getJSONObject("payload").getString("uri"));
     }
 
     @Test
