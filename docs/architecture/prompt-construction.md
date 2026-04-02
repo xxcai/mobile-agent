@@ -42,10 +42,15 @@
 这会直接影响意图路由：
 
 - 容易硬选一个不匹配的业务工具
-- 容易忽略 `run_shortcut.shortcut` 里真正可选的业务能力
+- 容易忽略 skill summary 与 `run_shortcut.shortcut` 之间的职责边界
 - 容易在边界场景下过早或过晚地考虑视觉链路
 
-因此当前展示改成了更接近“路由卡片”的样式。
+因此当前 prompt 现在同时依赖两层信息：
+
+- `skills summary`
+  负责告诉模型有哪些 workflow skill，以及 skill 应通过 `read_file("skills/<skill_name>/SKILL.md")` 使用
+- tool schema
+  负责告诉模型有哪些可执行通道，以及每个通道的参数协议
 
 ## 当前工具展示结构
 
@@ -81,14 +86,26 @@ Required first: ...
 
 ```text
 ## run_shortcut
-Route role: 运行宿主 App 已注册的业务 shortcut。适用于联系人、消息等业务能力。不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。
+Route role: 运行宿主 App 已注册的业务 shortcut。适用于联系人、消息、路由等业务能力。不要用这个通道做屏幕坐标点击或滑动，这类手势应使用 android_gesture_tool。
 
 Input shape:
 - Required first: shortcut, args
-- shortcut: string (required) - 要调用的业务 shortcut 名称，只能从 enum 列表中选择。优先依据 skill 指导选择
-  Choose from: search_contacts, send_im_message
+- shortcut: string (required) - 要调用的业务 shortcut 名称。应优先依据 skill 或 describe_shortcut 获取，不应把 skill 名填进这里
 - args: object (required) - args 的字段结构由所选 shortcut 决定
-  Nested shape is defined by the selected shortcut or described above.
+  Nested shape is defined by the selected shortcut or queried on demand.
+```
+
+而 skills summary 顶层现在会先给出统一 usage，例如：
+
+```xml
+<skills>
+  <usage>
+    Read a skill with read_file("skills/&lt;skill_name&gt;/SKILL.md") before taking action.
+    Skill names are workflow guides, not shortcut names.
+    Do not call run_shortcut or describe_shortcut with a skill name.
+  </usage>
+  ...
+</skills>
 ```
 
 而 `android_gesture_tool` 会更像：
@@ -116,6 +133,7 @@ Required first: action
 
 它的价值在于：
 
+- 当用户意图明显命中某个 workflow skill 时，模型更容易先读 skill，再决定 shortcut
 - 当用户意图明显落在 `run_shortcut.shortcut` 的候选能力里时，模型更容易先走业务通道
 - 当用户意图明显超出这些业务能力，且更像页面元素选择、坐标点击、列表滑动时，模型更容易意识到这不是现有业务工具能直接完成的目标
 - 这样可以减少“先乱调一个业务工具再说”的情况
@@ -164,7 +182,7 @@ android_view_context_tool -> android_gesture_tool(observation-bound)
 
 ## 真实边界
 
-当前这套改动只提升“看懂 prompt 的能力”，还没有解决下面这些问题：
+当前这套改动主要提升“看懂 prompt 与 skill 边界的能力”，还没有解决下面这些问题：
 
 - 业务工具尚未统一返回 `business_capability_not_supported`
 - 业务工具尚未统一返回 `business_target_not_accessible`

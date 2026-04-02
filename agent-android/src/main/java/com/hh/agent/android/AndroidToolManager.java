@@ -57,7 +57,9 @@ public class AndroidToolManager implements AndroidToolCallback {
         registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());
         registerChannel(new WebActionToolChannel());
-        registerChannel(new ViewContextToolChannel());
+        registerChannel(context == null
+                ? ViewContextToolChannel.createForJvmTests()
+                : new ViewContextToolChannel());
     }
 
     /**

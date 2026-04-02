@@ -3,6 +3,7 @@ package com.hh.agent.shortcut;
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.RouteOpenResult;
 import com.hh.agent.android.route.RouteTarget;
+import com.hh.agent.app.manifest.ManifestBackedRouteUriComposer;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;
@@ -13,12 +14,18 @@ import org.json.JSONObject;
  */
 public final class OpenResolvedRouteShortcut implements ShortcutExecutor {
     private final AndroidRouteRuntime routeRuntime;
+    private final ManifestBackedRouteUriComposer routeUriComposer;
 
-    public OpenResolvedRouteShortcut(AndroidRouteRuntime routeRuntime) {
+    public OpenResolvedRouteShortcut(AndroidRouteRuntime routeRuntime,
+                                     ManifestBackedRouteUriComposer routeUriComposer) {
         if (routeRuntime == null) {
             throw new IllegalArgumentException("routeRuntime cannot be null");
         }
+        if (routeUriComposer == null) {
+            throw new IllegalArgumentException("routeUriComposer cannot be null");
+        }
         this.routeRuntime = routeRuntime;
+        this.routeUriComposer = routeUriComposer;
     }
 
     @Override
@@ -30,18 +37,20 @@ public final class OpenResolvedRouteShortcut implements ShortcutExecutor {
                 .domain("route")
                 .requiredSkill("route_navigator")
                 .risk("navigate")
-                .stringParam("targetType", "native 或 wecode", true, "wecode")
-                .stringParam("uri", "已解析的目标 URI", true, "h5://1001001")
-                .stringParam("title", "已解析的目标标题", true, "费控报销")
+                .argsSchema("{\"type\":\"object\",\"properties\":{\"targetType\":{\"type\":\"string\",\"description\":\"native 或 wecode\"},\"uri\":{\"type\":\"string\",\"description\":\"已解析的基础目标 URI\"},\"title\":{\"type\":\"string\",\"description\":\"已解析的目标标题\"},\"routeArgs\":{\"type\":\"object\",\"description\":\"可选，按参数名传入对象。每项格式为 {\\\"value\\\":\\\"...\\\",\\\"encoded\\\":true|false}；当 manifest 声明了 encode 时必须显式提供 encoded。\"}},\"required\":[\"targetType\",\"uri\",\"title\"]}")
+                .argsExample("{\"targetType\":\"wecode\",\"uri\":\"h5://1001001\",\"title\":\"费控报销\"}")
                 .build();
     }
 
     @Override
     public ToolResult execute(JSONObject args) {
         try {
+            String finalUri = routeUriComposer.compose(
+                    args.optString("uri", null),
+                    args.optJSONObject("routeArgs"));
             RouteTarget target = new RouteTarget.Builder()
                     .targetType(args.optString("targetType", null))
-                    .uri(args.optString("uri", null))
+                    .uri(finalUri)
                     .title(args.optString("title", null))
                     .build();
             RouteOpenResult result = routeRuntime.open(target);

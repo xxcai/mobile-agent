@@ -1,0 +1,15 @@
+{
+  "module": "myapp.login",
+  "routes": [
+    {
+      "path": "ui://myapp.login/resetPassword",
+      "description": "登录页找回密码页面",
+      "keywords": ["登录", "密码", "忘记密码", "找回密码", "重置密码"]
+    },
+    {
+      "path": "ui://myapp.login/changePassword",
+      "description": "登录页修改密码页面",
+      "keywords": ["登录", "密码", "修改密码", "改密码"]
+    }
+  ]
+}

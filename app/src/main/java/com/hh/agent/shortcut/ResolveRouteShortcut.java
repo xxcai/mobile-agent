@@ -3,6 +3,7 @@ package com.hh.agent.shortcut;
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.RouteHint;
 import com.hh.agent.android.route.RouteResolution;
+import com.hh.agent.app.manifest.ManifestBackedRouteModuleResolver;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;
@@ -15,12 +16,18 @@ import org.json.JSONObject;
  */
 public final class ResolveRouteShortcut implements ShortcutExecutor {
     private final AndroidRouteRuntime routeRuntime;
+    private final ManifestBackedRouteModuleResolver routeModuleResolver;
 
-    public ResolveRouteShortcut(AndroidRouteRuntime routeRuntime) {
+    public ResolveRouteShortcut(AndroidRouteRuntime routeRuntime,
+                                ManifestBackedRouteModuleResolver routeModuleResolver) {
         if (routeRuntime == null) {
             throw new IllegalArgumentException("routeRuntime cannot be null");
         }
+        if (routeModuleResolver == null) {
+            throw new IllegalArgumentException("routeModuleResolver cannot be null");
+        }
         this.routeRuntime = routeRuntime;
+        this.routeModuleResolver = routeModuleResolver;
     }
 
     @Override
@@ -52,6 +59,7 @@ public final class ResolveRouteShortcut implements ShortcutExecutor {
             JSONObject normalized = new JSONObject(args.toString());
             String keywordsCsv = normalized.optString("keywords_csv", null);
             if (keywordsCsv == null || keywordsCsv.trim().isEmpty()) {
+                inferNativeModule(normalized);
                 return normalized;
             }
             JSONArray keywords = new JSONArray();
@@ -60,9 +68,21 @@ public final class ResolveRouteShortcut implements ShortcutExecutor {
             }
             normalized.remove("keywords_csv");
             normalized.put("keywords", keywords);
+            inferNativeModule(normalized);
             return normalized;
         } catch (JSONException exception) {
             throw new IllegalStateException("Failed to expand keywords_csv", exception);
+        }
+    }
+
+    private void inferNativeModule(JSONObject normalized) throws JSONException {
+        if (normalized.has("nativeModule")) {
+            return;
+        }
+        RouteHint routeHint = RouteHint.fromJson(normalized);
+        String inferredModule = routeModuleResolver.inferModule(routeHint.getKeywords());
+        if (inferredModule != null) {
+            normalized.put("nativeModule", inferredModule);
         }
     }
 }
