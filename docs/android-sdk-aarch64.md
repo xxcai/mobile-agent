@@ -43,6 +43,20 @@ cmake.dir=/home/tony/Android/android-sdk-aarch64/cmake/3.31.6
 
 如果是其他 Android 工程，按你自己的绝对路径替换即可。
 
+如果本地 ARM64 Linux 需要覆盖仓库默认的 CMake / NDK 版本，而不修改仓库默认配置，可在用户级 `~/.gradle/gradle.properties` 中增加：
+
+```properties
+agentCoreCmakeVersion=3.31.6
+agentCoreNdkVersion=26.3.11579264
+```
+
+仓库默认值仍保持：
+
+- `cmake`: `3.22.1`
+- `ndkVersion`: `26.3.11579264`
+
+也就是说，ARM64 Linux 上的版本切换应优先通过本地 Gradle 属性覆盖，而不是直接修改仓库内 `agent-core/build.gradle` 的默认版本。
+
 项目级 `gradle.properties` 当前还需要显式保留：
 
 ```properties
@@ -56,7 +70,9 @@ android.aapt2FromMavenOverride=/home/tony/Android/android-sdk-aarch64/build-tool
 在 `agent-core/` 目录先执行 Conan 安装：
 
 ```bash
-conan install . -pr android.profile -s arch=armv8 --build missing
+conan install . -pr android.profile -s arch=armv8 \
+  -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 \
+  --build missing
 ```
 
 然后在仓库根目录执行：
@@ -77,6 +93,7 @@ JAVA_HOME="/home/tony/android-studio/jbr" PATH="/home/tony/android-studio/jbr/bi
 并且还验证过：
 
 - 清理用户级 `~/.gradle/gradle.properties` 中的 `android.aapt2FromMavenOverride` 覆盖项后，项目构建只消费仓库级配置
+- 通过用户级 `~/.gradle/gradle.properties` 覆盖 `agentCoreCmakeVersion` / `agentCoreNdkVersion`，可以在不修改仓库默认版本的前提下完成本地 ARM64 构建
 
 ## 已知限制
 

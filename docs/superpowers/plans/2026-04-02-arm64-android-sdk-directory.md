@@ -6,7 +6,7 @@
 
 **Architecture:** 先把当前已验证可用的 ARM64 CMake、ARM64 Ninja、ARM64 NDK host toolchain 组合沉淀到 `dist/android-sdk-aarch64/`，再把仓库配置收敛到消费这份目录，而不是依赖当前机器 `/home/tony/...` 下的临时替身。验证阶段通过独立 `sdk.dir` 重新证明构建链闭环。
 
-**Status Note (2026-04-02):** 当前实际 fresh 验证通过的配置仍然使用 `/home/tony/Android/android-sdk-aarch64`，并由项目级 `gradle.properties` 显式指定 `/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。`dist/android-sdk-aarch64/` 仍是目标态，不应误读为已经落地。
+**Status Note (2026-04-02):** 当前实际 fresh 验证通过的配置仍然使用 `/home/tony/Android/android-sdk-aarch64`，并由项目级 `gradle.properties` 显式指定 `/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。仓库默认 `cmake` / `ndkVersion` 不应直接切到 ARM64 本地实验值；本地 ARM64 版本覆盖应通过 `~/.gradle/gradle.properties` 和 Conan 命令参数完成。`dist/android-sdk-aarch64/` 仍是目标态，不应误读为已经落地。
 
 **Tech Stack:** Gradle, Android SDK directory layout, Conan 2, CMake, Android NDK, Bash, Markdown docs.
 
@@ -17,9 +17,9 @@
 ### Existing files to modify
 
 - `agent-core/build.gradle`
-  - 固定到独立 SDK 目录内实际提供的 CMake 版本。
+  - 保持仓库默认版本，并提供本地 Gradle 属性覆盖入口。
 - `agent-core/android.profile`
-  - 移除单机私有路径依赖，使 Conan 能消费目标 SDK 目录中的 NDK。
+  - 移除单机私有路径依赖，改由本地 Conan 命令或 profile include 注入 NDK 路径。
 - `local.properties`
   - 切换为指向独立 SDK 目录，作为 fresh 验证入口。
 - `README.md`
@@ -127,13 +127,13 @@ Document the assumptions being tested:
 - Conan reads NDK from the target SDK root
 - no configuration path still points at old `/home/tony/...` SDK paths
 
-- [ ] **Step 2: Update `agent-core/build.gradle` to the selected CMake version**
+- [ ] **Step 2: Update `agent-core/build.gradle` to keep repository defaults but allow local override**
 
-Ensure the version matches the copied SDK directory.
+Keep the repository default aligned with `origin/main`, and expose local Gradle properties for ARM64-specific overrides.
 
 - [ ] **Step 3: Update `agent-core/android.profile` to stop depending on old single-machine paths**
 
-Make the NDK path align with the independent SDK directory used for verification.
+Do not hardcode a Linux-host local path in the repository; pass the NDK path from the local Conan command or a machine-local profile include.
 
 - [ ] **Step 4: Update `local.properties` to point `sdk.dir` at `dist/android-sdk-aarch64`**
 
@@ -162,7 +162,9 @@ Expected: no stale runtime-critical path remains in project config.
 Run:
 
 ```bash
-conan install . -pr android.profile -s arch=armv8 --build missing
+conan install . -pr android.profile -s arch=armv8 \
+  -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 \
+  --build missing
 ```
 
 Workdir: `agent-core`

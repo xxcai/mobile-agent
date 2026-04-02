@@ -31,7 +31,7 @@
 
 但当前可用状态依赖的是宿主机上的临时替身方案，而不是一份可独立复用的 SDK 目录：
 
-- `agent-core/build.gradle` 临时切到了 `cmake 3.31.6`
+- 本地 ARM64 构建依赖 `cmake 3.31.6`，但这不应直接变成仓库默认值
 - `local.properties` 临时指向 `android-studio/Sdk/cmake/3.31.6`
 - `/home/tony/Android/Sdk/cmake/3.22.1/bin/ninja` 被本机 ARM64 `ninja` 替换
 - `/home/tony/Android/Sdk/ndk/26.3.11579264` 被 `termux-ndk` 软链替换
@@ -42,7 +42,7 @@
 - ARM64 Ninja
 - ARM64 Android NDK host toolchain
 
-补充状态说明：截至 2026-04-02，项目实际 fresh 验证通过的配置仍然是 `/home/tony/Android/android-sdk-aarch64`，并通过项目级 `gradle.properties` 显式固定 `android.aapt2FromMavenOverride=/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。因此本设计文档中的 `dist/android-sdk-aarch64/` 仍然表示目标态，而不是当前已经交付完成的目录。
+补充状态说明：截至 2026-04-02，项目实际 fresh 验证通过的配置仍然是 `/home/tony/Android/android-sdk-aarch64`，并通过项目级 `gradle.properties` 显式固定 `android.aapt2FromMavenOverride=/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。仓库默认 `agent-core/build.gradle` 应继续保持主干默认版本，本地 ARM64 所需的 CMake / NDK 版本切换应通过用户级 Gradle 属性和 Conan 命令覆盖完成。因此本设计文档中的 `dist/android-sdk-aarch64/` 仍然表示目标态，而不是当前已经交付完成的目录。
 
 接下来的目标不是继续依赖当前机器目录，而是把这组已验证可行的组合固化成一份单独目录，例如 `dist/android-sdk-aarch64/`，让其他本地工程也能通过 `sdk.dir` 直接复用。
 
@@ -110,7 +110,7 @@
 
 为保证仓库能真正消费这份独立 SDK 目录，仓库内配置需要满足以下约束：
 
-- `agent-core/build.gradle` 固定使用 `cmake 3.31.6`
+- `agent-core/build.gradle` 保持仓库默认版本，同时允许本地通过 Gradle 属性覆盖
 - `local.properties` 不再依赖当前机器私有目录，只需要由使用者设置 `sdk.dir=<独立 SDK 目录>`
 - `agent-core/android.profile` 不能再写死旧机器路径，至少要与 `sdk.dir/ndk/26.3.11579264` 对齐
 

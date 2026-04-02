@@ -9,4 +9,4 @@ compiler.cppstd=17
 build_type=Release
 
 [conf]
-tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264
+# Configure tools.android:ndk_path via local Conan command or profile include.
