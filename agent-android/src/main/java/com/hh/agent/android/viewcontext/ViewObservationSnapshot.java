@@ -14,6 +14,8 @@ public final class ViewObservationSnapshot {
     public final boolean currentTurnOnly;
     public final String nativeViewXml;
     public final String webDom;
+    public final String pageUrl;
+    public final String pageTitle;
 
     public ViewObservationSnapshot(String snapshotId,
                                    String activityClassName,
@@ -23,7 +25,9 @@ public final class ViewObservationSnapshot {
                                    long createdAtEpochMs,
                                    boolean currentTurnOnly,
                                    String nativeViewXml,
-                                   String webDom) {
+                                   String webDom,
+                                   String pageUrl,
+                                   String pageTitle) {
         this.snapshotId = snapshotId;
         this.activityClassName = activityClassName;
         this.source = source;
@@ -33,5 +37,7 @@ public final class ViewObservationSnapshot {
         this.currentTurnOnly = currentTurnOnly;
         this.nativeViewXml = nativeViewXml;
         this.webDom = webDom;
+        this.pageUrl = pageUrl;
+        this.pageTitle = pageTitle;
     }
 }
