@@ -34,6 +34,20 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
         this(RuntimeViewContextSourceResolver.createDefault());
     }
 
+    public static ViewContextToolChannel createForJvmTests() {
+        return new ViewContextToolChannel(
+                new RuntimeViewContextSourceResolver(
+                        new com.hh.agent.android.viewcontext.ViewContextSourceSelector(null),
+                        new com.hh.agent.android.viewcontext.WebViewAreaFallbackSourceResolver() {
+                            @Override
+                            public ViewContextSourceSelection resolve(android.app.Activity activity) {
+                                return ViewContextSourceSelection.fallbackResolved(SOURCE_NATIVE_XML);
+                            }
+                        },
+                        () -> null),
+                java.util.Collections.emptyMap());
+    }
+
     ViewContextToolChannel(RuntimeViewContextSourceResolver sourceResolver) {
         this(sourceResolver, null);
     }

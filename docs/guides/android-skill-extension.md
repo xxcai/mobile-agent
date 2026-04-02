@@ -25,6 +25,17 @@ Skill 用来描述复杂工作流程。Tool 提供单次能力调用，Skill 负
 
 不要把所有 skill 都强行写成 shortcut-first。只有“业务原子能力明确、可稳定封装”的场景才应该优先使用 shortcut。
 
+另外，当前工程已经引入共享规程 skill：
+
+- `skills/agent_shared/SKILL.md`
+
+推荐做法是：
+
+- `PromptBuilder` 只保留最小协议说明
+- `agent_shared` 承接跨业务 skill 的共享执行规程
+- 业务 skill 只保留本域流程和本域约束
+- `references/` 承接参数、错误码和易错点细节
+
 ## Skill 的加载位置
 
 当前工程里，Skill 会从 workspace 的 `skills/` 目录加载。对 Android 宿主来说，初始化流程是：
@@ -220,7 +231,7 @@ Skill 不是热更新注册的。通常需要：
 2. 重新构建并安装应用
 3. 重新初始化 workspace 或清理旧 workspace 后再次启动
 
-原因是 `WorkspaceManager` 只会在 workspace 不存在时从 assets 复制初始内容；如果用户设备上已经有旧 workspace，新增 Skill 不一定自动覆盖进去。
+原因是 Skill 仍然依赖重新安装后的 assets 同步；不过当前 `WorkspaceManager` 已经会用 APK assets 覆盖同名内置 skill，因此同名内置 skill 更新后会自动刷新到 workspace。
 
 ## 调试建议
 

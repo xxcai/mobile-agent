@@ -43,7 +43,8 @@ agent-core/
 │   │   └── impl/             # 当前默认实现，如 NativeMobileAgentApi
 │   ├── event/                # 流式事件接口
 │   ├── model/                # Message / ToolCall 等模型
-│   ├── tool/                 # Tool contract 类型
+│   ├── shortcut/             # Shortcut contract 类型
+│   ├── tool/                 # ToolResult 等通用结果类型
 │   └── NativeAgent.java      # JNI bridge
 ├── src/main/cpp/
 │   ├── include/icraw/
@@ -194,7 +195,7 @@ dependencies {
 典型流程：
 
 1. 准备可选的语音识别实现 `IVoiceRecognizer`
-2. 准备业务侧工具映射 `Map<String, ToolExecutor>`，其中每个 Tool 使用 `ToolDefinition.builder(...)` 定义 schema，并返回 `ToolResult`
+2. 准备业务侧 shortcut 集合 `Collection<? extends ShortcutExecutor>`
 3. 如需接入宿主自定义日志体系，可选调用 `AgentInitializer.setLogger(...)`
 4. 调用 `AgentInitializer.initialize(...)`
 5. 在初始化完成后按需调用 `initializeFloatingBall(...)`
@@ -202,15 +203,17 @@ dependencies {
 示意代码：
 
 ```java
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 
-Map<String, ToolExecutor> tools = new HashMap<>();
-// tools.put("tool_name", yourToolExecutor);
+List<ShortcutExecutor> shortcuts = new ArrayList<>();
+shortcuts.add(new SearchContactsShortcut());
+shortcuts.add(new SendImMessageShortcut());
 
 AgentInitializer.initialize(
         applicationContext,
         voiceRecognizer,
-        tools,
+        shortcuts,
+        viewContextSourcePolicy,
         () -> {
             // native agent 初始化完成
         }
@@ -223,7 +226,8 @@ AgentInitializer.initialize(
 AgentInitializer.initialize(
         applicationContext,
         voiceRecognizer,
-        tools,
+        shortcuts,
+        viewContextSourcePolicy,
         () -> AgentInitializer.initializeFloatingBall(
                 (Application) applicationContext,
                 null
@@ -243,7 +247,8 @@ AgentInitializer.initialize(
 AgentInitializer.initialize(
         applicationContext,
         voiceRecognizer,
-        tools,
+        shortcuts,
+        viewContextSourcePolicy,
         () -> AgentInitializer.initializeFloatingBall(
                 (Application) applicationContext,
                 Arrays.asList(
@@ -266,6 +271,8 @@ logger 注入入口：
 说明：
 
 - `setLogger(...)` 是可选能力；不调用时，`agent-android` 默认使用内置 `DefaultAgentLogger`
+- 当前宿主业务能力统一通过 `ShortcutExecutor -> ShortcutRuntime -> run_shortcut` 暴露给模型
+- 如缺少某个 shortcut 的细节定义，应优先调用 `describe_shortcut`
 - 当前仓库里的 `app` 模块没有额外实现宿主 logger，而是直接使用库默认实现
 - `agent-android` 当前日志格式、事件清单和排查命令见 `docs/logging/agent-android-logging.md`
 - Prompt 构建顺序和工具展示方式见 `docs/architecture/prompt-construction.md`

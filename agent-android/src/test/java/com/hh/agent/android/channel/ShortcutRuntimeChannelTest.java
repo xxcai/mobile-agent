@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.selection.CandidateSelectionStateStore;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
@@ -66,6 +67,22 @@ public class ShortcutRuntimeChannelTest {
     }
 
     @Test
+    public void executePersistsCandidateSelectionIntoSessionStore() throws Exception {
+        ShortcutRuntime runtime = new ShortcutRuntime();
+        runtime.register(new CandidateShortcutExecutor());
+        CandidateSelectionStateStore store = new CandidateSelectionStateStore();
+        ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(runtime, store);
+
+        JSONObject result = new JSONObject(channel.execute(new JSONObject()
+                .put("_sessionKey", "native:container")
+                .put("shortcut", "search_contacts")
+                .put("args", new JSONObject().put("query", "张三"))).toJsonString());
+
+        assertTrue(result.getBoolean("success"));
+        assertEquals("contact", store.get("native:container").getString("domain"));
+    }
+
+    @Test
     public void executeReturnsShortcutNotSupportedWhenMissing() throws Exception {
         ShortcutRuntime runtime = new ShortcutRuntime();
         ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(runtime);
@@ -126,6 +143,37 @@ public class ShortcutRuntimeChannelTest {
             return ToolResult.success()
                     .with("result", "ok")
                     .with("contact_id", args.optString("contact_id", ""));
+        }
+    }
+
+    private static final class CandidateShortcutExecutor implements ShortcutExecutor {
+        @Override
+        public ShortcutDefinition getDefinition() {
+            return ShortcutDefinition.builder("search_contacts", "查找联系人", "按姓名搜索")
+                    .domain("im")
+                    .requiredSkill("contact_resolver")
+                    .stringParam("query", "query", true, "张三")
+                    .build();
+        }
+
+        @Override
+        public ToolResult execute(JSONObject args) {
+            return ToolResult.success().withJson("candidateSelection", buildCandidateSelectionJson());
+        }
+    }
+
+    private static String buildCandidateSelectionJson() {
+        try {
+            return new JSONObject()
+                    .put("domain", "contact")
+                    .put("items", new org.json.JSONArray()
+                            .put(new JSONObject()
+                                    .put("index", 1)
+                                    .put("label", "张三（技术部）")
+                                    .put("payload", new JSONObject().put("contact_id", "001"))))
+                    .toString();
+        } catch (Exception exception) {
+            throw new IllegalStateException("Failed to build test candidate selection", exception);
         }
     }
 }

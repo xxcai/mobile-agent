@@ -8,6 +8,9 @@ import com.hh.agent.android.channel.ShortcutRuntimeChannel;
 import com.hh.agent.android.channel.ViewContextToolChannel;
 import com.hh.agent.android.channel.WebActionToolChannel;
 import com.hh.agent.android.log.AgentLogs;
+import com.hh.agent.android.selection.CandidateSelectionResolver;
+import com.hh.agent.android.selection.CandidateSelectionStateStore;
+import com.hh.agent.android.selection.ResolveCandidateSelectionShortcut;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.android.ui.ToolUiPolicyResolver;
 import com.hh.agent.core.tool.AndroidToolCallback;
@@ -31,16 +34,44 @@ public class AndroidToolManager implements AndroidToolCallback {
     private static AndroidToolManager activeInstance;
 
     private Context context;
-    private final ShortcutRuntime shortcutRuntime = new ShortcutRuntime();
+    private final ShortcutRuntime shortcutRuntime;
+    private final CandidateSelectionStateStore candidateSelectionStateStore;
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
     public AndroidToolManager(Context context) {
+        this(context, new ShortcutRuntime(), null);
+    }
+
+    AndroidToolManager(Context context,
+                       ShortcutRuntime shortcutRuntime,
+                       Collection<? extends AndroidToolChannelExecutor> initialChannels) {
         this.context = context;
-        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime));
+        this.shortcutRuntime = shortcutRuntime != null ? shortcutRuntime : new ShortcutRuntime();
+        this.candidateSelectionStateStore = new CandidateSelectionStateStore();
+        registerBuiltinShortcuts();
+        if (initialChannels == null) {
+            registerDefaultChannels();
+            return;
+        }
+        for (AndroidToolChannelExecutor channel : initialChannels) {
+            registerChannel(channel);
+        }
+    }
+
+    private void registerDefaultChannels() {
+        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore));
         registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         registerChannel(new GestureToolChannel());
         registerChannel(new WebActionToolChannel());
-        registerChannel(new ViewContextToolChannel());
+        registerChannel(context == null
+                ? ViewContextToolChannel.createForJvmTests()
+                : new ViewContextToolChannel());
+    }
+
+    private void registerBuiltinShortcuts() {
+        shortcutRuntime.register(new ResolveCandidateSelectionShortcut(
+                candidateSelectionStateStore,
+                new CandidateSelectionResolver()));
     }
 
     /**
@@ -162,8 +193,12 @@ public class AndroidToolManager implements AndroidToolCallback {
         }
     }
 
-    @Override
     public String callTool(String toolName, String argsJson) {
+        return callTool(toolName, argsJson, null);
+    }
+
+    @Override
+    public String callTool(String toolName, String argsJson, String sessionKey) {
         try {
             AgentLogs.info("AndroidToolManager", "tool_call_start", "channel=" + toolName);
             AndroidToolChannelExecutor channelExecutor = channels.get(toolName);
@@ -176,6 +211,9 @@ public class AndroidToolManager implements AndroidToolCallback {
             }
 
             JSONObject params = new JSONObject(argsJson);
+            if (sessionKey != null && !sessionKey.trim().isEmpty()) {
+                params.put("_sessionKey", sessionKey.trim());
+            }
             ToolResult result = channelExecutor.execute(params);
             String resultJson = result.toJsonString();
             boolean resultSuccess = resultJson.contains("\"success\":true");

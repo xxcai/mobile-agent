@@ -3,6 +3,7 @@ package com.hh.agent.shortcut;
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.RouteHint;
 import com.hh.agent.android.route.RouteResolution;
+import com.hh.agent.android.route.manifest.ManifestBackedRouteModuleResolver;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.tool.ToolResult;
@@ -15,12 +16,18 @@ import org.json.JSONObject;
  */
 public final class ResolveRouteShortcut implements ShortcutExecutor {
     private final AndroidRouteRuntime routeRuntime;
+    private final ManifestBackedRouteModuleResolver routeModuleResolver;
 
-    public ResolveRouteShortcut(AndroidRouteRuntime routeRuntime) {
+    public ResolveRouteShortcut(AndroidRouteRuntime routeRuntime,
+                                ManifestBackedRouteModuleResolver routeModuleResolver) {
         if (routeRuntime == null) {
             throw new IllegalArgumentException("routeRuntime cannot be null");
         }
+        if (routeModuleResolver == null) {
+            throw new IllegalArgumentException("routeModuleResolver cannot be null");
+        }
         this.routeRuntime = routeRuntime;
+        this.routeModuleResolver = routeModuleResolver;
     }
 
     @Override
@@ -28,11 +35,11 @@ public final class ResolveRouteShortcut implements ShortcutExecutor {
         return ShortcutDefinition.builder(
                         "resolve_route",
                         "解析跳转目标",
-                        "根据 URI、原生模块、小程序名称或关键词解析跳转目标")
+                        "根据 URI、原生模块、we码名称或关键词解析跳转目标")
                 .domain("route")
                 .requiredSkill("route_navigator")
-                .argsSchema("{\"type\":\"object\",\"properties\":{\"targetTypeHint\":{\"type\":\"string\",\"description\":\"可选，native/miniapp/unknown\"},\"uri\":{\"type\":\"string\",\"description\":\"已知精确 URI\"},\"nativeModule\":{\"type\":\"string\",\"description\":\"已知原生模块\"},\"miniAppName\":{\"type\":\"string\",\"description\":\"已知小程序名称\"},\"keywords_csv\":{\"type\":\"string\",\"description\":\"可选关键词，多个用英文逗号分隔\"}},\"required\":[]}")
-                .argsExample("{\"targetTypeHint\":\"miniapp\",\"miniAppName\":\"报销\",\"keywords_csv\":\"报销,费用报销\"}")
+                .argsSchema("{\"type\":\"object\",\"properties\":{\"targetTypeHint\":{\"type\":\"string\",\"description\":\"可选，native/wecode/unknown\"},\"uri\":{\"type\":\"string\",\"description\":\"已知精确 URI\"},\"nativeModule\":{\"type\":\"string\",\"description\":\"已知原生模块\"},\"weCodeName\":{\"type\":\"string\",\"description\":\"已知 we码名称\"},\"keywords_csv\":{\"type\":\"string\",\"description\":\"可选关键词，多个用英文逗号分隔\"}},\"required\":[]}")
+                .argsExample("{\"targetTypeHint\":\"wecode\",\"weCodeName\":\"报销\",\"keywords_csv\":\"报销,费用报销\"}")
                 .build();
     }
 
@@ -52,6 +59,7 @@ public final class ResolveRouteShortcut implements ShortcutExecutor {
             JSONObject normalized = new JSONObject(args.toString());
             String keywordsCsv = normalized.optString("keywords_csv", null);
             if (keywordsCsv == null || keywordsCsv.trim().isEmpty()) {
+                inferNativeModule(normalized);
                 return normalized;
             }
             JSONArray keywords = new JSONArray();
@@ -60,9 +68,21 @@ public final class ResolveRouteShortcut implements ShortcutExecutor {
             }
             normalized.remove("keywords_csv");
             normalized.put("keywords", keywords);
+            inferNativeModule(normalized);
             return normalized;
         } catch (JSONException exception) {
             throw new IllegalStateException("Failed to expand keywords_csv", exception);
+        }
+    }
+
+    private void inferNativeModule(JSONObject normalized) throws JSONException {
+        if (normalized.has("nativeModule")) {
+            return;
+        }
+        RouteHint routeHint = RouteHint.fromJson(normalized);
+        String inferredModule = routeModuleResolver.inferModule(routeHint.getKeywords());
+        if (inferredModule != null) {
+            normalized.put("nativeModule", inferredModule);
         }
     }
 }
