@@ -108,6 +108,7 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
     ss << "Skill names are not shortcut names. Never pass them to run_shortcut or describe_shortcut.\n";
     ss << "If a shortcut's parameters are unclear, call describe_shortcut before run_shortcut.\n\n";
     for (const auto& skill : skills) {
+#if !defined(__ANDROID__) && !defined(ICRAW_ANDROID)
         bool available = true;
         std::string missing_reason;
 
@@ -166,14 +167,16 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
                 }
             }
         }
-
+#endif
         ss << "- **" << skill.name << "**";
         if (!skill.description.empty()) {
             ss << ": " << skill.description;
         }
+#if !defined(__ANDROID__) && !defined(ICRAW_ANDROID)
         if (!available && !missing_reason.empty()) {
             ss << " (" << missing_reason << ")";
         }
+#endif
         ss << "\n";
     }
     ss << "</skills>";
@@ -407,16 +410,16 @@ nlohmann::json SkillLoader::parse_yaml_frontmatter(const std::string& yaml_str) 
 
 bool SkillLoader::check_os_restriction(const std::vector<std::string>& os_list) const {
     if (os_list.empty()) {
-        return true;  // No restriction
+        return true;
     }
-    
+
     std::string current_os = get_current_os();
     for (const auto& os : os_list) {
         if (os == current_os) {
             return true;
         }
     }
-    
+
     return false;
 }
 
