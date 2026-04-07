@@ -330,9 +330,9 @@ void ToolRegistry::register_tools_from_schema(const nlohmann::json& schema) {
             return icraw::g_android_tools.call_tool(tool_schema_name, params);
         };
 
-        tool_schemas_.push_back(std::move(tool_schema));
-        dynamic_tool_names_.insert(tool_schema.name);
         ICRAW_LOG_INFO("[ToolRegistry][tool_registered] tool_name={}", tool_schema.name);
+        dynamic_tool_names_.insert(tool_schema.name);
+        tool_schemas_.push_back(std::move(tool_schema));
     }
 }
 
