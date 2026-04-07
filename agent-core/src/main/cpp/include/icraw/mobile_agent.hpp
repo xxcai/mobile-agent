@@ -23,9 +23,6 @@ public:
     explicit MobileAgent(const IcrawConfig& config);
     ~MobileAgent();
 
-    // Send a message and get response
-    std::string chat(const std::string& message);
-
     // Send a message with streaming callback
     void chat_stream(const std::string& message, AgentEventCallback callback);
     void chat_stream(const std::string& session_id,
@@ -65,7 +62,6 @@ private:
     std::unique_ptr<AgentLoop> agent_loop_;
 
     std::vector<Message> history_;
-    std::string system_prompt_;
 };
 
 } // namespace icraw

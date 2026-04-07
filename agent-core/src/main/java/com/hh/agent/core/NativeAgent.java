@@ -45,14 +45,6 @@ public class NativeAgent {
     public static native int nativeInitialize(String configJson);
 
     /**
-     * Send a message to the agent and get a response
-     *
-     * @param message The message to send
-     * @return The agent's response
-     */
-    public static native String nativeSendMessage(String message);
-
-    /**
      * Shutdown the native agent
      */
     public static native void nativeShutdown();

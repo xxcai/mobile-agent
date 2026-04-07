@@ -343,43 +343,6 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogLevel(
 }
 
 /**
- * Send a message to the agent and get a response
- */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
-        JNIEnv* env,
-        jclass /* clazz */,
-        jstring message) {
-    const char* msg = env->GetStringUTFChars(message, nullptr);
-    std::string response;
-
-    if (!msg) {
-        return env->NewStringUTF("");
-    }
-
-    ICRAW_LOG_INFO("[NativeAgentJni][send_message_start] input_length={}", std::strlen(msg));
-    ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] input={}", msg);
-
-    // Check if agent is initialized
-    if (!g_agent) {
-        ICRAW_LOG_WARN("[NativeAgentJni][send_message_skipped] reason=agent_not_initialized");
-        response = "Error: Agent not initialized. Call nativeInitialize first.";
-    } else {
-        try {
-            // Call MobileAgent::chat()
-            response = g_agent->chat(msg);
-            ICRAW_LOG_INFO("[NativeAgentJni][send_message_complete] output_length={}", response.size());
-            ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] response={}", response);
-        } catch (const std::exception& e) {
-            ICRAW_LOG_ERROR("[NativeAgentJni][send_message_failed] message={}", e.what());
-            response = std::string("Error: ") + e.what();
-        }
-    }
-
-    env->ReleaseStringUTFChars(message, msg);
-    return env->NewStringUTF(response.c_str());
-}
-
-/**
  * Shutdown the native agent
  */
 JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(

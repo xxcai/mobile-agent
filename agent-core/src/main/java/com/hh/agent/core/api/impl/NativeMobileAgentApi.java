@@ -140,24 +140,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     @Override
-    public Message sendMessage(String content, String sessionKey) {
-        // 调用 Native Agent
-        String response;
-        try {
-            response = NativeAgent.nativeSendMessage(content);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send message to native agent: " + e.getMessage(), e);
-        }
-
-        // 创建助手回复消息
-        Message assistantMessage = new Message();
-        assistantMessage.setRole("assistant");
-        assistantMessage.setContent(response);
-
-        return assistantMessage;
-    }
-
-    @Override
     public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
         NativeAgent.sendMessageStream(toSessionId(sessionKey), content, listener);
     }

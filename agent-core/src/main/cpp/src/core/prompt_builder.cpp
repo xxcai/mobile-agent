@@ -16,78 +16,8 @@ PromptBuilder::PromptBuilder(std::shared_ptr<MemoryManager> memory_manager,
     , tool_registry_(std::move(tool_registry)) {
 }
 
-std::string PromptBuilder::build_full() const {
-    std::ostringstream ss;
-    
-    // 1. SOUL - Agent identity
-    std::string soul = memory_manager_->read_identity_file("SOUL.md");
-    if (!soul.empty()) {
-        ss << "# Identity\n\n" << soul << "\n\n";
-    }
-
-    // 2. USER - User information
-    std::string user = memory_manager_->read_identity_file("USER.md");
-    if (!user.empty()) {
-        ss << "# User Information\n\n" << user << "\n\n";
-    }
-    
-    // 3. AGENTS.md - Behavior instructions
-    std::string agents = memory_manager_->read_agents_file();
-    if (!agents.empty()) {
-        ss << "# Behavior Guidelines\n\n" << agents << "\n\n";
-    }
-    
-    // 4. TOOLS.md - Tool usage guide
-    std::string tools = memory_manager_->read_tools_file();
-    if (!tools.empty()) {
-        ss << "# Tool Usage\n\n" << tools << "\n\n";
-    }
-    
-    // 5. Skills (progressive disclosure)
-    auto skills_dir = memory_manager_->get_workspace_path() / "skills";
-    if (memory_manager_->file_exists(skills_dir)) {
-        SkillsConfig default_config;
-        auto skills = skill_loader_->load_skills(default_config, memory_manager_->get_workspace_path());
-        if (!skills.empty()) {
-            // Level 1: Always skills (full content)
-            auto always_skills = skill_loader_->get_always_skills(skills);
-            if (!always_skills.empty()) {
-                ss << "# Active Skills\n\n";
-                ss << skill_loader_->get_skill_context(always_skills) << "\n\n";
-                ICRAW_LOG_INFO("[PROMPT] PromptBuilder: Added {} always-skills to prompt", always_skills.size());
-            }
-
-            // Level 2: Skills summary (metadata only, on-demand loading)
-            ss << "# Available Skills\n\n";
-            ss << "The following skills extend your capabilities. ";
-            ss << "To use a skill, read its SKILL.md file using read_file tool. ";
-            ss << "When a request clearly matches a skill, read that skill before calling any same-named shortcut. ";
-            ss << "Use workspace-relative paths like skills/<skill_name>/SKILL.md, not absolute paths. ";
-            ss << "Shortcuts are executable actions: inspect them with describe_shortcut(\"<shortcut_name>\") ";
-            ss << "and execute them with run_shortcut.\n\n";
-            ss << skill_loader_->build_skills_summary(skills);
-        }
-    }
-    
-    // 6. MEMORY - Long-term memory (combine file + database summary)
-    std::string memory = build_memory_section();
-    if (!memory.empty()) {
-        ss << "# Memory\n\n" << memory << "\n\n";
-    }
-    
-    // 7. Tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    if (!tool_schemas.empty()) {
-        ss << "# Available Tools\n\n" << format_tool_schemas(tool_schemas) << "\n";
-    }
-    
-    // 8. Runtime info
-    ss << get_runtime_info();
-    
-    return ss.str();
-}
-
-std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
+std::string PromptBuilder::build_full(const SkillsConfig& skills_config,
+                                      const std::string& session_id) const {
     std::ostringstream ss;
     
     // 1. SOUL - Agent identity
@@ -140,7 +70,7 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
     }
     
     // 6. MEMORY - Long-term memory (combine file + database summary)
-    std::string memory = build_memory_section();
+    std::string memory = build_memory_section(session_id);
     if (!memory.empty()) {
         ss << "# Memory\n\n" << memory << "\n\n";
     }
@@ -305,15 +235,17 @@ std::string PromptBuilder::format_parameter_block(const nlohmann::json& schema,
     return ss.str();
 }
 
-std::string PromptBuilder::build_memory_section() const {
+std::string PromptBuilder::build_memory_section(const std::string& session_id) const {
     std::ostringstream ss;
-    
-    // Read latest summary from SQLite database
-    auto summary = memory_manager_->get_latest_summary("default");
+
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+
+    // Read latest summary from SQLite database for the active session.
+    auto summary = memory_manager_->get_latest_summary(effective_session_id);
     if (summary.has_value() && !summary->summary.empty()) {
         ss << "## Session Memory\n\n" << summary->summary;
     }
-    
+
     return ss.str();
 }
 
