@@ -104,11 +104,9 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
     std::ostringstream ss;
 
     ss << "<skills>\n";
-    ss << "  <usage>";
-    ss << "Read a skill with read_file(\"skills/&lt;skill_name&gt;/SKILL.md\") before taking action. "
-       << "Skill names are workflow guides, not shortcut names. "
-       << "Do not call run_shortcut or describe_shortcut with a skill name.";
-    ss << "</usage>\n";
+    ss << "When a request matches a skill, read its SKILL.md first.\n";
+    ss << "Skill names are not shortcut names. Never pass them to run_shortcut or describe_shortcut.\n";
+    ss << "If a shortcut's parameters are unclear, call describe_shortcut before run_shortcut.\n\n";
     for (const auto& skill : skills) {
         bool available = true;
         std::string missing_reason;
@@ -169,31 +167,14 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
             }
         }
 
-        // Escape XML special characters
-        auto escape_xml = [](const std::string& s) -> std::string {
-            std::string result;
-            for (char c : s) {
-                switch (c) {
-                    case '&': result += "&amp;"; break;
-                    case '<': result += "&lt;"; break;
-                    case '>': result += "&gt;"; break;
-                    case '"': result += "&quot;"; break;
-                    case '\'': result += "&apos;"; break;
-                    default: result += c;
-                }
-            }
-            return result;
-        };
-
-        ss << "  <skill available=\"" << (available ? "true" : "false") << "\">\n";
-        ss << "    <name>" << escape_xml(skill.name) << "</name>\n";
-        ss << "    <description>" << escape_xml(skill.description) << "</description>\n";
-
-        if (!available && !missing_reason.empty()) {
-            ss << "    <requires>" << escape_xml(missing_reason) << "</requires>\n";
+        ss << "- **" << skill.name << "**";
+        if (!skill.description.empty()) {
+            ss << ": " << skill.description;
         }
-
-        ss << "  </skill>\n";
+        if (!available && !missing_reason.empty()) {
+            ss << " (" << missing_reason << ")";
+        }
+        ss << "\n";
     }
     ss << "</skills>";
 

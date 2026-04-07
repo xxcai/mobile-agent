@@ -34,8 +34,7 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "按需查询某个已注册 shortcut 的详细定义。"
-                                + "当缺少 shortcut 的 description、参数结构或样例时，应先调用本能力，不要自行猜测。")
+                        "查询某个已注册 shortcut 的详细定义（参数结构、示例和约束）。")
                 .property("shortcut", ToolSchemaBuilder.string()
                         .description("要查询定义的 shortcut 名称。"), true)
                 .build();
