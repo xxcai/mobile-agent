@@ -1188,40 +1188,8 @@ int64_t MemoryManager::get_total_tokens(const std::string& session_id) const {
     if (stats && stats->total_tokens > 0) {
         return stats->total_tokens;
     }
-    
-    // Calculate from messages
-    if (!db_ || !db_->is_open()) {
-        return 0;
-    }
-    
-    std::string sql = "SELECT COALESCE(SUM(token_count), 0) FROM messages WHERE session_id = ?;";
-    
-    if (!db_->prepare(sql)) {
-        return 0;
-    }
-    
-    db_->bind(1, session_id);
-    
-    int64_t total = 0;
-    if (db_->step()) {
-        total = db_->get_column_int(0);
-    }
-    
-    db_->reset();
-    
-    // If token_count column is empty, estimate from content
-    if (total == 0) {
-        sql = "SELECT COALESCE(SUM(LENGTH(content) / 3), 0) FROM messages WHERE session_id = ?;";
-        if (db_->prepare(sql)) {
-            db_->bind(1, session_id);
-            if (db_->step()) {
-                total = static_cast<int64_t>(db_->get_column_int(0) * 1.2);  // 20% margin
-            }
-            db_->reset();
-        }
-    }
-    
-    return total;
+
+    return calculate_total_tokens_uncached(session_id);
 }
 
 void MemoryManager::update_token_stats(const std::string& session_id) {
@@ -1230,7 +1198,7 @@ void MemoryManager::update_token_stats(const std::string& session_id) {
         return;
     }
     
-    int64_t total = get_total_tokens(session_id);
+    int64_t total = calculate_total_tokens_uncached(session_id);
     std::string timestamp = get_timestamp();
     
     // Use INSERT OR REPLACE
@@ -1244,6 +1212,41 @@ void MemoryManager::update_token_stats(const std::string& session_id) {
         db_->step_exec();
         db_->reset();
     }
+}
+
+int64_t MemoryManager::calculate_total_tokens_uncached(const std::string& session_id) const {
+    if (!db_ || !db_->is_open()) {
+        return 0;
+    }
+
+    std::string sql = "SELECT COALESCE(SUM(token_count), 0) FROM messages WHERE session_id = ?;";
+
+    if (!db_->prepare(sql)) {
+        return 0;
+    }
+
+    db_->bind(1, session_id);
+
+    int64_t total = 0;
+    if (db_->step()) {
+        total = db_->get_column_int(0);
+    }
+
+    db_->reset();
+
+    // If token_count column is empty, estimate from content.
+    if (total == 0) {
+        sql = "SELECT COALESCE(SUM(LENGTH(content) / 3), 0) FROM messages WHERE session_id = ?;";
+        if (db_->prepare(sql)) {
+            db_->bind(1, session_id);
+            if (db_->step()) {
+                total = static_cast<int64_t>(db_->get_column_int(0) * 1.2);
+            }
+            db_->reset();
+        }
+    }
+
+    return total;
 }
 
 std::optional<TokenStats> MemoryManager::get_token_stats(const std::string& session_id) const {

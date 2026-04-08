@@ -290,6 +290,9 @@ private:
 
     // Get current timestamp as ISO 8601
     static std::string get_timestamp();
+
+    // Recalculate token totals directly from messages without reading token_stats cache.
+    int64_t calculate_total_tokens_uncached(const std::string& session_id) const;
     
     std::filesystem::path workspace_path_;
     std::unique_ptr<SQLiteDatabase> db_;

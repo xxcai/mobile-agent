@@ -79,7 +79,8 @@ private:
                                const std::vector<Message>& messages);
     
     // Perform compaction with chunking and fallback
-    CompactionResult perform_compaction_with_fallback(
+    CompactionResult execute_memory_compaction(
+        const std::string& session_id,
         const std::vector<MemoryEntry>& messages);
     
     // Build consolidation prompt with identifier preservation

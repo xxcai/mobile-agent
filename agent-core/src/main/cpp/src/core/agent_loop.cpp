@@ -502,6 +502,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 void AgentLoop::maybe_consolidate_memory(const std::string& session_id,
                                          const std::vector<Message>& messages) {
     const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    (void)messages;
     // Check if consolidation is needed
     int message_count = memory_manager_ ? memory_manager_->get_message_count(effective_session_id) : 0;
     int threshold = agent_config_.consolidation_threshold;
@@ -521,126 +522,45 @@ void AgentLoop::maybe_consolidate_memory(const std::string& session_id,
         ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=async session_id={} message_count={} threshold={}", 
             effective_session_id, message_count, threshold);
         
-        // Launch async consolidation - captures shared_ptrs to ensure lifetime
-        auto memory_mgr = memory_manager_;
-        auto llm_prov = llm_provider_;
-        auto config = agent_config_;
+        // Launch async compaction using the session-scoped message set.
         auto target_session_id = effective_session_id;
-        auto msgs_copy = messages;
+        auto* self = this;
         
         consolidation_future_ = std::async(std::launch::async, 
-            [memory_mgr, llm_prov, config, target_session_id, msgs_copy]() {
-                // Re-create consolidation logic inline for async execution
-                if (!memory_mgr || !llm_prov) {
+            [self, target_session_id]() {
+                if (!self || !self->memory_manager_ || !self->llm_provider_) {
                     return false;
                 }
-                
-                int keep_count = config.memory_window / 2;
-                auto old_messages = memory_mgr->get_messages_for_consolidation(keep_count, target_session_id);
+
+                const int keep_count = self->agent_config_.memory_window / 2;
+                auto old_messages = self->memory_manager_->get_messages_for_consolidation(keep_count, target_session_id);
                 
                 if (old_messages.empty()) {
-                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages session_id={}",
-                            target_session_id);
+                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages session_id={} keep_count={}",
+                            target_session_id, keep_count);
                     return true;
                 }
-                
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=prepare session_id={} message_count={}",
-                        target_session_id, old_messages.size());
-                
-                // Format messages for consolidation
-                std::string conversation;
-                for (const auto& msg : old_messages) {
-                    std::string tools_used;
-                    if (msg.metadata.contains("tools_used")) {
-                        auto tools = msg.metadata["tools_used"];
-                        for (const auto& t : tools) {
-                            if (!tools_used.empty()) tools_used += ", ";
-                            tools_used += t.get<std::string>();
-                        }
-                        if (!tools_used.empty()) {
-                            tools_used = " [tools: " + tools_used + "]";
-                        }
-                    }
-                    conversation += "[" + msg.timestamp.substr(0, 16) + "] " 
-                                + msg.role + tools_used + ": " 
-                                + msg.content + "\n";
-                }
-                
-                auto latest_summary = memory_mgr->get_latest_summary(target_session_id);
-                std::string current_memory = latest_summary ? latest_summary->summary : "(empty)";
-                
-                std::string system_prompt = "You are a memory consolidation agent. Call the save_memory tool to save important information from the conversation.";
-                std::string user_prompt = "Process this conversation and call the save_memory tool with your consolidation.\n\n"
-                                       "## Current Long-term Memory\n" + current_memory + "\n\n"
-                                       "## Conversation to Process\n" + conversation;
-                
-                nlohmann::json save_memory_tool;
-                save_memory_tool["type"] = "function";
-                save_memory_tool["function"]["name"] = "save_memory";
-                save_memory_tool["function"]["description"] = "Save the memory consolidation result to persistent storage.";
-                nlohmann::json params_obj;
-                params_obj["type"] = "object";
-                params_obj["properties"]["history_entry"] = nlohmann::json{{"type", "string"}, {"description", "A paragraph (2-5 sentences) summarizing key events/decisions/topics. Start with [YYYY-MM-DD HH:MM]."}};
-                params_obj["properties"]["memory_update"] = nlohmann::json{{"type", "string"}, {"description", "Full updated long-term memory as markdown. Include all existing facts plus new ones."}};
-                params_obj["required"] = nlohmann::json{"history_entry", "memory_update"};
-                save_memory_tool["function"]["parameters"] = params_obj;
-                
-                ChatCompletionRequest request;
-                request.model = config.model;
-                request.temperature = config.temperature;
-                request.max_tokens = config.max_tokens;
-                request.messages.emplace_back("system", system_prompt);
-                request.messages.emplace_back("user", user_prompt);
-                request.tools.push_back(save_memory_tool);
-                request.tool_choice_auto = true;
-                
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=request_llm session_id={}",
-                        target_session_id);
-                
-                auto response = llm_prov->chat_completion(request);
-                
-                if (response.tool_calls.empty()) {
-                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async session_id={} reason=missing_save_memory_tool",
+
+                ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_dispatch] mode=async session_id={} old_message_count={} keep_count={}",
+                        target_session_id, old_messages.size(), keep_count);
+
+                const CompactionResult result =
+                    self->execute_memory_compaction(target_session_id, old_messages);
+                const bool success = result == CompactionResult::Success ||
+                                     result == CompactionResult::PartialSuccess;
+
+                ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async session_id={} result={}",
+                        target_session_id, compaction_result_to_string(result));
+
+                if (!success && result != CompactionResult::Fallback) {
+                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async session_id={} result={}",
+                            target_session_id, compaction_result_to_string(result));
+                } else if (result == CompactionResult::Fallback) {
+                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_fallback] mode=async session_id={}",
                             target_session_id);
-                    return false;
                 }
-                
-                try {
-                    auto args = response.tool_calls[0].arguments;
-                    
-                    std::string history_entry;
-                    std::string memory_update;
-                    
-                    if (args.is_string()) {
-                        auto parsed = nlohmann::json::parse(args.get<std::string>());
-                        history_entry = parsed.value("history_entry", "");
-                        memory_update = parsed.value("memory_update", "");
-                    } else if (args.is_object()) {
-                        history_entry = args.value("history_entry", "");
-                        memory_update = args.value("memory_update", "");
-                    }
-                    
-                    if (!history_entry.empty()) {
-                        memory_mgr->save_daily_memory(history_entry);
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_history_entry session_id={} content_length={} preview={}",
-                                target_session_id, history_entry.size(), log_utils::truncate_for_debug(history_entry));
-                    }
-                    
-                    if (!memory_update.empty() && memory_update != current_memory) {
-                        memory_mgr->create_summary(target_session_id, memory_update, static_cast<int>(old_messages.size()));
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_memory_update session_id={} content_length={} preview={}",
-                                target_session_id, memory_update.size(), log_utils::truncate_for_debug(memory_update));
-                    }
-                    
-                    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async session_id={}",
-                            target_session_id);
-                    return true;
-                    
-                } catch (const std::exception& e) {
-                    ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=async session_id={} message={}",
-                            target_session_id, e.what());
-                    return false;
-                }
+
+                return success || result == CompactionResult::Fallback;
             });
     }
 }
@@ -967,14 +887,16 @@ MemoryMetrics AgentLoop::get_memory_metrics() const {
     return metrics;
 }
 
-CompactionResult AgentLoop::perform_compaction_with_fallback(
+CompactionResult AgentLoop::execute_memory_compaction(
+    const std::string& session_id,
     const std::vector<MemoryEntry>& messages) {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
     
     if (messages.empty()) {
         return CompactionResult::Success;
     }
     
-    ICRAW_LOG_INFO("[AgentLoop][compaction_start] message_count={}", messages.size());
+    ICRAW_LOG_INFO("[AgentLoop][compaction_start] session_id={} message_count={}", effective_session_id, messages.size());
     
     // Try full compaction first
     try {
@@ -986,10 +908,10 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
         int64_t first_kept_id = messages.empty() ? 0 : messages.back().id;
         
         for (size_t i = 0; i < chunks.size(); ++i) {
-            ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=chunk index={} total={} message_count={}", 
-                i + 1, chunks.size(), chunks[i].size());
+            ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=chunk session_id={} index={} total={} message_count={}", 
+                effective_session_id, i + 1, chunks.size(), chunks[i].size());
             
-            auto current_summary = memory_manager_->get_latest_summary();
+            auto current_summary = memory_manager_->get_latest_summary(effective_session_id);
             std::string summary_str = current_summary ? current_summary->summary : "";
             
             std::string prompt = build_consolidation_prompt(chunks[i], summary_str);
@@ -1026,7 +948,8 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             auto response = llm_provider_->chat_completion(request);
             
             if (response.tool_calls.empty()) {
-                ICRAW_LOG_WARN("[AgentLoop][compaction_failed] reason=missing_save_memory_tool chunk_index={}", i + 1);
+                ICRAW_LOG_WARN("[AgentLoop][compaction_failed] session_id={} reason=missing_save_memory_tool chunk_index={}",
+                        effective_session_id, i + 1);
                 continue;
             }
             
@@ -1045,10 +968,14 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             
             if (!history_entry.empty()) {
                 memory_manager_->save_daily_memory(history_entry);
+                ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=save_history_entry session_id={} chunk_index={} content_length={} preview={}",
+                        effective_session_id, i + 1, history_entry.size(), log_utils::truncate_for_debug(history_entry));
             }
             
             if (!memory_update.empty()) {
                 combined_summary = memory_update;
+                ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=save_memory_update session_id={} chunk_index={} content_length={} preview={}",
+                        effective_session_id, i + 1, memory_update.size(), log_utils::truncate_for_debug(memory_update));
             }
             
             if (!chunks[i].empty()) {
@@ -1056,31 +983,39 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             }
         }
         
-        // Save final summary
-        if (!combined_summary.empty()) {
-            memory_manager_->create_summary("default", combined_summary, 
-                static_cast<int>(messages.size()));
+        if (combined_summary.empty()) {
+            ICRAW_LOG_WARN("[AgentLoop][compaction_failed] session_id={} reason=empty_combined_summary", effective_session_id);
+            return CompactionResult::Failed;
         }
+
+        // Save final summary
+        memory_manager_->create_summary(effective_session_id, combined_summary, 
+            static_cast<int>(messages.size()));
         
         // Mark messages as consolidated
-        memory_manager_->mark_consolidated(static_cast<int>(messages.size()));
+        memory_manager_->mark_consolidated(static_cast<int>(messages.size()), effective_session_id);
         
         // Create compaction record
         int total_tokens_after = estimate_tokens(combined_summary);
-        memory_manager_->create_compaction_record("default", combined_summary,
+        memory_manager_->create_compaction_record(effective_session_id, combined_summary,
             first_kept_id, total_tokens_before, total_tokens_after, "full");
         
         // Update token stats
-        memory_manager_->update_token_stats();
+        memory_manager_->update_token_stats(effective_session_id);
+
+        // Delete compacted messages now that the summary has been persisted.
+        const int64_t deleted_count = memory_manager_->delete_consolidated_messages(effective_session_id);
+        ICRAW_LOG_INFO("[AgentLoop][compaction_cleanup_complete] session_id={} deleted_count={}",
+                effective_session_id, deleted_count);
         
-        ICRAW_LOG_INFO("[AgentLoop][compaction_complete] tokens_before={} tokens_after={} reduction_percent={:.1f}",
-            total_tokens_before, total_tokens_after,
+        ICRAW_LOG_INFO("[AgentLoop][compaction_complete] session_id={} tokens_before={} tokens_after={} reduction_percent={:.1f}",
+            effective_session_id, total_tokens_before, total_tokens_after,
             100.0 * (1.0 - static_cast<double>(total_tokens_after) / total_tokens_before));
         
         return CompactionResult::Success;
         
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("[AgentLoop][compaction_failed] message={}", e.what());
+        ICRAW_LOG_ERROR("[AgentLoop][compaction_failed] session_id={} message={}", effective_session_id, e.what());
         
         // Fallback: just record metadata
         try {
@@ -1093,9 +1028,8 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             
             std::string fallback_summary = "Compaction failed at " + time_ss.str() + 
                 ". Messages: " + std::to_string(messages.size());
-            memory_manager_->create_summary("default", fallback_summary, 
+            memory_manager_->create_summary(effective_session_id, fallback_summary, 
                 static_cast<int>(messages.size()));
-            memory_manager_->mark_consolidated(static_cast<int>(messages.size()));
             
             return CompactionResult::Fallback;
         } catch (...) {

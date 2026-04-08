@@ -222,12 +222,16 @@ void test_non_default_session_consolidation_writes_summary_to_that_session() {
 
     const bool summary_written = wait_until(
         [&]() {
-            return memory_manager->get_latest_summary("session-a").has_value();
+            return memory_manager->get_latest_summary("session-a").has_value() &&
+                   memory_manager->get_message_count("session-a") == 2;
         },
         300);
 
     expect(summary_written,
            "consolidation should produce long-term summary for the non-default session");
+    expect_equal(memory_manager->get_message_count("session-a"),
+                 static_cast<int64_t>(2),
+                 "compaction should delete consolidated messages and keep only the recent half");
 }
 
 struct TestCase {
