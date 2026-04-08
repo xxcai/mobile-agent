@@ -36,6 +36,7 @@ set(ICRAW_MEMORY_SYSTEM_TEST_SOURCES
         ../../main/cpp/src/core/content_block.cpp
         ../../main/cpp/src/core/memory_manager.cpp
         ../../main/cpp/src/core/skill_loader.cpp
+        ../../main/cpp/src/core/prompt_builder.cpp
         ../../main/cpp/src/core/agent_loop.cpp
         ../../main/cpp/src/core/llm_provider.cpp
         ../../main/cpp/src/core/token_utils.cpp

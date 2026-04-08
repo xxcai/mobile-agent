@@ -2,6 +2,7 @@
 #include "icraw/core/agent_loop.hpp"
 #include "icraw/core/llm_provider.hpp"
 #include "icraw/core/memory_manager.hpp"
+#include "icraw/core/prompt_builder.hpp"
 #include "icraw/core/skill_loader.hpp"
 #include "icraw/tools/tool_registry.hpp"
 
@@ -213,6 +214,46 @@ void test_search_memory_fallback_preserves_session_scope() {
            "session-b fallback result should preserve session scope");
 }
 
+void test_prompt_builder_injects_only_active_session_summary() {
+    TempWorkspace workspace;
+    auto memory_manager = std::make_shared<MemoryManager>(workspace.path());
+    auto skill_loader = std::make_shared<SkillLoader>();
+    auto tool_registry = std::make_shared<ToolRegistry>();
+    PromptBuilder prompt_builder(memory_manager, skill_loader, tool_registry);
+
+    memory_manager->create_summary("session-a", "session-a summary", 3);
+    memory_manager->create_summary("session-b", "session-b summary", 2);
+
+    const std::string prompt_a = prompt_builder.build_full(SkillsConfig{}, "session-a");
+    const std::string prompt_b = prompt_builder.build_full(SkillsConfig{}, "session-b");
+
+    expect(prompt_a.find("session-a summary") != std::string::npos,
+           "prompt for session-a should include session-a summary");
+    expect(prompt_a.find("session-b summary") == std::string::npos,
+           "prompt for session-a should not include session-b summary");
+    expect(prompt_b.find("session-b summary") != std::string::npos,
+           "prompt for session-b should include session-b summary");
+    expect(prompt_b.find("session-a summary") == std::string::npos,
+           "prompt for session-b should not include session-a summary");
+}
+
+void test_prompt_builder_excludes_daily_memory_log() {
+    TempWorkspace workspace;
+    auto memory_manager = std::make_shared<MemoryManager>(workspace.path());
+    auto skill_loader = std::make_shared<SkillLoader>();
+    auto tool_registry = std::make_shared<ToolRegistry>();
+    PromptBuilder prompt_builder(memory_manager, skill_loader, tool_registry);
+
+    memory_manager->create_summary("session-a", "summary visible to prompt", 2);
+    memory_manager->save_daily_memory("[2026-04-08 16:30] daily memory should stay out of prompt");
+
+    const std::string prompt = prompt_builder.build_full(SkillsConfig{}, "session-a");
+    expect(prompt.find("summary visible to prompt") != std::string::npos,
+           "prompt should include session summary");
+    expect(prompt.find("daily memory should stay out of prompt") == std::string::npos,
+           "prompt should not include daily memory log entries");
+}
+
 void test_delete_consolidated_messages_refreshes_token_stats() {
     TempWorkspace workspace;
     MemoryManager memory_manager(workspace.path());
@@ -291,6 +332,10 @@ int main() {
          icraw::test_clear_daily_memory_clears_daily_entries_only},
         {"search_memory_fallback_preserves_session_scope",
          icraw::test_search_memory_fallback_preserves_session_scope},
+        {"prompt_builder_injects_only_active_session_summary",
+         icraw::test_prompt_builder_injects_only_active_session_summary},
+        {"prompt_builder_excludes_daily_memory_log",
+         icraw::test_prompt_builder_excludes_daily_memory_log},
         {"delete_consolidated_messages_refreshes_token_stats",
          icraw::test_delete_consolidated_messages_refreshes_token_stats},
         {"non_default_session_consolidation_writes_summary_to_that_session",
