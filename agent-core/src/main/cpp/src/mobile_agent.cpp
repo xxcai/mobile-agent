@@ -100,10 +100,6 @@ MobileAgent::MobileAgent(const IcrawConfig& config)
     ICRAW_LOG_INFO("[MobileAgent][history_load_start] memory_window={}", config_.agent.memory_window);
     load_history_from_memory();
 
-    // Build system prompt (passing skills config from user config)
-    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=system_prompt");
-    system_prompt_ = prompt_builder_->build_full(config_.skills);
-
     ICRAW_LOG_INFO("[MobileAgent][initialize_complete] history_count={}", history_.size());
 }
 
@@ -133,25 +129,6 @@ void MobileAgent::load_history_from_memory() {
 }
 
 MobileAgent::~MobileAgent() = default;
-
-std::string MobileAgent::chat(const std::string& message) {
-    auto new_messages = agent_loop_->process_message(
-        message, history_, system_prompt_);
-    
-    // Add new messages to history
-    for (const auto& msg : new_messages) {
-        history_.push_back(msg);
-    }
-    
-    // Return the last assistant message text
-    for (auto it = new_messages.rbegin(); it != new_messages.rend(); ++it) {
-        if (it->role == "assistant") {
-            return it->text();
-        }
-    }
-    
-    return "";
-}
 
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
     chat_stream("default", message, std::move(callback));
@@ -189,9 +166,12 @@ void MobileAgent::chat_stream(const std::string& session_id,
                 effective_session_id, result);
     }
 
+    const std::string session_system_prompt =
+        prompt_builder_->build_full(config_.skills, effective_session_id);
+
     ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=process_message_stream_start");
     auto new_messages = agent_loop_->process_message_stream(
-        message, session_history, system_prompt_, callback);
+        message, session_history, session_system_prompt, callback);
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_loop_complete] session_id={} new_message_count={}",
             effective_session_id, new_messages.size());
     

@@ -42,10 +42,8 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "运行已注册的 shortcut runtime 原子动作。"
-                                + "适用于宿主业务能力编排；由 skill 决定何时选择哪个 shortcut。"
-                                + "如果缺少某个 shortcut 的详细定义或参数结构，应先调用 describe_shortcut 按需查询，不要自行猜测业务路径。"
-                                + "协议固定为 {\"shortcut\":\"能力名\",\"args\":{...}}。")
+                        "运行已注册的 shortcut 原子动作。"
+                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。")
                 .property("shortcut", ToolSchemaBuilder.string()
                         .description(buildShortcutChoicesDescription()), true)
                 .property("args", ToolSchemaBuilder.object()
@@ -150,13 +148,11 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     }
 
     private String buildShortcutChoicesDescription() {
-        return "要运行的 shortcut 名称。当前顶层 schema 不再默认暴露 shortcut 列表或详细定义。"
-                + "应优先依据 skill 选择；如果缺少定义或参数结构，应先调用 describe_shortcut 按需查询，不要自行猜测业务路径。";
+        return "要运行的 shortcut 名称。";
     }
 
     private String buildArgsDescription() {
-        return "传给 shortcut 的 JSON 参数对象。args 的字段结构由目标 shortcut 定义决定。"
-                + "顶层 schema 不再默认展开所有 shortcut 的参数 schema/example；需要时应先调用 describe_shortcut 按需查询。";
+        return "传给 shortcut 的 JSON 参数对象，字段结构由目标 shortcut 定义决定。";
     }
 
     private String extractShortcutName(String argumentsJson) {
