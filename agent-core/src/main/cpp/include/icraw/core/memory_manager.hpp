@@ -185,7 +185,8 @@ public:
     
     // Search memory for content (LIKE-based, legacy)
     std::vector<MemoryEntry> search_memory(const std::string& query,
-                                           int limit = 10) const;
+                                           int limit = 10,
+                                           const std::string& session_id = "default") const;
     
     // FTS5 full-text search (faster, more accurate)
     std::vector<MemoryEntry> search_memory_fts(const std::string& query,

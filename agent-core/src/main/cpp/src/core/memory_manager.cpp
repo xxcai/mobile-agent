@@ -789,7 +789,8 @@ int64_t MemoryManager::get_message_count(const std::string& session_id) const {
 // --- Search ---
 
 std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
-                                                       int limit) const {
+                                                       int limit,
+                                                       const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> results;
     
@@ -801,7 +802,7 @@ std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
     // The LIKE pattern with wildcards needs to be constructed safely
     std::string like_pattern = "%" + query + "%";
     std::string sql = "SELECT id, role, content, timestamp, session_id, metadata FROM messages "
-                      "WHERE content LIKE ? "
+                      "WHERE content LIKE ? AND session_id = ? "
                       "ORDER BY timestamp DESC LIMIT ?;";
     
     if (!db_->prepare(sql)) {
@@ -809,7 +810,8 @@ std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
     }
     
     db_->bind(1, like_pattern);
-    db_->bind(2, static_cast<int64_t>(limit));
+    db_->bind(2, session_id);
+    db_->bind(3, static_cast<int64_t>(limit));
     
     while (db_->step()) {
         MemoryEntry entry;
@@ -1122,7 +1124,7 @@ std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& que
     }
     
     // Fallback to LIKE search if FTS5 not available or no results
-    return search_memory(query, limit);
+    return search_memory(query, limit, session_id);
 }
 
 // --- Token-aware Methods ---

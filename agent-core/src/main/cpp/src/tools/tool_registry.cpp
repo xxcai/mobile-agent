@@ -839,7 +839,10 @@ std::string ToolRegistry::search_memory_tool(const nlohmann::json& params) {
     // Search using memory manager if available
     if (memory_manager_) {
         try {
-            auto results = memory_manager_->search_memory(query, limit);
+            const std::string session_id = g_android_tools.get_current_session_id().empty()
+                    ? "default"
+                    : g_android_tools.get_current_session_id();
+            auto results = memory_manager_->search_memory(query, limit, session_id);
             
             nlohmann::json result;
             result["success"] = true;

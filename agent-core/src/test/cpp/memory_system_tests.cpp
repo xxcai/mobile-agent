@@ -189,6 +189,30 @@ void test_clear_daily_memory_clears_daily_entries_only() {
     expect(memory_manager.get_daily_memory().empty(), "daily memory entries should be removed");
 }
 
+void test_search_memory_fallback_preserves_session_scope() {
+    TempWorkspace workspace;
+    MemoryManager memory_manager(workspace.path());
+
+    memory_manager.add_message("user", "apple shared query", "session-a", nlohmann::json{});
+    memory_manager.add_message("user", "apple shared query", "session-b", nlohmann::json{});
+
+    // Force search_memory_fts() to take the fallback path.
+    expect(memory_manager.database().execute("DROP TABLE IF EXISTS messages_fts;"),
+           "should be able to drop FTS table for fallback test");
+
+    const auto session_a_results = memory_manager.search_memory_fts("apple", 10, "session-a");
+    const auto session_b_results = memory_manager.search_memory_fts("apple", 10, "session-b");
+
+    expect_equal(session_a_results.size(), static_cast<size_t>(1),
+                 "fallback search should only return results from session-a");
+    expect_equal(session_b_results.size(), static_cast<size_t>(1),
+                 "fallback search should only return results from session-b");
+    expect(session_a_results[0].session_id == "session-a",
+           "session-a fallback result should preserve session scope");
+    expect(session_b_results[0].session_id == "session-b",
+           "session-b fallback result should preserve session scope");
+}
+
 void test_delete_consolidated_messages_refreshes_token_stats() {
     TempWorkspace workspace;
     MemoryManager memory_manager(workspace.path());
@@ -265,6 +289,8 @@ int main() {
          icraw::test_clear_long_term_memory_keeps_daily_memory_for_other_sessions},
         {"clear_daily_memory_clears_daily_entries_only",
          icraw::test_clear_daily_memory_clears_daily_entries_only},
+        {"search_memory_fallback_preserves_session_scope",
+         icraw::test_search_memory_fallback_preserves_session_scope},
         {"delete_consolidated_messages_refreshes_token_stats",
          icraw::test_delete_consolidated_messages_refreshes_token_stats},
         {"non_default_session_consolidation_writes_summary_to_that_session",

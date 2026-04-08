@@ -50,6 +50,7 @@ public:
     std::string call_tool(const std::string& tool_name, const nlohmann::json& args);
     void set_current_session_id(const std::string& session_id);
     void clear_current_session_id();
+    const std::string& get_current_session_id() const { return current_session_id_; }
 
     /**
      * Check if a callback is registered
