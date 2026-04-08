@@ -997,6 +997,27 @@ void inject_selected_skills_into_request(ChatCompletionRequest& request,
     append_runtime_section_to_request_system(request, "Selected Skills", body.str());
 }
 
+void inject_navigation_escalation_into_request(ChatCompletionRequest& request,
+                                               const ExecutionState& state) {
+    if (state.latest_escalation.reason.empty()) {
+        return;
+    }
+    std::ostringstream body;
+    body << "Local deterministic navigation could not proceed safely.\n";
+    body << "reason: " << state.latest_escalation.reason << "\n";
+    if (!state.latest_escalation.detail.empty()) {
+        body << "detail: " << truncate_runtime_text(state.latest_escalation.detail, 220) << "\n";
+    }
+    if (state.navigation_checkpoint.current_step_index >= 0) {
+        body << "checkpoint_step_index: " << state.navigation_checkpoint.current_step_index << "\n";
+    }
+    body << "stagnant_rounds: " << state.navigation_checkpoint.stagnant_rounds << "\n";
+    if (state.pending_step.is_object() && !state.pending_step.empty()) {
+        body << "pending_step: " << truncate_runtime_text(state.pending_step.dump(), 260) << "\n";
+    }
+    append_runtime_section_to_request_system(request, "Navigation Escalation", body.str());
+}
+
 std::string build_execution_state_prompt_v2(const ExecutionState& state, int iteration) {
     if (iteration <= 1) {
         return "";
@@ -1054,6 +1075,13 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
     }
     if (!state.latest_action_result.empty()) {
         prompt << "latest_action_result: " << truncate_runtime_text(state.latest_action_result, 180) << "\n";
+    }
+    if (!state.latest_escalation.reason.empty()) {
+        prompt << "navigation_escalation.reason: " << state.latest_escalation.reason << "\n";
+        if (!state.latest_escalation.detail.empty()) {
+            prompt << "navigation_escalation.detail: "
+                   << truncate_runtime_text(state.latest_escalation.detail, 180) << "\n";
+        }
     }
     if (state.navigation_checkpoint.current_step_index >= 0) {
         prompt << "navigation_checkpoint.step_index: " << state.navigation_checkpoint.current_step_index << "\n";
@@ -3161,6 +3189,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
             ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=non_stream iteration={} prompt_length={}",
                     iteration, execution_state_prompt.size());
         }
+        inject_navigation_escalation_into_request(effective_request, execution_state);
         ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
                 execution_state.mode, execution_state.phase, iteration);
 
@@ -3174,6 +3203,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
 
         // Call LLM
         auto response = llm_provider_->chat_completion(effective_request);
+        execution_state.latest_escalation = NavigationEscalation{};
         
         // Build assistant message
         Message assistant_msg;
@@ -3497,6 +3527,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=stream iteration={} prompt_length={}",
                     iteration, execution_state_prompt.size());
         }
+        inject_navigation_escalation_into_request(effective_request, execution_state);
         ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
                 execution_state.mode, execution_state.phase, iteration);
 
@@ -3573,6 +3604,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         
         ICRAW_LOG_INFO("[AgentLoop][stream_complete] iteration={} stream_complete={} text_length={} reasoning_length={} tool_call_count={}",
             iteration, stream_complete, accumulated_text.length(), accumulated_reasoning.length(), final_tool_calls.size());
+        execution_state.latest_escalation = NavigationEscalation{};
         
         // === Deferred Processing ===
         // StreamParser has already accumulated and validated tool calls
