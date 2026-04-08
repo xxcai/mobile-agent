@@ -17,13 +17,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 默认的悬浮球生命周期控制。
- * App 在前台且当前页面不在隐藏列表中时显示悬浮球，否则隐藏。
+ * 榛樿鐨勬偓娴悆鐢熷懡鍛ㄦ湡鎺у埗銆?
+ * App 鍦ㄥ墠鍙颁笖褰撳墠椤甸潰涓嶅湪闅愯棌鍒楄〃涓椂鏄剧ず鎮诞鐞冿紝鍚﹀垯闅愯棌銆?
  */
 public class FloatingBallLifecycleCallbacks implements Application.ActivityLifecycleCallbacks {
 
     private static final String TAG = "FloatingBallLifecycle";
-    private static final long STABLE_ACTIVITY_DELAY_MS = 180L;
+    private static final long STABLE_ACTIVITY_DELAY_MS = 90L;
 
     private static final Set<String> DEFAULT_HIDDEN_ACTIVITY_CLASS_NAMES =
             Collections.singleton(ContainerActivity.class.getName());
@@ -227,3 +227,5 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         boolean onStableActivity(Activity activity);
     }
 }
+
+

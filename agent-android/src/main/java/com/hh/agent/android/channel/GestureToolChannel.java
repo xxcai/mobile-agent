@@ -28,12 +28,11 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "执行当前宿主页面内的 Android UI 动作。tap 应先读取 android_view_context_tool，再基于最新 observation 点击目标；swipe 也应先读取 android_view_context_tool，并且必须在 observation 中明确指定要滚动的容器 bounds，运行时再在当前 Activity 内注入真实触摸事件。不要猜测裸坐标，不要在没有最新 observation 的情况下调用本工具。不要用这个通道搜索联系人、发送消息、读取剪贴板或调用宿主 App 的业务工具；这类任务应使用 call_android_tool。")
+                        "Run an Android UI gesture on the current host page. Read android_view_context_tool first; use call_android_tool for business actions.")
                 .property("action", ToolSchemaBuilder.string()
                         .description(buildActionDescription())
                         .enumValues(getActionNames()), true)
-                .property("observation", buildObservationSchema(), false)
-                ;
+                .property("observation", buildObservationSchema(), false);
         for (GestureToolActionHandler handler : actionHandlers.values()) {
             handler.contributeProperties(builder);
         }
@@ -42,15 +41,15 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
 
     static ToolSchemaBuilder.ObjectSchemaBuilder buildObservationSchema() {
         return ToolSchemaBuilder.object()
-                .description("基于 observation 执行时的引用信息。tap 和 swipe 都应优先使用该对象。swipe 必须用它明确指定要滚动的容器 bounds。")
+                .description("Observation reference for the gesture. Prefer this for tap and swipe.")
                 .property("snapshotId", ToolSchemaBuilder.string()
-                        .description("当前回合 view context 返回的 snapshot 标识。"), false)
+                        .description("Current-turn snapshot id"), false)
                 .property("targetNodeIndex", ToolSchemaBuilder.integer()
-                        .description("目标节点在 observation 中的引用索引，可选。"), false)
+                        .description("Referenced target node index"), false)
                 .property("targetDescriptor", ToolSchemaBuilder.string()
-                        .description("目标元素或目标容器的人类可读描述，例如“发送消息按钮”或“朋友圈列表”。"), false)
+                        .description("Human-readable target description"), false)
                 .property("referencedBounds", ToolSchemaBuilder.string()
-                        .description("从 observation 中引用的 bounds 字符串。tap 可用它定位点击目标；swipe 必须用它指定要滚动的容器。格式如 [l,t][r,b]。"), false);
+                        .description("Referenced bounds in [l,t][r,b] format"), false);
     }
 
     @Override
@@ -95,16 +94,15 @@ public class GestureToolChannel implements AndroidToolChannelExecutor {
     }
 
     private String buildActionDescription() {
-        StringBuilder description = new StringBuilder("手势动作类型。");
+        StringBuilder description = new StringBuilder("Gesture action type.");
         boolean first = true;
         for (GestureToolActionHandler handler : actionHandlers.values()) {
             if (!first) {
-                description.append("；");
+                description.append(' ');
             }
             description.append(handler.getActionDescription());
             first = false;
         }
-        description.append("。运行时会在当前前台 Activity 内注入真实触摸事件。不要填写业务工具名。");
         return description.toString();
     }
 

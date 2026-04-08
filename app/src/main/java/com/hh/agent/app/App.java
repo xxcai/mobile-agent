@@ -6,7 +6,6 @@ import android.util.Log;
 import com.hh.agent.FloatingBallHiddenActivity;
 import com.hh.agent.android.AgentInitializer;
 import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.screenvision.AgentScreenVision;
 import com.hh.agent.tool.DisplayNotificationTool;
 import com.hh.agent.tool.ReadClipboardTool;
 import com.hh.agent.tool.SearchContactsTool;
@@ -28,7 +27,6 @@ public class App extends Application {
         instance = this;
 
         Log.d(TAG, "App onCreate");
-        AgentScreenVision.install(this);
 
         Map<String, ToolExecutor> tools = new HashMap<>();
         tools.put("display_notification", new DisplayNotificationTool(this));

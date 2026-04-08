@@ -12,6 +12,7 @@ import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.viewcontext.ActivityViewContextSourcePolicy;
 import com.hh.agent.android.viewcontext.ScreenSnapshotAnalyzer;
 import com.hh.agent.android.viewcontext.ScreenSnapshotAnalyzerHolder;
+import com.hh.agent.android.viewcontext.ScreenSnapshotWarmupCapable;
 import com.hh.agent.android.viewcontext.ViewContextSourcePolicyRegistry;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
@@ -47,7 +48,13 @@ public class AgentInitializer {
     }
 
     public static void setScreenSnapshotAnalyzer(ScreenSnapshotAnalyzer analyzer) {
+        String analyzerName = analyzer != null ? analyzer.getClass().getName() : "null";
+        AgentLogs.info(TAG, "screen_snapshot_analyzer_set", "analyzer=" + analyzerName);
         ScreenSnapshotAnalyzerHolder.getInstance().setAnalyzer(analyzer);
+        if (analyzer instanceof ScreenSnapshotWarmupCapable) {
+            ((ScreenSnapshotWarmupCapable) analyzer).prewarmAsync();
+            AgentLogs.info(TAG, "screen_snapshot_analyzer_prewarm_requested", "analyzer=" + analyzerName);
+        }
     }
 
     public static void initialize(Context application,
@@ -66,8 +73,17 @@ public class AgentInitializer {
                                   Map<String, ToolExecutor> tools,
                                   ActivityViewContextSourcePolicy viewContextSourcePolicy,
                                   Runnable callback) {
+        ensureScreenSnapshotAnalyzerInstalled(application);
         int toolCount = tools != null ? tools.size() : 0;
-        AgentLogs.info(TAG, "initialize_start", "tool_count=" + toolCount);
+        boolean analyzerRegistered = ScreenSnapshotAnalyzerHolder.getInstance().getAnalyzer() != null;
+        String policyName = viewContextSourcePolicy != null
+                ? viewContextSourcePolicy.getClass().getName()
+                : "null";
+        AgentLogs.info(TAG,
+                "initialize_start",
+                "tool_count=" + toolCount
+                        + " analyzer_registered=" + analyzerRegistered
+                        + " view_context_policy=" + policyName);
 
         if (tools == null) {
             AgentLogs.warn(TAG, "tools_map_null", null);
@@ -112,6 +128,23 @@ public class AgentInitializer {
             callback.run();
         }
         AgentLogs.info(TAG, "initialize_complete", null);
+    }
+
+    private static void ensureScreenSnapshotAnalyzerInstalled(Context application) {
+        if (ScreenSnapshotAnalyzerHolder.getInstance().getAnalyzer() != null) {
+            AgentLogs.debug(TAG, "screen_snapshot_auto_install_skipped", "reason=analyzer_already_registered");
+            return;
+        }
+        try {
+            Class<?> installerClass = Class.forName("com.hh.agent.screenvision.AgentScreenVision");
+            installerClass.getMethod("install", Context.class).invoke(null, application);
+            boolean installed = ScreenSnapshotAnalyzerHolder.getInstance().getAnalyzer() != null;
+            AgentLogs.info(TAG, "screen_snapshot_auto_install_complete", "installed=" + installed);
+        } catch (ClassNotFoundException notFound) {
+            AgentLogs.debug(TAG, "screen_snapshot_auto_install_unavailable", "reason=module_not_on_classpath");
+        } catch (Exception e) {
+            AgentLogs.warn(TAG, "screen_snapshot_auto_install_failed", "message=" + e.getMessage());
+        }
     }
 
     public static void initializeFloatingBall(Application application,
@@ -171,3 +204,6 @@ public class AgentInitializer {
         }
     }
 }
+
+
+

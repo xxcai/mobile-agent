@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ObservationDetailMode;
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
@@ -32,9 +33,10 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
     public ToolResult execute(JSONObject params, String targetHint) throws Exception {
         boolean includeMockWebDom = params.optBoolean("includeMockWebDom", false);
         boolean includeMockScreenshot = params.optBoolean("includeMockScreenshot", false);
+        ObservationDetailMode detailMode = ObservationDetailMode.fromRaw(params.optString("__detailMode", null));
 
         ToolResult result = buildBaseResult(getSourceName(), targetHint);
-        ToolResult nativeSnapshot = ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
+        ToolResult nativeSnapshot = ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint, true, detailMode);
         JSONObject nativeSnapshotJson = new JSONObject(nativeSnapshot.toJsonString());
         boolean nativeSuccess = nativeSnapshotJson.optBoolean("success", false);
 
@@ -49,6 +51,8 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
                         nativeSuccess ? nativeSnapshotJson.optString("activityClassName", null) : null)
                 .with("observationMode",
                         nativeSuccess ? nativeSnapshotJson.optString("observationMode", null) : null)
+                .with("observationDetailMode",
+                        nativeSuccess ? nativeSnapshotJson.optString("observationDetailMode", null) : null)
                 .with("visualObservationMode",
                         nativeSuccess ? nativeSnapshotJson.optString("visualObservationMode", null) : null)
                 .with("snapshotId",

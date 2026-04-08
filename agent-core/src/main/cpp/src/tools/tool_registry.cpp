@@ -33,13 +33,13 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "read_file";
-        schema.description = "Read the contents of a file from the filesystem";
+        schema.description = "Read a file";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"path", {
                     {"type", "string"},
-                    {"description", "The path to the file to read"}
+                    {"description", "File path"}
                 }}
             }},
             {"required", {"path"}}
@@ -55,17 +55,17 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "write_file";
-        schema.description = "Write content to a file in the filesystem";
+        schema.description = "Write a file";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"path", {
                     {"type", "string"},
-                    {"description", "The path to the file to write"}
+                    {"description", "File path"}
                 }},
                 {"content", {
                     {"type", "string"},
-                    {"description", "The content to write to the file"}
+                    {"description", "File content"}
                 }}
             }},
             {"required", {"path", "content"}}
@@ -81,19 +81,17 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "save_memory";
-        schema.description = "Save the memory consolidation result to persistent storage. "
-                            "Use this to save important information from the conversation "
-                            "to long-term memory for future reference.";
+        schema.description = "Persist long-term memory updates";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"history_entry", {
                     {"type", "string"},
-                    {"description", "A paragraph (2-5 sentences) summarizing key events/decisions/topics. Start with [YYYY-MM-DD HH:MM]. Include detail useful for search."}
+                    {"description", "Short searchable history summary"}
                 }},
                 {"memory_update", {
                     {"type", "string"},
-                    {"description", "Full updated long-term memory as markdown. Include all existing facts plus new ones. Return unchanged if nothing new."}
+                    {"description", "Updated long-term memory markdown"}
                 }}
             }},
             {"required", {"history_entry", "memory_update"}}
@@ -109,18 +107,17 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "search_memory";
-        schema.description = "Search the conversation history for specific content. "
-                            "Use this to find relevant past conversations or information.";
+        schema.description = "Search saved memory";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"query", {
                     {"type", "string"},
-                    {"description", "The search query string"}
+                    {"description", "Search query"}
                 }},
                 {"limit", {
                     {"type", "integer"},
-                    {"description", "Maximum number of results to return (default: 10)"},
+                    {"description", "Max results"},
                     {"default", 10}
                 }}
             }},
@@ -137,23 +134,22 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "list_files";
-        schema.description = "List files and directories in a given path. "
-                            "Returns file names, types, sizes, and modification times.";
+        schema.description = "List files and directories";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"path", {
                     {"type", "string"},
-                    {"description", "The directory path to list (default: current directory)"}
+                    {"description", "Directory path"}
                 }},
                 {"recursive", {
                     {"type", "boolean"},
-                    {"description", "Whether to list files recursively (default: false)"},
+                    {"description", "List recursively"},
                     {"default", false}
                 }},
                 {"pattern", {
                     {"type", "string"},
-                    {"description", "Optional glob pattern to filter files (e.g., '*.cpp')"}
+                    {"description", "Optional glob filter"}
                 }}
             }},
             {"required", nlohmann::json::array()}
@@ -169,48 +165,46 @@ void ToolRegistry::register_builtin_tools() {
     {
         ToolSchema schema;
         schema.name = "grep_files";
-        schema.description = "Search for text patterns in files. "
-                            "Supports both literal strings and regular expressions. "
-                            "Returns matching lines with file paths and line numbers.";
+        schema.description = "Search text in files";
         schema.parameters = nlohmann::json{
             {"type", "object"},
             {"properties", {
                 {"pattern", {
                     {"type", "string"},
-                    {"description", "The search pattern (literal string or regex)"}
+                    {"description", "Text or regex pattern"}
                 }},
                 {"path", {
                     {"type", "string"},
-                    {"description", "The directory or file to search (default: current directory)"}
+                    {"description", "File or directory path"}
                 }},
                 {"recursive", {
                     {"type", "boolean"},
-                    {"description", "Whether to search recursively (default: true)"},
+                    {"description", "Search recursively"},
                     {"default", true}
                 }},
                 {"use_regex", {
                     {"type", "boolean"},
-                    {"description", "Whether to treat pattern as regex (default: false)"},
+                    {"description", "Treat pattern as regex"},
                     {"default", false}
                 }},
                 {"case_sensitive", {
                     {"type", "boolean"},
-                    {"description", "Whether search is case-sensitive (default: true)"},
+                    {"description", "Case-sensitive search"},
                     {"default", true}
                 }},
                 {"max_results", {
                     {"type", "integer"},
-                    {"description", "Maximum number of results to return (default: 100)"},
+                    {"description", "Max results"},
                     {"default", 100}
                 }},
                 {"include_patterns", {
                     {"type", "array"},
-                    {"description", "File patterns to include (e.g., [\"*.cpp\", \"*.hpp\"])"},
+                    {"description", "Optional include globs"},
                     {"items", {{"type", "string"}}}
                 }},
                 {"exclude_patterns", {
                     {"type", "array"},
-                    {"description", "File/directory patterns to exclude (e.g., [\".git\", \"node_modules\"])"},
+                    {"description", "Optional exclude globs"},
                     {"items", {{"type", "string"}}}
                 }}
             }},

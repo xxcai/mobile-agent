@@ -55,6 +55,9 @@ public:
 private:
     // Load conversation history from database
     void load_history_from_memory();
+    std::string build_system_prompt_for_message() const;
+    void log_selected_skills(const std::vector<SkillMetadata>& selected_skills) const;
+    std::vector<SkillMetadata> select_relevant_skills_for_message(const std::string& message) const;
     
     IcrawConfig config_;
     std::shared_ptr<MemoryManager> memory_manager_;
@@ -65,6 +68,7 @@ private:
     std::unique_ptr<AgentLoop> agent_loop_;
 
     std::vector<Message> history_;
+    std::vector<SkillMetadata> available_skills_;
     std::string system_prompt_;
 };
 

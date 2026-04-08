@@ -27,6 +27,16 @@ public final class ScreenSnapshotObservationProvider {
     }
 
     public ToolResult getCurrentSnapshot(@Nullable String targetHint) {
+        return getCurrentSnapshot(targetHint, false, ObservationDetailMode.DISCOVERY);
+    }
+
+    public ToolResult getCurrentSnapshot(@Nullable String targetHint, boolean includeRawFallback) {
+        return getCurrentSnapshot(targetHint, includeRawFallback, ObservationDetailMode.DISCOVERY);
+    }
+
+    public ToolResult getCurrentSnapshot(@Nullable String targetHint,
+                                         boolean includeRawFallback,
+                                         ObservationDetailMode detailMode) {
         if (analyzer == null) {
             return ToolResult.error(
                     "view_context_unavailable",
@@ -52,7 +62,9 @@ public final class ScreenSnapshotObservationProvider {
                     activityClassName,
                     analysis.observationMode,
                     nativeViewXml,
-                    analysis
+                    analysis,
+                    includeRawFallback,
+                    detailMode
             );
         } catch (Exception e) {
             return ToolResult.error("view_context_unavailable", safeMessage(e));

@@ -16,6 +16,7 @@
 - [Android Skill 扩展指南](./guides/android-skill-extension.md)
 - [LLM Provider 扩展指南](./guides/llm-provider-extension.md)
 - [Android Route Tooling 接入指南](./guides/android-route-tooling.md)
+- [本地 Maven 仓库离线分发方案](./guides/local-maven-repo-distribution.md)
 
 ## Protocols
 
@@ -25,5 +26,4 @@
 
 - [agent-android 日志规范](./logging/agent-android-logging.md)
 - [agent-core 日志规范](./logging/agent-core-logging.md)
-
 

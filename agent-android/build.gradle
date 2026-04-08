@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.library'
+    id 'maven-publish'
 }
 
 android {
@@ -26,16 +27,22 @@ android {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
+
+    publishing {
+        singleVariant("debug") {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
-    implementation project(':agent-core')
-    implementation 'androidx.core:core:1.12.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    api project(':agent-core')
+    api 'androidx.core:core:1.12.0'
+    api 'androidx.appcompat:appcompat:1.6.1'
+    api 'com.google.android.material:material:1.11.0'
+    api 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // Markwon Markdown 渲染库
+    // Markwon Markdown 娓叉煋搴?
     implementation 'io.noties.markwon:core:4.6.2'
     implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
     implementation 'io.noties.markwon:ext-tables:4.6.2'
@@ -43,4 +50,23 @@ dependencies {
 
     testImplementation 'org.json:json:20240303'
     testImplementation 'junit:junit:4.13.2'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create("debug", MavenPublication) {
+                from components.debug
+                groupId = rootProject.ext.mobileAgentMavenGroup
+                artifactId = "agent-android"
+                version = rootProject.ext.mobileAgentMavenVersion
+            }
+        }
+        repositories {
+            maven {
+                name = "offlineBundle"
+                url = rootProject.ext.mobileAgentLocalRepoDir.get().asFile.toURI()
+            }
+        }
+    }
 }

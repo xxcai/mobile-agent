@@ -22,8 +22,8 @@ import java.lang.ref.WeakReference;
 public final class InProcessViewHierarchyDumper {
     private static final String TAG = "InProcessViewHierarchyDumper";
 
-    private static final long CONTAINER_DISMISS_TIMEOUT_MS = 1500L;
-    private static final long FOREGROUND_STABLE_TIMEOUT_MS = 1500L;
+    private static final long CONTAINER_DISMISS_TIMEOUT_MS = 900L;
+    private static final long FOREGROUND_STABLE_TIMEOUT_MS = 900L;
     private static final int MAX_NODES = 300;
 
     private InProcessViewHierarchyDumper() {
@@ -140,7 +140,13 @@ public final class InProcessViewHierarchyDumper {
     }
 
     private static void dismissContainerActivity(Activity activity) {
-        activity.runOnUiThread(activity::finish);
+        activity.runOnUiThread(() -> {
+            if (activity instanceof ContainerActivity) {
+                ((ContainerActivity) activity).finishImmediately();
+            } else {
+                activity.finish();
+            }
+        });
     }
 
     private static void appendNode(StringBuilder xml, View view, DumpState state) {
@@ -299,3 +305,6 @@ public final class InProcessViewHierarchyDumper {
         boolean dismissedContainer;
     }
 }
+
+
+

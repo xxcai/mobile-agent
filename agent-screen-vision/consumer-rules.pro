@@ -1,2 +1,2 @@
--keep class com.screenvision.sdk.** { *; }
-
+﻿-keep class com.screenvision.sdk.** { *; }
+-keep class com.hh.agent.screenvision.** { *; }

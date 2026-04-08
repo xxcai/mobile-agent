@@ -29,13 +29,15 @@ public:
     // Returns all new messages generated during the turn
     std::vector<Message> process_message(const std::string& message,
                                          const std::vector<Message>& history,
-                                         const std::string& system_prompt);
+                                         const std::string& system_prompt,
+                                         const std::vector<SkillMetadata>& selected_skills = {});
 
     // Streaming version
     std::vector<Message> process_message_stream(const std::string& message,
                                                  const std::vector<Message>& history,
                                                  const std::string& system_prompt,
-                                                 AgentEventCallback callback);
+                                                 AgentEventCallback callback,
+                                                 const std::vector<SkillMetadata>& selected_skills = {});
 
     // Stop the current agent turn
     void stop();

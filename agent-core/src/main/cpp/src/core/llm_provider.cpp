@@ -297,6 +297,7 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
             }
             
             if (delta.contains("tool_calls") && delta["tool_calls"].is_array()) {
+                response.has_tool_call_delta = true;
                 for (const auto& tc : delta["tool_calls"]) {
                     accumulate_tool_call(tc);
                 }

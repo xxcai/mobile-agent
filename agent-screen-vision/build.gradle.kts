@@ -50,7 +50,7 @@ android {
     }
 
     publishing {
-        singleVariant("release") {
+        singleVariant("debug") {
             withSourcesJar()
         }
     }
@@ -63,7 +63,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":agent-android"))
+    api(project(":agent-android"))
     implementation("androidx.core:core:1.12.0")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     testImplementation("junit:junit:4.13.2")
@@ -72,18 +72,19 @@ dependencies {
 afterEvaluate {
     publishing {
         publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
-                groupId = "com.screenvision"
+            create<MavenPublication>("debug") {
+                from(components["debug"])
+                groupId = rootProject.extra["mobileAgentMavenGroup"] as String
                 artifactId = "agent-screen-vision"
-                version = "1.0.0"
+                version = rootProject.extra["mobileAgentMavenVersion"] as String
             }
         }
         repositories {
             maven {
-                name = "localBuildRepo"
-                url = uri(layout.buildDirectory.dir("repo"))
+                name = "offlineBundle"
+                url = uri(rootProject.layout.buildDirectory.dir("local-maven-repo"))
             }
         }
     }
 }
+

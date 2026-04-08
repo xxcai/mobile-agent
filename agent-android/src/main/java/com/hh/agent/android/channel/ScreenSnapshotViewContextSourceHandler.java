@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ObservationDetailMode;
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
@@ -24,7 +25,9 @@ final class ScreenSnapshotViewContextSourceHandler extends AbstractViewContextSo
 
     @Override
     public ToolResult execute(JSONObject params, String targetHint) {
-        return ViewContextSnapshotProvider.getCurrentScreenSnapshot(targetHint)
+        boolean includeRawFallback = params.optBoolean("includeRawFallback", false);
+        ObservationDetailMode detailMode = ObservationDetailMode.fromRaw(params.optString("__detailMode", null));
+        return ViewContextSnapshotProvider.getCurrentScreenSnapshot(targetHint, includeRawFallback, detailMode)
                 .with("channel", ViewContextToolChannel.CHANNEL_NAME);
     }
 }

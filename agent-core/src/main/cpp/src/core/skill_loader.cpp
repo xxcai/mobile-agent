@@ -287,6 +287,9 @@ SkillMetadata SkillLoader::parse_skill_file(const std::filesystem::path& skill_f
                 skill.emoji.pop_back();
             }
         }
+        if (yaml_json.contains("execution_hints")) {
+            skill.execution_hints = yaml_json["execution_hints"];
+        }
     } else {
         // No frontmatter, entire content is the skill
         skill.content = content;
@@ -325,6 +328,14 @@ nlohmann::json SkillLoader::parse_yaml_frontmatter(const std::string& yaml_str) 
         std::string trimmed = trim(s);
         if (trimmed.empty()) {
             return nullptr;
+        }
+        if ((trimmed.front() == '{' && trimmed.back() == '}')
+                || (trimmed.front() == '[' && trimmed.back() == ']')) {
+            try {
+                return nlohmann::json::parse(trimmed);
+            } catch (...) {
+                // Fall through to scalar parsing.
+            }
         }
         // Check for boolean
         if (trimmed == "true") return true;

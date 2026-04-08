@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ObservationDetailMode;
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
@@ -15,7 +16,7 @@ final class NativeXmlViewContextSourceHandler extends AbstractViewContextSourceH
 
     @Override
     public String getSourceDescription() {
-        return "native_xml 返回当前原生界面树";
+        return "native_xml returns the current native view hierarchy";
     }
 
     @Override
@@ -24,7 +25,9 @@ final class NativeXmlViewContextSourceHandler extends AbstractViewContextSourceH
 
     @Override
     public ToolResult execute(JSONObject params, String targetHint) {
-        return ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint)
+        boolean includeRawFallback = params.optBoolean("includeRawFallback", false);
+        ObservationDetailMode detailMode = ObservationDetailMode.fromRaw(params.optString("__detailMode", null));
+        return ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint, includeRawFallback, detailMode)
                 .with("channel", ViewContextToolChannel.CHANNEL_NAME);
     }
 }

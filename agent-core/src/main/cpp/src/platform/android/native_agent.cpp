@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <android/log.h>
 #include <curl/curl.h>
 #include <memory>
 #include <string>
@@ -22,8 +23,22 @@ static JavaVM* g_java_vm = nullptr;
 namespace {
 
 constexpr const char* kNativeJavaLoggerTag = "icraw";
-icraw::LogLevel g_native_log_level = icraw::parse_log_level("debug");
+icraw::LogLevel g_native_log_level = icraw::parse_log_level("info");
 
+android_LogPriority to_android_priority(icraw::LogLevel level) {
+    switch (level) {
+        case icraw::LogLevel::Trace:
+        case icraw::LogLevel::Debug:
+            return ANDROID_LOG_DEBUG;
+        case icraw::LogLevel::Info:
+            return ANDROID_LOG_INFO;
+        case icraw::LogLevel::Warn:
+            return ANDROID_LOG_WARN;
+        case icraw::LogLevel::Error:
+            return ANDROID_LOG_ERROR;
+    }
+    return ANDROID_LOG_DEBUG;
+}
 class JavaLoggerBackend final : public icraw::LoggerBackend {
 public:
     JavaLoggerBackend(JavaVM* java_vm, jobject logger, jmethodID debug_method,
@@ -60,6 +75,13 @@ public:
         if (level < min_level_ || !java_vm_ || !logger_) {
             return;
         }
+
+        __android_log_print(
+                to_android_priority(level),
+                kNativeJavaLoggerTag,
+                "%.*s",
+                static_cast<int>(message.size()),
+                message.data());
 
         jmethodID method = select_method(level);
         if (!method) {
@@ -326,7 +348,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogLevel(
         jclass /* clazz */,
         jstring levelStr) {
     (void) env;
-    std::string level = "debug";
+    std::string level = "info";
     if (levelStr != nullptr) {
         const char* raw_level = env->GetStringUTFChars(levelStr, nullptr);
         if (raw_level != nullptr && std::strlen(raw_level) > 0) {

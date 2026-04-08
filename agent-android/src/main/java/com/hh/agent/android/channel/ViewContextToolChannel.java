@@ -23,7 +23,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     static final String SOURCE_ALL = "all";
 
     static final String MOCK_WEB_DOM =
-            "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">寮犱笁</button></div></body></html>";
+            "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">mock</button></div></body></html>";
 
     static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
     private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
@@ -46,9 +46,9 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         ToolSchemaBuilder.FunctionToolBuilder builder = ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "Get the current page context for downstream reasoning when direct business tools cannot finish the task. Prefer hybridObservation.summary for page understanding, hybridObservation.actionableNodes for target selection, and hybridObservation.conflicts for confidence checks. Use nativeViewXml, screenVisionCompact, or webDom only as raw fallback evidence.")
+                        "Get the current page context. Prefer hybridObservation.summary, actionableNodes, and conflicts.")
                 .property("targetHint", ToolSchemaBuilder.string()
-                        .description("Optional hint about the target the user wants to act on, such as send button or second card."), false);
+                        .description("Optional target hint"), false);
         return builder.build();
     }
 

@@ -65,7 +65,7 @@ final class HybridObservationComposer {
                     .put("fusedMatchCount", matchedCount(nativeData.nodes))
                     .put("visionDroppedTextCount", visionData.droppedTextCount)
                     .put("visionDroppedControlCount", visionData.droppedControlCount));
-            result.put("actionableNodes", buildActionable(nativeData.nodes, visionData.signals, targetHint));
+            result.put("actionableNodes", buildActionable(nativeData, visionData, targetHint));
             result.put("sections", buildRegions(visionData.sections, nativeData.nodes, MAX_SECTIONS, true));
             result.put("listItems", buildRegions(visionData.items, nativeData.nodes, MAX_ITEMS, false));
             result.put("conflicts", buildConflicts(nativeData, visionData, targetHint));
@@ -89,9 +89,13 @@ final class HybridObservationComposer {
         return "unavailable";
     }
 
-    private static JSONArray buildActionable(List<NativeNode> nativeNodes,
-                                             List<Signal> signals,
+    private static JSONArray buildActionable(NativeData nativeData,
+                                             VisionData visionData,
                                              @Nullable String targetHint) throws Exception {
+        List<NativeNode> nativeNodes = nativeData.nodes;
+        List<Signal> signals = visionData.signals;
+        final int pageWidth = visionData.width > 0 ? visionData.width : nativeData.maxRight;
+        final int pageHeight = visionData.height > 0 ? visionData.height : nativeData.maxBottom;
         List<ScoredJson> scored = new ArrayList<>();
         for (NativeNode node : nativeNodes) {
             double score = nodeScore(node, targetHint);
@@ -103,11 +107,24 @@ final class HybridObservationComposer {
             object.put("source", node.matched != null ? "fused" : "native");
             object.put("nativeNodeIndex", node.index);
             putNullable(object, "text", trim(node.text));
+            putNullable(object, "contentDescription", trim(node.contentDescription));
             putNullable(object, "className", trim(node.className));
             putNullable(object, "resourceId", trim(node.resourceId));
+            putNullable(object, "region", regionOf(node.bounds, pageWidth, pageHeight));
+            putNullable(object, "anchorType", anchorTypeOf(node, null, pageWidth, pageHeight));
+            putNullable(object, "containerRole", containerRoleOf(node, null, pageWidth, pageHeight));
+            putNullable(object, "parentSemanticContext", trim(node.parentSemanticContext));
             putBounds(object, node.bounds);
             object.put("score", round(score));
             object.put("actionability", labelOf(score));
+            object.put("clickable", node.clickable);
+            object.put("containerClickable", node.containerClickable);
+            object.put("enabled", node.enabled);
+            object.put("selected", node.selected);
+            object.put("badgeLike", node.badgeLike());
+            object.put("numericLike", node.numericLike());
+            object.put("decorativeLike", node.decorativeLike());
+            object.put("repeatGroup", node.repeatGroup);
             if (node.matched != null) {
                 object.put("matchScore", round(node.matchScore));
                 putNullable(object, "matchedVisionId", trim(node.matched.rawId));
@@ -129,9 +146,20 @@ final class HybridObservationComposer {
             putNullable(object, "text", trim(signal.label));
             putNullable(object, "visionType", trim(signal.type));
             putNullable(object, "visionRole", trim(signal.role));
+            putNullable(object, "region", regionOf(signal.bounds, pageWidth, pageHeight));
+            putNullable(object, "anchorType", anchorTypeOf(null, signal, pageWidth, pageHeight));
+            putNullable(object, "containerRole", containerRoleOf(null, signal, pageWidth, pageHeight));
             putBounds(object, signal.bounds);
             object.put("score", round(score));
             object.put("actionability", labelOf(score));
+            object.put("clickable", signal.isControl());
+            object.put("containerClickable", false);
+            object.put("enabled", true);
+            object.put("selected", false);
+            object.put("badgeLike", signal.badgeLike());
+            object.put("numericLike", signal.numericLike());
+            object.put("decorativeLike", signal.decorativeLike());
+            object.put("repeatGroup", false);
             scored.add(new ScoredJson(score, signal.id(), object));
         }
         Collections.sort(scored, new Comparator<ScoredJson>() {
@@ -146,8 +174,7 @@ final class HybridObservationComposer {
             array.put(scored.get(i).object);
         }
         return array;
-    }
-    private static JSONArray buildRegions(JSONArray source,
+    }    private static JSONArray buildRegions(JSONArray source,
                                           List<NativeNode> nativeNodes,
                                           int limit,
                                           boolean section) throws Exception {
@@ -357,6 +384,269 @@ final class HybridObservationComposer {
         }
         return array;
     }
+    @Nullable
+    private static String regionOf(@Nullable Bounds bounds, int pageWidth, int pageHeight) {
+        if (bounds == null || pageWidth <= 0 || pageHeight <= 0) {
+            return null;
+        }
+        double centerX = (bounds.left + bounds.right) / 2.0d;
+        double centerY = (bounds.top + bounds.bottom) / 2.0d;
+        double width = pageWidth;
+        double height = pageHeight;
+        boolean headerBand = centerY <= height * 0.18d;
+        boolean topBand = centerY <= height * 0.28d;
+        boolean bottomBand = centerY >= height * 0.80d;
+        boolean leftBand = centerX <= width * 0.32d;
+        boolean rightBand = centerX >= width * 0.68d;
+        boolean centerBand = centerX > width * 0.36d && centerX < width * 0.64d;
+        boolean bodyBand = centerY > height * 0.22d && centerY < height * 0.80d;
+        double candidateWidth = bounds.right - bounds.left;
+        if (headerBand && leftBand) {
+            return "top_left";
+        }
+        if (headerBand && rightBand) {
+            return "top_right";
+        }
+        if (headerBand && centerBand) {
+            return "top_center";
+        }
+        if (topBand && leftBand) {
+            return "header_left";
+        }
+        if (topBand && rightBand) {
+            return "header_right";
+        }
+        if (bottomBand) {
+            return "bottom_tab";
+        }
+        if (bodyBand && candidateWidth >= width * 0.42d) {
+            return "list_item";
+        }
+        if (bodyBand) {
+            return "list_body";
+        }
+        if (centerBand) {
+            return "center";
+        }
+        if (leftBand) {
+            return "left";
+        }
+        if (rightBand) {
+            return "right";
+        }
+        return "center";
+    }
+
+    @Nullable
+    private static String anchorTypeOf(@Nullable NativeNode node,
+                                       @Nullable Signal signal,
+                                       int pageWidth,
+                                       int pageHeight) {
+        String region = regionOf(node != null ? node.bounds : signal != null ? signal.bounds : null, pageWidth, pageHeight);
+        String semantic = semanticContext(node, signal);
+        if (looksLikeBackEntrySemantic(semantic)) {
+            return "back_entry";
+        }
+        if ((signal != null && hasText(signal.role) && signal.role.toLowerCase(Locale.US).contains("navigation"))
+                || containsSemanticToken(semantic, "tab", "navigation", "bottomnav")
+                || "bottom_tab".equals(region)) {
+            return "tab_entry";
+        }
+        if (looksLikeProfileEntrySemantic(node, signal, semantic, region)) {
+            return "profile_entry";
+        }
+        if ((signal != null && hasText(signal.role) && signal.role.toLowerCase(Locale.US).contains("primary"))
+                || containsSemanticToken(semantic, "confirm", "submit", "done", "next", "start", "create")) {
+            return "primary_action";
+        }
+        if (containsSemanticToken(semantic, "search", "query")) {
+            return "search_entry";
+        }
+        if (containsSemanticToken(semantic, "more", "overflow", "menu")) {
+            return "overflow_entry";
+        }
+        return null;
+    }
+
+    private static boolean looksLikeBackEntrySemantic(@Nullable String semantic) {
+        return containsSemanticToken(semantic, "back", "navigateup", "return");
+    }
+
+        private static boolean looksLikeProfileEntrySemantic(@Nullable NativeNode node,
+                                                         @Nullable Signal signal,
+                                                         @Nullable String semantic,
+                                                         @Nullable String region) {
+        if ("bottom_tab".equals(region)) {
+            return false;
+        }
+        if (containsSemanticToken(semantic, "tab", "navigation", "bottomnav", "maintitle", "tabtext")) {
+            return false;
+        }
+        String text = trim(node != null ? node.text : signal != null ? signal.label : null);
+        String contentDescription = trim(node != null ? node.contentDescription : null);
+        String resource = node != null ? resourceHint(node.resourceId) : null;
+        boolean explicitProfileField = containsSemanticToken(
+                        text,
+                        "profile", "avatar", "account", "user", "personal", "mine",
+                        "\u5934\u50cf", "\u4e2a\u4eba", "\u6211\u7684", "\u8d26\u6237", "\u8d26\u53f7")
+                || containsSemanticToken(
+                        contentDescription,
+                        "profile", "avatar", "account", "user", "personal", "mine",
+                        "\u5934\u50cf", "\u4e2a\u4eba", "\u6211\u7684", "\u8d26\u6237", "\u8d26\u53f7")
+                || containsSemanticToken(
+                        resource,
+                        "profile", "avatar", "account", "user", "personal", "mine",
+                        "\u5934\u50cf", "\u4e2a\u4eba", "\u6211\u7684", "\u8d26\u6237", "\u8d26\u53f7");
+        boolean semanticProfile = containsSemanticToken(
+                semantic,
+                "profile", "avatar", "account", "user", "personal", "mine",
+                "\u5934\u50cf", "\u4e2a\u4eba", "\u6211\u7684", "\u8d26\u6237", "\u8d26\u53f7");
+        if (!explicitProfileField && !semanticProfile) {
+            return false;
+        }
+        if (hasText(text) && !explicitProfileField && node != null && !node.clickable && !node.containerClickable) {
+            return false;
+        }
+        return true;
+    }
+
+    @Nullable
+    private static String containerRoleOf(@Nullable NativeNode node,
+                                          @Nullable Signal signal,
+                                          int pageWidth,
+                                          int pageHeight) {
+        String semantic = semanticContext(node, signal);
+        String region = regionOf(node != null ? node.bounds : signal != null ? signal.bounds : null, pageWidth, pageHeight);
+        if ((node != null && node.badgeLike()) || (signal != null && signal.badgeLike())) {
+            return "badge";
+        }
+        if (containsSemanticToken(semantic, "toolbar", "appbar", "titlebar")) {
+            return "toolbar";
+        }
+        if ("bottom_tab".equals(region)) {
+            return "tab_bar";
+        }
+        if (containsSemanticToken(semantic, "recycler", "listview", "list", "grid", "cell", "row")) {
+            return "list";
+        }
+        if (containsSemanticToken(semantic, "card", "panel", "tile")) {
+            return "card";
+        }
+        if ("top_left".equals(region) || "top_right".equals(region) || "top_center".equals(region)
+                || "header_left".equals(region) || "header_right".equals(region)) {
+            return "header";
+        }
+        return null;
+    }
+
+    private static String semanticContext(@Nullable NativeNode node, @Nullable Signal signal) {
+        StringBuilder builder = new StringBuilder();
+        if (node != null) {
+            appendSemantic(builder, node.text);
+            appendSemantic(builder, node.contentDescription);
+            appendSemantic(builder, resourceHint(node.resourceId));
+            appendSemantic(builder, node.className);
+            appendSemantic(builder, node.parentSemanticContext);
+        }
+        if (signal != null) {
+            appendSemantic(builder, signal.label);
+            appendSemantic(builder, signal.type);
+            appendSemantic(builder, signal.role);
+        }
+        return builder.toString();
+    }
+
+    private static void appendSemantic(StringBuilder builder, @Nullable String value) {
+        String trimmed = trim(value);
+        if (trimmed == null) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append(' ');
+        }
+        builder.append(trimmed);
+    }
+
+    private static boolean containsSemanticToken(@Nullable String haystack, String... tokens) {
+        if (!hasText(haystack) || tokens == null) {
+            return false;
+        }
+        String normalizedHaystack = normalize(haystack);
+        if (normalizedHaystack.isEmpty()) {
+            return false;
+        }
+        for (String token : tokens) {
+            String normalizedToken = normalize(token);
+            if (!normalizedToken.isEmpty() && normalizedHaystack.contains(normalizedToken)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean parseBooleanAttribute(@Nullable String value) {
+        return "true".equalsIgnoreCase(trim(value));
+    }
+
+    @Nullable
+    private static String buildParentSemanticContext(Element element, int maxDepth) {
+        List<String> parts = new ArrayList<>();
+        org.w3c.dom.Node current = element.getParentNode();
+        int depth = 0;
+        while (current instanceof Element && depth < maxDepth) {
+            String summary = summarizeSemanticElement((Element) current);
+            if (hasText(summary)) {
+                parts.add(summary);
+            }
+            current = current.getParentNode();
+            depth++;
+        }
+        if (parts.isEmpty()) {
+            return null;
+        }
+        return String.join(" > ", parts);
+    }
+
+    @Nullable
+    private static String summarizeSemanticElement(Element element) {
+        List<String> parts = new ArrayList<>();
+        String className = trim(element.getAttribute("class"));
+        String resourceId = resourceHint(trim(element.getAttribute("resource-id")));
+        String text = trim(element.getAttribute("text"));
+        String contentDescription = trim(element.getAttribute("content-desc"));
+        if (hasText(className)) {
+            parts.add(className);
+        }
+        if (hasText(resourceId)) {
+            parts.add(resourceId);
+        }
+        if (hasText(text)) {
+            parts.add(text);
+        }
+        if (hasText(contentDescription)) {
+            parts.add(contentDescription);
+        }
+        return parts.isEmpty() ? null : String.join(" ", parts);
+    }
+
+    private static void markRepeatGroups(List<NativeNode> nodes) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        java.util.Map<NativeNode, String> keys = new java.util.HashMap<>();
+        for (NativeNode node : nodes) {
+            String key = normalize((node.className == null ? "" : node.className)
+                    + "|" + (resourceHint(node.resourceId) == null ? "" : resourceHint(node.resourceId))
+                    + "|" + (node.parentSemanticContext == null ? "" : node.parentSemanticContext));
+            if (key.isEmpty()) {
+                continue;
+            }
+            keys.put(node, key);
+            counts.put(key, counts.getOrDefault(key, 0) + 1);
+        }
+        for (NativeNode node : nodes) {
+            String key = keys.get(node);
+            node.repeatGroup = key != null && counts.getOrDefault(key, 0) >= 3;
+        }
+    }
     private static String summaryOf(NativeData nativeData, VisionData visionData) {
         if (hasText(visionData.summary) && nativeData.available) {
             return visionData.summary + " Native tree captured " + nativeData.nodes.size() + " nodes and fused " + matchedCount(nativeData.nodes) + " screenshot matches.";
@@ -538,14 +828,26 @@ final class HybridObservationComposer {
                 if (bounds == null) {
                     continue;
                 }
-                NativeNode node = new NativeNode(parseInt(element.getAttribute("index"), i), trim(element.getAttribute("class")), trim(element.getAttribute("resource-id")), trim(element.getAttribute("text")), bounds);
-                if (hasText(node.text)) {
+                NativeNode node = new NativeNode(
+                        parseInt(element.getAttribute("index"), i),
+                        trim(element.getAttribute("class")),
+                        trim(element.getAttribute("resource-id")),
+                        trim(element.getAttribute("text")),
+                        trim(element.getAttribute("content-desc")),
+                        bounds,
+                        parseBooleanAttribute(element.getAttribute("clickable")),
+                        parseBooleanAttribute(element.getAttribute("enabled")) || !hasText(element.getAttribute("enabled")),
+                        parseBooleanAttribute(element.getAttribute("selected")),
+                        parseBooleanAttribute(element.getAttribute("long-clickable")) || parseBooleanAttribute(element.getAttribute("focusable")),
+                        buildParentSemanticContext(element, 4));
+                if (hasText(node.text) || hasText(node.contentDescription)) {
                     textCount++;
                 }
                 nodes.add(node);
                 maxRight = Math.max(maxRight, bounds.right);
                 maxBottom = Math.max(maxBottom, bounds.bottom);
             }
+            markRepeatGroups(nodes);
             return new NativeData(true, activity, nodes, textCount, maxRight, maxBottom);
         } catch (Exception ignored) {
             return new NativeData(false, null, new ArrayList<NativeNode>(), 0, 0, 0);
@@ -832,18 +1134,41 @@ final class HybridObservationComposer {
         @Nullable final String className;
         @Nullable final String resourceId;
         @Nullable final String text;
+        @Nullable final String contentDescription;
         final Bounds bounds;
+        final boolean clickable;
+        final boolean enabled;
+        final boolean selected;
+        final boolean containerClickable;
+        @Nullable final String parentSemanticContext;
+        boolean repeatGroup;
         @Nullable Signal bestSignal;
         double bestScore;
         @Nullable Signal matched;
         double matchScore;
 
-        NativeNode(int index, @Nullable String className, @Nullable String resourceId, @Nullable String text, Bounds bounds) {
+        NativeNode(int index,
+                   @Nullable String className,
+                   @Nullable String resourceId,
+                   @Nullable String text,
+                   @Nullable String contentDescription,
+                   Bounds bounds,
+                   boolean clickable,
+                   boolean enabled,
+                   boolean selected,
+                   boolean containerClickable,
+                   @Nullable String parentSemanticContext) {
             this.index = index;
             this.className = className;
             this.resourceId = resourceId;
             this.text = text;
+            this.contentDescription = contentDescription;
             this.bounds = bounds;
+            this.clickable = clickable;
+            this.enabled = enabled;
+            this.selected = selected;
+            this.containerClickable = containerClickable;
+            this.parentSemanticContext = parentSemanticContext;
         }
 
         boolean interactiveClass() {
@@ -851,11 +1176,29 @@ final class HybridObservationComposer {
                 return false;
             }
             String value = className.toLowerCase(Locale.US);
-            return value.contains("button") || value.contains("edittext") || value.contains("check") || value.contains("switch") || value.contains("radio") || value.contains("tab") || value.contains("imagebutton") || value.contains("toggle");
+            return value.contains("button") || value.contains("edittext") || value.contains("check") || value.contains("switch") || value.contains("radio") || value.contains("tab") || value.contains("imagebutton") || value.contains("toggle") || value.contains("toolbar");
+        }
+
+        boolean numericLike() {
+            String candidate = hasText(text) ? text : contentDescription;
+            return hasText(candidate) && candidate.trim().matches("^[0-9]+\\+?$");
+        }
+
+        boolean badgeLike() {
+            return containsSemanticToken(semanticContext(this, null), "badge", "count", "unread", "reddot", "notification")
+                    || numericLike();
+        }
+
+        boolean decorativeLike() {
+            if (clickable || containerClickable || hasText(text) || hasText(contentDescription)) {
+                return false;
+            }
+            return hasText(className) && className.toLowerCase(Locale.US).contains("imageview");
         }
 
         boolean interesting() {
-            return hasText(text) || hasText(resourceId) || interactiveClass();
+            return hasText(text) || hasText(contentDescription) || hasText(resourceId)
+                    || interactiveClass() || clickable || containerClickable;
         }
 
         String id() {
@@ -865,6 +1208,9 @@ final class HybridObservationComposer {
         String displayText() {
             if (hasText(text)) {
                 return text;
+            }
+            if (hasText(contentDescription)) {
+                return contentDescription;
             }
             String hint = resourceHint(resourceId);
             return hint != null ? hint : id();
@@ -897,6 +1243,19 @@ final class HybridObservationComposer {
 
         boolean isControl() {
             return "control".equals(kind);
+        }
+
+        boolean numericLike() {
+            return hasText(label) && label.trim().matches("^[0-9]+\\+?$");
+        }
+
+        boolean badgeLike() {
+            return containsSemanticToken(semanticContext(null, this), "badge", "count", "unread", "reddot", "notification")
+                    || numericLike();
+        }
+
+        boolean decorativeLike() {
+            return !isControl() && !hasText(label) && !containsSemanticToken(type, "button", "tab", "entry");
         }
 
         boolean actionable(@Nullable String targetHint) {

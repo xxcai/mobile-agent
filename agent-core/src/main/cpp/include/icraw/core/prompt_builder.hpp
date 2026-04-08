@@ -17,11 +17,11 @@ public:
                   std::shared_ptr<SkillLoader> skill_loader,
                   std::shared_ptr<ToolRegistry> tool_registry);
 
-    // Full system prompt: SOUL + AGENTS + TOOLS + skills + memory
+    // Full system prompt: identity + behavior + tool-usage guidance + skills + memory
     std::string build_full() const;
     std::string build_full(const SkillsConfig& skills_config) const;
 
-    // Minimal system prompt: identity + tools only
+    // Minimal system prompt: identity + short tool-calling guidance
     std::string build_minimal() const;
 
 private:

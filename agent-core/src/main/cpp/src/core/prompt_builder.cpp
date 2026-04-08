@@ -71,11 +71,10 @@ std::string PromptBuilder::build_full() const {
         ss << "# Memory\n\n" << memory << "\n\n";
     }
     
-    // 7. Tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    if (!tool_schemas.empty()) {
-        ss << "# Available Tools\n\n" << format_tool_schemas(tool_schemas) << "\n";
-    }
+    // 7. Tool calling hint
+    ss << "# Tool Calling\n\n";
+    ss << "Use only the callable tools provided in the request tools schema. "
+       << "Do not invent tool names or arguments.\n\n";
     
     // 8. Runtime info
     ss << get_runtime_info();
@@ -137,11 +136,10 @@ std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
         ss << "# Memory\n\n" << memory << "\n\n";
     }
     
-    // 7. Tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    if (!tool_schemas.empty()) {
-        ss << "# Available Tools\n\n" << format_tool_schemas(tool_schemas) << "\n";
-    }
+    // 7. Tool calling hint
+    ss << "# Tool Calling\n\n";
+    ss << "Use only the callable tools provided in the request tools schema. "
+       << "Do not invent tool names or arguments.\n\n";
     
     // 8. Runtime info
     ss << get_runtime_info();
@@ -158,11 +156,10 @@ std::string PromptBuilder::build_minimal() const {
         ss << "# Identity\n\n" << soul << "\n\n";
     }
     
-    // 2. Tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    if (!tool_schemas.empty()) {
-        ss << "# Available Tools\n\n" << format_tool_schemas(tool_schemas) << "\n";
-    }
+    // 2. Tool calling hint
+    ss << "# Tool Calling\n\n";
+    ss << "Use only the callable tools provided in the request tools schema. "
+       << "Do not invent tool names or arguments.\n";
     
     return ss.str();
 }

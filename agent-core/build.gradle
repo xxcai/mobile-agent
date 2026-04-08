@@ -1,5 +1,6 @@
 plugins {
     id 'com.android.library'
+    id 'maven-publish'
 }
 
 android {
@@ -48,9 +49,34 @@ android {
         }
     }
 
+    publishing {
+        singleVariant("debug") {
+            withSourcesJar()
+        }
+    }
+
     ndkVersion "26.3.11579264"
 }
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create("debug", MavenPublication) {
+                from components.debug
+                groupId = rootProject.ext.mobileAgentMavenGroup
+                artifactId = "agent-core"
+                version = rootProject.ext.mobileAgentMavenVersion
+            }
+        }
+        repositories {
+            maven {
+                name = "offlineBundle"
+                url = rootProject.ext.mobileAgentLocalRepoDir.get().asFile.toURI()
+            }
+        }
+    }
 }

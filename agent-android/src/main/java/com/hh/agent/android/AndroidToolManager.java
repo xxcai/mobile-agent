@@ -239,8 +239,8 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     /**
-     * 动态生成 tools.json
-     * 聚合所有已注册的顶层 tool channels。
+     * 鍔ㄦ€佺敓鎴?tools.json
+     * 鑱氬悎鎵€鏈夊凡娉ㄥ唽鐨勯《灞?tool channels銆?
      */
     public String generateToolsJsonString() {
         return generateToolsJson();
@@ -257,8 +257,13 @@ public class AndroidToolManager implements AndroidToolCallback {
                 toolsArray.put(channelExecutor.buildToolDefinition());
             }
             root.put("tools", toolsArray);
-            AgentLogs.info("AndroidToolManager", "tools_json_generated", "channel_count=" + channels.size());
-            return root.toString();
+            String toolsJson = root.toString();
+            AgentLogs.info("AndroidToolManager", "tools_json_generated",
+                    "channel_count=" + channels.size()
+                            + " length=" + toolsJson.length()
+                            + " includeRawFallback=" + toolsJson.contains("includeRawFallback")
+                            + " build_marker=2026-04-02-no-raw-fallback-v2");
+            return toolsJson;
         } catch (Exception e) {
             AgentLogs.error("AndroidToolManager", "generate_tools_json_failed", "message=" + e.getMessage(), e);
             return "";
@@ -273,7 +278,7 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     /**
-     * 清理 Context 引用，避免内存泄漏
+     * 娓呯悊 Context 寮曠敤锛岄伩鍏嶅唴瀛樻硠婕?
      */
     public void clearContext() {
         this.context = null;
