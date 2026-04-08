@@ -41,4 +41,9 @@ public interface MobileAgentApi {
      * @param sessionKey 会话密钥
      */
     boolean clearHistoryAndLongTermMemory(String sessionKey);
+
+    /**
+     * Clear persisted daily memory logs globally.
+     */
+    boolean clearDailyMemory();
 }

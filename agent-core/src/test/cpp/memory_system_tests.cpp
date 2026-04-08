@@ -174,6 +174,21 @@ void test_clear_long_term_memory_keeps_daily_memory_for_other_sessions() {
            "session-scoped long-term clear should not delete global daily memory entries");
 }
 
+void test_clear_daily_memory_clears_daily_entries_only() {
+    TempWorkspace workspace;
+    MemoryManager memory_manager(workspace.path());
+
+    memory_manager.create_summary("session-a", "summary-a", 2);
+    memory_manager.save_daily_memory("[2026-04-08 16:10] daily log");
+
+    const bool success = memory_manager.clear_daily_memory();
+    expect(success, "clear_daily_memory should report success");
+
+    const auto summary = memory_manager.get_latest_summary("session-a");
+    expect(summary.has_value(), "clearing daily memory should not delete summaries");
+    expect(memory_manager.get_daily_memory().empty(), "daily memory entries should be removed");
+}
+
 void test_delete_consolidated_messages_refreshes_token_stats() {
     TempWorkspace workspace;
     MemoryManager memory_manager(workspace.path());
@@ -248,6 +263,8 @@ int main() {
     const std::vector<TestCase> tests = {
         {"clear_long_term_memory_keeps_daily_memory_for_other_sessions",
          icraw::test_clear_long_term_memory_keeps_daily_memory_for_other_sessions},
+        {"clear_daily_memory_clears_daily_entries_only",
+         icraw::test_clear_daily_memory_clears_daily_entries_only},
         {"delete_consolidated_messages_refreshes_token_stats",
          icraw::test_delete_consolidated_messages_refreshes_token_stats},
         {"non_default_session_consolidation_writes_summary_to_that_session",

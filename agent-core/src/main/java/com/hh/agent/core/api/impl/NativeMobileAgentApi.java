@@ -215,6 +215,18 @@ public class NativeMobileAgentApi implements MobileAgentApi {
         return true;
     }
 
+    @Override
+    public boolean clearDailyMemory() {
+        info("daily_memory_clear_start", "");
+        boolean success = NativeAgent.nativeClearDailyMemory();
+        if (!success) {
+            warn("daily_memory_clear_failed", "");
+            return false;
+        }
+        info("daily_memory_clear_complete", "");
+        return true;
+    }
+
     private static void debug(String event, String detail) {
         AgentLogs.d(buildMessage(event, detail));
     }

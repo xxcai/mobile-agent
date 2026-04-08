@@ -174,6 +174,9 @@ public:
 
     // Clear persisted long-term memory for a session.
     bool clear_long_term_memory(const std::string& session_id = "default");
+
+    // Clear persisted daily memory log entries globally.
+    bool clear_daily_memory();
     
     // Get message count
     int64_t get_message_count(const std::string& session_id = "default") const;

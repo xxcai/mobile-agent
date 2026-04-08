@@ -742,13 +742,24 @@ bool MemoryManager::clear_long_term_memory(const std::string& session_id) {
         }
     }
 
-    if (!db_->execute("DELETE FROM daily_memory;")) {
-        ICRAW_LOG_ERROR("[MemoryManager][long_term_clear_exec_failed] table=daily_memory session_id={} db_path={} error={}",
-                session_id, db_->path().string(), db_->get_error());
-        success = false;
+    return success;
+}
+
+bool MemoryManager::clear_daily_memory() {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
+    if (!db_ || !db_->is_open()) {
+        return false;
     }
 
-    return success;
+    const bool success = db_->execute("DELETE FROM daily_memory;");
+    if (!success) {
+        ICRAW_LOG_ERROR("[MemoryManager][daily_memory_clear_failed] db_path={} error={}",
+                db_->path().string(), db_->get_error());
+        return false;
+    }
+
+    ICRAW_LOG_INFO("[MemoryManager][daily_memory_clear_complete] db_path={}", db_->path().string());
+    return true;
 }
 
 int64_t MemoryManager::get_message_count(const std::string& session_id) const {

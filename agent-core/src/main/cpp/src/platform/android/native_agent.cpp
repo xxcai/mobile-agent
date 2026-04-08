@@ -880,4 +880,33 @@ JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearLongTer
     return success ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearDailyMemory(
+        JNIEnv* env,
+        jclass /* clazz */) {
+    (void) env;
+
+    ICRAW_LOG_INFO("[NativeAgentJni][daily_memory_clear_start]");
+    bool success = false;
+
+    if (g_agent) {
+        try {
+            auto memory_manager = g_agent->get_memory_manager();
+            if (memory_manager) {
+                success = memory_manager->clear_daily_memory();
+            }
+        } catch (const std::exception& e) {
+            ICRAW_LOG_ERROR("[NativeAgentJni][daily_memory_clear_failed] message={}", e.what());
+        }
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][daily_memory_clear_failed] reason=agent_not_initialized");
+    }
+
+    if (success) {
+        ICRAW_LOG_INFO("[NativeAgentJni][daily_memory_clear_complete]");
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][daily_memory_clear_failed] reason=clear_returned_false");
+    }
+    return success ? JNI_TRUE : JNI_FALSE;
+}
+
 } // extern "C"

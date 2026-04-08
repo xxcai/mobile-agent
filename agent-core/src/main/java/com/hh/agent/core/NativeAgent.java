@@ -69,6 +69,11 @@ public class NativeAgent {
     public static native boolean nativeClearLongTermMemory(String sessionId);
 
     /**
+     * Clear persisted daily memory logs globally.
+     */
+    public static native boolean nativeClearDailyMemory();
+
+    /**
      * Register an Android tool callback
      *
      * @param callback The callback implementation
