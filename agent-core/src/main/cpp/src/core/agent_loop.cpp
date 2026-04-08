@@ -499,48 +499,53 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     return new_messages;
 }
 
-void AgentLoop::maybe_consolidate_memory(const std::vector<Message>& messages) {
+void AgentLoop::maybe_consolidate_memory(const std::string& session_id,
+                                         const std::vector<Message>& messages) {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
     // Check if consolidation is needed
-    int message_count = memory_manager_ ? memory_manager_->get_message_count() : 0;
+    int message_count = memory_manager_ ? memory_manager_->get_message_count(effective_session_id) : 0;
     int threshold = agent_config_.consolidation_threshold;
     
-    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=check message_count={} threshold={}",
-            message_count, threshold);
+    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=check session_id={} message_count={} threshold={}",
+            effective_session_id, message_count, threshold);
     
     if (message_count > threshold) {
         // Check if previous consolidation is still running
         if (consolidation_future_.valid() && 
             consolidation_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=skip reason=previous_task_running");
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=skip session_id={} reason=previous_task_running",
+                    effective_session_id);
             return;
         }
         
-        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=async message_count={} threshold={}", 
-            message_count, threshold);
+        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=async session_id={} message_count={} threshold={}", 
+            effective_session_id, message_count, threshold);
         
         // Launch async consolidation - captures shared_ptrs to ensure lifetime
         auto memory_mgr = memory_manager_;
         auto llm_prov = llm_provider_;
         auto config = agent_config_;
+        auto target_session_id = effective_session_id;
         auto msgs_copy = messages;
         
         consolidation_future_ = std::async(std::launch::async, 
-            [memory_mgr, llm_prov, config, msgs_copy]() {
+            [memory_mgr, llm_prov, config, target_session_id, msgs_copy]() {
                 // Re-create consolidation logic inline for async execution
                 if (!memory_mgr || !llm_prov) {
                     return false;
                 }
                 
                 int keep_count = config.memory_window / 2;
-                auto old_messages = memory_mgr->get_messages_for_consolidation(keep_count);
+                auto old_messages = memory_mgr->get_messages_for_consolidation(keep_count, target_session_id);
                 
                 if (old_messages.empty()) {
-                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages");
+                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages session_id={}",
+                            target_session_id);
                     return true;
                 }
                 
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=prepare message_count={}",
-                        old_messages.size());
+                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=prepare session_id={} message_count={}",
+                        target_session_id, old_messages.size());
                 
                 // Format messages for consolidation
                 std::string conversation;
@@ -561,7 +566,7 @@ void AgentLoop::maybe_consolidate_memory(const std::vector<Message>& messages) {
                                 + msg.content + "\n";
                 }
                 
-                auto latest_summary = memory_mgr->get_latest_summary();
+                auto latest_summary = memory_mgr->get_latest_summary(target_session_id);
                 std::string current_memory = latest_summary ? latest_summary->summary : "(empty)";
                 
                 std::string system_prompt = "You are a memory consolidation agent. Call the save_memory tool to save important information from the conversation.";
@@ -589,12 +594,14 @@ void AgentLoop::maybe_consolidate_memory(const std::vector<Message>& messages) {
                 request.tools.push_back(save_memory_tool);
                 request.tool_choice_auto = true;
                 
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=request_llm");
+                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=request_llm session_id={}",
+                        target_session_id);
                 
                 auto response = llm_prov->chat_completion(request);
                 
                 if (response.tool_calls.empty()) {
-                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async reason=missing_save_memory_tool");
+                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async session_id={} reason=missing_save_memory_tool",
+                            target_session_id);
                     return false;
                 }
                 
@@ -615,45 +622,52 @@ void AgentLoop::maybe_consolidate_memory(const std::vector<Message>& messages) {
                     
                     if (!history_entry.empty()) {
                         memory_mgr->save_daily_memory(history_entry);
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_history_entry content_length={} preview={}",
-                                history_entry.size(), log_utils::truncate_for_debug(history_entry));
+                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_history_entry session_id={} content_length={} preview={}",
+                                target_session_id, history_entry.size(), log_utils::truncate_for_debug(history_entry));
                     }
                     
                     if (!memory_update.empty() && memory_update != current_memory) {
-                        memory_mgr->create_summary("default", memory_update, static_cast<int>(old_messages.size()));
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_memory_update content_length={} preview={}",
-                                memory_update.size(), log_utils::truncate_for_debug(memory_update));
+                        memory_mgr->create_summary(target_session_id, memory_update, static_cast<int>(old_messages.size()));
+                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_memory_update session_id={} content_length={} preview={}",
+                                target_session_id, memory_update.size(), log_utils::truncate_for_debug(memory_update));
                     }
                     
-                    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async");
+                    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async session_id={}",
+                            target_session_id);
                     return true;
                     
                 } catch (const std::exception& e) {
-                    ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=async message={}", e.what());
+                    ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=async session_id={} message={}",
+                            target_session_id, e.what());
                     return false;
                 }
             });
     }
 }
 
-bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
+bool AgentLoop::perform_consolidation(const std::string& session_id,
+                                      const std::vector<Message>& messages) {
     (void)messages; // Suppress unused parameter warning
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
     
     if (!memory_manager_ || !llm_provider_) {
-        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync reason=dependencies_unavailable");
+        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} reason=dependencies_unavailable",
+                effective_session_id);
         return false;
     }
     
     // Get messages to consolidate
     int keep_count = agent_config_.memory_window / 2;
-    auto old_messages = memory_manager_->get_messages_for_consolidation(keep_count);
+    auto old_messages = memory_manager_->get_messages_for_consolidation(keep_count, effective_session_id);
     
     if (old_messages.empty()) {
-        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=no_messages");
+        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=no_messages session_id={}",
+                effective_session_id);
         return true;
     }
     
-    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=sync message_count={}", old_messages.size());
+    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=sync session_id={} message_count={}",
+            effective_session_id, old_messages.size());
     
     // Format messages for LLM - use simple string concatenation
     std::string conversation;
@@ -675,7 +689,7 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
     }
     
     // Get current long-term memory
-    auto latest_summary = memory_manager_->get_latest_summary();
+    auto latest_summary = memory_manager_->get_latest_summary(effective_session_id);
     std::string current_memory = latest_summary ? latest_summary->summary : "(empty)";
     
     // Build prompt for LLM
@@ -708,14 +722,16 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
     request.tool_choice_auto = true;
     
     // Log the consolidation request
-    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=request_llm");
+    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=request_llm session_id={}",
+            effective_session_id);
     
     // Call LLM (non-streaming for consolidation)
     auto response = llm_provider_->chat_completion(request);
     
     // Check if LLM called the save_memory tool
     if (response.tool_calls.empty()) {
-        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync reason=missing_save_memory_tool");
+        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} reason=missing_save_memory_tool",
+                effective_session_id);
         return false;
     }
     
@@ -739,22 +755,24 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
         if (!history_entry.empty()) {
             // Save to daily_memory (like mobile-agent's HISTORY.md)
             memory_manager_->save_daily_memory(history_entry);
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_history_entry content_length={} preview={}",
-                    history_entry.size(), log_utils::truncate_for_debug(history_entry));
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_history_entry session_id={} content_length={} preview={}",
+                    effective_session_id, history_entry.size(), log_utils::truncate_for_debug(history_entry));
         }
         
         if (!memory_update.empty() && memory_update != current_memory) {
             // Save summary to summaries table
-            memory_manager_->create_summary("default", memory_update, static_cast<int>(old_messages.size()));
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_memory_update content_length={} preview={}",
-                    memory_update.size(), log_utils::truncate_for_debug(memory_update));
+            memory_manager_->create_summary(effective_session_id, memory_update, static_cast<int>(old_messages.size()));
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_memory_update session_id={} content_length={} preview={}",
+                    effective_session_id, memory_update.size(), log_utils::truncate_for_debug(memory_update));
         }
         
-        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=sync");
+        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=sync session_id={}",
+                effective_session_id);
         return true;
         
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=sync message={}", e.what());
+        ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} message={}",
+                effective_session_id, e.what());
         return false;
     }
 }

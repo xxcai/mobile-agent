@@ -224,7 +224,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
     // Trigger memory consolidation if needed
     // Note: This is now non-blocking - consolidation runs asynchronously
     // to avoid delaying the user experience after message_end event
-    agent_loop_->maybe_consolidate_memory(new_messages);
+    agent_loop_->maybe_consolidate_memory(effective_session_id, new_messages);
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] session_id={} history_count={}",
             effective_session_id, session_history.size());
     icraw::g_android_tools.clear_current_session_id();
