@@ -279,6 +279,57 @@ struct SkillMetadata {
     nlohmann::json execution_hints = nullptr;
 };
 
+// --- Route / Navigation / Readout Runtime Types ---
+
+struct StopConditionSpec {
+    std::vector<std::string> page_predicates;
+    std::vector<std::string> content_predicates;
+    std::vector<std::string> success_signals;
+    std::vector<std::string> failure_signals;
+    bool requires_readout = true;
+};
+
+struct IntentRoute {
+    std::string task_type;         // navigate_and_read | navigate_and_trigger | in_page_read ...
+    std::string selected_skill;
+    std::string navigation_goal;
+    std::string readout_goal;
+    std::string escalation_policy;
+    StopConditionSpec stop_condition;
+};
+
+struct NavigationStep {
+    std::string page;
+    std::string activity;
+    std::string target;
+    std::vector<std::string> aliases;
+    std::string action;
+    bool readout = false;
+};
+
+struct NavigationPlan {
+    std::vector<NavigationStep> steps;
+};
+
+struct NavigationCheckpoint {
+    int current_step_index = -1;
+    int stagnant_rounds = 0;
+    std::string last_activity;
+    std::string last_summary;
+};
+
+struct NavigationEscalation {
+    std::string reason;
+    std::string detail;
+};
+
+struct ReadoutRequestContext {
+    std::string objective;
+    std::string readout_goal;
+    std::string current_page;
+    std::string selected_skill;
+};
+
 // --- Tool Schema ---
 
 struct ToolSchema {

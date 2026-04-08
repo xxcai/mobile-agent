@@ -380,6 +380,12 @@ struct ExecutionState {
     std::string awaiting_confirmation_target;
     bool goal_reached = false;
     bool context_reset = false;
+    bool route_ready = false;
+    IntentRoute intent_route;
+    NavigationPlan navigation_plan;
+    NavigationCheckpoint navigation_checkpoint;
+    NavigationEscalation latest_escalation;
+    ReadoutRequestContext readout_context;
 };
 
 enum class LlmRequestProfileKind {
@@ -723,6 +729,164 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
     return std::nullopt;
 }
 
+bool goal_requires_readout(const std::string& goal) {
+    static const std::vector<std::string> readout_terms = {
+        u8"\u67e5\u770b", u8"\u9605\u8bfb", u8"\u603b\u7ed3", u8"\u5185\u5bb9", u8"\u8be6\u60c5",
+        "read", "summary", "summarize", "content", "details", "list"
+    };
+    for (const auto& term : readout_terms) {
+        if (contains_runtime_match(goal, term)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+NavigationPlan build_navigation_plan(const std::optional<ParsedExecutionHints>& hints) {
+    NavigationPlan plan;
+    if (!hints || hints->steps.empty()) {
+        return plan;
+    }
+    for (const auto& hint_step : hints->steps) {
+        NavigationStep step;
+        step.page = hint_step.page;
+        step.activity = hint_step.activity;
+        step.target = hint_step.target;
+        step.aliases = hint_step.aliases;
+        step.action = hint_step.action;
+        step.readout = hint_step.readout;
+        plan.steps.push_back(std::move(step));
+    }
+    return plan;
+}
+
+const SkillMetadata* pick_route_skill(const std::vector<SkillMetadata>& selected_skills) {
+    if (selected_skills.empty()) {
+        return nullptr;
+    }
+    for (const auto& skill : selected_skills) {
+        if (skill.execution_hints.is_object()) {
+            return &skill;
+        }
+    }
+    return &selected_skills.front();
+}
+
+StopConditionSpec build_stop_condition_spec(const std::string& objective,
+                                            const SkillMetadata* route_skill,
+                                            const std::optional<ParsedExecutionHints>& hints) {
+    StopConditionSpec spec;
+    spec.requires_readout = goal_requires_readout(objective);
+
+    if (hints && !hints->steps.empty()) {
+        for (const auto& step : hints->steps) {
+            if (!step.page.empty()) {
+                spec.page_predicates.push_back(step.page);
+            }
+            if (!step.activity.empty()) {
+                spec.page_predicates.push_back(step.activity);
+            }
+            if (step.readout) {
+                spec.requires_readout = true;
+                if (!step.target.empty()) {
+                    spec.content_predicates.push_back(step.target);
+                }
+                for (const auto& alias : step.aliases) {
+                    if (!alias.empty()) {
+                        spec.content_predicates.push_back(alias);
+                    }
+                }
+            }
+        }
+    }
+
+    if (route_skill && route_skill->execution_hints.is_object()
+            && route_skill->execution_hints.contains("stop_condition")
+            && route_skill->execution_hints["stop_condition"].is_object()) {
+        const auto& stop = route_skill->execution_hints["stop_condition"];
+        auto merge_values = [&](std::vector<std::string>& target,
+                                const std::vector<std::string>& values) {
+            for (const auto& value : values) {
+                if (value.empty()) {
+                    continue;
+                }
+                if (std::find(target.begin(), target.end(), value) == target.end()) {
+                    target.push_back(value);
+                }
+            }
+        };
+        merge_values(spec.page_predicates, string_array_values(stop,
+                {"page_predicates", "pagePredicates", "pages"}));
+        merge_values(spec.content_predicates, string_array_values(stop,
+                {"content_predicates", "contentPredicates", "content"}));
+        merge_values(spec.success_signals, string_array_values(stop,
+                {"success_signals", "successSignals", "success"}));
+        merge_values(spec.failure_signals, string_array_values(stop,
+                {"failure_signals", "failureSignals", "failure"}));
+        if (stop.contains("requires_readout") && stop["requires_readout"].is_boolean()) {
+            spec.requires_readout = stop["requires_readout"].get<bool>();
+        }
+    }
+
+    if (spec.page_predicates.empty()) {
+        spec.page_predicates.push_back(objective);
+    }
+    if (spec.success_signals.empty()) {
+        spec.success_signals = {"success", "completed", "done"};
+    }
+    if (spec.failure_signals.empty()) {
+        spec.failure_signals = {"failed", "error", "denied", "not found"};
+    }
+    return spec;
+}
+
+IntentRoute build_intent_route(const std::string& objective,
+                               const std::vector<SkillMetadata>& selected_skills,
+                               const std::optional<ParsedExecutionHints>& hints) {
+    IntentRoute route;
+    const SkillMetadata* route_skill = pick_route_skill(selected_skills);
+    if (route_skill) {
+        route.selected_skill = route_skill->name;
+    }
+
+    route.stop_condition = build_stop_condition_spec(objective, route_skill, hints);
+    route.readout_goal = truncate_runtime_text(objective, 160);
+    route.escalation_policy = "on_ambiguity_or_no_progress";
+    route.task_type = route.stop_condition.requires_readout ? "navigate_and_read" : "navigate_and_trigger";
+
+    if (hints && !hints->steps.empty()) {
+        for (const auto& step : hints->steps) {
+            if (!step.readout) {
+                continue;
+            }
+            if (!step.page.empty()) {
+                route.navigation_goal = step.page;
+                break;
+            }
+            if (!step.activity.empty()) {
+                route.navigation_goal = step.activity;
+                break;
+            }
+            if (!step.target.empty()) {
+                route.navigation_goal = step.target;
+                break;
+            }
+        }
+        if (route.navigation_goal.empty()) {
+            const auto& first = hints->steps.front();
+            route.navigation_goal = !first.page.empty()
+                    ? first.page
+                    : (!first.activity.empty() ? first.activity : first.target);
+        }
+    }
+
+    if (route.navigation_goal.empty()) {
+        route.navigation_goal = truncate_runtime_text(objective, 120);
+    }
+
+    return route;
+}
+
 ExecutionState initialize_execution_state(const std::string& objective,
                                           const std::vector<SkillMetadata>& selected_skills) {
     ExecutionState state;
@@ -732,6 +896,13 @@ ExecutionState initialize_execution_state(const std::string& objective,
         state.selected_skills.push_back(skill.name);
     }
     state.active_hints = parse_execution_hints(selected_skills);
+    state.navigation_plan = build_navigation_plan(state.active_hints);
+    state.intent_route = build_intent_route(objective, selected_skills, state.active_hints);
+    state.route_ready = true;
+    state.readout_context.objective = truncate_runtime_text(objective, 220);
+    state.readout_context.readout_goal = state.intent_route.readout_goal;
+    state.readout_context.selected_skill = state.intent_route.selected_skill;
+
     if (state.active_hints && !state.active_hints->empty()) {
         state.mode = "planned_fast_execute";
         state.pending_step_index = 0;
@@ -848,6 +1019,17 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
         }
         prompt << "\n";
     }
+    if (state.route_ready) {
+        prompt << "route.task_type: " << state.intent_route.task_type << "\n";
+        if (!state.intent_route.navigation_goal.empty()) {
+            prompt << "route.navigation_goal: "
+                   << truncate_runtime_text(state.intent_route.navigation_goal, 180) << "\n";
+        }
+        if (!state.intent_route.readout_goal.empty()) {
+            prompt << "route.readout_goal: "
+                   << truncate_runtime_text(state.intent_route.readout_goal, 180) << "\n";
+        }
+    }
     if (!state.completed_steps.empty()) {
         prompt << "completed_steps:\n";
         const size_t begin = state.completed_steps.size() > EXECUTION_STATE_MAX_TOOL_EVENTS
@@ -872,6 +1054,10 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
     }
     if (!state.latest_action_result.empty()) {
         prompt << "latest_action_result: " << truncate_runtime_text(state.latest_action_result, 180) << "\n";
+    }
+    if (state.navigation_checkpoint.current_step_index >= 0) {
+        prompt << "navigation_checkpoint.step_index: " << state.navigation_checkpoint.current_step_index << "\n";
+        prompt << "navigation_checkpoint.stagnant_rounds: " << state.navigation_checkpoint.stagnant_rounds << "\n";
     }
     prompt << "policy:\n";
     prompt << "- Continue from confirmed progress instead of replanning from scratch.\n";
@@ -1377,6 +1563,42 @@ bool matches_goal_page(const ObservationSnapshot& snapshot, const std::string& g
     return contains_runtime_match(page_context, goal);
 }
 
+bool matches_any_predicate(const std::string& text,
+                           const std::vector<std::string>& predicates) {
+    if (predicates.empty()) {
+        return true;
+    }
+    for (const auto& predicate : predicates) {
+        if (!predicate.empty() && contains_runtime_match(text, predicate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool matches_stop_condition(const ObservationSnapshot& snapshot,
+                            const StopConditionSpec& stop_condition,
+                            const std::string& goal) {
+    const std::string page_context = snapshot.activity + " " + snapshot.summary;
+    const bool page_hit = matches_any_predicate(page_context, stop_condition.page_predicates);
+    const bool content_hit = matches_any_predicate(page_context, stop_condition.content_predicates);
+    const bool success_hit = matches_any_predicate(page_context, stop_condition.success_signals);
+    const bool failure_hit = matches_any_predicate(page_context, stop_condition.failure_signals);
+    if (failure_hit && !success_hit) {
+        return false;
+    }
+    if (success_hit && page_hit) {
+        return true;
+    }
+    if (page_hit && content_hit) {
+        return true;
+    }
+    if (page_hit && stop_condition.requires_readout && matches_goal_page(snapshot, goal)) {
+        return true;
+    }
+    return false;
+}
+
 bool is_mock_observation_result(const nlohmann::json& json) {
     if (!json.is_object()) {
         return false;
@@ -1618,6 +1840,19 @@ void update_execution_state_with_tool_result(ExecutionState& state,
         state.current_page = truncate_runtime_text(
                 snapshot.activity.empty() ? snapshot.summary : snapshot.activity,
                 EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
+        const bool same_activity = !snapshot.activity.empty()
+                && snapshot.activity == state.navigation_checkpoint.last_activity;
+        const bool same_summary = !snapshot.summary.empty()
+                && snapshot.summary == state.navigation_checkpoint.last_summary;
+        if (same_activity && same_summary) {
+            state.navigation_checkpoint.stagnant_rounds++;
+        } else {
+            state.navigation_checkpoint.stagnant_rounds = 0;
+        }
+        state.navigation_checkpoint.last_activity = snapshot.activity;
+        state.navigation_checkpoint.last_summary = snapshot.summary;
+        state.navigation_checkpoint.current_step_index = state.pending_step_index;
+
         if (state.awaiting_step_confirmation_index >= 0) {
             const int awaiting_index = state.awaiting_step_confirmation_index;
             if (confirm_pending_step_from_observation(state, snapshot)) {
@@ -1657,8 +1892,23 @@ void update_execution_state_with_tool_result(ExecutionState& state,
             state.phase = "readout";
             state.mode = "free_llm";
         }
+        if (!state.goal_reached && state.route_ready
+                && matches_stop_condition(snapshot, state.intent_route.stop_condition, state.goal)) {
+            state.goal_reached = true;
+            state.phase = state.intent_route.stop_condition.requires_readout ? "readout" : "advance";
+            state.mode = "free_llm";
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][stop_condition_matched] phase={} task_type={} page={} stagnant_rounds={}",
+                    state.phase,
+                    state.intent_route.task_type,
+                    state.current_page,
+                    state.navigation_checkpoint.stagnant_rounds);
+        }
         if (!state.goal_reached && state.phase == "discovery") {
             state.phase = "advance";
+        }
+        if (state.goal_reached) {
+            state.readout_context.current_page = state.current_page;
         }
         return;
     }
@@ -2643,6 +2893,86 @@ void reset_messages_for_readout(std::vector<Message>& messages,
     messages = std::move(reduced);
 }
 
+void rebuild_tools_for_phase(const std::vector<ToolSchema>& tool_schemas,
+                             const ExecutionState& state,
+                             ChatCompletionRequest& request) {
+    request.tools.clear();
+    for (const auto& schema : tool_schemas) {
+        const bool is_gesture = schema.name == "android_gesture_tool";
+        const bool is_route_phase = state.phase == "discovery" && state.route_ready && !state.goal_reached;
+        const bool is_readout_phase = state.phase == "readout" || state.goal_reached;
+        if (is_readout_phase && is_gesture) {
+            continue;
+        }
+        if (is_route_phase && is_gesture) {
+            continue;
+        }
+        nlohmann::json tool;
+        tool["type"] = "function";
+        tool["function"]["name"] = schema.name;
+        tool["function"]["description"] = schema.description;
+        tool["function"]["parameters"] = schema.parameters;
+        request.tools.push_back(std::move(tool));
+    }
+}
+
+std::string extract_tool_result_content(const Message& message) {
+    for (const auto& block : message.content) {
+        if (block.type == "tool_result") {
+            return block.content;
+        }
+    }
+    return "";
+}
+
+std::optional<std::string> find_latest_tool_result_content(const std::vector<Message>& messages,
+                                                           const std::string& tool_name) {
+    const auto tool_name_by_id = build_tool_name_by_id(messages);
+    const int latest_index = find_latest_tool_message_index(messages, tool_name_by_id, tool_name);
+    if (latest_index < 0 || latest_index >= static_cast<int>(messages.size())) {
+        return std::nullopt;
+    }
+    const std::string content = extract_tool_result_content(messages[static_cast<size_t>(latest_index)]);
+    if (content.empty()) {
+        return std::nullopt;
+    }
+    return content;
+}
+
+ToolCall build_navigation_observation_call(const ExecutionState& state) {
+    ToolCall tool_call;
+    tool_call.id = generate_tool_id();
+    tool_call.name = "android_view_context_tool";
+    tool_call.arguments = nlohmann::json::object();
+    std::string target_hint;
+    if (state.pending_step.is_object() && state.pending_step.contains("target")
+            && state.pending_step["target"].is_string()) {
+        target_hint = trim_whitespace(state.pending_step["target"].get<std::string>());
+    }
+    if (target_hint.empty() && !state.last_observation_target_hint.empty()) {
+        target_hint = state.last_observation_target_hint;
+    }
+    if (target_hint.empty() && state.route_ready) {
+        target_hint = state.intent_route.navigation_goal;
+    }
+    if (!target_hint.empty()) {
+        tool_call.arguments["targetHint"] = target_hint;
+    }
+    return tool_call;
+}
+
+Message build_assistant_tool_call_message(const ToolCall& tool_call) {
+    Message assistant_msg;
+    assistant_msg.role = "assistant";
+    ToolCallForMessage tc_msg;
+    tc_msg.id = tool_call.id;
+    tc_msg.type = "function";
+    tc_msg.function_name = tool_call.name;
+    tc_msg.function_arguments = tool_call.arguments.dump();
+    assistant_msg.tool_calls.push_back(std::move(tc_msg));
+    return assistant_msg;
+}
+
 }  // namespace
 
 AgentLoop::AgentLoop(std::shared_ptr<MemoryManager> memory_manager,
@@ -2683,25 +3013,138 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     
     // Add user message
     request.messages.emplace_back("user", message);
-    
-    // Add tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    for (const auto& schema : tool_schemas) {
-        nlohmann::json tool;
-        tool["type"] = "function";
-        tool["function"]["name"] = schema.name;
-        tool["function"]["description"] = schema.description;
-        tool["function"]["parameters"] = schema.parameters;
-        request.tools.push_back(tool);
-    }
 
+    auto tool_schemas = tool_registry_->get_tool_schemas();
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
+    rebuild_tools_for_phase(tool_schemas, execution_state, request);
+    if (execution_state.route_ready) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][route_resolved] task_type={} selected_skill={} navigation_goal={} readout_goal={} stop_requires_readout={}",
+                execution_state.intent_route.task_type,
+                execution_state.intent_route.selected_skill,
+                execution_state.intent_route.navigation_goal,
+                execution_state.intent_route.readout_goal,
+                execution_state.intent_route.stop_condition.requires_readout);
+    }
     
     // Agent loop
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
     ICRAW_LOG_INFO("[AgentLoop][loop_start] mode=non_stream max_iterations={}", max_iterations_);
     while (iteration < max_iterations_ && !stop_requested_) {
+        bool deterministic_navigation_executed = false;
+        if (execution_state.mode == "planned_fast_execute"
+                && execution_state.route_ready
+                && !execution_state.goal_reached) {
+            prune_context_messages_for_state(request.messages, execution_state);
+            const auto tool_name_by_id = build_tool_name_by_id(request.messages);
+            const int latest_observation_index = find_latest_tool_message_index(
+                    request.messages, tool_name_by_id, "android_view_context_tool");
+            const int latest_gesture_index = find_latest_tool_message_index(
+                    request.messages, tool_name_by_id, "android_gesture_tool");
+            const bool need_observation = latest_observation_index < 0
+                    || latest_gesture_index > latest_observation_index
+                    || execution_state.awaiting_step_confirmation_index >= 0;
+
+            if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
+                execution_state.latest_escalation.reason = "no_progress";
+                execution_state.latest_escalation.detail =
+                        "stagnant_rounds=" + std::to_string(execution_state.navigation_checkpoint.stagnant_rounds);
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][navigation_escalation] reason={} detail={}",
+                        execution_state.latest_escalation.reason,
+                        execution_state.latest_escalation.detail);
+            } else if (need_observation) {
+                ToolCall observation_call = build_navigation_observation_call(execution_state);
+                Message observation_assistant = build_assistant_tool_call_message(observation_call);
+                new_messages.push_back(observation_assistant);
+                request.messages.push_back(observation_assistant);
+
+                std::vector<ToolCall> observation_calls{observation_call};
+                auto tool_phase_start = std::chrono::steady_clock::now();
+                auto observation_calls_for_execution = enrich_tool_calls_for_execution(
+                        observation_calls, execution_state, request.messages);
+                auto tool_results = handle_tool_calls(observation_calls_for_execution);
+                auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - tool_phase_start).count();
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=navigation_observe tool_call_count={} duration_ms={}",
+                        iteration,
+                        observation_calls_for_execution.size(),
+                        tool_phase_duration_ms);
+
+                for (size_t i = 0; i < tool_results.size(); ++i) {
+                    const auto& result = tool_results[i];
+                    Message tool_msg;
+                    tool_msg.role = "tool";
+                    tool_msg.tool_call_id = result.tool_use_id;
+                    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
+                    new_messages.push_back(tool_msg);
+                    request.messages.push_back(tool_msg);
+                    update_execution_state_with_tool_result(
+                            execution_state,
+                            &observation_calls_for_execution[i],
+                            observation_calls_for_execution[i].name,
+                            result.content);
+                }
+                deterministic_navigation_executed = !tool_results.empty();
+            } else {
+                const auto latest_observation = find_latest_tool_result_content(
+                        request.messages, "android_view_context_tool");
+                if (latest_observation.has_value()) {
+                    auto fast_tool_call = maybe_build_fast_execute_tool_call(
+                            execution_state, latest_observation.value());
+                    if (fast_tool_call.has_value()) {
+                        Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
+                        new_messages.push_back(fast_assistant);
+                        request.messages.push_back(fast_assistant);
+
+                        std::vector<ToolCall> fast_calls{*fast_tool_call};
+                        auto fast_phase_start = std::chrono::steady_clock::now();
+                        auto fast_results = handle_tool_calls(fast_calls);
+                        auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - fast_phase_start).count();
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
+                                iteration,
+                                fast_calls.size(),
+                                fast_phase_duration_ms);
+                        for (const auto& fast_result : fast_results) {
+                            Message fast_tool_msg;
+                            fast_tool_msg.role = "tool";
+                            fast_tool_msg.tool_call_id = fast_result.tool_use_id;
+                            fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
+                                    fast_result.tool_use_id, fast_result.content));
+                            new_messages.push_back(fast_tool_msg);
+                            request.messages.push_back(fast_tool_msg);
+                            update_execution_state_with_tool_result(
+                                    execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
+                        }
+                        deterministic_navigation_executed = !fast_results.empty();
+                    } else {
+                        execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
+                        execution_state.latest_escalation.detail = "pending_step=" + execution_state.pending_step.dump();
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][navigation_escalation] reason={} detail={}",
+                                execution_state.latest_escalation.reason,
+                                truncate_runtime_text(execution_state.latest_escalation.detail, 160));
+                    }
+                }
+            }
+
+            if (execution_state.goal_reached && !execution_state.context_reset) {
+                reset_messages_for_readout(request.messages, message);
+                execution_state.context_reset = true;
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][goal_reached_context_reset] mode=non_stream phase={} current_page={}",
+                        execution_state.phase,
+                        execution_state.current_page);
+            }
+            if (deterministic_navigation_executed) {
+                continue;
+            }
+        }
+
         auto iter_start_time = std::chrono::steady_clock::now();
         iteration++;
         ICRAW_LOG_DEBUG("[AgentLoop][iteration_start] mode=non_stream iteration={}", iteration);
@@ -2709,6 +3152,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         prune_context_messages_for_state(request.messages, execution_state);
 
         ChatCompletionRequest effective_request = request;
+        rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
         inject_selected_skills_into_request(effective_request, selected_skills, iteration);
         const std::string execution_state_prompt =
                 build_execution_state_prompt_v2(execution_state, iteration);
@@ -2880,25 +3324,163 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     
     // Add user message
     request.messages.emplace_back("user", message);
-    
-    // Add tool schemas
-    auto tool_schemas = tool_registry_->get_tool_schemas();
-    for (const auto& schema : tool_schemas) {
-        nlohmann::json tool;
-        tool["type"] = "function";
-        tool["function"]["name"] = schema.name;
-        tool["function"]["description"] = schema.description;
-        tool["function"]["parameters"] = schema.parameters;
-        request.tools.push_back(tool);
-    }
 
+    auto tool_schemas = tool_registry_->get_tool_schemas();
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
+    rebuild_tools_for_phase(tool_schemas, execution_state, request);
+    if (execution_state.route_ready) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][route_resolved] mode=stream task_type={} selected_skill={} navigation_goal={} readout_goal={} stop_requires_readout={}",
+                execution_state.intent_route.task_type,
+                execution_state.intent_route.selected_skill,
+                execution_state.intent_route.navigation_goal,
+                execution_state.intent_route.readout_goal,
+                execution_state.intent_route.stop_condition.requires_readout);
+    }
     
     // Agent loop
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
     ICRAW_LOG_INFO("[AgentLoop][loop_start] mode=stream max_iterations={}", max_iterations_);
     while (iteration < max_iterations_ && !stop_requested_) {
+        bool deterministic_navigation_executed = false;
+        if (execution_state.mode == "planned_fast_execute"
+                && execution_state.route_ready
+                && !execution_state.goal_reached) {
+            prune_context_messages_for_state(request.messages, execution_state);
+            const auto tool_name_by_id = build_tool_name_by_id(request.messages);
+            const int latest_observation_index = find_latest_tool_message_index(
+                    request.messages, tool_name_by_id, "android_view_context_tool");
+            const int latest_gesture_index = find_latest_tool_message_index(
+                    request.messages, tool_name_by_id, "android_gesture_tool");
+            const bool need_observation = latest_observation_index < 0
+                    || latest_gesture_index > latest_observation_index
+                    || execution_state.awaiting_step_confirmation_index >= 0;
+
+            if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
+                execution_state.latest_escalation.reason = "no_progress";
+                execution_state.latest_escalation.detail =
+                        "stagnant_rounds=" + std::to_string(execution_state.navigation_checkpoint.stagnant_rounds);
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][navigation_escalation] mode=stream reason={} detail={}",
+                        execution_state.latest_escalation.reason,
+                        execution_state.latest_escalation.detail);
+            } else if (need_observation) {
+                ToolCall observation_call = build_navigation_observation_call(execution_state);
+                Message observation_assistant = build_assistant_tool_call_message(observation_call);
+                new_messages.push_back(observation_assistant);
+                request.messages.push_back(observation_assistant);
+
+                AgentEvent tool_use_event;
+                tool_use_event.type = "tool_use";
+                tool_use_event.data["id"] = observation_call.id;
+                tool_use_event.data["name"] = observation_call.name;
+                tool_use_event.data["input"] = observation_call.arguments;
+                callback(tool_use_event);
+
+                std::vector<ToolCall> observation_calls{observation_call};
+                auto tool_phase_start = std::chrono::steady_clock::now();
+                auto observation_calls_for_execution = enrich_tool_calls_for_execution(
+                        observation_calls, execution_state, request.messages);
+                auto tool_results = handle_tool_calls(observation_calls_for_execution);
+                auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - tool_phase_start).count();
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=navigation_observe tool_call_count={} duration_ms={}",
+                        iteration,
+                        observation_calls_for_execution.size(),
+                        tool_phase_duration_ms);
+
+                for (size_t i = 0; i < tool_results.size(); ++i) {
+                    const auto& result = tool_results[i];
+                    Message tool_msg;
+                    tool_msg.role = "tool";
+                    tool_msg.tool_call_id = result.tool_use_id;
+                    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
+                    new_messages.push_back(tool_msg);
+                    request.messages.push_back(tool_msg);
+                    update_execution_state_with_tool_result(
+                            execution_state,
+                            &observation_calls_for_execution[i],
+                            observation_calls_for_execution[i].name,
+                            result.content);
+                    AgentEvent tool_result_event;
+                    tool_result_event.type = "tool_result";
+                    tool_result_event.data["tool_use_id"] = result.tool_use_id;
+                    tool_result_event.data["content"] = result.content;
+                    callback(tool_result_event);
+                }
+                deterministic_navigation_executed = !tool_results.empty();
+            } else {
+                const auto latest_observation = find_latest_tool_result_content(
+                        request.messages, "android_view_context_tool");
+                if (latest_observation.has_value()) {
+                    auto fast_tool_call = maybe_build_fast_execute_tool_call(
+                            execution_state, latest_observation.value());
+                    if (fast_tool_call.has_value()) {
+                        Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
+                        new_messages.push_back(fast_assistant);
+                        request.messages.push_back(fast_assistant);
+
+                        AgentEvent fast_use_event;
+                        fast_use_event.type = "tool_use";
+                        fast_use_event.data["id"] = fast_tool_call->id;
+                        fast_use_event.data["name"] = fast_tool_call->name;
+                        fast_use_event.data["input"] = fast_tool_call->arguments;
+                        callback(fast_use_event);
+
+                        std::vector<ToolCall> fast_calls{*fast_tool_call};
+                        auto fast_phase_start = std::chrono::steady_clock::now();
+                        auto fast_results = handle_tool_calls(fast_calls);
+                        auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                std::chrono::steady_clock::now() - fast_phase_start).count();
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
+                                iteration,
+                                fast_calls.size(),
+                                fast_phase_duration_ms);
+                        for (const auto& fast_result : fast_results) {
+                            Message fast_tool_msg;
+                            fast_tool_msg.role = "tool";
+                            fast_tool_msg.tool_call_id = fast_result.tool_use_id;
+                            fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
+                                    fast_result.tool_use_id, fast_result.content));
+                            new_messages.push_back(fast_tool_msg);
+                            request.messages.push_back(fast_tool_msg);
+                            update_execution_state_with_tool_result(
+                                    execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
+                            AgentEvent fast_result_event;
+                            fast_result_event.type = "tool_result";
+                            fast_result_event.data["tool_use_id"] = fast_result.tool_use_id;
+                            fast_result_event.data["content"] = fast_result.content;
+                            callback(fast_result_event);
+                        }
+                        deterministic_navigation_executed = !fast_results.empty();
+                    } else {
+                        execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
+                        execution_state.latest_escalation.detail =
+                                "pending_step=" + execution_state.pending_step.dump();
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][navigation_escalation] mode=stream reason={} detail={}",
+                                execution_state.latest_escalation.reason,
+                                truncate_runtime_text(execution_state.latest_escalation.detail, 160));
+                    }
+                }
+            }
+
+            if (execution_state.goal_reached && !execution_state.context_reset) {
+                reset_messages_for_readout(request.messages, message);
+                execution_state.context_reset = true;
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][goal_reached_context_reset] mode=stream phase={} current_page={}",
+                        execution_state.phase,
+                        execution_state.current_page);
+            }
+            if (deterministic_navigation_executed) {
+                continue;
+            }
+        }
+
         iteration++;
         auto iter_start_time = std::chrono::steady_clock::now();
         ICRAW_LOG_DEBUG("[AgentLoop][iteration_start] mode=stream iteration={}", iteration);
@@ -2906,6 +3488,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         prune_context_messages_for_state(request.messages, execution_state);
 
         ChatCompletionRequest effective_request = request;
+        rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
         inject_selected_skills_into_request(effective_request, selected_skills, iteration);
         const std::string execution_state_prompt =
                 build_execution_state_prompt_v2(execution_state, iteration);
