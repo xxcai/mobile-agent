@@ -54,6 +54,282 @@
 
 这不是完全去掉 LLM，而是把 LLM 从“每一步执行器”降级成“冷启动路由器、歧义处理器和内容理解器”。
 
+
+## 当前主流程图
+
+下面这张图描述的是当前已经落地的主执行路径，而不是理想化的未来方案。
+
+```mermaid
+sequenceDiagram
+    participant U as "用户"
+    participant A as "AgentCore"
+    participant S as "Skill / execution_hints"
+    participant V as "android_view_context_tool"
+    participant L as "LLM"
+    participant G as "android_gesture_tool"
+
+    U->>A: 用户输入目标
+    A->>S: 匹配相关 skill
+
+    alt skill 含 execution_hints
+        S-->>A: 本地生成 route / navigation_plan
+    else 新场景或 hints 不足
+        A->>L: 轻量 route 请求
+        L-->>A: IntentRoute
+    end
+
+    loop Navigate
+        A->>V: 观测当前页面
+        V-->>A: observation
+        A->>A: 本地匹配 step / 候选 / 冲突
+
+        alt 本地可安全确认
+            A->>G: 本地 tap / swipe
+            G-->>A: 执行结果
+            A->>V: follow-up 观测确认
+        else 本地不确定
+            A->>L: navigation_escalation
+            L-->>A: tool call
+            A->>G: 执行动作
+            G-->>A: 执行结果
+            A->>V: follow-up 观测确认
+        end
+    end
+
+    A->>A: goal_reached_context_reset
+    A->>L: readout 请求
+    L-->>U: 返回目标页内容理解结果
+```
+
+## 典型流程示例：查看云空间页面内容
+
+下面用“查看云空间页面的内容”这条基准指令，说明 `Route -> Navigate -> Readout` 在当前实现里是如何落地的。
+
+### Step 1. Route
+
+用户输入：
+
+```text
+查看云空间页面的内容
+```
+
+当前实现里，这一步通常不会先额外请求一轮 route LLM，而是先命中 `cloud_space_summary` skill，并直接使用它的 `execution_hints` 构造 route。
+
+可抽象为下面这份中间状态：
+
+```json
+{
+  "objective": "查看云空间页面的内容",
+  "selected_skill": "cloud_space_summary",
+  "task_type": "navigate_and_read",
+  "navigation_goal": "HWBoxRecentlyUsedActivity",
+  "readout_goal": "查看云空间页面的内容",
+  "escalation_policy": "on_ambiguity_or_no_progress",
+  "stop_condition": {
+    "page_predicates": [
+      "HWBoxRecentlyUsedActivity"
+    ],
+    "requires_readout": true
+  }
+}
+```
+
+同时，skill 中的 `execution_hints` 会生成这份导航计划：
+
+```json
+{
+  "steps": [
+    {
+      "activity": "MainActivity",
+      "target": "左上角个人中心入口",
+      "aliases": ["左上角头像", "左上角个人中心", "左上角我的"],
+      "region": "top_left",
+      "action": "tap"
+    },
+    {
+      "activity": "MeMainActivity",
+      "target": "云空间",
+      "aliases": ["云空间", "云盘", "云文档"],
+      "action": "tap"
+    },
+    {
+      "activity": "HWBoxRecentlyUsedActivity",
+      "action": "readout",
+      "readout": true
+    }
+  ]
+}
+```
+
+需要注意的一点是：
+
+- 用户输入负责命中 skill，并决定这是“导航后还要 readout”的任务
+- `MainActivity`、`MeMainActivity`、`HWBoxRecentlyUsedActivity` 这些页面信息，当前主要来自 skill 的 `execution_hints.steps[].activity`
+
+### Step 2. Navigate（本地优先）
+
+导航阶段，系统会优先尝试本地执行，而不是立刻让模型重规划。
+
+#### 2.1 首页 -> 个人中心
+
+当前页：
+
+```text
+activity = MainActivity
+pending_step = tap 左上角个人中心入口
+phase = advance
+mode = planned_fast_execute
+```
+
+执行逻辑：
+
+- 先做一次 `discovery` observation
+- 本地执行候选过滤
+- 如果没有稳定文本候选，但 step 明确是左上角/头像类入口，则触发 `fast_execute_region_coordinate_recovery`
+
+当前已落地版本里的代表性结果：
+
+```text
+fast_execute_region_coordinate_recovery
+action=tap
+target=左上角个人中心入口
+x=82
+y=172
+```
+
+也就是说，首页这一步已经能在本地完成，不再需要专门发一轮导航 LLM 请求。
+
+#### 2.2 点击后的确认
+
+首页点击后不会立刻把“第一次观测还停在旧页”当成失败，而是进入待确认状态：
+
+```text
+awaiting_confirmation = step 0
+retry_delay = 350ms
+```
+
+确认流程是：
+
+- follow-up observation
+- 如果仍像旧页，则短等一次
+- 再做一次 follow-up observation
+- 如果页面切到了 `MeMainActivity`，则确认 step 0 成功
+
+这一步的收益是把“页面切换慢半拍”的伪失败吸收掉，避免额外回退到 LLM。
+
+#### 2.3 个人中心 -> 云空间
+
+当 step 0 成功后，下一步的目标已经从“左上角个人中心入口”变成“云空间”。此时系统会主动触发：
+
+```text
+navigation_observe_refresh
+reason = pending_target_changed
+targetHint = 云空间
+```
+
+这样做的目的，是确保后续 observation 是围绕“云空间”获取的，而不是继续带着上一步的首页目标提示。
+
+当前页：
+
+```text
+activity = MeMainActivity
+pending_step = tap 云空间
+phase = advance
+mode = planned_fast_execute
+```
+
+本地会再次尝试 fast execute，但当前已知的边界是：
+
+- 个人中心页上“云空间”会出现 `2` 个匹配候选
+- 系统当前会把它视为高风险歧义，而不是贸然点击
+
+典型中间状态如下：
+
+```text
+fast_execute_evaluated
+target=云空间
+primary_matches=2
+decision=ambiguous_candidate
+```
+
+所以这一步当前会升级到：
+
+```text
+navigation_escalation
+reason=ambiguous_or_low_confidence
+```
+
+也就是说，当前链路还不是“全本地导航”，而是“首页本地 + 个人中心歧义时单次升级”。
+
+### Step 3. Readout
+
+当系统确认已经到达目标页后：
+
+```text
+activity = HWBoxRecentlyUsedActivity
+phase = readout
+goal_reached = true
+```
+
+此时会触发：
+
+```text
+goal_reached_context_reset
+```
+
+重置后保留的内容只有：
+
+- 用户原始目标
+- 当前目标页 observation
+- selected skill 摘要
+- execution state 摘要
+
+主动丢弃的内容包括：
+
+- 首页 observation
+- 个人中心 observation
+- 旧 gesture 结果
+- 旧导航 reasoning
+- 导航工具 schema
+
+然后再发最终的 readout 请求：
+
+```text
+request_profile = readout
+tool_count = 0
+body_length ~= 12KB
+```
+
+这轮 LLM 的职责不再是导航，而只是理解当前云空间页面的内容，例如：
+
+- 页面标题
+- 可见分类
+- 最近访问区域
+- “上传/新建”等可见操作
+- 当前是否显示“暂无内容”
+
+### 当前这个示例的真实链路总结
+
+“查看云空间页面的内容”这条指令，在当前版本里的实际执行方式可以概括为：
+
+1. 用户输入命中 `cloud_space_summary`
+2. 基于 `execution_hints` 本地构造 route
+3. 首页 observation
+4. 本地 fast execute 点击左上角个人中心
+5. 通过“短等待 + 一次重试”确认进入个人中心
+6. 刷新 targetHint=云空间
+7. 个人中心页 observation
+8. 由于“云空间”存在 2 个候选，升级 1 次 `navigation_escalation`
+9. 点击进入云空间
+10. 再通过“短等待 + 一次重试”确认进入目标页
+11. 执行 `goal_reached_context_reset`
+12. 发 1 次 readout LLM 请求
+13. 返回云空间页面内容总结
+
+也就是说，这条用例当前已经从“每一步都问模型”变成了：
+
+`本地 Route -> 本地 Navigate（首页） -> 单次导航升级（个人中心歧义） -> Readout`
+
 ## 为什么不继续沿用“每步都问模型”
 
 继续沿用旧链路有两个结构性问题，很难仅靠裁 prompt 彻底解决。
