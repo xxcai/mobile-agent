@@ -1,0 +1,21 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        flatDir {
+            dirs("../../agent-core/build/outputs/aar", "../../agent-android/build/outputs/aar", "../../agent-screen-vision/build/outputs/aar")
+        }
+    }
+}
+
+rootProject.name = "local-aar-consumer"
+include(":app")

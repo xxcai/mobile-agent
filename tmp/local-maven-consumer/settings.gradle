@@ -1,0 +1,19 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        maven { url = uri("../../build/local-maven-repo") }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "local-maven-consumer"
+include(":app")

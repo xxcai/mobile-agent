@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.consumer'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.example.consumer'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        jniLibs {
+            pickFirsts += ['**/libc++_shared.so']
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.hh.agent:agent-core:1.0.0-debug'
+    implementation 'com.hh.agent:agent-android:1.0.0-debug'
+    implementation 'com.hh.agent:agent-screen-vision:1.0.0-debug'
+}

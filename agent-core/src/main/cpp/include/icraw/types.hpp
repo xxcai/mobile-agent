@@ -316,11 +316,45 @@ struct NavigationCheckpoint {
     int stagnant_rounds = 0;
     std::string last_activity;
     std::string last_summary;
+    std::string last_fingerprint;
 };
 
 struct NavigationEscalation {
     std::string reason;
     std::string detail;
+};
+
+struct RouteRequestContext {
+    std::string objective;
+    std::string skill_summary;
+};
+
+struct ObservationFingerprint {
+    std::string value;
+    std::string activity;
+    std::string summary;
+    std::vector<std::string> actionable_labels;
+    std::vector<std::string> conflict_codes;
+};
+
+struct NavigationTraceSummary {
+    std::string current_page;
+    int current_step_index = -1;
+    std::string pending_target;
+    std::string latest_action_result;
+    std::string latest_observation_summary;
+    std::string summary;
+};
+
+struct NavigationEscalationRequest {
+    std::string objective;
+    IntentRoute intent_route;
+    NavigationCheckpoint checkpoint;
+    NavigationEscalation escalation;
+    std::string pending_step_summary;
+    std::string observation_summary;
+    std::string latest_action_result;
+    std::string trace_summary;
 };
 
 struct ReadoutRequestContext {

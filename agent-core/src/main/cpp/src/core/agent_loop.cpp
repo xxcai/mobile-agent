@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <ctime>
 #include <chrono>
+#include <thread>
 #include <cctype>
 #include <cstdio>
 #include <unordered_map>
@@ -302,6 +303,7 @@ constexpr size_t SKILL_PRELOAD_MAX_TOTAL_CHARS = 20000;
 constexpr size_t SKILL_SUMMARY_MAX_CHARS = 1200;
 constexpr double FAST_EXECUTE_NATIVE_SCORE_MIN = 0.82;
 constexpr double FAST_EXECUTE_VISION_ONLY_SCORE_MIN = 0.97;
+constexpr bool COMPACT_NAVIGATION_ESCALATION_ENABLED = false;
 
 struct SkillStepHint {
     std::string page;
@@ -378,17 +380,28 @@ struct ExecutionState {
     int pending_step_index = -1;
     int awaiting_step_confirmation_index = -1;
     std::string awaiting_confirmation_target;
+    std::string awaiting_confirmation_previous_page;
+    int awaiting_confirmation_retry_count = 0;
     bool goal_reached = false;
     bool context_reset = false;
     bool route_ready = false;
+    bool route_resolved_by_llm = false;
     IntentRoute intent_route;
     NavigationPlan navigation_plan;
     NavigationCheckpoint navigation_checkpoint;
     NavigationEscalation latest_escalation;
+    RouteRequestContext route_request_context;
+    ObservationFingerprint latest_observation_fingerprint;
+    NavigationTraceSummary latest_navigation_trace;
     ReadoutRequestContext readout_context;
 };
 
+constexpr int kMaxPendingConfirmationRetries = 1;
+constexpr auto kPendingConfirmationRetryDelay = std::chrono::milliseconds(350);
+
 enum class LlmRequestProfileKind {
+    Route,
+    NavigationEscalation,
     ToolCall,
     Readout,
     FinalAnswer
@@ -403,6 +416,10 @@ struct LlmRequestProfile {
 
 const char* llm_request_profile_name(LlmRequestProfileKind kind) {
     switch (kind) {
+        case LlmRequestProfileKind::Route:
+            return "route";
+        case LlmRequestProfileKind::NavigationEscalation:
+            return "navigation_escalation";
         case LlmRequestProfileKind::Readout:
             return "readout";
         case LlmRequestProfileKind::FinalAnswer:
@@ -420,16 +437,30 @@ LlmRequestProfile resolve_llm_request_profile(const AgentConfig& config,
     profile.temperature = config.temperature;
     profile.max_tokens = config.max_tokens;
 
-    if (request.tools.empty()) {
-        profile.kind = LlmRequestProfileKind::FinalAnswer;
-        profile.max_tokens = std::min(config.max_tokens, 1536);
+    if (request.request_profile == "route") {
+        profile.kind = LlmRequestProfileKind::Route;
+        profile.max_tokens = std::min(config.max_tokens, 512);
+        profile.temperature = std::min(config.temperature, 0.20);
+        return profile;
+    }
+
+    if (request.request_profile == "navigation_escalation" || !state.latest_escalation.reason.empty()) {
+        profile.kind = LlmRequestProfileKind::NavigationEscalation;
+        profile.max_tokens = std::min(config.max_tokens, 640);
+        profile.temperature = std::min(config.temperature, 0.15);
+        return profile;
+    }
+
+    if (state.goal_reached || state.phase == "readout" || request.request_profile == "readout") {
+        profile.kind = LlmRequestProfileKind::Readout;
+        profile.max_tokens = std::min(config.max_tokens, 1280);
         profile.temperature = std::min(config.temperature, 0.45);
         return profile;
     }
 
-    if (state.goal_reached || state.phase == "readout") {
-        profile.kind = LlmRequestProfileKind::Readout;
-        profile.max_tokens = std::min(config.max_tokens, 1280);
+    if (request.tools.empty()) {
+        profile.kind = LlmRequestProfileKind::FinalAnswer;
+        profile.max_tokens = std::min(config.max_tokens, 1536);
         profile.temperature = std::min(config.temperature, 0.45);
         return profile;
     }
@@ -779,24 +810,36 @@ StopConditionSpec build_stop_condition_spec(const std::string& objective,
     spec.requires_readout = goal_requires_readout(objective);
 
     if (hints && !hints->steps.empty()) {
+        const SkillStepHint* terminal_step = nullptr;
         for (const auto& step : hints->steps) {
-            if (!step.page.empty()) {
-                spec.page_predicates.push_back(step.page);
+            const bool is_terminal = step.readout
+                    || (&step == &hints->steps.back());
+            if (!is_terminal) {
+                continue;
             }
-            if (!step.activity.empty()) {
-                spec.page_predicates.push_back(step.activity);
+            terminal_step = &step;
+            break;
+        }
+        if (!terminal_step) {
+            terminal_step = &hints->steps.back();
+        }
+
+        if (terminal_step) {
+            if (!terminal_step->page.empty()) {
+                spec.page_predicates.push_back(terminal_step->page);
             }
-            if (step.readout) {
-                spec.requires_readout = true;
-                if (!step.target.empty()) {
-                    spec.content_predicates.push_back(step.target);
+            if (!terminal_step->activity.empty()) {
+                spec.page_predicates.push_back(terminal_step->activity);
+            }
+            if (!terminal_step->target.empty()) {
+                spec.content_predicates.push_back(terminal_step->target);
+            }
+            for (const auto& alias : terminal_step->aliases) {
+                if (!alias.empty()) {
+                    spec.content_predicates.push_back(alias);
                 }
-                for (const auto& alias : step.aliases) {
-                    if (!alias.empty()) {
-                        spec.content_predicates.push_back(alias);
-                    }
-                }
             }
+            spec.requires_readout = spec.requires_readout || terminal_step->readout;
         }
     }
 
@@ -829,10 +872,18 @@ StopConditionSpec build_stop_condition_spec(const std::string& objective,
     }
 
     if (spec.page_predicates.empty()) {
-        spec.page_predicates.push_back(objective);
+        if (hints && !hints->steps.empty()) {
+            const auto& last = hints->steps.back();
+            if (!last.page.empty()) {
+                spec.page_predicates.push_back(last.page);
+            }
+            if (!last.activity.empty()) {
+                spec.page_predicates.push_back(last.activity);
+            }
+        }
     }
-    if (spec.success_signals.empty()) {
-        spec.success_signals = {"success", "completed", "done"};
+    if (spec.page_predicates.empty()) {
+        spec.page_predicates.push_back(objective);
     }
     if (spec.failure_signals.empty()) {
         spec.failure_signals = {"failed", "error", "denied", "not found"};
@@ -964,37 +1015,25 @@ void inject_selected_skills_into_request(ChatCompletionRequest& request,
     }
 
     std::ostringstream body;
-    if (iteration <= 1) {
-        body << "The following skills were preloaded because they strongly match the user's latest request. ";
-        body << "Use them directly instead of spending an extra round calling read_file for the same skill.\n\n";
+    body << "Matched skill summaries. Full SKILL.md content is intentionally omitted; ";
+    body << "use the structured execution hints and request escalation only if more detail is required.\n\n";
 
-        size_t total_chars = 0;
-        size_t injected_count = 0;
-        for (const auto& skill : selected_skills) {
-            const size_t skill_chars = skill.content.size() + skill.description.size();
-            if (injected_count >= SKILL_PRELOAD_MAX_COUNT) {
-                break;
-            }
-            if (injected_count > 0 && total_chars + skill_chars > SKILL_PRELOAD_MAX_TOTAL_CHARS) {
-                break;
-            }
-            body << "## Skill: " << skill.name << "\n";
-            if (!skill.description.empty()) {
-                body << "Description: " << skill.description << "\n\n";
-            }
-            body << skill.content << "\n\n";
-            total_chars += skill_chars;
-            injected_count++;
+    size_t injected_count = 0;
+    for (const auto& skill : selected_skills) {
+        if (injected_count >= SKILL_PRELOAD_MAX_COUNT) {
+            break;
         }
-    } else {
-        body << "These skills were matched earlier in the turn. ";
-        body << "Treat them as already-loaded context and avoid re-reading the same SKILL.md unless more detail is required.\n\n";
-        for (const auto& skill : selected_skills) {
-            body << build_skill_summary_prompt(skill) << "\n";
-        }
+        body << build_skill_summary_prompt(skill) << "\n";
+        injected_count++;
     }
 
-    append_runtime_section_to_request_system(request, "Selected Skills", body.str());
+    const std::string section = body.str();
+    append_runtime_section_to_request_system(request, "Selected Skills", section);
+    ICRAW_LOG_INFO(
+            "[AgentLoop][skill_context_injected] iteration={} skill_count={} full_content_injected=false chars={}",
+            iteration,
+            injected_count,
+            section.size());
 }
 
 void inject_navigation_escalation_into_request(ChatCompletionRequest& request,
@@ -1018,6 +1057,80 @@ void inject_navigation_escalation_into_request(ChatCompletionRequest& request,
     append_runtime_section_to_request_system(request, "Navigation Escalation", body.str());
 }
 
+std::string summarize_pending_step_json(const nlohmann::json& step) {
+    if (!step.is_object() || step.empty()) {
+        return "";
+    }
+    std::vector<std::string> parts;
+    auto append = [&](const std::string& key, const std::string& label) {
+        if (step.contains(key) && step[key].is_string()) {
+            const std::string value = trim_whitespace(step[key].get<std::string>());
+            if (!value.empty()) {
+                parts.push_back(label + "=" + truncate_runtime_text(value, 80));
+            }
+        }
+    };
+    append("action", "action");
+    append("target", "target");
+    append("page", "page");
+    append("activity", "activity");
+    append("region", "region");
+    append("anchor_type", "anchor");
+    append("container_role", "container");
+    if (step.contains("aliases") && step["aliases"].is_array() && !step["aliases"].empty()) {
+        std::ostringstream aliases;
+        size_t count = 0;
+        for (const auto& alias : step["aliases"]) {
+            if (!alias.is_string()) {
+                continue;
+            }
+            if (count > 0) {
+                aliases << ",";
+            }
+            aliases << truncate_runtime_text(alias.get<std::string>(), 40);
+            count++;
+            if (count >= 3) {
+                break;
+            }
+        }
+        if (count > 0) {
+            parts.push_back("aliases=" + aliases.str());
+        }
+    }
+    std::ostringstream stream;
+    for (size_t i = 0; i < parts.size(); ++i) {
+        if (i > 0) {
+            stream << "; ";
+        }
+        stream << parts[i];
+    }
+    return truncate_runtime_text(stream.str(), 260);
+}
+
+std::string build_navigation_trace_summary_text(const ExecutionState& state) {
+    std::ostringstream trace;
+    trace << "current_page=" << truncate_runtime_text(state.current_page, 80);
+    trace << "; step_index=" << state.pending_step_index;
+    const std::string pending = summarize_pending_step_json(state.pending_step);
+    if (!pending.empty()) {
+        trace << "; pending={" << pending << "}";
+    }
+    if (!state.latest_action_result.empty()) {
+        trace << "; last_action=" << truncate_runtime_text(state.latest_action_result, 120);
+    }
+    if (!state.latest_observation_summary.empty()) {
+        trace << "; observation=" << truncate_runtime_text(state.latest_observation_summary, 120);
+    }
+    return trace.str();
+}
+void refresh_navigation_trace_summary(ExecutionState& state) {
+    state.latest_navigation_trace.current_page = state.current_page;
+    state.latest_navigation_trace.current_step_index = state.pending_step_index;
+    state.latest_navigation_trace.pending_target = first_string_value(state.pending_step, {"target", "page", "activity"});
+    state.latest_navigation_trace.latest_action_result = state.latest_action_result;
+    state.latest_navigation_trace.latest_observation_summary = state.latest_observation_summary;
+    state.latest_navigation_trace.summary = build_navigation_trace_summary_text(state);
+}
 std::string build_execution_state_prompt_v2(const ExecutionState& state, int iteration) {
     if (iteration <= 1) {
         return "";
@@ -1061,7 +1174,7 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
         }
     }
     if (state.pending_step.is_object() && !state.pending_step.empty()) {
-        prompt << "pending_step: " << truncate_runtime_text(state.pending_step.dump(), 200) << "\n";
+        prompt << "pending_step: " << summarize_pending_step_json(state.pending_step) << "\n";
     }
     if (state.awaiting_step_confirmation_index >= 0) {
         prompt << "awaiting_confirmation: true";
@@ -1080,12 +1193,20 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
         prompt << "navigation_escalation.reason: " << state.latest_escalation.reason << "\n";
         if (!state.latest_escalation.detail.empty()) {
             prompt << "navigation_escalation.detail: "
-                   << truncate_runtime_text(state.latest_escalation.detail, 180) << "\n";
+                   << truncate_runtime_text(state.latest_escalation.detail, 140) << "\n";
         }
     }
     if (state.navigation_checkpoint.current_step_index >= 0) {
         prompt << "navigation_checkpoint.step_index: " << state.navigation_checkpoint.current_step_index << "\n";
         prompt << "navigation_checkpoint.stagnant_rounds: " << state.navigation_checkpoint.stagnant_rounds << "\n";
+    }
+    if (!state.latest_observation_fingerprint.value.empty()) {
+        prompt << "observation_fingerprint: "
+               << truncate_runtime_text(state.latest_observation_fingerprint.value, 160) << "\n";
+    }
+    if (!state.latest_navigation_trace.summary.empty()) {
+        prompt << "navigation_trace: "
+               << truncate_runtime_text(state.latest_navigation_trace.summary, 220) << "\n";
     }
     prompt << "policy:\n";
     prompt << "- Continue from confirmed progress instead of replanning from scratch.\n";
@@ -1514,6 +1635,15 @@ ObservationSnapshot parse_observation_snapshot(const std::string& content) {
 
         const auto& hybrid = json["hybridObservation"];
         snapshot.summary = hybrid.value("summary", "");
+        if (hybrid.contains("page") && hybrid["page"].is_object()) {
+            const auto& page = hybrid["page"];
+            if (snapshot.screen_width <= 0) {
+                snapshot.screen_width = page.value("width", 0);
+            }
+            if (snapshot.screen_height <= 0) {
+                snapshot.screen_height = page.value("height", 0);
+            }
+        }
         if (hybrid.contains("conflicts") && hybrid["conflicts"].is_array()) {
             for (const auto& conflict : hybrid["conflicts"]) {
                 if (!conflict.is_object()) {
@@ -1565,12 +1695,100 @@ ObservationSnapshot parse_observation_snapshot(const std::string& content) {
                 snapshot.actionable_candidates.push_back(std::move(candidate));
             }
         }
+        if (snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
+            int max_right = 0;
+            int max_bottom = 0;
+            for (const auto& candidate : snapshot.actionable_candidates) {
+                int left = 0;
+                int top = 0;
+                int right = 0;
+                int bottom = 0;
+                if (std::sscanf(candidate.bounds.c_str(),
+                            "[%d,%d][%d,%d]",
+                            &left,
+                            &top,
+                            &right,
+                            &bottom) == 4) {
+                    max_right = std::max(max_right, right);
+                    max_bottom = std::max(max_bottom, bottom);
+                }
+            }
+            if (snapshot.screen_width <= 0) {
+                snapshot.screen_width = max_right;
+            }
+            if (snapshot.screen_height <= 0) {
+                snapshot.screen_height = max_bottom;
+            }
+        }
     } catch (...) {
         return snapshot;
     }
     return snapshot;
 }
 
+ObservationFingerprint build_observation_fingerprint(const ObservationSnapshot& snapshot) {
+    ObservationFingerprint fingerprint;
+    fingerprint.activity = snapshot.activity;
+    fingerprint.summary = truncate_runtime_text(snapshot.summary, 120);
+
+    std::set<std::string> seen_labels;
+    for (const auto& candidate : snapshot.actionable_candidates) {
+        std::string label = trim_whitespace(candidate.label);
+        if (label.empty()) {
+            label = truncate_runtime_text(candidate.match_text, 60);
+        }
+        if (label.empty()) {
+            continue;
+        }
+        const std::string normalized = normalize_for_runtime_match(label);
+        if (normalized.empty() || seen_labels.count(normalized) > 0) {
+            continue;
+        }
+        seen_labels.insert(normalized);
+        fingerprint.actionable_labels.push_back(truncate_runtime_text(label, 48));
+        if (fingerprint.actionable_labels.size() >= 6) {
+            break;
+        }
+    }
+
+    std::set<std::string> seen_conflicts;
+    for (const auto& conflict : snapshot.warning_conflicts) {
+        const std::string code = conflict.code.empty() ? conflict.message : conflict.code;
+        const std::string normalized = normalize_for_runtime_match(code);
+        if (normalized.empty() || seen_conflicts.count(normalized) > 0) {
+            continue;
+        }
+        seen_conflicts.insert(normalized);
+        fingerprint.conflict_codes.push_back(truncate_runtime_text(code, 48));
+        if (fingerprint.conflict_codes.size() >= 4) {
+            break;
+        }
+    }
+
+    std::ostringstream stream;
+    stream << normalize_for_runtime_match(snapshot.activity) << "|";
+    stream << normalize_for_runtime_match(truncate_runtime_text(snapshot.summary, 160)) << "|";
+    for (const auto& label : fingerprint.actionable_labels) {
+        stream << normalize_for_runtime_match(label) << ",";
+    }
+    stream << "|";
+    for (const auto& code : fingerprint.conflict_codes) {
+        stream << normalize_for_runtime_match(code) << ",";
+    }
+    fingerprint.value = truncate_runtime_text(stream.str(), 512);
+    return fingerprint;
+}
+
+std::string join_fingerprint_values(const std::vector<std::string>& values) {
+    std::ostringstream stream;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            stream << ",";
+        }
+        stream << values[i];
+    }
+    return stream.str();
+}
 std::string activity_simple_name(const std::string& activity);
 bool matches_activity_name(const std::string& actual_activity,
                            const std::string& expected_activity);
@@ -1609,8 +1827,11 @@ bool matches_stop_condition(const ObservationSnapshot& snapshot,
                             const std::string& goal) {
     const std::string page_context = snapshot.activity + " " + snapshot.summary;
     const bool page_hit = matches_any_predicate(page_context, stop_condition.page_predicates);
-    const bool content_hit = matches_any_predicate(page_context, stop_condition.content_predicates);
-    const bool success_hit = matches_any_predicate(page_context, stop_condition.success_signals);
+    const bool content_hit = stop_condition.content_predicates.empty()
+            ? matches_goal_page(snapshot, goal)
+            : matches_any_predicate(page_context, stop_condition.content_predicates);
+    const bool success_hit = !stop_condition.success_signals.empty()
+            && matches_any_predicate(page_context, stop_condition.success_signals);
     const bool failure_hit = matches_any_predicate(page_context, stop_condition.failure_signals);
     if (failure_hit && !success_hit) {
         return false;
@@ -1621,7 +1842,10 @@ bool matches_stop_condition(const ObservationSnapshot& snapshot,
     if (page_hit && content_hit) {
         return true;
     }
-    if (page_hit && stop_condition.requires_readout && matches_goal_page(snapshot, goal)) {
+    if (page_hit
+            && stop_condition.requires_readout
+            && !stop_condition.content_predicates.empty()
+            && matches_goal_page(snapshot, goal)) {
         return true;
     }
     return false;
@@ -1719,6 +1943,60 @@ bool matches_readout_target_hint(const ObservationSnapshot& snapshot,
 void clear_step_confirmation(ExecutionState& state) {
     state.awaiting_step_confirmation_index = -1;
     state.awaiting_confirmation_target.clear();
+    state.awaiting_confirmation_previous_page.clear();
+    state.awaiting_confirmation_retry_count = 0;
+}
+
+bool snapshot_matches_confirmation_previous_page(const ExecutionState& state,
+                                                const ObservationSnapshot& snapshot) {
+    if (state.awaiting_confirmation_previous_page.empty()) {
+        return snapshot.activity.empty() && snapshot.summary.empty();
+    }
+
+    if (!snapshot.activity.empty()
+            && (matches_activity_name(snapshot.activity, state.awaiting_confirmation_previous_page)
+                || contains_runtime_match(snapshot.activity, state.awaiting_confirmation_previous_page)
+                || contains_runtime_match(state.awaiting_confirmation_previous_page, snapshot.activity))) {
+        return true;
+    }
+
+    if (!snapshot.summary.empty()
+            && (contains_runtime_match(snapshot.summary, state.awaiting_confirmation_previous_page)
+                || contains_runtime_match(state.awaiting_confirmation_previous_page, snapshot.summary))) {
+        return true;
+    }
+
+    return false;
+}
+
+bool should_retry_pending_step_confirmation(const ExecutionState& state,
+                                           const ObservationSnapshot& snapshot) {
+    if (state.awaiting_step_confirmation_index < 0) {
+        return false;
+    }
+    if (state.awaiting_confirmation_retry_count >= kMaxPendingConfirmationRetries) {
+        return false;
+    }
+
+    const bool snapshot_incomplete = snapshot.activity.empty() && snapshot.summary.empty();
+    if (snapshot_incomplete) {
+        return true;
+    }
+
+    return snapshot_matches_confirmation_previous_page(state, snapshot);
+}
+
+void maybe_wait_before_confirmation_retry(const ExecutionState& state) {
+    if (state.awaiting_step_confirmation_index < 0 || state.awaiting_confirmation_retry_count <= 0) {
+        return;
+    }
+
+    ICRAW_LOG_INFO(
+            "[AgentLoop][execution_state_confirmation_retry_wait] step_index={} retry_count={} delay_ms={}",
+            state.awaiting_step_confirmation_index,
+            state.awaiting_confirmation_retry_count,
+            static_cast<int>(kPendingConfirmationRetryDelay.count()));
+    std::this_thread::sleep_for(kPendingConfirmationRetryDelay);
 }
 
 void record_completed_step(ExecutionState& state, const SkillStepHint& step) {
@@ -1755,7 +2033,8 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
         confirmed = matches_step_page(snapshot, next_step);
         if (!confirmed && next_step.readout) {
             confirmed = matches_goal_page(snapshot, state.goal)
-                    || matches_readout_target_hint(snapshot, state.last_observation_target_hint);
+                    || (state.route_ready
+                        && matches_stop_condition(snapshot, state.intent_route.stop_condition, state.goal));
         }
         if (confirmed) {
             record_completed_step(state, current_step);
@@ -1777,7 +2056,8 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
     }
 
     confirmed = matches_goal_page(snapshot, state.goal)
-            || matches_readout_target_hint(snapshot, state.last_observation_target_hint);
+            || (state.route_ready
+                && matches_stop_condition(snapshot, state.intent_route.stop_condition, state.goal));
     if (!confirmed && current_step.readout) {
         confirmed = matches_step_page(snapshot, current_step);
     }
@@ -1868,18 +2148,30 @@ void update_execution_state_with_tool_result(ExecutionState& state,
         state.current_page = truncate_runtime_text(
                 snapshot.activity.empty() ? snapshot.summary : snapshot.activity,
                 EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
-        const bool same_activity = !snapshot.activity.empty()
-                && snapshot.activity == state.navigation_checkpoint.last_activity;
-        const bool same_summary = !snapshot.summary.empty()
-                && snapshot.summary == state.navigation_checkpoint.last_summary;
-        if (same_activity && same_summary) {
+        const ObservationFingerprint fingerprint = build_observation_fingerprint(snapshot);
+        const bool same_fingerprint = !fingerprint.value.empty()
+                && fingerprint.value == state.navigation_checkpoint.last_fingerprint;
+        if (same_fingerprint) {
             state.navigation_checkpoint.stagnant_rounds++;
         } else {
             state.navigation_checkpoint.stagnant_rounds = 0;
         }
+        state.latest_observation_fingerprint = fingerprint;
         state.navigation_checkpoint.last_activity = snapshot.activity;
         state.navigation_checkpoint.last_summary = snapshot.summary;
+        state.navigation_checkpoint.last_fingerprint = fingerprint.value;
         state.navigation_checkpoint.current_step_index = state.pending_step_index;
+        refresh_navigation_trace_summary(state);
+        ICRAW_LOG_INFO(
+                "[AgentLoop][observation_fingerprint] value={} changed={} activity={} labels={} conflicts={} stagnant_rounds={}",
+                truncate_runtime_text(fingerprint.value, 180),
+                !same_fingerprint,
+                truncate_runtime_text(fingerprint.activity, 80),
+                join_fingerprint_values(fingerprint.actionable_labels),
+                join_fingerprint_values(fingerprint.conflict_codes),
+                state.navigation_checkpoint.stagnant_rounds);
+        ICRAW_LOG_INFO("[AgentLoop][navigation_trace_summary] {}",
+                truncate_runtime_text(state.latest_navigation_trace.summary, 320));
 
         if (state.awaiting_step_confirmation_index >= 0) {
             const int awaiting_index = state.awaiting_step_confirmation_index;
@@ -1895,6 +2187,32 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                             state.active_hints->steps[static_cast<size_t>(awaiting_index)];
                     state.pending_step_index = awaiting_index;
                     state.pending_step = build_step_json(awaiting_step);
+                }
+                if (should_retry_pending_step_confirmation(state, snapshot)) {
+                    state.awaiting_confirmation_retry_count++;
+                    state.goal_reached = false;
+                    state.phase = "advance";
+                    state.mode = (state.active_hints && !state.active_hints->empty())
+                            ? "planned_fast_execute"
+                            : "free_llm";
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][execution_state_confirmation_retry_scheduled] step_index={} retry_count={} activity={} previous_page={} summary={}",
+                            awaiting_index,
+                            state.awaiting_confirmation_retry_count,
+                            snapshot.activity,
+                            truncate_runtime_text(state.awaiting_confirmation_previous_page, 80),
+                            truncate_runtime_text(snapshot.summary, 120));
+                    return;
+                }
+                if (same_fingerprint || state.navigation_checkpoint.stagnant_rounds > 0) {
+                    state.latest_escalation.reason = "no_progress_same_observation";
+                    state.latest_escalation.detail = "fingerprint="
+                            + truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160);
+                    state.navigation_checkpoint.stagnant_rounds = std::max(state.navigation_checkpoint.stagnant_rounds, 2);
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][navigation_no_progress_short_circuit] reason={} fingerprint={}",
+                            state.latest_escalation.reason,
+                            truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160));
                 }
                 clear_step_confirmation(state);
                 state.goal_reached = false;
@@ -1942,6 +2260,7 @@ void update_execution_state_with_tool_result(ExecutionState& state,
     }
 
     state.latest_action_result = summary;
+    refresh_navigation_trace_summary(state);
     try {
         const auto json = nlohmann::json::parse(content);
         const bool success = json.is_object() && json.value("success", false);
@@ -1961,11 +2280,18 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 state.awaiting_confirmation_target = current_step.target.empty()
                         ? state.last_gesture_target
                         : current_step.target;
+                state.awaiting_confirmation_previous_page = !state.current_page.empty()
+                        ? state.current_page
+                        : (!state.navigation_checkpoint.last_activity.empty()
+                            ? state.navigation_checkpoint.last_activity
+                            : state.navigation_checkpoint.last_summary);
+                state.awaiting_confirmation_retry_count = 0;
                 state.phase = "advance";
                 ICRAW_LOG_INFO(
-                        "[AgentLoop][execution_state_step_pending_confirmation] step_index={} target={}",
+                        "[AgentLoop][execution_state_step_pending_confirmation] step_index={} target={} previous_page={}",
                         state.awaiting_step_confirmation_index,
-                        state.awaiting_confirmation_target);
+                        state.awaiting_confirmation_target,
+                        truncate_runtime_text(state.awaiting_confirmation_previous_page, 80));
                 return;
             }
             record_completed_step(state, current_step);
@@ -1979,10 +2305,65 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 state.pending_step = nlohmann::json::object();
             }
             state.phase = "advance";
+            refresh_navigation_trace_summary(state);
         }
     } catch (...) {
         // Ignore malformed payloads and keep compact text summary only.
     }
+}
+
+std::vector<std::string> pending_step_observation_terms(const ExecutionState& state) {
+    std::vector<std::string> terms;
+    if (state.pending_step.is_object()) {
+        const std::string target = first_string_value(
+                state.pending_step, {"target", "targetHint", "label"});
+        if (!target.empty()) {
+            terms.push_back(target);
+        }
+        const auto aliases = string_array_values(
+                state.pending_step, {"aliases", "alias", "targetAliases"});
+        for (const auto& alias : aliases) {
+            if (!alias.empty()) {
+                terms.push_back(alias);
+            }
+        }
+    }
+    return terms;
+}
+
+bool observation_target_matches_pending_step(const ExecutionState& state) {
+    const std::string last_hint = trim_whitespace(state.last_observation_target_hint);
+    if (last_hint.empty()) {
+        return false;
+    }
+    const auto terms = pending_step_observation_terms(state);
+    if (terms.empty()) {
+        return true;
+    }
+    for (const auto& term : terms) {
+        if (term.empty()) {
+            continue;
+        }
+        if (contains_runtime_match(last_hint, term)
+                || contains_runtime_match(term, last_hint)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool latest_observation_needs_pending_target_refresh(const ExecutionState& state,
+                                                     bool latest_observation_after_latest_gesture) {
+    if (!latest_observation_after_latest_gesture
+            || state.goal_reached
+            || state.phase == "readout"
+            || state.awaiting_step_confirmation_index >= 0) {
+        return false;
+    }
+    if (!state.pending_step.is_object() || state.pending_step.empty()) {
+        return false;
+    }
+    return !observation_target_matches_pending_step(state);
 }
 
 std::string determine_observation_detail_mode(const ExecutionState& state,
@@ -2022,21 +2403,32 @@ std::string determine_observation_detail_mode(const ExecutionState& state,
     return latest_observation_index >= 0 ? "follow_up" : "discovery";
 }
 
+void normalize_tool_call_arguments(ToolCall& tool_call);
+
 std::vector<ToolCall> enrich_tool_calls_for_execution(const std::vector<ToolCall>& tool_calls,
                                                       const ExecutionState& state,
                                                       const std::vector<Message>& messages) {
     std::vector<ToolCall> enriched = tool_calls;
     const std::string detail_mode = determine_observation_detail_mode(state, messages);
     for (auto& tool_call : enriched) {
+        normalize_tool_call_arguments(tool_call);
         if (tool_call.name != "android_view_context_tool" || !tool_call.arguments.is_object()) {
             continue;
         }
         tool_call.arguments["__detailMode"] = detail_mode;
-        if (!tool_call.arguments.contains("targetHint")
-                && state.pending_step.is_object()
+        if (state.pending_step.is_object()
                 && state.pending_step.contains("target")
                 && state.pending_step["target"].is_string()) {
-            tool_call.arguments["targetHint"] = state.pending_step["target"].get<std::string>();
+            const std::string pending_target = trim_whitespace(
+                    state.pending_step["target"].get<std::string>());
+            const std::string existing_target = trim_whitespace(
+                    first_string_value(tool_call.arguments, {"targetHint", "target", "pageHint"}));
+            if (!pending_target.empty()
+                    && (existing_target.empty()
+                        || (!contains_runtime_match(existing_target, pending_target)
+                            && !contains_runtime_match(pending_target, existing_target)))) {
+                tool_call.arguments["targetHint"] = pending_target;
+            }
         }
         ICRAW_LOG_INFO("[AgentLoop][observation_detail_mode] mode={} phase={}", detail_mode, state.phase);
     }
@@ -2454,6 +2846,17 @@ bool candidate_has_corner_entry_semantics(const ObservationCandidate& candidate)
     return false;
 }
 
+bool candidate_is_corner_entry_noise(const ObservationCandidate& candidate) {
+    return candidate_anchor_type_is(candidate, "back_entry")
+            || candidate_anchor_type_is(candidate, "tab_entry")
+            || candidate_anchor_type_is(candidate, "search_entry")
+            || candidate_anchor_type_is(candidate, "overflow_entry")
+            || candidate_anchor_type_is(candidate, "primary_action")
+            || candidate_container_role_is(candidate, "tab_bar")
+            || candidate_container_role_is(candidate, "badge")
+            || candidate.badge_like;
+}
+
 int candidate_actionability_rank(const ObservationCandidate& candidate) {
     int rank = 0;
     if (candidate.clickable) {
@@ -2485,6 +2888,37 @@ bool candidates_look_like_overlapping_duplicates(const ObservationCandidate& lef
     }
     return (!left.label.empty() && contains_runtime_match(right.match_text, left.label))
             || (!right.label.empty() && contains_runtime_match(left.match_text, right.label));
+}
+
+bool candidate_label_matches_step_target_exactly(const ObservationCandidate& candidate,
+                                                 const SkillStepHint& step) {
+    const std::string candidate_label = normalize_runtime_key(candidate.label);
+    if (candidate_label.empty()) {
+        return false;
+    }
+    if (!step.target.empty() && candidate_label == normalize_runtime_key(step.target)) {
+        return true;
+    }
+    for (const auto& alias : step.aliases) {
+        if (!alias.empty() && candidate_label == normalize_runtime_key(alias)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool candidates_are_overlapping_same_target_label(const ObservationCandidate& left,
+                                                  const ObservationCandidate& right,
+                                                  const SkillStepHint& step) {
+    if (!candidates_look_like_overlapping_duplicates(left, right)) {
+        return false;
+    }
+    const std::string left_label = normalize_runtime_key(left.label);
+    const std::string right_label = normalize_runtime_key(right.label);
+    return !left_label.empty()
+            && left_label == right_label
+            && candidate_label_matches_step_target_exactly(left, step)
+            && candidate_label_matches_step_target_exactly(right, step);
 }
 
 double candidate_entry_semantic_bonus(const ObservationCandidate& candidate,
@@ -2573,6 +3007,69 @@ bool candidate_in_preferred_entry_region(const ObservationCandidate& candidate,
     return candidate_in_region(candidate, preferred_region, snapshot);
 }
 
+bool candidate_in_tight_corner_entry_region(const ObservationCandidate& candidate,
+                                            const ObservationSnapshot& snapshot) {
+    if (snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
+        return false;
+    }
+
+    int center_x = 0;
+    int center_y = 0;
+    if (!parse_bounds_center(candidate.bounds, center_x, center_y)) {
+        return false;
+    }
+
+    const double width = static_cast<double>(snapshot.screen_width);
+    const double height = static_cast<double>(snapshot.screen_height);
+    return center_x <= static_cast<int>(width * 0.26)
+            && center_y <= static_cast<int>(height * 0.16);
+}
+
+bool candidate_is_midpage_list_or_card_candidate(const ObservationCandidate& candidate,
+                                                 const ObservationSnapshot& snapshot) {
+    if (candidate_in_tight_corner_entry_region(candidate, snapshot)) {
+        return false;
+    }
+
+    int center_x = 0;
+    int center_y = 0;
+    if (!parse_bounds_center(candidate.bounds, center_x, center_y)) {
+        return false;
+    }
+
+    const double width = static_cast<double>(snapshot.screen_width);
+    const double height = static_cast<double>(snapshot.screen_height);
+    if (width <= 0.0 || height <= 0.0) {
+        return false;
+    }
+
+    const bool below_header_band = center_y >= static_cast<int>(height * 0.22);
+    const bool within_content_band = center_y <= static_cast<int>(height * 0.88);
+    const bool within_page_body = center_x >= static_cast<int>(width * 0.05)
+            && center_x <= static_cast<int>(width * 0.95);
+    const bool list_like = candidate_container_role_is(candidate, "list")
+            || candidate_container_role_is(candidate, "card")
+            || candidate.repeat_group;
+    const bool card_like_action = candidate_anchor_type_is(candidate, "primary_action")
+            || candidate_anchor_type_is(candidate, "tab_entry");
+
+    return below_header_band
+            && within_content_band
+            && within_page_body
+            && (list_like || card_like_action);
+}
+
+size_t filter_corner_entry_midpage_candidates(std::vector<ObservationCandidate>& candidates,
+                                              const ObservationSnapshot& snapshot) {
+    const size_t before = candidates.size();
+    candidates.erase(std::remove_if(candidates.begin(), candidates.end(),
+                            [&](const ObservationCandidate& candidate) {
+                                return candidate_is_midpage_list_or_card_candidate(candidate, snapshot);
+                            }),
+            candidates.end());
+    return before > candidates.size() ? (before - candidates.size()) : 0;
+}
+
 double candidate_disambiguation_score(const ObservationCandidate& candidate,
                                       const SkillStepHint& step,
                                       const ObservationSnapshot& snapshot) {
@@ -2587,6 +3084,81 @@ double candidate_disambiguation_score(const ObservationCandidate& candidate,
             + (candidate.score * 10.0)
             - candidate_risk_penalty(candidate)
             - candidate_entry_mismatch_penalty(candidate, step);
+}
+
+bool region_allows_top_left_coordinate_recovery(const std::string& region) {
+    const std::string normalized_region = normalize_region_label(region);
+    if (normalized_region.empty()) {
+        return true;
+    }
+    if (normalized_region.find("right") != std::string::npos
+            || normalized_region.find("bottom") != std::string::npos
+            || contains_runtime_match(region, u8"\u53f3")
+            || contains_runtime_match(region, u8"\u4e0b")) {
+        return false;
+    }
+    return true;
+}
+
+std::optional<ToolCall> build_corner_region_recovery_tool_call(const SkillStepHint& step,
+                                                               const ObservationSnapshot& snapshot) {
+    if (!step_prefers_corner_entry(step) || snapshot.snapshot_id.empty()
+            || snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][fast_execute_region_coordinate_recovery_skipped] target={} prefers_corner={} has_snapshot={} screen_width={} screen_height={}",
+                step.target,
+                step_prefers_corner_entry(step),
+                !snapshot.snapshot_id.empty(),
+                snapshot.screen_width,
+                snapshot.screen_height);
+        return std::nullopt;
+    }
+
+    const std::string preferred_region = preferred_region_for_step(step);
+    if (!region_allows_top_left_coordinate_recovery(preferred_region)) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][fast_execute_region_coordinate_recovery_skipped] target={} reason=region_not_top_left preferred_region={}",
+                step.target,
+                preferred_region);
+        return std::nullopt;
+    }
+
+    // Corner entries such as avatars are often plain ImageViews and may not appear in
+    // hybrid actionableNodes. Use a conservative header coordinate, then verify progress
+    // through the normal observation/confirmation path.
+    const int tap_x = std::max(1, static_cast<int>(snapshot.screen_width * 0.076));
+    const int tap_y = std::max(1, static_cast<int>(snapshot.screen_height * 0.072));
+    const int bound_left = std::max(0, tap_x - static_cast<int>(snapshot.screen_width * 0.055));
+    const int bound_top = std::max(0, tap_y - static_cast<int>(snapshot.screen_height * 0.040));
+    const int bound_right = std::min(snapshot.screen_width, tap_x + static_cast<int>(snapshot.screen_width * 0.055));
+    const int bound_bottom = std::min(snapshot.screen_height, tap_y + static_cast<int>(snapshot.screen_height * 0.040));
+    std::ostringstream bounds;
+    bounds << "[" << bound_left << "," << bound_top << "]["
+           << bound_right << "," << bound_bottom << "]";
+
+    ToolCall tool_call;
+    tool_call.id = generate_tool_id();
+    tool_call.name = "android_gesture_tool";
+    tool_call.arguments = nlohmann::json::object({
+            {"action", "tap"},
+            {"x", tap_x},
+            {"y", tap_y},
+            {"observation", {
+                    {"snapshotId", snapshot.snapshot_id},
+                    {"targetDescriptor", step.target.empty() ? "top-left entry" : step.target},
+                    {"referencedBounds", bounds.str()},
+                    {"recovery", "corner_region_coordinate"}
+            }}
+    });
+    ICRAW_LOG_INFO(
+            "[AgentLoop][fast_execute_region_coordinate_recovery] action=tap target={} region={} x={} y={} page={} snapshot_id={}",
+            step.target,
+            preferred_region.empty() ? "top_left" : preferred_region,
+            tap_x,
+            tap_y,
+            snapshot.activity,
+            snapshot.snapshot_id);
+    return tool_call;
 }
 
 std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState& state,
@@ -2667,6 +3239,25 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     std::vector<ObservationCandidate> matched_candidates =
             !primary_matched_candidates.empty() ? primary_matched_candidates : alias_matched_candidates;
 
+    if (step_prefers_corner_entry(step)) {
+        const size_t filtered_high_confidence =
+                filter_corner_entry_midpage_candidates(high_confidence_candidates, snapshot);
+        if (filtered_high_confidence > 0) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_corner_midpage_filtered] stage=high_confidence removed_count={} remaining_count={}",
+                    filtered_high_confidence,
+                    high_confidence_candidates.size());
+        }
+        const size_t filtered_matched =
+                filter_corner_entry_midpage_candidates(matched_candidates, snapshot);
+        if (filtered_matched > 0) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_corner_midpage_filtered] stage=matched removed_count={} remaining_count={}",
+                    filtered_matched,
+                    matched_candidates.size());
+        }
+    }
+
     ICRAW_LOG_INFO(
             "[AgentLoop][fast_execute_evaluated] target={} aliases={} activity={} source={} candidate_count={} high_confidence_count={} primary_matches={} alias_matches={} warning_conflicts={}",
             step.target,
@@ -2680,9 +3271,25 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
             snapshot.warning_conflict_count);
 
     if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][fast_execute_region_coordinate_recovery_attempt] target={} snapshot_id={} screen_width={} screen_height={} high_confidence_count={}",
+                step.target,
+                snapshot.snapshot_id,
+                snapshot.screen_width,
+                snapshot.screen_height,
+                high_confidence_candidates.size());
+        auto recovery_call = build_corner_region_recovery_tool_call(step, snapshot);
+        if (recovery_call.has_value()) {
+            return recovery_call;
+        }
+    }
+
+    if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
         std::vector<ObservationCandidate> preferred_region_high_confidence_candidates;
         for (const auto& candidate : high_confidence_candidates) {
-            if (candidate_in_preferred_entry_region(candidate, step, snapshot)) {
+            if (candidate_in_preferred_entry_region(candidate, step, snapshot)
+                    && candidate_in_tight_corner_entry_region(candidate, snapshot)
+                    && !candidate_is_corner_entry_noise(candidate)) {
                 preferred_region_high_confidence_candidates.push_back(candidate);
             }
         }
@@ -2707,10 +3314,38 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
         std::vector<ObservationCandidate> semantic_entry_candidates;
         for (const auto& candidate : high_confidence_candidates) {
+            if (candidate_is_corner_entry_noise(candidate)) {
+                continue;
+            }
             if (candidate_has_corner_entry_semantics(candidate)
-                    || candidate_container_role_is(candidate, "header")
-                    || candidate_in_preferred_entry_region(candidate, step, snapshot)) {
+                    || (candidate_container_role_is(candidate, "header")
+                        && candidate_in_preferred_entry_region(candidate, step, snapshot))) {
                 semantic_entry_candidates.push_back(candidate);
+            }
+        }
+        if (semantic_entry_candidates.size() > 1) {
+            std::vector<ObservationCandidate> profile_entry_candidates;
+            for (const auto& candidate : semantic_entry_candidates) {
+                if (candidate_anchor_type_is(candidate, "profile_entry")) {
+                    profile_entry_candidates.push_back(candidate);
+                }
+            }
+            if (!profile_entry_candidates.empty()
+                    && profile_entry_candidates.size() < semantic_entry_candidates.size()) {
+                semantic_entry_candidates = std::move(profile_entry_candidates);
+            }
+        }
+        if (semantic_entry_candidates.size() > 1) {
+            std::vector<ObservationCandidate> preferred_region_candidates;
+            for (const auto& candidate : semantic_entry_candidates) {
+                if (candidate_in_preferred_entry_region(candidate, step, snapshot)
+                        && candidate_in_tight_corner_entry_region(candidate, snapshot)) {
+                    preferred_region_candidates.push_back(candidate);
+                }
+            }
+            if (!preferred_region_candidates.empty()
+                    && preferred_region_candidates.size() < semantic_entry_candidates.size()) {
+                semantic_entry_candidates = std::move(preferred_region_candidates);
             }
         }
         if (semantic_entry_candidates.size() == 1) {
@@ -2745,6 +3380,70 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
 
     if (matched_candidates.size() > 1) {
         if (step_prefers_corner_entry(step)) {
+            std::vector<ObservationCandidate> tight_corner_candidates;
+            for (const auto& candidate : matched_candidates) {
+                if (candidate_in_tight_corner_entry_region(candidate, snapshot)) {
+                    tight_corner_candidates.push_back(candidate);
+                }
+            }
+            if (!tight_corner_candidates.empty()
+                    && tight_corner_candidates.size() < matched_candidates.size()) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][fast_execute_tight_corner_filtered] target={} original_count={} filtered_count={}",
+                        step.target,
+                        matched_candidates.size(),
+                        tight_corner_candidates.size());
+                matched_candidates = std::move(tight_corner_candidates);
+            }
+        }
+    }
+
+    if (!matched_candidates.empty() && step_prefers_corner_entry(step)) {
+        std::vector<ObservationCandidate> strict_corner_candidates;
+        for (const auto& candidate : matched_candidates) {
+            if (candidate_in_tight_corner_entry_region(candidate, snapshot)) {
+                strict_corner_candidates.push_back(candidate);
+            }
+        }
+        if (strict_corner_candidates.empty()) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_fallback] reason=corner_candidate_out_of_region count={} target={}",
+                    matched_candidates.size(),
+                    step.target);
+            return std::nullopt;
+        }
+        if (strict_corner_candidates.size() < matched_candidates.size()) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_corner_guard_filtered] target={} original_count={} filtered_count={}",
+                    step.target,
+                    matched_candidates.size(),
+                    strict_corner_candidates.size());
+            matched_candidates = std::move(strict_corner_candidates);
+        }
+    }
+
+    if (matched_candidates.size() > 1) {
+        if (step_prefers_corner_entry(step)) {
+            std::vector<ObservationCandidate> profile_entry_candidates;
+            for (const auto& candidate : matched_candidates) {
+                if (candidate_anchor_type_is(candidate, "profile_entry")) {
+                    profile_entry_candidates.push_back(candidate);
+                }
+            }
+            if (!profile_entry_candidates.empty()
+                    && profile_entry_candidates.size() < matched_candidates.size()) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][fast_execute_profile_entry_filtered] target={} original_count={} filtered_count={}",
+                        step.target,
+                        matched_candidates.size(),
+                        profile_entry_candidates.size());
+                matched_candidates = std::move(profile_entry_candidates);
+            }
+        }
+    }
+
+    if (matched_candidates.size() > 1) {
+        if (step_prefers_corner_entry(step)) {
             std::vector<ObservationCandidate> preferred_region_candidates;
             for (const auto& candidate : matched_candidates) {
                 if (candidate_in_preferred_entry_region(candidate, step, snapshot)) {
@@ -2772,6 +3471,23 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     }
 
     if (matched_candidates.size() > 1) {
+        std::vector<ObservationCandidate> exact_label_candidates;
+        for (const auto& candidate : matched_candidates) {
+            if (candidate_label_matches_step_target_exactly(candidate, step)) {
+                exact_label_candidates.push_back(candidate);
+            }
+        }
+        if (!step_prefers_corner_entry(step) && exact_label_candidates.size() == 1) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_exact_label_disambiguated] target={} winner={} original_count={}",
+                    step.target,
+                    exact_label_candidates.front().label,
+                    matched_candidates.size());
+            matched_candidates = std::move(exact_label_candidates);
+        }
+    }
+
+    if (matched_candidates.size() > 1) {
         std::sort(matched_candidates.begin(), matched_candidates.end(),
                 [&](const ObservationCandidate& left, const ObservationCandidate& right) {
                     return candidate_disambiguation_score(left, step, snapshot)
@@ -2783,6 +3499,8 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
             const double min_gap = step_prefers_corner_entry(step) ? 8.0 : 16.0;
             const bool overlapping_duplicates = candidates_look_like_overlapping_duplicates(
                     matched_candidates[0], matched_candidates[1]);
+            const bool same_target_label_duplicates = candidates_are_overlapping_same_target_label(
+                    matched_candidates[0], matched_candidates[1], step);
             const bool top_more_actionable = candidate_actionability_rank(matched_candidates[0])
                     > candidate_actionability_rank(matched_candidates[1]);
             const bool top_has_stronger_entry_semantics =
@@ -2797,6 +3515,17 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                         top_score,
                         matched_candidates[1].label,
                         second_score);
+                matched_candidates.resize(1);
+            } else if (same_target_label_duplicates) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][fast_execute_same_label_duplicate_disambiguated] target={} winner={} winner_score={} runner_up={} runner_up_score={} top_rank={} runner_up_rank={}",
+                        step.target,
+                        matched_candidates[0].label,
+                        top_score,
+                        matched_candidates[1].label,
+                        second_score,
+                        candidate_actionability_rank(matched_candidates[0]),
+                        candidate_actionability_rank(matched_candidates[1]));
                 matched_candidates.resize(1);
             } else if (overlapping_duplicates
                     && (top_more_actionable
@@ -2817,6 +3546,12 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     }
 
     if (matched_candidates.size() != 1) {
+        if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
+            auto recovery_call = build_corner_region_recovery_tool_call(step, snapshot);
+            if (recovery_call.has_value()) {
+                return recovery_call;
+            }
+        }
         ICRAW_LOG_INFO("[AgentLoop][fast_execute_fallback] reason=ambiguous_candidate count={} target={} aliases={}",
                 matched_candidates.size(),
                 step.target,
@@ -2929,7 +3664,7 @@ void rebuild_tools_for_phase(const std::vector<ToolSchema>& tool_schemas,
         const bool is_gesture = schema.name == "android_gesture_tool";
         const bool is_route_phase = state.phase == "discovery" && state.route_ready && !state.goal_reached;
         const bool is_readout_phase = state.phase == "readout" || state.goal_reached;
-        if (is_readout_phase && is_gesture) {
+        if (is_readout_phase) {
             continue;
         }
         if (is_route_phase && is_gesture) {
@@ -2944,6 +3679,262 @@ void rebuild_tools_for_phase(const std::vector<ToolSchema>& tool_schemas,
     }
 }
 
+std::string first_system_text(const ChatCompletionRequest& request) {
+    for (const auto& message : request.messages) {
+        if (message.role == "system") {
+            return message.text();
+        }
+    }
+    return "";
+}
+
+std::string build_navigation_escalation_payload(const NavigationEscalationRequest& escalation_request) {
+    std::ostringstream body;
+    body << "objective: " << truncate_runtime_text(escalation_request.objective, 180) << "\n";
+    body << "reason: " << escalation_request.escalation.reason << "\n";
+    if (!escalation_request.escalation.detail.empty()) {
+        body << "reason_detail: " << truncate_runtime_text(escalation_request.escalation.detail, 160) << "\n";
+    }
+    body << "route.task_type: " << escalation_request.intent_route.task_type << "\n";
+    body << "route.navigation_goal: " << truncate_runtime_text(escalation_request.intent_route.navigation_goal, 120) << "\n";
+    body << "route.readout_goal: " << truncate_runtime_text(escalation_request.intent_route.readout_goal, 120) << "\n";
+    body << "checkpoint.step_index: " << escalation_request.checkpoint.current_step_index << "\n";
+    body << "checkpoint.stagnant_rounds: " << escalation_request.checkpoint.stagnant_rounds << "\n";
+    body << "checkpoint.last_activity: " << truncate_runtime_text(escalation_request.checkpoint.last_activity, 100) << "\n";
+    body << "checkpoint.last_fingerprint: " << truncate_runtime_text(escalation_request.checkpoint.last_fingerprint, 160) << "\n";
+    if (!escalation_request.pending_step_summary.empty()) {
+        body << "pending_step: " << escalation_request.pending_step_summary << "\n";
+    }
+    if (!escalation_request.observation_summary.empty()) {
+        body << "latest_observation: " << truncate_runtime_text(escalation_request.observation_summary, 180) << "\n";
+    }
+    if (!escalation_request.latest_action_result.empty()) {
+        body << "latest_action_result: " << truncate_runtime_text(escalation_request.latest_action_result, 160) << "\n";
+    }
+    if (!escalation_request.trace_summary.empty()) {
+        body << "navigation_trace: " << truncate_runtime_text(escalation_request.trace_summary, 320) << "\n";
+    }
+    body << "\nPolicy:\n";
+    body << "- This is a local navigation escalation, not a full replan.\n";
+    body << "- If a concrete UI action is safe, call the tool directly. Do not emit explanatory text before the tool call.\n";
+    body << "- If the current page must be verified first, call android_view_context_tool only.\n";
+    body << "- Continue from the pending step; do not restart from the app home page unless the observation is clearly off-route.\n";
+    return body.str();
+}
+
+NavigationEscalationRequest build_navigation_escalation_request_context(
+        const std::string& objective,
+        const ExecutionState& state) {
+    NavigationEscalationRequest context;
+    context.objective = objective;
+    context.intent_route = state.intent_route;
+    context.checkpoint = state.navigation_checkpoint;
+    context.escalation = state.latest_escalation;
+    context.pending_step_summary = summarize_pending_step_json(state.pending_step);
+    context.observation_summary = state.latest_observation_summary;
+    context.latest_action_result = state.latest_action_result;
+    context.trace_summary = build_navigation_trace_summary_text(state);
+    return context;
+}
+
+bool navigation_escalation_allows_tool(const ToolSchema& schema, const ExecutionState& state) {
+    if (state.goal_reached || state.phase == "readout") {
+        return false;
+    }
+    const bool is_view_context = schema.name == "android_view_context_tool";
+    const bool is_gesture = schema.name == "android_gesture_tool";
+    if (!is_view_context && !is_gesture) {
+        return false;
+    }
+    if (state.awaiting_step_confirmation_index >= 0 || state.latest_observation_summary.empty()) {
+        return is_view_context;
+    }
+    return is_view_context || is_gesture;
+}
+
+void append_navigation_escalation_tools(ChatCompletionRequest& request,
+                                        const std::vector<ToolSchema>& tool_schemas,
+                                        const ExecutionState& state) {
+    for (const auto& schema : tool_schemas) {
+        if (!navigation_escalation_allows_tool(schema, state)) {
+            continue;
+        }
+        nlohmann::json tool;
+        tool["type"] = "function";
+        tool["function"]["name"] = schema.name;
+        tool["function"]["description"] = truncate_runtime_text(schema.description, 260);
+        tool["function"]["parameters"] = schema.parameters;
+        request.tools.push_back(std::move(tool));
+    }
+}
+
+ChatCompletionRequest build_compact_navigation_escalation_chat_request(
+        const ChatCompletionRequest& base_request,
+        const std::string& objective,
+        const std::vector<ToolSchema>& tool_schemas,
+        const ExecutionState& state) {
+    ChatCompletionRequest request;
+    request.model = base_request.model;
+    request.temperature = base_request.temperature;
+    request.max_tokens = base_request.max_tokens;
+    request.enable_thinking = base_request.enable_thinking;
+    request.stream = base_request.stream;
+    request.request_profile = "navigation_escalation";
+    request.payload_log_mode = base_request.payload_log_mode;
+
+    const std::string reduced_system = build_readout_system_prompt(first_system_text(base_request));
+    std::ostringstream system;
+    if (!reduced_system.empty()) {
+        system << reduced_system << "\n\n";
+    }
+    system << "[Navigation Escalation]\n";
+    system << "Make one short UI navigation decision. Prefer a tool call over visible text.\n";
+    system << "When using a tool, output the tool call immediately with no preamble.\n";
+    request.messages.emplace_back("system", system.str());
+
+    const auto escalation_context = build_navigation_escalation_request_context(objective, state);
+    request.messages.emplace_back("user", build_navigation_escalation_payload(escalation_context));
+
+    append_navigation_escalation_tools(request, tool_schemas, state);
+    request.tool_choice_auto = request.tools.empty();
+    ICRAW_LOG_INFO(
+            "[AgentLoop][navigation_escalation_request_compacted] message_count={} tool_count={} payload_chars={} trace_chars={}",
+            request.messages.size(),
+            request.tools.size(),
+            total_payload_length(request.messages),
+            escalation_context.trace_summary.size());
+    return request;
+}
+
+std::string build_route_skill_catalog(const std::vector<SkillMetadata>& selected_skills) {
+    if (selected_skills.empty()) {
+        return "(none)";
+    }
+    std::ostringstream catalog;
+    size_t count = 0;
+    for (const auto& skill : selected_skills) {
+        if (count >= SKILL_PRELOAD_MAX_COUNT) {
+            break;
+        }
+        catalog << build_skill_summary_prompt(skill) << "\n";
+        count++;
+    }
+    return catalog.str();
+}
+
+ChatCompletionRequest build_compact_route_chat_request(const AgentConfig& config,
+                                                       const std::string& objective,
+                                                       const std::vector<SkillMetadata>& selected_skills) {
+    ChatCompletionRequest request;
+    request.model = config.model;
+    request.temperature = config.temperature;
+    request.max_tokens = config.max_tokens;
+    request.enable_thinking = config.enable_thinking;
+    request.stream = false;
+    request.request_profile = "route";
+    request.tool_choice_auto = true;
+    request.messages.emplace_back("system",
+            "You are the lightweight route stage for an Android UI agent. Return only a compact JSON object. "
+            "Do not call tools. Do not include markdown. Required keys: task_type, selected_skill, navigation_goal, readout_goal, escalation_policy, stop_condition. "
+            "stop_condition must contain page_predicates, content_predicates, success_signals, failure_signals, requires_readout.");
+    std::ostringstream user;
+    user << "User objective:\n" << objective << "\n\n";
+    user << "Matched skill summaries:\n" << build_route_skill_catalog(selected_skills) << "\n";
+    user << "Return route JSON now.";
+    request.messages.emplace_back("user", user.str());
+    return request;
+}
+
+std::vector<std::string> json_string_array_or_empty(const nlohmann::json& object,
+                                                    const std::string& key) {
+    std::vector<std::string> values;
+    if (!object.is_object() || !object.contains(key) || !object[key].is_array()) {
+        return values;
+    }
+    for (const auto& item : object[key]) {
+        if (item.is_string()) {
+            const std::string value = trim_whitespace(item.get<std::string>());
+            if (!value.empty()) {
+                values.push_back(value);
+            }
+        }
+    }
+    return values;
+}
+
+bool apply_route_json_to_execution_state(ExecutionState& state,
+                                         const std::string& objective,
+                                         const std::string& content) {
+    try {
+        const auto json = nlohmann::json::parse(content);
+        if (!json.is_object()) {
+            return false;
+        }
+        state.intent_route.task_type = first_string_value(json, {"task_type", "taskType"});
+        state.intent_route.selected_skill = first_string_value(json, {"selected_skill", "selectedSkill"});
+        state.intent_route.navigation_goal = first_string_value(json, {"navigation_goal", "navigationGoal"});
+        state.intent_route.readout_goal = first_string_value(json, {"readout_goal", "readoutGoal"});
+        state.intent_route.escalation_policy = first_string_value(json, {"escalation_policy", "escalationPolicy"});
+        if (state.intent_route.task_type.empty()) {
+            state.intent_route.task_type = state.intent_route.stop_condition.requires_readout ? "navigate_and_read" : "navigate_and_trigger";
+        }
+        if (state.intent_route.readout_goal.empty()) {
+            state.intent_route.readout_goal = truncate_runtime_text(objective, 160);
+        }
+        if (state.intent_route.navigation_goal.empty()) {
+            state.intent_route.navigation_goal = truncate_runtime_text(objective, 120);
+        }
+        if (json.contains("stop_condition") && json["stop_condition"].is_object()) {
+            const auto& stop = json["stop_condition"];
+            StopConditionSpec spec;
+            spec.page_predicates = json_string_array_or_empty(stop, "page_predicates");
+            spec.content_predicates = json_string_array_or_empty(stop, "content_predicates");
+            spec.success_signals = json_string_array_or_empty(stop, "success_signals");
+            spec.failure_signals = json_string_array_or_empty(stop, "failure_signals");
+            spec.requires_readout = stop.value("requires_readout", state.intent_route.stop_condition.requires_readout);
+            if (!spec.page_predicates.empty() || !spec.content_predicates.empty() || !spec.success_signals.empty()) {
+                if (spec.failure_signals.empty()) {
+                    spec.failure_signals = state.intent_route.stop_condition.failure_signals;
+                }
+                state.intent_route.stop_condition = std::move(spec);
+            }
+        }
+        state.route_ready = true;
+        state.route_resolved_by_llm = true;
+        state.readout_context.readout_goal = state.intent_route.readout_goal;
+        state.readout_context.selected_skill = state.intent_route.selected_skill;
+        ICRAW_LOG_INFO("[AgentLoop][route_request_applied] task_type={} selected_skill={} navigation_goal={} requires_readout={}",
+                state.intent_route.task_type,
+                state.intent_route.selected_skill,
+                state.intent_route.navigation_goal,
+                state.intent_route.stop_condition.requires_readout);
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void maybe_resolve_route_with_llm(ExecutionState& state,
+                                  const AgentConfig& config,
+                                  LLMProvider* llm_provider,
+                                  const std::string& objective,
+                                  const std::vector<SkillMetadata>& selected_skills) {
+    if (llm_provider == nullptr || state.active_hints || state.route_resolved_by_llm) {
+        return;
+    }
+    ChatCompletionRequest route_request = build_compact_route_chat_request(config, objective, selected_skills);
+    const auto route_profile = resolve_llm_request_profile(config, state, route_request);
+    apply_llm_request_profile(route_request, route_profile);
+    ICRAW_LOG_INFO("[AgentLoop][route_request_start] profile={} skill_count={} payload_chars={}",
+            route_request.request_profile, selected_skills.size(), total_payload_length(route_request.messages));
+    const auto start = std::chrono::steady_clock::now();
+    const auto response = llm_provider->chat_completion(route_request);
+    const auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start).count();
+    const bool applied = apply_route_json_to_execution_state(state, objective, response.content);
+    ICRAW_LOG_INFO("[AgentLoop][route_request_complete] applied={} duration_ms={} content_chars={}",
+            applied, duration_ms, response.content.size());
+}
 std::string extract_tool_result_content(const Message& message) {
     for (const auto& block : message.content) {
         if (block.type == "tool_result") {
@@ -2987,6 +3978,32 @@ ToolCall build_navigation_observation_call(const ExecutionState& state) {
         tool_call.arguments["targetHint"] = target_hint;
     }
     return tool_call;
+}
+
+void normalize_tool_call_arguments(ToolCall& tool_call) {
+    if (!tool_call.arguments.is_object()) {
+        return;
+    }
+    if (tool_call.name != "android_gesture_tool") {
+        return;
+    }
+    if (!tool_call.arguments.contains("observation")
+            || !tool_call.arguments["observation"].is_string()) {
+        return;
+    }
+    try {
+        const auto parsed = nlohmann::json::parse(
+                tool_call.arguments["observation"].get<std::string>());
+        if (parsed.is_object()) {
+            tool_call.arguments["observation"] = parsed;
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][gesture_observation_normalized] tool_id={} action={}",
+                    tool_call.id,
+                    first_string_value(tool_call.arguments, {"action"}));
+        }
+    } catch (...) {
+        // Keep the original payload and let downstream validation reject it if needed.
+    }
 }
 
 Message build_assistant_tool_call_message(const ToolCall& tool_call) {
@@ -3044,6 +4061,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
 
     auto tool_schemas = tool_registry_->get_tool_schemas();
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
+    maybe_resolve_route_with_llm(execution_state, agent_config_, llm_provider_.get(), message, selected_skills);
     rebuild_tools_for_phase(tool_schemas, execution_state, request);
     if (execution_state.route_ready) {
         ICRAW_LOG_INFO(
@@ -3070,9 +4088,15 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                     request.messages, tool_name_by_id, "android_view_context_tool");
             const int latest_gesture_index = find_latest_tool_message_index(
                     request.messages, tool_name_by_id, "android_gesture_tool");
+            const bool latest_observation_after_latest_gesture =
+                    latest_observation_index >= 0 && latest_observation_index > latest_gesture_index;
+            const bool stale_pending_step_observation =
+                    latest_observation_needs_pending_target_refresh(
+                            execution_state, latest_observation_after_latest_gesture);
             const bool need_observation = latest_observation_index < 0
                     || latest_gesture_index > latest_observation_index
-                    || execution_state.awaiting_step_confirmation_index >= 0;
+                    || execution_state.awaiting_step_confirmation_index >= 0
+                    || stale_pending_step_observation;
 
             if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
                 execution_state.latest_escalation.reason = "no_progress";
@@ -3083,6 +4107,13 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                         execution_state.latest_escalation.reason,
                         execution_state.latest_escalation.detail);
             } else if (need_observation) {
+                if (stale_pending_step_observation) {
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][navigation_observe_refresh] mode=non_stream reason=pending_target_changed last_hint={} pending_step={}",
+                            truncate_runtime_text(execution_state.last_observation_target_hint, 100),
+                            summarize_pending_step_json(execution_state.pending_step));
+                }
+                maybe_wait_before_confirmation_retry(execution_state);
                 ToolCall observation_call = build_navigation_observation_call(execution_state);
                 Message observation_assistant = build_assistant_tool_call_message(observation_call);
                 new_messages.push_back(observation_assistant);
@@ -3179,17 +4210,33 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
 
         prune_context_messages_for_state(request.messages, execution_state);
 
-        ChatCompletionRequest effective_request = request;
-        rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
-        inject_selected_skills_into_request(effective_request, selected_skills, iteration);
-        const std::string execution_state_prompt =
-                build_execution_state_prompt_v2(execution_state, iteration);
-        if (!execution_state_prompt.empty()) {
-            inject_execution_state_into_request(effective_request, execution_state_prompt);
-            ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=non_stream iteration={} prompt_length={}",
-                    iteration, execution_state_prompt.size());
+        const bool has_navigation_escalation = !execution_state.latest_escalation.reason.empty();
+        const bool use_compact_navigation_escalation_request =
+                COMPACT_NAVIGATION_ESCALATION_ENABLED && has_navigation_escalation;
+        if (has_navigation_escalation && !use_compact_navigation_escalation_request) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][navigation_escalation_compact_disabled] mode=non_stream iteration={} reason={}",
+                    iteration,
+                    execution_state.latest_escalation.reason);
         }
-        inject_navigation_escalation_into_request(effective_request, execution_state);
+        ChatCompletionRequest effective_request = use_compact_navigation_escalation_request
+                ? build_compact_navigation_escalation_chat_request(
+                        request, message, tool_schemas, execution_state)
+                : request;
+        if (!use_compact_navigation_escalation_request) {
+            rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
+            inject_selected_skills_into_request(effective_request, selected_skills, iteration);
+            const std::string execution_state_prompt =
+                    build_execution_state_prompt_v2(execution_state, iteration);
+            if (!execution_state_prompt.empty()) {
+                inject_execution_state_into_request(effective_request, execution_state_prompt);
+                ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=non_stream iteration={} prompt_length={}",
+                        iteration, execution_state_prompt.size());
+            }
+        } else {
+            ICRAW_LOG_INFO("[AgentLoop][navigation_escalation_request_selected] mode=non_stream iteration={} reason={}",
+                    iteration, execution_state.latest_escalation.reason);
+        }
         ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
                 execution_state.mode, execution_state.phase, iteration);
 
@@ -3357,6 +4404,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
     auto tool_schemas = tool_registry_->get_tool_schemas();
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
+    maybe_resolve_route_with_llm(execution_state, agent_config_, llm_provider_.get(), message, selected_skills);
     rebuild_tools_for_phase(tool_schemas, execution_state, request);
     if (execution_state.route_ready) {
         ICRAW_LOG_INFO(
@@ -3383,9 +4431,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     request.messages, tool_name_by_id, "android_view_context_tool");
             const int latest_gesture_index = find_latest_tool_message_index(
                     request.messages, tool_name_by_id, "android_gesture_tool");
+            const bool latest_observation_after_latest_gesture =
+                    latest_observation_index >= 0 && latest_observation_index > latest_gesture_index;
+            const bool stale_pending_step_observation =
+                    latest_observation_needs_pending_target_refresh(
+                            execution_state, latest_observation_after_latest_gesture);
             const bool need_observation = latest_observation_index < 0
                     || latest_gesture_index > latest_observation_index
-                    || execution_state.awaiting_step_confirmation_index >= 0;
+                    || execution_state.awaiting_step_confirmation_index >= 0
+                    || stale_pending_step_observation;
 
             if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
                 execution_state.latest_escalation.reason = "no_progress";
@@ -3396,6 +4450,13 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                         execution_state.latest_escalation.reason,
                         execution_state.latest_escalation.detail);
             } else if (need_observation) {
+                if (stale_pending_step_observation) {
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][navigation_observe_refresh] mode=stream reason=pending_target_changed last_hint={} pending_step={}",
+                            truncate_runtime_text(execution_state.last_observation_target_hint, 100),
+                            summarize_pending_step_json(execution_state.pending_step));
+                }
+                maybe_wait_before_confirmation_retry(execution_state);
                 ToolCall observation_call = build_navigation_observation_call(execution_state);
                 Message observation_assistant = build_assistant_tool_call_message(observation_call);
                 new_messages.push_back(observation_assistant);
@@ -3517,17 +4578,33 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         prune_context_messages_for_state(request.messages, execution_state);
 
-        ChatCompletionRequest effective_request = request;
-        rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
-        inject_selected_skills_into_request(effective_request, selected_skills, iteration);
-        const std::string execution_state_prompt =
-                build_execution_state_prompt_v2(execution_state, iteration);
-        if (!execution_state_prompt.empty()) {
-            inject_execution_state_into_request(effective_request, execution_state_prompt);
-            ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=stream iteration={} prompt_length={}",
-                    iteration, execution_state_prompt.size());
+        const bool has_navigation_escalation = !execution_state.latest_escalation.reason.empty();
+        const bool use_compact_navigation_escalation_request =
+                COMPACT_NAVIGATION_ESCALATION_ENABLED && has_navigation_escalation;
+        if (has_navigation_escalation && !use_compact_navigation_escalation_request) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][navigation_escalation_compact_disabled] mode=stream iteration={} reason={}",
+                    iteration,
+                    execution_state.latest_escalation.reason);
         }
-        inject_navigation_escalation_into_request(effective_request, execution_state);
+        ChatCompletionRequest effective_request = use_compact_navigation_escalation_request
+                ? build_compact_navigation_escalation_chat_request(
+                        request, message, tool_schemas, execution_state)
+                : request;
+        if (!use_compact_navigation_escalation_request) {
+            rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
+            inject_selected_skills_into_request(effective_request, selected_skills, iteration);
+            const std::string execution_state_prompt =
+                    build_execution_state_prompt_v2(execution_state, iteration);
+            if (!execution_state_prompt.empty()) {
+                inject_execution_state_into_request(effective_request, execution_state_prompt);
+                ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=stream iteration={} prompt_length={}",
+                        iteration, execution_state_prompt.size());
+            }
+        } else {
+            ICRAW_LOG_INFO("[AgentLoop][navigation_escalation_request_selected] mode=stream iteration={} reason={}",
+                    iteration, execution_state.latest_escalation.reason);
+        }
         ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
                 execution_state.mode, execution_state.phase, iteration);
 

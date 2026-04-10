@@ -1,0 +1,23 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'com.example.w3mobile'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    compileOnly(name: 'agent-core-debug', ext: 'aar')
+    compileOnly(name: 'agent-android-debug', ext: 'aar')
+    compileOnly(name: 'agent-screen-vision-debug', ext: 'aar')
+}
