@@ -1,5 +1,6 @@
 #include "icraw/core/openai_compatible_provider_base.hpp"
 
+#include "icraw/core/token_utils.hpp"
 #include "icraw/log/logger.hpp"
 #include "icraw/log/log_utils.hpp"
 #include <chrono>
@@ -20,6 +21,37 @@ const char* describe_thinking_type_from_body(const ChatCompletionRequest& reques
         return *request.enable_thinking ? "enabled_not_emitted" : "disabled_not_emitted";
     }
     return "absent";
+}
+
+int estimate_request_tokens_for_log(const ChatCompletionRequest& request) {
+    int estimated_tokens = estimate_messages_tokens(request.messages);
+    if (!request.tools.empty()) {
+        estimated_tokens += estimate_tokens(nlohmann::json(request.tools).dump());
+    }
+    return estimated_tokens;
+}
+
+int estimate_response_tokens_for_log(const std::string& content,
+                                     const std::string& reasoning_content,
+                                     const std::vector<ToolCall>& tool_calls) {
+    Message assistant_message;
+    assistant_message.role = "assistant";
+
+    if (!reasoning_content.empty()) {
+        assistant_message.content.push_back(ContentBlock::make_think(reasoning_content));
+    }
+    if (!content.empty()) {
+        assistant_message.content.push_back(ContentBlock::make_text(content));
+    }
+    for (const auto& tool_call : tool_calls) {
+        ToolCallForMessage tc;
+        tc.id = tool_call.id;
+        tc.function_name = tool_call.name;
+        tc.function_arguments = tool_call.arguments.dump();
+        assistant_message.tool_calls.push_back(std::move(tc));
+    }
+
+    return estimate_message_tokens(assistant_message);
 }
 
 } // namespace
@@ -108,6 +140,7 @@ ChatCompletionResponse OpenAICompatibleProviderBase::chat_completion(const ChatC
     apply_request_quirks(request, body);
 
     std::string request_body_str = body.dump();
+    const int estimated_input_tokens = estimate_request_tokens_for_log(request);
 
     ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=non_stream message_count={} tool_count={}",
             request.messages.size(), request.tools.size());
@@ -115,6 +148,8 @@ ChatCompletionResponse OpenAICompatibleProviderBase::chat_completion(const ChatC
             provider_name_,
             describe_thinking_type_from_body(request, body),
             body.value("reasoning_split", false));
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_local_tokens] mode=non_stream estimated_input_tokens={}",
+            estimated_input_tokens);
     ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream url={}/chat/completions body={}",
             base_url_, log_utils::truncate_for_debug(request_body_str));
 
@@ -182,12 +217,20 @@ ChatCompletionResponse OpenAICompatibleProviderBase::chat_completion(const ChatC
 
         auto end_time = std::chrono::steady_clock::now();
         auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        ChatCompletionResponse parsed_response = parse_response(response_json);
+        const int estimated_output_tokens = estimate_response_tokens_for_log(
+                parsed_response.content,
+                parsed_response.reasoning_content,
+                parsed_response.tool_calls);
         ICRAW_LOG_INFO("[LlmProvider][chat_request_complete] mode=non_stream duration_ms={} response_length={}",
                 duration_ms, response_body.size());
+        ICRAW_LOG_INFO("[LlmProvider][chat_request_local_tokens] mode=non_stream estimated_output_tokens={} estimated_total_tokens={}",
+                estimated_output_tokens,
+                estimated_input_tokens + estimated_output_tokens);
         ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=non_stream response_body={}",
                 log_utils::truncate_for_debug(response_body));
 
-        return parse_response(response_json);
+        return parsed_response;
     } catch (const nlohmann::json::parse_error& e) {
         ChatCompletionResponse response;
         response.finish_reason = "parse_error";
@@ -238,6 +281,7 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
     apply_request_quirks(request, body);
 
     std::string request_body_str = body.dump();
+    const int estimated_input_tokens = estimate_request_tokens_for_log(request);
 
     ICRAW_LOG_INFO("[LlmProvider][parser_selected] parser={}", stream_parser_->get_parser_name());
     ICRAW_LOG_INFO("[LlmProvider][chat_request_start] mode=stream message_count={} tool_count={}",
@@ -246,6 +290,8 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
             provider_name_,
             describe_thinking_type_from_body(request, body),
             body.value("reasoning_split", false));
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_local_tokens] mode=stream estimated_input_tokens={}",
+            estimated_input_tokens);
     ICRAW_LOG_DEBUG("[LlmProvider][chat_request_debug] mode=stream url={}/chat/completions body={}",
             base_url_, log_utils::truncate_for_debug(request_body_str));
 
@@ -255,6 +301,12 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
     if (!api_key_.empty()) {
         headers["Authorization"] = "Bearer " + api_key_;
     }
+
+    std::string final_finish_reason;
+    int estimated_output_tokens = 0;
+    std::string accumulated_content_for_log;
+    std::string accumulated_reasoning_for_log;
+    std::vector<ToolCall> final_tool_calls_for_log;
 
     auto sse_callback = [&](const std::string& sse_event) -> bool {
         if (cancel_requested_.load()) {
@@ -268,7 +320,20 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
         ChatCompletionResponse response;
 
         if (stream_parser_->parse_chunk(sse_event, response)) {
+            if (!response.content.empty()) {
+                accumulated_content_for_log += response.content;
+            }
+            if (!response.reasoning_content.empty()) {
+                accumulated_reasoning_for_log += response.reasoning_content;
+            }
             if (response.is_stream_end) {
+                final_finish_reason = response.finish_reason;
+                final_tool_calls_for_log = response.tool_calls;
+                // 流式 chunk 的 content/reasoning 是增量，这里按完整累积内容估算。
+                estimated_output_tokens = estimate_response_tokens_for_log(
+                        accumulated_content_for_log,
+                        accumulated_reasoning_for_log,
+                        final_tool_calls_for_log);
                 ICRAW_LOG_DEBUG("[LlmProvider][chat_stream_debug] finish_reason={} tool_call_count={}",
                         response.finish_reason, response.tool_calls.size());
             }
@@ -300,6 +365,10 @@ void OpenAICompatibleProviderBase::chat_completion_stream(
 
     auto end_time = std::chrono::steady_clock::now();
     auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-    ICRAW_LOG_INFO("[LlmProvider][chat_stream_complete] duration_ms={}", duration_ms);
+    ICRAW_LOG_INFO("[LlmProvider][chat_stream_complete] duration_ms={} finish_reason={}",
+            duration_ms, final_finish_reason);
+    ICRAW_LOG_INFO("[LlmProvider][chat_request_local_tokens] mode=stream estimated_output_tokens={} estimated_total_tokens={}",
+            estimated_output_tokens,
+            estimated_input_tokens + estimated_output_tokens);
 }
 } // namespace icraw
