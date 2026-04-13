@@ -8,6 +8,9 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Display;
 import android.view.RoundedCorner;
+import android.animation.ValueAnimator;
+import android.graphics.Path;
+import android.view.animation.PathInterpolator;
 
 /**
  * 全屏透明 GLSurfaceView，渲染边缘光晕效果。
@@ -16,7 +19,11 @@ public class EdgeGlowView extends GLSurfaceView {
 
     private static final String TAG = "EdgeGlowView";
 
+    private static final long ANIM_DURATION_MS = 600L;
+
     private EdgeGlowRenderer renderer;
+    private ValueAnimator currentAnimator;
+    private boolean active;
 
     public EdgeGlowView(Context context) {
         super(context);
@@ -114,5 +121,70 @@ public class EdgeGlowView extends GLSurfaceView {
 
     public void setContinuousRender(boolean continuous) {
         setRenderMode(continuous ? RENDERMODE_CONTINUOUSLY : RENDERMODE_WHEN_DIRTY);
+    }
+
+    /**
+     * Activate or deactivate the edge glow.
+     * true  → appear animation (alpha 0→1, 600ms ease-out)
+     * false → disappear animation (alpha 1→0, 600ms ease-in-out)
+     */
+    public void setActive(boolean active) {
+        if (this.active == active) return;
+        this.active = active;
+
+        // Cancel any in-progress animation
+        if (currentAnimator != null) {
+            currentAnimator.cancel();
+        }
+
+        float startAlpha = active ? 0f : 1f;
+        float endAlpha = active ? 1f : 0f;
+
+        // Use current renderer alpha as start if mid-transition
+        if (renderer != null) {
+            startAlpha = renderer.getAlpha();
+            if (startAlpha <= 0f && !active) {
+                // Already invisible, nothing to do
+                return;
+            }
+            if (startAlpha >= 1f && active) {
+                // Already fully visible, nothing to do
+                return;
+            }
+            endAlpha = active ? 1f : 0f;
+        }
+
+        // Switch to continuous render while animating and while active
+        setRenderMode(RENDERMODE_CONTINUOUSLY);
+
+        ValueAnimator animator = ValueAnimator.ofFloat(startAlpha, endAlpha);
+        animator.setDuration(ANIM_DURATION_MS);
+        if (active) {
+            animator.setInterpolator(new PathInterpolator(0.25f, 0.1f, 0.25f, 1.0f));
+        } else {
+            animator.setInterpolator(new PathInterpolator(0.25f, 0.04f, 0.25f, 1.0f));
+        }
+        animator.addUpdateListener(anim -> {
+            float value = (float) anim.getAnimatedValue();
+            if (renderer != null) {
+                renderer.setAlpha(value);
+            }
+        });
+        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (!active) {
+                    // Stop continuous rendering when disappear completes
+                    setRenderMode(RENDERMODE_WHEN_DIRTY);
+                }
+            }
+        });
+
+        currentAnimator = animator;
+        animator.start();
+    }
+
+    public boolean isActive() {
+        return active;
     }
 }

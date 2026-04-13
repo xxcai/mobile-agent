@@ -49,6 +49,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private int uCornerRadiusLocation;
     private int uBlurRadiusLocation;
     private int uPaddingLocation;
+    private int uAlphaLocation;
 
     private long startTime;
     private long pausedTime;
@@ -62,6 +63,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private float cornerRadius = DEFAULT_CORNER_RADIUS;
     private float blurRadius = DEFAULT_BLUR_RADIUS;
     private float padding = DEFAULT_PADDING;
+    private volatile float alpha = 0f;
 
     EdgeGlowRenderer(Context context) {
         this.context = context;
@@ -99,6 +101,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         uCornerRadiusLocation = GLES30.glGetUniformLocation(program, "uCornerRadius");
         uBlurRadiusLocation = GLES30.glGetUniformLocation(program, "uBlurRadius");
         uPaddingLocation = GLES30.glGetUniformLocation(program, "uPadding");
+        uAlphaLocation = GLES30.glGetUniformLocation(program, "uAlpha");
 
         startTime = System.currentTimeMillis();
         pausedTime = 0;
@@ -135,6 +138,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform1f(uCornerRadiusLocation, cornerRadius);
         GLES30.glUniform1f(uBlurRadiusLocation, blurRadius);
         GLES30.glUniform1f(uPaddingLocation, padding);
+        GLES30.glUniform1f(uAlphaLocation, alpha);
 
         GLES30.glEnableVertexAttribArray(aPositionLocation);
         GLES30.glVertexAttribPointer(aPositionLocation, 2, GLES30.GL_FLOAT, false, STRIDE, vertexBuffer);
@@ -152,6 +156,14 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
     void setPadding(float padding) {
         this.padding = padding;
+    }
+
+    void setAlpha(float alpha) {
+        this.alpha = alpha;
+    }
+
+    float getAlpha() {
+        return alpha;
     }
 
     void onPause() {

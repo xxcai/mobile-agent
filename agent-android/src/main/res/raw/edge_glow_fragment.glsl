@@ -6,6 +6,7 @@ uniform vec2 uResolution;
 uniform float uCornerRadius;
 uniform float uBlurRadius;
 uniform float uPadding;
+uniform float uAlpha;
 
 in vec2 vTexCoord;
 out vec4 fragColor;
@@ -111,21 +112,25 @@ void main() {
     // SDF boundary at screen edge (no inset)
     vec2 halfSize = uResolution * 0.5 - uPadding;
 
+    // Breathing wave: modulate blurRadius with 3-cycle sine along edge
+    // angle relative to screen center, aspect-corrected
+    vec2 ac = (uv - 0.5) * vec2(1.0, uResolution.y / uResolution.x);
+    float angle = atan(ac.y, ac.x);
+    float wave = sin(angle * 3.0 + uTime * 0.001 * 0.5 * 3.14159265) * 0.3 + 0.7;
+    float dynamicBlur = uBlurRadius * wave;
+
     // Sigmoid of SDF: gives smooth transition at the edge
-    //   ~0 deep inside, 0.5 at boundary, ~1 outside
     float d = sdRoundRect(p, halfSize, uCornerRadius);
-    float s = 1.0 / (1.0 + exp(-d / uBlurRadius));
+    float s = 1.0 / (1.0 + exp(-d / dynamicBlur));
 
     // Edge color with HDR
     vec3 color = computeEdgeColor(uv);
 
     // Glow: bright line at boundary + soft outer falloff
-    //   4*s*(1-s) = bell curve, peaks at s=0.5 (the SDF boundary)
     float brightLine = 4.0 * s * (1.0 - s);
-    //   s*(1-s)^0.3 = wider soft glow, peaks around s≈0.77
     float outerGlow = s * pow(1.0 - s, 0.3) * 0.5;
 
     float intensity = clamp(brightLine + outerGlow, 0.0, 1.0);
 
-    fragColor = vec4(color * intensity * 0.85, intensity * 0.85);
+    fragColor = vec4(color * intensity * uAlpha * 0.85, intensity * uAlpha * 0.85);
 }

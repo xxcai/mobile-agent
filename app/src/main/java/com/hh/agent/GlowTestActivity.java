@@ -5,6 +5,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 
 import com.hh.agent.android.glow.EdgeGlowView;
 
@@ -36,7 +37,12 @@ public class GlowTestActivity extends Activity {
 
         setContentView(R.layout.activity_glow_test);
         edgeGlowView = findViewById(R.id.edgeGlowView);
-        edgeGlowView.setContinuousRender(true);
+
+        Button btnStart = findViewById(R.id.btnStart);
+        Button btnStop = findViewById(R.id.btnStop);
+
+        btnStart.setOnClickListener(v -> edgeGlowView.setActive(true));
+        btnStop.setOnClickListener(v -> edgeGlowView.setActive(false));
     }
 
     @Override
