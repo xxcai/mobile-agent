@@ -9,6 +9,7 @@
 - [当前项目业务流程与方案说明](./architecture/current-agent-business-flow.md)
 - [当前项目业务流程时序图版](./architecture/current-agent-business-flow-sequence.md)
 - [HybridObservation 字段详解](./architecture/hybrid-observation-reference.md)
+- [Me 页面 nativeViewXml / screenVision / hybridObservation 融合示例](./architecture/me-page-hybrid-observation-example.md)
 - [Agent 执行链路优化说明](./architecture/agent-execution-optimizations.md)
 
 ## Guides
@@ -27,5 +28,6 @@
 
 - [agent-android 日志规范](./logging/agent-android-logging.md)
 - [agent-core 日志规范](./logging/agent-core-logging.md)
+
 
 
