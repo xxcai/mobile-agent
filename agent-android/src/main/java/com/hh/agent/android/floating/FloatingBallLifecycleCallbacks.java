@@ -134,6 +134,9 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
                 appInForeground,
                 shouldHideForActivity(currentForegroundActivity)
         );
+
+        // 联动边缘光晕的前后台可见性
+        EdgeGlowManager.getInstance(application).updateVisibility(appInForeground);
     }
 
     private boolean shouldHideForActivity(Activity activity) {
