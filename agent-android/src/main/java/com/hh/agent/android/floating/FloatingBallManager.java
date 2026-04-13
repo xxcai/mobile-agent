@@ -141,6 +141,11 @@ public class FloatingBallManager {
         } else if (!checkOverlayPermission()) {
             AgentLogs.warn(TAG, "overlay_permission_missing", null);
         }
+
+        // 悬浮球显示时，如果 Agent 正在工作，同步激活边缘光晕
+        if (mIsShowing && mIsWorking) {
+            EdgeGlowManager.getInstance(mContext).setActive(true);
+        }
     }
 
     /**
@@ -157,6 +162,9 @@ public class FloatingBallManager {
                 AgentLogs.error(TAG, "hide_failed", "message=" + e.getMessage(), e);
             }
         }
+
+        // 悬浮球隐藏时同步关闭边缘光晕
+        EdgeGlowManager.getInstance(mContext).setActive(false);
     }
 
     /**
@@ -224,6 +232,11 @@ public class FloatingBallManager {
         mIsWorking = isWorking;
         if (mFloatingBallView != null) {
             mFloatingBallView.setWorking(isWorking);
+        }
+
+        // 联动边缘光晕：仅在悬浮球可见时激活
+        if (mIsShowing) {
+            EdgeGlowManager.getInstance(mContext).setActive(isWorking);
         }
     }
 

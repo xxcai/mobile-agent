@@ -29,6 +29,7 @@ public class EdgeGlowView extends GLSurfaceView {
     private EdgeGlowRenderer renderer;
     private ValueAnimator currentAnimator;
     private boolean active;
+    private Runnable onDisappearListener;
 
     public EdgeGlowView(Context context) {
         super(context);
@@ -182,6 +183,10 @@ public class EdgeGlowView extends GLSurfaceView {
                 if (!active) {
                     // 消失完成后切回按需渲染，节省 GPU
                     setRenderMode(RENDERMODE_WHEN_DIRTY);
+                    // 通知外部（EdgeGlowManager）移除悬浮窗
+                    if (onDisappearListener != null) {
+                        onDisappearListener.run();
+                    }
                 }
             }
         });
@@ -192,5 +197,10 @@ public class EdgeGlowView extends GLSurfaceView {
 
     public boolean isActive() {
         return active;
+    }
+
+    /** 设置消失动画完成后的回调（由 EdgeGlowManager 使用） */
+    public void setOnDisappearListener(Runnable listener) {
+        this.onDisappearListener = listener;
     }
 }
