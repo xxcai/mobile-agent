@@ -32,6 +32,13 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private static final int FLOAT_SIZE = 4;
     private static final int STRIDE = 2 * FLOAT_SIZE;
 
+    /** Default corner radius (px) when system value is unavailable. */
+    static final float DEFAULT_CORNER_RADIUS = 80f;
+    /** Default blur radius (px) for edge glow spread. */
+    static final float DEFAULT_BLUR_RADIUS = 25f;
+    /** Default inner padding (px). */
+    static final float DEFAULT_PADDING = 16f * 3f; // ~16dp at 3x density
+
     private final Context context;
     private final FloatBuffer vertexBuffer;
 
@@ -39,6 +46,9 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private int aPositionLocation;
     private int uTimeLocation;
     private int uResolutionLocation;
+    private int uCornerRadiusLocation;
+    private int uBlurRadiusLocation;
+    private int uPaddingLocation;
 
     private long startTime;
     private long pausedTime;
@@ -47,6 +57,11 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
     private int width;
     private int height;
+
+    // Configurable parameters
+    private float cornerRadius = DEFAULT_CORNER_RADIUS;
+    private float blurRadius = DEFAULT_BLUR_RADIUS;
+    private float padding = DEFAULT_PADDING;
 
     EdgeGlowRenderer(Context context) {
         this.context = context;
@@ -59,7 +74,6 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-        // Compile shaders
         String vertexSource = GlUtils.loadShaderFromRaw(context, R.raw.edge_glow_vertex);
         String fragmentSource = GlUtils.loadShaderFromRaw(context, R.raw.edge_glow_fragment);
 
@@ -79,15 +93,22 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
         glResource = new GlResource(program, vertexShader, fragmentShader);
 
-        // Cache attribute and uniform locations
         aPositionLocation = GLES30.glGetAttribLocation(program, "aPosition");
         uTimeLocation = GLES30.glGetUniformLocation(program, "uTime");
         uResolutionLocation = GLES30.glGetUniformLocation(program, "uResolution");
+        uCornerRadiusLocation = GLES30.glGetUniformLocation(program, "uCornerRadius");
+        uBlurRadiusLocation = GLES30.glGetUniformLocation(program, "uBlurRadius");
+        uPaddingLocation = GLES30.glGetUniformLocation(program, "uPadding");
 
         startTime = System.currentTimeMillis();
         pausedTime = 0;
 
         GLES30.glClearColor(0f, 0f, 0f, 0f);
+
+        // Enable premultiplied alpha blending
+        GLES30.glEnable(GLES30.GL_BLEND);
+        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA);
+
         Log.d(TAG, "onSurfaceCreated done, program=" + program);
     }
 
@@ -109,15 +130,28 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
         GLES30.glUseProgram(glResource.getProgramId());
 
-        // Set uniforms
         GLES30.glUniform1f(uTimeLocation, (float) elapsed);
         GLES30.glUniform2f(uResolutionLocation, (float) width, (float) height);
+        GLES30.glUniform1f(uCornerRadiusLocation, cornerRadius);
+        GLES30.glUniform1f(uBlurRadiusLocation, blurRadius);
+        GLES30.glUniform1f(uPaddingLocation, padding);
 
-        // Draw full-screen quad
         GLES30.glEnableVertexAttribArray(aPositionLocation);
         GLES30.glVertexAttribPointer(aPositionLocation, 2, GLES30.GL_FLOAT, false, STRIDE, vertexBuffer);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4);
         GLES30.glDisableVertexAttribArray(aPositionLocation);
+    }
+
+    void setCornerRadius(float radius) {
+        this.cornerRadius = radius;
+    }
+
+    void setBlurRadius(float radius) {
+        this.blurRadius = radius;
+    }
+
+    void setPadding(float padding) {
+        this.padding = padding;
     }
 
     void onPause() {

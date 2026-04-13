@@ -2,16 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1A1A2E">
-
-    <!-- Background content to verify transparency -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Background Text"
-        android:textColor="#FFFFFF"
-        android:textSize="24sp" />
+    android:background="#FFFFFF">
 
     <!-- Edge glow GL surface -->
     <com.hh.agent.android.glow.EdgeGlowView
