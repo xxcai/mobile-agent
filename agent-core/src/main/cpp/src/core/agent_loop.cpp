@@ -16,6 +16,7 @@
 #include <thread>
 #include <cctype>
 #include <cstdio>
+#include <limits>
 #include <unordered_map>
 
 namespace icraw {
@@ -297,7 +298,10 @@ constexpr int CONTEXT_OLDER_ASSISTANT_MAX_CHARS = 600;
 constexpr int CONTEXT_MIN_SUMMARY_MAX_CHARS = 900;
 constexpr int TOOL_RESULT_SUMMARY_MAX_CHARS = 1200;
 constexpr int PLANNED_ADVANCE_OBSERVATION_MAX_CHARS = 7000;
+constexpr int NAVIGATION_ESCALATION_OBSERVATION_MAX_CHARS = 4200;
+constexpr int READOUT_OBSERVATION_MAX_CHARS = 2600;
 constexpr size_t OBSERVATION_SUMMARY_ACTIONABLE_COUNT = 4;
+constexpr size_t CANONICAL_CANDIDATE_SUMMARY_COUNT = 6;
 constexpr size_t SKILL_PRELOAD_MAX_COUNT = 2;
 constexpr size_t SKILL_PRELOAD_MAX_TOTAL_CHARS = 20000;
 constexpr size_t SKILL_SUMMARY_MAX_CHARS = 1200;
@@ -330,6 +334,7 @@ struct ObservationCandidate {
     std::string label;
     std::string match_text;
     std::string source;
+    std::string resource_id;
     std::string bounds;
     std::string region;
     std::string anchor_type;
@@ -364,6 +369,24 @@ struct ObservationSnapshot {
     std::vector<ObservationCandidate> actionable_candidates;
 };
 
+struct CanonicalCandidate {
+    ObservationCandidate aggregate;
+    std::vector<ObservationCandidate> members;
+    std::string display_label;
+    std::string tap_bounds;
+    std::string source_set;
+    std::string risk_flags;
+    int actionability_rank = 0;
+    size_t member_count = 0;
+};
+
+struct NavigationAttemptCacheEntry {
+    std::string step_target;
+    std::string selected_candidate;
+    std::string tap_bounds;
+    int attempt_count = 0;
+};
+
 struct ExecutionState {
     std::string goal;
     std::string mode = "free_llm";
@@ -372,6 +395,9 @@ struct ExecutionState {
     std::vector<std::string> completed_steps;
     nlohmann::json pending_step;
     std::string latest_observation_summary;
+    std::string latest_navigation_observation_summary;
+    std::string latest_canonical_candidate_summary;
+    std::string latest_readout_observation_summary;
     std::string latest_action_result;
     std::string last_observation_target_hint;
     std::string last_gesture_target;
@@ -394,6 +420,8 @@ struct ExecutionState {
     ObservationFingerprint latest_observation_fingerprint;
     NavigationTraceSummary latest_navigation_trace;
     ReadoutRequestContext readout_context;
+    std::unordered_map<std::string, NavigationAttemptCacheEntry> navigation_attempt_cache;
+    int readout_retry_count = 0;
 };
 
 constexpr int kMaxPendingConfirmationRetries = 1;
@@ -1036,6 +1064,8 @@ void inject_selected_skills_into_request(ChatCompletionRequest& request,
             section.size());
 }
 
+std::string summarize_pending_step_json(const nlohmann::json& step);
+
 void inject_navigation_escalation_into_request(ChatCompletionRequest& request,
                                                const ExecutionState& state) {
     if (state.latest_escalation.reason.empty()) {
@@ -1052,9 +1082,20 @@ void inject_navigation_escalation_into_request(ChatCompletionRequest& request,
     }
     body << "stagnant_rounds: " << state.navigation_checkpoint.stagnant_rounds << "\n";
     if (state.pending_step.is_object() && !state.pending_step.empty()) {
-        body << "pending_step: " << truncate_runtime_text(state.pending_step.dump(), 260) << "\n";
+        body << "pending_step: " << summarize_pending_step_json(state.pending_step) << "\n";
+    }
+    if (!state.latest_navigation_observation_summary.empty()) {
+        body << "observation_summary: "
+             << truncate_runtime_text(state.latest_navigation_observation_summary, 320) << "\n";
+    }
+    if (!state.latest_canonical_candidate_summary.empty()) {
+        body << "canonical_candidates: "
+             << truncate_runtime_text(state.latest_canonical_candidate_summary, 240) << "\n";
     }
     append_runtime_section_to_request_system(request, "Navigation Escalation", body.str());
+    ICRAW_LOG_INFO(
+            "[AgentLoop][navigation_escalation_summary_chars] chars={}",
+            body.str().size());
 }
 
 std::string summarize_pending_step_json(const nlohmann::json& step) {
@@ -1121,6 +1162,9 @@ std::string build_navigation_trace_summary_text(const ExecutionState& state) {
     if (!state.latest_observation_summary.empty()) {
         trace << "; observation=" << truncate_runtime_text(state.latest_observation_summary, 120);
     }
+    if (!state.latest_canonical_candidate_summary.empty()) {
+        trace << "; canonical=" << truncate_runtime_text(state.latest_canonical_candidate_summary, 180);
+    }
     return trace.str();
 }
 void refresh_navigation_trace_summary(ExecutionState& state) {
@@ -1185,6 +1229,10 @@ std::string build_execution_state_prompt_v2(const ExecutionState& state, int ite
     }
     if (!state.latest_observation_summary.empty()) {
         prompt << "latest_observation: " << truncate_runtime_text(state.latest_observation_summary, 180) << "\n";
+    }
+    if (!state.latest_canonical_candidate_summary.empty()) {
+        prompt << "canonical_candidates: "
+               << truncate_runtime_text(state.latest_canonical_candidate_summary, 220) << "\n";
     }
     if (!state.latest_action_result.empty()) {
         prompt << "latest_action_result: " << truncate_runtime_text(state.latest_action_result, 180) << "\n";
@@ -1427,6 +1475,246 @@ std::string build_planned_advance_observation_summary(const std::string& content
     }
 }
 
+std::string join_string_values(const std::vector<std::string>& values,
+                               const std::string& separator) {
+    std::ostringstream stream;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            stream << separator;
+        }
+        stream << values[i];
+    }
+    return stream.str();
+}
+
+std::vector<std::string> collect_unique_readout_labels(const nlohmann::json& actionable_nodes,
+                                                       size_t max_count) {
+    std::vector<std::string> labels;
+    std::set<std::string> seen;
+    if (!actionable_nodes.is_array()) {
+        return labels;
+    }
+    for (const auto& node : actionable_nodes) {
+        if (!node.is_object()) {
+            continue;
+        }
+        const bool decorative_like = node.value("decorativeLike", false);
+        const bool numeric_like = node.value("numericLike", false);
+        const std::string label = trim_whitespace(first_string_value(
+                node, {"text", "visionLabel", "contentDescription", "content_description"}));
+        if (label.empty() || decorative_like || numeric_like) {
+            continue;
+        }
+        const std::string normalized = normalize_for_runtime_match(label);
+        if (normalized.empty() || seen.count(normalized) > 0) {
+            continue;
+        }
+        seen.insert(normalized);
+        labels.push_back(truncate_runtime_text(label, 48));
+        if (labels.size() >= max_count) {
+            break;
+        }
+    }
+    return labels;
+}
+
+std::string build_navigation_observation_summary(const std::string& content,
+                                                 const std::string& canonical_candidate_summary) {
+    try {
+        const auto json = nlohmann::json::parse(content);
+        if (!json.is_object()) {
+            return prune_tool_result(content, NAVIGATION_ESCALATION_OBSERVATION_MAX_CHARS);
+        }
+
+        nlohmann::json summary = nlohmann::json::object();
+        for (const auto& key : {
+                     "success",
+                     "activityClassName",
+                     "source",
+                     "observationMode",
+                     "visualObservationMode",
+                     "snapshotId",
+                     "targetHint"
+             }) {
+            if (json.contains(key)) {
+                summary[key] = json[key];
+            }
+        }
+
+        if (json.contains("hybridObservation") && json["hybridObservation"].is_object()) {
+            const auto& hybrid = json["hybridObservation"];
+            nlohmann::json hybrid_summary = nlohmann::json::object();
+            for (const auto& key : {"summary", "executionHint", "page", "quality"}) {
+                if (hybrid.contains(key)) {
+                    hybrid_summary[key] = hybrid[key];
+                }
+            }
+            if (hybrid.contains("actionableNodes") && hybrid["actionableNodes"].is_array()) {
+                nlohmann::json labels = nlohmann::json::array();
+                const auto visible_labels =
+                        collect_unique_readout_labels(hybrid["actionableNodes"], OBSERVATION_SUMMARY_ACTIONABLE_COUNT);
+                for (const auto& label : visible_labels) {
+                    labels.push_back(label);
+                }
+                if (!labels.empty()) {
+                    hybrid_summary["topActionableLabels"] = std::move(labels);
+                }
+            }
+            if (hybrid.contains("conflicts") && hybrid["conflicts"].is_array()) {
+                nlohmann::json conflicts = nlohmann::json::array();
+                for (size_t i = 0; i < hybrid["conflicts"].size() && i < 3; ++i) {
+                    const auto& conflict = hybrid["conflicts"][i];
+                    if (!conflict.is_object()) {
+                        continue;
+                    }
+                    nlohmann::json compact_conflict = nlohmann::json::object();
+                    for (const auto& key : {"code", "severity", "bounds"}) {
+                        if (conflict.contains(key)) {
+                            compact_conflict[key] = conflict[key];
+                        }
+                    }
+                    conflicts.push_back(std::move(compact_conflict));
+                }
+                if (!conflicts.empty()) {
+                    hybrid_summary["conflicts"] = std::move(conflicts);
+                }
+            }
+            summary["hybridObservation"] = std::move(hybrid_summary);
+        }
+
+        if (!canonical_candidate_summary.empty()) {
+            summary["canonicalCandidates"] = canonical_candidate_summary;
+        }
+
+        if (json.contains("screenVisionCompact") && json["screenVisionCompact"].is_object()) {
+            const auto& compact = json["screenVisionCompact"];
+            nlohmann::json compact_summary = nlohmann::json::object();
+            for (const auto& key : {"summary", "page"}) {
+                if (compact.contains(key)) {
+                    compact_summary[key] = compact[key];
+                }
+            }
+            if (!compact_summary.empty()) {
+                summary["screenVisionCompact"] = std::move(compact_summary);
+            }
+        }
+
+        return truncate_runtime_text(summary.dump(), NAVIGATION_ESCALATION_OBSERVATION_MAX_CHARS);
+    } catch (...) {
+        return prune_tool_result(content, NAVIGATION_ESCALATION_OBSERVATION_MAX_CHARS);
+    }
+}
+
+std::string build_readout_observation_summary(const std::string& content) {
+    try {
+        const auto json = nlohmann::json::parse(content);
+        if (!json.is_object()) {
+            return prune_tool_result(content, READOUT_OBSERVATION_MAX_CHARS);
+        }
+
+        nlohmann::json summary = nlohmann::json::object();
+        for (const auto& key : {
+                     "success",
+                     "activityClassName",
+                     "source",
+                     "visualObservationMode",
+                     "snapshotId"
+             }) {
+            if (json.contains(key)) {
+                summary[key] = json[key];
+            }
+        }
+
+        if (json.contains("hybridObservation") && json["hybridObservation"].is_object()) {
+            const auto& hybrid = json["hybridObservation"];
+            nlohmann::json hybrid_summary = nlohmann::json::object();
+            for (const auto& key : {"summary", "executionHint", "quality"}) {
+                if (hybrid.contains(key)) {
+                    hybrid_summary[key] = hybrid[key];
+                }
+            }
+            if (hybrid.contains("page") && hybrid["page"].is_object()) {
+                const auto& page = hybrid["page"];
+                nlohmann::json page_summary = nlohmann::json::object();
+                for (const auto& key : {"title", "name", "width", "height"}) {
+                    if (page.contains(key)) {
+                        page_summary[key] = page[key];
+                    }
+                }
+                if (!page_summary.empty()) {
+                    hybrid_summary["page"] = std::move(page_summary);
+                }
+            }
+            if (hybrid.contains("actionableNodes") && hybrid["actionableNodes"].is_array()) {
+                const auto labels = collect_unique_readout_labels(hybrid["actionableNodes"], 10);
+                if (!labels.empty()) {
+                    hybrid_summary["visibleItems"] = labels;
+                }
+                nlohmann::json key_actions = nlohmann::json::array();
+                size_t key_action_count = 0;
+                for (const auto& node : hybrid["actionableNodes"]) {
+                    if (!node.is_object()) {
+                        continue;
+                    }
+                    if (!(node.value("clickable", false) || node.value("containerClickable", false))) {
+                        continue;
+                    }
+                    const std::string label = trim_whitespace(first_string_value(
+                            node, {"text", "visionLabel", "contentDescription", "content_description"}));
+                    if (label.empty()) {
+                        continue;
+                    }
+                    key_actions.push_back(truncate_runtime_text(label, 48));
+                    key_action_count++;
+                    if (key_action_count >= 6) {
+                        break;
+                    }
+                }
+                if (!key_actions.empty()) {
+                    hybrid_summary["keyActions"] = std::move(key_actions);
+                }
+            }
+            if (hybrid.contains("conflicts") && hybrid["conflicts"].is_array()) {
+                nlohmann::json conflicts = nlohmann::json::array();
+                for (size_t i = 0; i < hybrid["conflicts"].size() && i < 2; ++i) {
+                    const auto& conflict = hybrid["conflicts"][i];
+                    if (!conflict.is_object()) {
+                        continue;
+                    }
+                    nlohmann::json compact_conflict = nlohmann::json::object();
+                    for (const auto& key : {"code", "severity"}) {
+                        if (conflict.contains(key)) {
+                            compact_conflict[key] = conflict[key];
+                        }
+                    }
+                    conflicts.push_back(std::move(compact_conflict));
+                }
+                if (!conflicts.empty()) {
+                    hybrid_summary["conflicts"] = std::move(conflicts);
+                }
+            }
+            summary["hybridObservation"] = std::move(hybrid_summary);
+        }
+
+        if (json.contains("screenVisionCompact") && json["screenVisionCompact"].is_object()) {
+            const auto& compact = json["screenVisionCompact"];
+            nlohmann::json compact_summary = nlohmann::json::object();
+            for (const auto& key : {"summary", "page"}) {
+                if (compact.contains(key)) {
+                    compact_summary[key] = compact[key];
+                }
+            }
+            if (!compact_summary.empty()) {
+                summary["screenVisionCompact"] = std::move(compact_summary);
+            }
+        }
+
+        return truncate_runtime_text(summary.dump(), READOUT_OBSERVATION_MAX_CHARS);
+    } catch (...) {
+        return prune_tool_result(content, READOUT_OBSERVATION_MAX_CHARS);
+    }
+}
+
 std::string build_gesture_result_summary(const std::string& content) {
     try {
         const auto json = nlohmann::json::parse(content);
@@ -1551,10 +1839,46 @@ void shrink_old_assistant_messages(std::vector<Message>& messages) {
     }
 }
 
+void aggressively_compact_navigation_assistant_messages(std::vector<Message>& messages) {
+    std::vector<size_t> assistant_indexes;
+    for (size_t i = 0; i < messages.size(); ++i) {
+        if (messages[i].role == "assistant") {
+            assistant_indexes.push_back(i);
+        }
+    }
+    if (assistant_indexes.size() <= 1) {
+        return;
+    }
+
+    size_t compacted_count = 0;
+    for (size_t position = 0; position + 1 < assistant_indexes.size(); ++position) {
+        auto& message = messages[assistant_indexes[position]];
+        if (!message.tool_calls.empty()) {
+            message.content.clear();
+            compacted_count++;
+            continue;
+        }
+        std::vector<ContentBlock> compact_blocks;
+        compact_blocks.reserve(message.content.size());
+        for (const auto& block : message.content) {
+            if (block.type == "text") {
+                compact_blocks.push_back(ContentBlock::make_text(
+                        truncate_runtime_text(block.text, 180)));
+            }
+        }
+        message.content = std::move(compact_blocks);
+        compacted_count++;
+    }
+
+    if (compacted_count > 0) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][context_navigation_assistant_compacted] compacted_count={}",
+                compacted_count);
+    }
+}
+
 void prune_context_messages_for_state(std::vector<Message>& messages,
                                       const ExecutionState& state) {
-    (void)state;
-
     const auto tool_name_by_id = build_tool_name_by_id(messages);
     const int latest_observation_index = find_latest_tool_message_index(
             messages, tool_name_by_id, "android_view_context_tool");
@@ -1576,6 +1900,7 @@ void prune_context_messages_for_state(std::vector<Message>& messages,
                 tool_name == "android_view_context_tool"
                 && latest_observation_index >= 0
                 && i == latest_observation_index
+                && state.latest_escalation.reason.empty()
                 && kept_full_observations < static_cast<int>(CONTEXT_KEEP_FULL_OBSERVATION_COUNT);
         const bool keep_full_gesture =
                 tool_name == "android_gesture_tool"
@@ -1593,13 +1918,24 @@ void prune_context_messages_for_state(std::vector<Message>& messages,
                 continue;
             }
             original_chars += block.content.size();
-            block.content = summarize_tool_result_for_context(tool_name, block.content);
+            if (tool_name == "android_view_context_tool"
+                    && latest_observation_index >= 0
+                    && i == latest_observation_index
+                    && !state.latest_escalation.reason.empty()
+                    && !state.latest_navigation_observation_summary.empty()) {
+                block.content = state.latest_navigation_observation_summary;
+            } else {
+                block.content = summarize_tool_result_for_context(tool_name, block.content);
+            }
             summarized_chars += block.content.size();
             summarized_count++;
         }
     }
 
     shrink_old_assistant_messages(messages);
+    if (!state.latest_escalation.reason.empty() && !state.goal_reached) {
+        aggressively_compact_navigation_assistant_messages(messages);
+    }
 
     if (summarized_count > 0) {
         ICRAW_LOG_INFO(
@@ -1681,6 +2017,7 @@ ObservationSnapshot parse_observation_snapshot(const std::string& content) {
                         + first_string_value(node, {"containerRole", "container_role"}) + " "
                         + first_string_value(node, {"id"}));
                 candidate.source = node.value("source", "");
+                candidate.resource_id = trim_whitespace(first_string_value(node, {"resourceId"}));
                 candidate.bounds = node.value("bounds", "");
                 candidate.region = trim_whitespace(first_string_value(node, {"region"}));
                 candidate.anchor_type = trim_whitespace(first_string_value(node, {"anchorType", "anchor_type"}));
@@ -1789,6 +2126,29 @@ std::string join_fingerprint_values(const std::vector<std::string>& values) {
     }
     return stream.str();
 }
+
+std::string build_navigation_attempt_cache_key(int step_index,
+                                               const std::string& fingerprint) {
+    if (step_index < 0 || fingerprint.empty()) {
+        return "";
+    }
+    std::ostringstream stream;
+    stream << step_index << "|" << truncate_runtime_text(fingerprint, 256);
+    return stream.str();
+}
+
+std::vector<CanonicalCandidate> build_canonical_candidates(
+        const std::vector<ObservationCandidate>& candidates);
+std::string build_canonical_candidate_summary(const std::vector<CanonicalCandidate>& candidates,
+                                              size_t max_count);
+std::string build_navigation_observation_summary(const std::string& content,
+                                                 const std::string& canonical_candidate_summary);
+std::string build_readout_observation_summary(const std::string& content);
+std::string build_navigation_attempt_cache_key(int step_index,
+                                               const std::string& fingerprint);
+bool candidate_label_matches_step_target_exactly(const ObservationCandidate& candidate,
+                                                 const SkillStepHint& step);
+
 std::string activity_simple_name(const std::string& activity);
 bool matches_activity_name(const std::string& actual_activity,
                            const std::string& expected_activity);
@@ -2129,6 +2489,9 @@ void update_execution_state_with_tool_result(ExecutionState& state,
             if (is_mock_observation_result(json)) {
                 state.latest_observation_summary = truncate_runtime_text(
                         summary, EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
+                state.latest_navigation_observation_summary.clear();
+                state.latest_canonical_candidate_summary.clear();
+                state.latest_readout_observation_summary.clear();
                 state.latest_action_result = summary;
                 state.phase = "discovery";
                 state.mode = "free_llm";
@@ -2148,6 +2511,12 @@ void update_execution_state_with_tool_result(ExecutionState& state,
         state.current_page = truncate_runtime_text(
                 snapshot.activity.empty() ? snapshot.summary : snapshot.activity,
                 EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
+        const auto canonical_candidates = build_canonical_candidates(snapshot.actionable_candidates);
+        state.latest_canonical_candidate_summary = build_canonical_candidate_summary(
+                canonical_candidates, CANONICAL_CANDIDATE_SUMMARY_COUNT);
+        state.latest_navigation_observation_summary = build_navigation_observation_summary(
+                content, state.latest_canonical_candidate_summary);
+        state.latest_readout_observation_summary = build_readout_observation_summary(content);
         const ObservationFingerprint fingerprint = build_observation_fingerprint(snapshot);
         const bool same_fingerprint = !fingerprint.value.empty()
                 && fingerprint.value == state.navigation_checkpoint.last_fingerprint;
@@ -2172,6 +2541,26 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 state.navigation_checkpoint.stagnant_rounds);
         ICRAW_LOG_INFO("[AgentLoop][navigation_trace_summary] {}",
                 truncate_runtime_text(state.latest_navigation_trace.summary, 320));
+        ICRAW_LOG_INFO(
+                "[AgentLoop][canonical_candidate_count] raw_count={} canonical_count={} activity={} summary_chars={}",
+                snapshot.actionable_candidates.size(),
+                canonical_candidates.size(),
+                truncate_runtime_text(snapshot.activity, 80),
+                state.latest_canonical_candidate_summary.size());
+        if (state.pending_step_index >= 0) {
+            const std::string cache_key = build_navigation_attempt_cache_key(
+                    state.pending_step_index, fingerprint.value);
+            const auto attempt_it = state.navigation_attempt_cache.find(cache_key);
+            if (attempt_it != state.navigation_attempt_cache.end()) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][navigation_attempt_cache_hit] step_index={} attempt_count={} target={} candidate={} tap_bounds={}",
+                        state.pending_step_index,
+                        attempt_it->second.attempt_count,
+                        truncate_runtime_text(attempt_it->second.step_target, 80),
+                        truncate_runtime_text(attempt_it->second.selected_candidate, 80),
+                        truncate_runtime_text(attempt_it->second.tap_bounds, 80));
+            }
+        }
 
         if (state.awaiting_step_confirmation_index >= 0) {
             const int awaiting_index = state.awaiting_step_confirmation_index;
@@ -2205,14 +2594,38 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                     return;
                 }
                 if (same_fingerprint || state.navigation_checkpoint.stagnant_rounds > 0) {
-                    state.latest_escalation.reason = "no_progress_same_observation";
-                    state.latest_escalation.detail = "fingerprint="
-                            + truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160);
+                    const std::string cache_key = build_navigation_attempt_cache_key(
+                            awaiting_index, state.navigation_checkpoint.last_fingerprint);
+                    const auto attempt_it = state.navigation_attempt_cache.find(cache_key);
+                    const int attempt_count = attempt_it == state.navigation_attempt_cache.end()
+                            ? 0
+                            : attempt_it->second.attempt_count;
+                    state.latest_escalation.reason = "ambiguous_or_no_progress";
+                    std::ostringstream detail;
+                    detail << "fingerprint="
+                           << truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160);
+                    if (attempt_count > 0) {
+                        detail << "; attempts=" << attempt_count;
+                    }
+                    if (attempt_it != state.navigation_attempt_cache.end()
+                            && !attempt_it->second.selected_candidate.empty()) {
+                        detail << "; candidate="
+                               << truncate_runtime_text(attempt_it->second.selected_candidate, 80);
+                    }
+                    state.latest_escalation.detail = detail.str();
                     state.navigation_checkpoint.stagnant_rounds = std::max(state.navigation_checkpoint.stagnant_rounds, 2);
                     ICRAW_LOG_INFO(
-                            "[AgentLoop][navigation_no_progress_short_circuit] reason={} fingerprint={}",
+                            "[AgentLoop][navigation_no_progress_detected] reason={} step_index={} attempt_count={} fingerprint={} candidate={} tap_bounds={}",
                             state.latest_escalation.reason,
-                            truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160));
+                            awaiting_index,
+                            attempt_count,
+                            truncate_runtime_text(state.navigation_checkpoint.last_fingerprint, 160),
+                            attempt_it == state.navigation_attempt_cache.end()
+                                    ? ""
+                                    : truncate_runtime_text(attempt_it->second.selected_candidate, 80),
+                            attempt_it == state.navigation_attempt_cache.end()
+                                    ? ""
+                                    : truncate_runtime_text(attempt_it->second.tap_bounds, 80));
                 }
                 clear_step_confirmation(state);
                 state.goal_reached = false;
@@ -2269,6 +2682,23 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 && state.pending_step_index < static_cast<int>(state.active_hints->steps.size())) {
             const auto& current_step =
                     state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+            if (!state.navigation_checkpoint.last_fingerprint.empty()) {
+                const std::string cache_key = build_navigation_attempt_cache_key(
+                        state.pending_step_index, state.navigation_checkpoint.last_fingerprint);
+                if (!cache_key.empty()) {
+                    auto& entry = state.navigation_attempt_cache[cache_key];
+                    entry.step_target = current_step.target;
+                    if (tool_call && tool_call->arguments.is_object()
+                            && tool_call->arguments.contains("observation")
+                            && tool_call->arguments["observation"].is_object()) {
+                        const auto& observation = tool_call->arguments["observation"];
+                        entry.selected_candidate = first_string_value(
+                                observation, {"targetDescriptor", "target", "label"});
+                        entry.tap_bounds = first_string_value(observation, {"referencedBounds"});
+                    }
+                    entry.attempt_count++;
+                }
+            }
             if (tool_call && !gesture_matches_step_intent(*tool_call, current_step)) {
                 ICRAW_LOG_WARN(
                         "[AgentLoop][execution_state_step_not_advanced] reason=gesture_target_mismatch step_target={} last_target={}",
@@ -2497,6 +2927,27 @@ bool is_relaxable_vision_only_conflict(const ObservationConflict& conflict,
     return true;
 }
 
+bool should_ignore_exact_target_vision_only_conflict(const ObservationConflict& conflict,
+                                                     const SkillStepHint& step,
+                                                     const ObservationCandidate& candidate) {
+    if (conflict.code != "vision_only_candidate") {
+        return false;
+    }
+    if (!is_stable_non_vision_candidate(candidate)) {
+        return false;
+    }
+    if (!candidate_label_matches_step_target_exactly(candidate, step)) {
+        return false;
+    }
+    // Canonical candidates may inherit decorative/repeat hints from sibling icon/text members in the same
+    // clickable container. Keep blocking truly risky badge/numeric targets, but allow exact stable entries
+    // to ignore unrelated vision-only warnings.
+    if (candidate.badge_like || candidate.numeric_like) {
+        return false;
+    }
+    return candidate.clickable || candidate.container_clickable;
+}
+
 bool is_target_related_warning_conflict(const ObservationConflict& conflict,
                                         const SkillStepHint& step,
                                         const ObservationCandidate& candidate) {
@@ -2538,6 +2989,14 @@ bool should_block_fast_execute_on_conflicts(const ObservationSnapshot& snapshot,
         if (is_relaxable_vision_only_conflict(conflict, candidate)) {
             ICRAW_LOG_INFO(
                     "[AgentLoop][fast_execute_conflict_ignored] code={} candidate={} candidate_source={} reason=stable_non_vision_candidate_non_overlapping",
+                    conflict.code,
+                    candidate.label,
+                    candidate.source);
+            continue;
+        }
+        if (should_ignore_exact_target_vision_only_conflict(conflict, step, candidate)) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_conflict_ignored] code={} candidate={} candidate_source={} reason=stable_exact_target_candidate",
                     conflict.code,
                     candidate.label,
                     candidate.source);
@@ -2876,6 +3335,285 @@ int candidate_actionability_rank(const ObservationCandidate& candidate) {
     return rank;
 }
 
+bool bounds_are_nearby(const std::string& left_bounds,
+                       const std::string& right_bounds,
+                       int max_gap_px = 40) {
+    BoundsRect left;
+    BoundsRect right;
+    if (!parse_bounds_rect(left_bounds, left) || !parse_bounds_rect(right_bounds, right)) {
+        return false;
+    }
+
+    const int horizontal_gap = std::max(0, std::max(right.left - left.right, left.left - right.right));
+    const int vertical_gap = std::max(0, std::max(right.top - left.bottom, left.top - right.bottom));
+    return horizontal_gap <= max_gap_px && vertical_gap <= max_gap_px;
+}
+
+bool candidates_reference_similar_semantics(const ObservationCandidate& left,
+                                            const ObservationCandidate& right) {
+    const std::string left_label = normalize_runtime_key(left.label);
+    const std::string right_label = normalize_runtime_key(right.label);
+    const std::string left_resource = normalize_runtime_key(left.resource_id);
+    const std::string right_resource = normalize_runtime_key(right.resource_id);
+    if (!left_resource.empty() && left_resource == right_resource) {
+        return true;
+    }
+    if (!left_label.empty() && left_label == right_label) {
+        return true;
+    }
+    if (!left.label.empty() && contains_runtime_match(right.match_text, left.label)) {
+        return true;
+    }
+    if (!right.label.empty() && contains_runtime_match(left.match_text, right.label)) {
+        return true;
+    }
+    return false;
+}
+
+bool candidates_should_merge_canonically(const ObservationCandidate& left,
+                                         const ObservationCandidate& right) {
+    const bool spatially_related =
+            bounds_overlap(left.bounds, right.bounds)
+            || bounds_are_nearby(left.bounds, right.bounds);
+    if (!spatially_related) {
+        return false;
+    }
+    if (candidates_reference_similar_semantics(left, right)) {
+        return true;
+    }
+
+    const bool same_anchor = !left.anchor_type.empty()
+            && normalize_region_label(left.anchor_type) == normalize_region_label(right.anchor_type);
+    const bool same_container = !left.container_role.empty()
+            && normalize_region_label(left.container_role) == normalize_region_label(right.container_role);
+    const bool complementary_actionability =
+            (left.clickable != right.clickable)
+            || (left.container_clickable != right.container_clickable);
+    return complementary_actionability && (same_anchor || same_container);
+}
+
+int candidate_display_label_score(const ObservationCandidate& candidate) {
+    int score = 0;
+    const std::string label = trim_whitespace(candidate.label);
+    if (!label.empty()) {
+        score += static_cast<int>(std::min<size_t>(label.size(), 40));
+    }
+    if (!candidate.resource_id.empty() && contains_runtime_match(label, candidate.resource_id)) {
+        score -= 4;
+    }
+    if (contains_runtime_match(label, "imageview")
+            || contains_runtime_match(label, "textview")
+            || contains_runtime_match(label, "view")) {
+        score -= 8;
+    }
+    if (candidate.clickable || candidate.container_clickable) {
+        score += 6;
+    }
+    if (candidate.source == "fused") {
+        score += 4;
+    } else if (candidate.source == "native") {
+        score += 3;
+    }
+    return score;
+}
+
+int candidate_tap_priority_score(const ObservationCandidate& candidate) {
+    int score = candidate_actionability_rank(candidate) * 100;
+    score += candidate_source_bonus(candidate) * 4;
+    score += static_cast<int>(candidate.score * 100.0);
+    if (candidate.clickable) {
+        score += 18;
+    }
+    if (candidate.container_clickable) {
+        score += 12;
+    }
+    return score;
+}
+
+CanonicalCandidate build_canonical_candidate(const std::vector<ObservationCandidate>& members) {
+    CanonicalCandidate canonical;
+    canonical.members = members;
+    canonical.member_count = members.size();
+
+    if (members.empty()) {
+        return canonical;
+    }
+
+    size_t label_index = 0;
+    size_t tap_index = 0;
+    size_t stable_tap_index = 0;
+    int best_label_score = std::numeric_limits<int>::min();
+    int best_tap_score = std::numeric_limits<int>::min();
+    int best_stable_tap_score = std::numeric_limits<int>::min();
+    bool has_stable_tap_candidate = false;
+    std::set<std::string> source_set;
+    std::vector<std::string> risk_flags;
+    std::set<std::string> risk_seen;
+    std::vector<std::string> merged_terms;
+    std::set<std::string> seen_terms;
+    int max_actionability_rank = 0;
+
+    auto append_term = [&](const std::string& term) {
+        const std::string trimmed = trim_whitespace(term);
+        if (trimmed.empty()) {
+            return;
+        }
+        const std::string normalized = normalize_runtime_key(trimmed);
+        if (normalized.empty() || seen_terms.count(normalized) > 0) {
+            return;
+        }
+        seen_terms.insert(normalized);
+        merged_terms.push_back(truncate_runtime_text(trimmed, 64));
+    };
+
+    auto append_risk_flag = [&](const std::string& flag) {
+        if (flag.empty() || risk_seen.count(flag) > 0) {
+            return;
+        }
+        risk_seen.insert(flag);
+        risk_flags.push_back(flag);
+    };
+
+    for (size_t i = 0; i < members.size(); ++i) {
+        const auto& member = members[i];
+        const int label_score = candidate_display_label_score(member);
+        const int tap_score = candidate_tap_priority_score(member);
+        if (label_score > best_label_score) {
+            best_label_score = label_score;
+            label_index = i;
+        }
+        if (tap_score > best_tap_score) {
+            best_tap_score = tap_score;
+            tap_index = i;
+        }
+        if (is_stable_non_vision_candidate(member) && (member.clickable || member.container_clickable)) {
+            has_stable_tap_candidate = true;
+            if (tap_score > best_stable_tap_score) {
+                best_stable_tap_score = tap_score;
+                stable_tap_index = i;
+            }
+        }
+        if (!member.source.empty()) {
+            source_set.insert(member.source);
+        }
+        append_term(member.label);
+        append_term(member.match_text);
+        append_term(member.resource_id);
+        if (member.badge_like) {
+            append_risk_flag("badge_like");
+        }
+        if (member.numeric_like) {
+            append_risk_flag("numeric_like");
+        }
+        if (member.decorative_like) {
+            append_risk_flag("decorative_like");
+        }
+        if (member.repeat_group) {
+            append_risk_flag("repeat_group");
+        }
+        max_actionability_rank = std::max(max_actionability_rank, candidate_actionability_rank(member));
+    }
+
+    if (has_stable_tap_candidate) {
+        tap_index = stable_tap_index;
+    }
+
+    canonical.aggregate = members[tap_index];
+    canonical.aggregate.label = members[label_index].label.empty()
+            ? members[tap_index].label
+            : members[label_index].label;
+    canonical.aggregate.match_text = truncate_runtime_text(join_string_values(merged_terms, " | "), 240);
+    canonical.aggregate.resource_id = members[tap_index].resource_id.empty()
+            ? members[label_index].resource_id
+            : members[tap_index].resource_id;
+    canonical.aggregate.clickable = false;
+    canonical.aggregate.container_clickable = false;
+    canonical.aggregate.badge_like = false;
+    canonical.aggregate.numeric_like = false;
+    canonical.aggregate.decorative_like = false;
+    canonical.aggregate.repeat_group = false;
+    canonical.aggregate.score = 0.0;
+    for (const auto& member : members) {
+        canonical.aggregate.clickable = canonical.aggregate.clickable || member.clickable;
+        canonical.aggregate.container_clickable =
+                canonical.aggregate.container_clickable || member.container_clickable;
+        canonical.aggregate.badge_like = canonical.aggregate.badge_like || member.badge_like;
+        canonical.aggregate.numeric_like = canonical.aggregate.numeric_like || member.numeric_like;
+        canonical.aggregate.decorative_like =
+                canonical.aggregate.decorative_like || member.decorative_like;
+        canonical.aggregate.repeat_group = canonical.aggregate.repeat_group || member.repeat_group;
+        canonical.aggregate.score = std::max(canonical.aggregate.score, member.score);
+    }
+    canonical.display_label = canonical.aggregate.label.empty()
+            ? truncate_runtime_text(canonical.aggregate.match_text, 64)
+            : canonical.aggregate.label;
+    canonical.tap_bounds = canonical.aggregate.bounds;
+    canonical.source_set = join_string_values(
+            std::vector<std::string>(source_set.begin(), source_set.end()), ",");
+    canonical.risk_flags = join_string_values(risk_flags, ",");
+    canonical.actionability_rank = max_actionability_rank;
+    return canonical;
+}
+
+std::vector<CanonicalCandidate> build_canonical_candidates(
+        const std::vector<ObservationCandidate>& candidates) {
+    std::vector<CanonicalCandidate> canonical_candidates;
+    std::vector<bool> consumed(candidates.size(), false);
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (consumed[i]) {
+            continue;
+        }
+        std::vector<ObservationCandidate> cluster;
+        cluster.push_back(candidates[i]);
+        consumed[i] = true;
+
+        bool expanded = true;
+        while (expanded) {
+            expanded = false;
+            for (size_t j = i + 1; j < candidates.size(); ++j) {
+                if (consumed[j]) {
+                    continue;
+                }
+                bool merge = false;
+                for (const auto& member : cluster) {
+                    if (candidates_should_merge_canonically(member, candidates[j])) {
+                        merge = true;
+                        break;
+                    }
+                }
+                if (!merge) {
+                    continue;
+                }
+                cluster.push_back(candidates[j]);
+                consumed[j] = true;
+                expanded = true;
+            }
+        }
+
+        canonical_candidates.push_back(build_canonical_candidate(cluster));
+    }
+    return canonical_candidates;
+}
+
+std::string build_canonical_candidate_summary(const std::vector<CanonicalCandidate>& candidates,
+                                              size_t max_count) {
+    nlohmann::json summary = nlohmann::json::array();
+    for (size_t i = 0; i < candidates.size() && i < max_count; ++i) {
+        const auto& candidate = candidates[i];
+        nlohmann::json item = nlohmann::json::object();
+        item["displayLabel"] = candidate.display_label;
+        item["tapBounds"] = candidate.tap_bounds;
+        item["sourceSet"] = candidate.source_set;
+        item["actionabilityRank"] = candidate.actionability_rank;
+        item["memberCount"] = candidate.member_count;
+        if (!candidate.risk_flags.empty()) {
+            item["riskFlags"] = candidate.risk_flags;
+        }
+        summary.push_back(std::move(item));
+    }
+    return truncate_runtime_text(summary.dump(), 1200);
+}
+
 bool candidates_look_like_overlapping_duplicates(const ObservationCandidate& left,
                                                  const ObservationCandidate& right) {
     if (left.bounds.empty() || right.bounds.empty() || !bounds_overlap(left.bounds, right.bounds)) {
@@ -3196,6 +3934,35 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
         return std::nullopt;
     }
 
+    const ObservationFingerprint snapshot_fingerprint = build_observation_fingerprint(snapshot);
+    const std::string attempt_cache_key = build_navigation_attempt_cache_key(
+            state.pending_step_index, snapshot_fingerprint.value);
+    const auto attempt_it = state.navigation_attempt_cache.find(attempt_cache_key);
+    if (attempt_it != state.navigation_attempt_cache.end()) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][navigation_attempt_cache_hit] step_index={} attempt_count={} target={} candidate={} tap_bounds={}",
+                state.pending_step_index,
+                attempt_it->second.attempt_count,
+                truncate_runtime_text(attempt_it->second.step_target, 80),
+                truncate_runtime_text(attempt_it->second.selected_candidate, 80),
+                truncate_runtime_text(attempt_it->second.tap_bounds, 80));
+    }
+    if (attempt_it != state.navigation_attempt_cache.end()
+            && attempt_it->second.attempt_count > 0
+            && state.navigation_checkpoint.stagnant_rounds > 0) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][navigation_no_progress_detected] reason=repeat_fingerprint_after_click step_index={} attempt_count={} fingerprint={} candidate={} tap_bounds={}",
+                state.pending_step_index,
+                attempt_it->second.attempt_count,
+                truncate_runtime_text(snapshot_fingerprint.value, 160),
+                truncate_runtime_text(attempt_it->second.selected_candidate, 80),
+                truncate_runtime_text(attempt_it->second.tap_bounds, 80));
+        ICRAW_LOG_INFO(
+                "[AgentLoop][canonical_candidate_fallback_reason] reason=no_progress_cached canonical_count=0 target={}",
+                step.target);
+        return std::nullopt;
+    }
+
     std::vector<std::string> match_terms;
     if (!step.target.empty()) {
         match_terms.push_back(step.target);
@@ -3257,6 +4024,31 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                     matched_candidates.size());
         }
     }
+
+    auto canonicalize_candidates = [&](std::vector<ObservationCandidate>& candidates,
+                                       const char* stage) {
+        if (candidates.empty()) {
+            return std::vector<CanonicalCandidate>{};
+        }
+        const auto canonical_candidates = build_canonical_candidates(candidates);
+        ICRAW_LOG_INFO(
+                "[AgentLoop][canonical_candidate_count] stage={} raw_count={} canonical_count={} target={} activity={}",
+                stage,
+                candidates.size(),
+                canonical_candidates.size(),
+                step.target,
+                snapshot.activity);
+        if (canonical_candidates.size() < candidates.size()) {
+            candidates.clear();
+            for (const auto& candidate : canonical_candidates) {
+                candidates.push_back(candidate.aggregate);
+            }
+        }
+        return canonical_candidates;
+    };
+
+    (void)canonicalize_candidates(high_confidence_candidates, "high_confidence");
+    (void)canonicalize_candidates(matched_candidates, "matched");
 
     ICRAW_LOG_INFO(
             "[AgentLoop][fast_execute_evaluated] target={} aliases={} activity={} source={} candidate_count={} high_confidence_count={} primary_matches={} alias_matches={} warning_conflicts={}",
@@ -3552,6 +4344,14 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                 return recovery_call;
             }
         }
+        const auto fallback_canonical = build_canonical_candidates(matched_candidates);
+        ICRAW_LOG_INFO(
+                "[AgentLoop][canonical_candidate_fallback_reason] reason=ambiguous_candidate canonical_count={} target={} summary={}",
+                fallback_canonical.size(),
+                step.target,
+                truncate_runtime_text(
+                        build_canonical_candidate_summary(fallback_canonical, CANONICAL_CANDIDATE_SUMMARY_COUNT),
+                        220));
         ICRAW_LOG_INFO("[AgentLoop][fast_execute_fallback] reason=ambiguous_candidate count={} target={} aliases={}",
                 matched_candidates.size(),
                 step.target,
@@ -3590,6 +4390,19 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                     {"referencedBounds", matched_candidates[0].bounds}
             }}
     });
+    const auto selected_canonical = build_canonical_candidates(matched_candidates);
+    if (!selected_canonical.empty()) {
+        const auto& selected = selected_canonical.front();
+        ICRAW_LOG_INFO(
+                "[AgentLoop][canonical_candidate_selected] target={} display_label={} tap_bounds={} source_set={} actionability_rank={} member_count={} risk_flags={}",
+                step.target,
+                truncate_runtime_text(selected.display_label, 80),
+                truncate_runtime_text(selected.tap_bounds, 80),
+                truncate_runtime_text(selected.source_set, 80),
+                selected.actionability_rank,
+                selected.member_count,
+                truncate_runtime_text(selected.risk_flags, 80));
+    }
     ICRAW_LOG_INFO("[AgentLoop][fast_execute_hit] action=tap target={} source={} score={} page={}",
             step.target,
             matched_candidates[0].source,
@@ -3621,8 +4434,27 @@ std::optional<std::pair<int, Message>> find_latest_observation_assistant(
     return std::nullopt;
 }
 
+std::string build_readout_user_objective(const ExecutionState& state) {
+    std::ostringstream objective;
+    objective << state.readout_context.objective;
+    if (!state.readout_context.readout_goal.empty()
+            && !contains_runtime_match(state.readout_context.objective, state.readout_context.readout_goal)) {
+        objective << "\nreadout_goal: "
+                  << truncate_runtime_text(state.readout_context.readout_goal, 160);
+    }
+    if (!state.readout_context.selected_skill.empty()) {
+        objective << "\nselected_skill: " << state.readout_context.selected_skill;
+    }
+    if (!state.readout_context.current_page.empty()) {
+        objective << "\ncurrent_page: "
+                  << truncate_runtime_text(state.readout_context.current_page, 120);
+    }
+    objective << "\nFocus on the current page only.";
+    return objective.str();
+}
+
 void reset_messages_for_readout(std::vector<Message>& messages,
-                                const std::string& objective) {
+                                const ExecutionState& state) {
     if (messages.empty()) {
         return;
     }
@@ -3647,11 +4479,25 @@ void reset_messages_for_readout(std::vector<Message>& messages,
             break;
         }
     }
-    reduced.emplace_back("user", objective);
+    reduced.emplace_back("user", build_readout_user_objective(state));
     const auto latest_observation_assistant = find_latest_observation_assistant(messages);
     if (latest_observation_assistant) {
         reduced.push_back(latest_observation_assistant->second);
-        reduced.push_back(messages[static_cast<size_t>(latest_observation_assistant->first)]);
+        Message summarized_tool_message = messages[static_cast<size_t>(latest_observation_assistant->first)];
+        for (auto& block : summarized_tool_message.content) {
+            if (block.type != "tool_result") {
+                continue;
+            }
+            const std::string readout_summary =
+                    state.latest_readout_observation_summary.empty()
+                    ? build_readout_observation_summary(block.content)
+                    : state.latest_readout_observation_summary;
+            block.content = readout_summary;
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][readout_observation_summary_chars] chars={}",
+                    readout_summary.size());
+        }
+        reduced.push_back(std::move(summarized_tool_message));
     }
     messages = std::move(reduced);
 }
@@ -3731,7 +4577,9 @@ NavigationEscalationRequest build_navigation_escalation_request_context(
     context.checkpoint = state.navigation_checkpoint;
     context.escalation = state.latest_escalation;
     context.pending_step_summary = summarize_pending_step_json(state.pending_step);
-    context.observation_summary = state.latest_observation_summary;
+    context.observation_summary = state.latest_navigation_observation_summary.empty()
+            ? state.latest_observation_summary
+            : state.latest_navigation_observation_summary;
     context.latest_action_result = state.latest_action_result;
     context.trace_summary = build_navigation_trace_summary_text(state);
     return context;
@@ -4018,6 +4866,140 @@ Message build_assistant_tool_call_message(const ToolCall& tool_call) {
     return assistant_msg;
 }
 
+std::set<std::string> collect_allowed_tool_names(const ChatCompletionRequest& request) {
+    std::set<std::string> names;
+    for (const auto& tool : request.tools) {
+        if (!tool.is_object() || !tool.contains("function") || !tool["function"].is_object()) {
+            continue;
+        }
+        const std::string name = tool["function"].value("name", "");
+        if (!name.empty()) {
+            names.insert(name);
+        }
+    }
+    return names;
+}
+
+std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>& tool_calls,
+                                                    const ChatCompletionRequest& request,
+                                                    const ExecutionState& state) {
+    std::vector<ToolCall> filtered;
+    const auto allowed_tool_names = collect_allowed_tool_names(request);
+    const bool forbid_tool_calls = request.tools.empty() || state.goal_reached || state.phase == "readout";
+    for (const auto& tool_call : tool_calls) {
+        if (forbid_tool_calls) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][tool_call_rejected] reason=phase_disallows_tools phase={} goal_reached={} tool_name={}",
+                    state.phase,
+                    state.goal_reached,
+                    tool_call.name);
+            continue;
+        }
+        if (!allowed_tool_names.empty() && allowed_tool_names.count(tool_call.name) == 0) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][tool_call_rejected] reason=tool_not_in_request tool_name={} allowed_count={}",
+                    tool_call.name,
+                    allowed_tool_names.size());
+            continue;
+        }
+        filtered.push_back(tool_call);
+    }
+    return filtered;
+}
+
+std::string build_readout_retry_instruction(const ExecutionState& state) {
+    std::ostringstream prompt;
+    prompt << "Tools are disabled for the current readout stage. ";
+    prompt << "Answer directly in plain text using only the current page observation. ";
+    prompt << "Do not call any tool. ";
+    if (!state.readout_context.readout_goal.empty()) {
+        prompt << "Readout goal: "
+               << truncate_runtime_text(state.readout_context.readout_goal, 160) << ". ";
+    }
+    if (!state.current_page.empty()) {
+        prompt << "Current page: "
+               << truncate_runtime_text(state.current_page, 120) << ".";
+    }
+    return prompt.str();
+}
+
+std::string build_local_readout_fallback_text(const ExecutionState& state) {
+    try {
+        const std::string summary_text = !state.latest_readout_observation_summary.empty()
+                ? state.latest_readout_observation_summary
+                : state.latest_navigation_observation_summary;
+        if (summary_text.empty()) {
+            return "";
+        }
+
+        const auto json = nlohmann::json::parse(summary_text);
+        if (!json.is_object()) {
+            return "";
+        }
+
+        std::string page_name = json.value("activityClassName", "");
+        std::string summary;
+        std::vector<std::string> visible_items;
+        std::vector<std::string> key_actions;
+
+        if (json.contains("hybridObservation") && json["hybridObservation"].is_object()) {
+            const auto& hybrid = json["hybridObservation"];
+            summary = hybrid.value("summary", "");
+            if (hybrid.contains("page") && hybrid["page"].is_object()) {
+                page_name = first_string_value(hybrid["page"], {"title", "name"});
+            }
+            if (hybrid.contains("visibleItems") && hybrid["visibleItems"].is_array()) {
+                for (const auto& item : hybrid["visibleItems"]) {
+                    if (item.is_string()) {
+                        visible_items.push_back(item.get<std::string>());
+                    }
+                }
+            }
+            if (hybrid.contains("keyActions") && hybrid["keyActions"].is_array()) {
+                for (const auto& item : hybrid["keyActions"]) {
+                    if (item.is_string()) {
+                        key_actions.push_back(item.get<std::string>());
+                    }
+                }
+            }
+        }
+        if (summary.empty() && json.contains("screenVisionCompact") && json["screenVisionCompact"].is_object()) {
+            summary = json["screenVisionCompact"].value("summary", "");
+        }
+
+        std::ostringstream response;
+        if (!page_name.empty()) {
+            response << u8"当前已进入页面：" << truncate_runtime_text(page_name, 80) << "。";
+        }
+        if (!summary.empty()) {
+            response << u8"页面概况：" << truncate_runtime_text(summary, 140) << "。";
+        }
+        if (!visible_items.empty()) {
+            response << u8"当前可见内容包括：";
+            for (size_t i = 0; i < visible_items.size() && i < 6; ++i) {
+                if (i > 0) {
+                    response << u8"、";
+                }
+                response << truncate_runtime_text(visible_items[i], 24);
+            }
+            response << u8"。";
+        }
+        if (!key_actions.empty()) {
+            response << u8"可执行操作包括：";
+            for (size_t i = 0; i < key_actions.size() && i < 4; ++i) {
+                if (i > 0) {
+                    response << u8"、";
+                }
+                response << truncate_runtime_text(key_actions[i], 24);
+            }
+            response << u8"。";
+        }
+        return truncate_runtime_text(response.str(), 320);
+    } catch (...) {
+        return "";
+    }
+}
+
 }  // namespace
 
 AgentLoop::AgentLoop(std::shared_ptr<MemoryManager> memory_manager,
@@ -4192,7 +5174,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
             }
 
             if (execution_state.goal_reached && !execution_state.context_reset) {
-                reset_messages_for_readout(request.messages, message);
+                reset_messages_for_readout(request.messages, execution_state);
                 execution_state.context_reset = true;
                 ICRAW_LOG_INFO(
                         "[AgentLoop][goal_reached_context_reset] mode=non_stream phase={} current_page={}",
@@ -4226,6 +5208,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         if (!use_compact_navigation_escalation_request) {
             rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
             inject_selected_skills_into_request(effective_request, selected_skills, iteration);
+            inject_navigation_escalation_into_request(effective_request, execution_state);
             const std::string execution_state_prompt =
                     build_execution_state_prompt_v2(execution_state, iteration);
             if (!execution_state_prompt.empty()) {
@@ -4257,8 +5240,11 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         assistant_msg.role = "assistant";
         assistant_msg.content = build_response_blocks(response.content, response.reasoning_content);
         
+        auto filtered_tool_calls = filter_tool_calls_for_request(
+                response.tool_calls, effective_request, execution_state);
+
         // Add tool_calls as separate field (OpenAI format)
-        for (const auto& tc : response.tool_calls) {
+        for (const auto& tc : filtered_tool_calls) {
             std::string tool_id = tc.id.empty() ? generate_tool_id() : tc.id;
             ToolCallForMessage tc_msg;
             tc_msg.id = tool_id;
@@ -4280,14 +5266,44 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                 iteration, iter_duration_ms);
 
         // Check if we're done
-        if (response.tool_calls.empty() || response.finish_reason == "end_turn") {
+        if (filtered_tool_calls.empty()) {
+            const bool rejected_readout_tool_only =
+                    execution_state.goal_reached
+                    && execution_state.phase == "readout"
+                    && response.finish_reason == "tool_calls"
+                    && response.content.empty();
+            if (rejected_readout_tool_only) {
+                if (execution_state.readout_retry_count < 1) {
+                    execution_state.readout_retry_count++;
+                    request.messages.emplace_back("user", build_readout_retry_instruction(execution_state));
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][readout_retry_scheduled] mode=non_stream retry_count={} current_page={}",
+                            execution_state.readout_retry_count,
+                            execution_state.current_page);
+                    continue;
+                }
+
+                const std::string fallback = build_local_readout_fallback_text(execution_state);
+                if (!fallback.empty()) {
+                    assistant_msg.content = build_response_blocks(fallback, "");
+                    new_messages.back() = assistant_msg;
+                    request.messages.back() = assistant_msg;
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][readout_local_fallback] mode=non_stream chars={} current_page={}",
+                            fallback.size(),
+                            execution_state.current_page);
+                }
+            }
+            break;
+        }
+        if (response.finish_reason == "end_turn") {
             break;
         }
         
         // Execute tool calls
         auto tool_phase_start = std::chrono::steady_clock::now();
         auto tool_calls_for_execution = enrich_tool_calls_for_execution(
-                response.tool_calls, execution_state, request.messages);
+                filtered_tool_calls, execution_state, request.messages);
         auto tool_results = handle_tool_calls(tool_calls_for_execution);
         auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - tool_phase_start).count();
@@ -4317,7 +5333,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         }
 
         if (execution_state.goal_reached && !execution_state.context_reset) {
-            reset_messages_for_readout(request.messages, message);
+                    reset_messages_for_readout(request.messages, execution_state);
             execution_state.context_reset = true;
             ICRAW_LOG_INFO("[AgentLoop][goal_reached_context_reset] mode=non_stream phase={} current_page={}",
                     execution_state.phase, execution_state.current_page);
@@ -4560,7 +5576,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             }
 
             if (execution_state.goal_reached && !execution_state.context_reset) {
-                reset_messages_for_readout(request.messages, message);
+                reset_messages_for_readout(request.messages, execution_state);
                 execution_state.context_reset = true;
                 ICRAW_LOG_INFO(
                         "[AgentLoop][goal_reached_context_reset] mode=stream phase={} current_page={}",
@@ -4594,6 +5610,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         if (!use_compact_navigation_escalation_request) {
             rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
             inject_selected_skills_into_request(effective_request, selected_skills, iteration);
+            inject_navigation_escalation_into_request(effective_request, execution_state);
             const std::string execution_state_prompt =
                     build_execution_state_prompt_v2(execution_state, iteration);
             if (!execution_state_prompt.empty()) {
@@ -4726,6 +5743,8 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     valid_tc.name, valid_tc.id);
         }
         
+        valid_tool_calls = filter_tool_calls_for_request(valid_tool_calls, effective_request, execution_state);
+
         // Add valid tool calls to assistant message (OpenAI format)
         for (const auto& tc : valid_tool_calls) {
             std::string tool_id = tc.id.empty() ? generate_tool_id() : tc.id;
@@ -4802,10 +5821,56 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 iteration, iter_duration_ms);
 
         if (valid_tool_calls.empty()) {
+            const bool rejected_readout_tool_only =
+                    execution_state.goal_reached
+                    && execution_state.phase == "readout"
+                    && last_finish_reason_ == "tool_calls"
+                    && accumulated_text.empty();
+            if (rejected_readout_tool_only) {
+                if (execution_state.readout_retry_count < 1) {
+                    execution_state.readout_retry_count++;
+                    request.messages.emplace_back("user", build_readout_retry_instruction(execution_state));
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][readout_retry_scheduled] mode=stream retry_count={} current_page={}",
+                            execution_state.readout_retry_count,
+                            execution_state.current_page);
+                    continue;
+                }
+
+                const std::string fallback = build_local_readout_fallback_text(execution_state);
+                if (!fallback.empty()) {
+                    accumulated_text = fallback;
+                    assistant_msg.content = build_response_blocks(accumulated_text, "");
+                    new_messages.back() = assistant_msg;
+                    request.messages.back() = assistant_msg;
+
+                    AgentEvent text_event;
+                    text_event.type = "text_delta";
+                    text_event.data["delta"] = accumulated_text;
+                    callback(text_event);
+
+                    AgentEvent end_event;
+                    end_event.type = "message_end";
+                    end_event.data["finish_reason"] = "stop";
+                    callback(end_event);
+
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][readout_local_fallback] mode=stream chars={} current_page={}",
+                            accumulated_text.size(),
+                            execution_state.current_page);
+                    loop_exit_reason = "readout_local_fallback";
+                    break;
+                }
+            }
+
             // No valid tool calls - check finish_reason to decide
             if (last_finish_reason_ == "stop" || last_finish_reason_ == "end_turn") {
                 ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=finish_reason finish_reason={}", last_finish_reason_);
                 loop_exit_reason = last_finish_reason_;
+                AgentEvent event;
+                event.type = "message_end";
+                event.data["finish_reason"] = "stop";
+                callback(event);
                 break;  // Exit loop - LLM is done
             }
             
@@ -4813,6 +5878,10 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             // The LLM has finished its response
             ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=text_only_response");
             loop_exit_reason = "text_only_response";
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = "stop";
+            callback(event);
             break;
         }
         // If we have valid tool calls, execute them and loop continues
@@ -4873,7 +5942,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         }
 
         if (execution_state.goal_reached && !execution_state.context_reset) {
-            reset_messages_for_readout(request.messages, message);
+                    reset_messages_for_readout(request.messages, execution_state);
             execution_state.context_reset = true;
             ICRAW_LOG_INFO("[AgentLoop][goal_reached_context_reset] mode=stream phase={} current_page={}",
                     execution_state.phase, execution_state.current_page);
