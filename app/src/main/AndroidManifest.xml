@@ -53,6 +53,10 @@
             android:name=".FloatingBallHiddenActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".GlowTestActivity"
+            android:exported="true" />
+
     </application>
 
 </manifest>
