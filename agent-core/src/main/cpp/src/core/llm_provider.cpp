@@ -79,30 +79,6 @@ std::string json_string_or_empty(const nlohmann::json& node, const char* key) {
     return node[key].get<std::string>();
 }
 
-std::optional<ChatCompletionResponse::Usage> parse_usage(const nlohmann::json& node) {
-    if (!node.contains("usage") || !node["usage"].is_object()) {
-        return std::nullopt;
-    }
-
-    const auto& usage_json = node["usage"];
-    ChatCompletionResponse::Usage usage;
-    usage.prompt_tokens = usage_json.value("prompt_tokens", 0);
-    usage.completion_tokens = usage_json.value("completion_tokens", 0);
-    usage.total_tokens = usage_json.value("total_tokens", 0);
-
-    if (usage.prompt_tokens <= 0
-            && usage.completion_tokens <= 0
-            && usage.total_tokens <= 0) {
-        return std::nullopt;
-    }
-
-    if (usage.total_tokens <= 0) {
-        usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
-    }
-
-    return usage;
-}
-
 } // namespace
 
 // ============================================================================
@@ -292,7 +268,6 @@ bool OpenAIStreamParser::parse_chunk(const std::string& sse_event,
     
     try {
         nlohmann::json chunk_json = nlohmann::json::parse(json_str);
-        response.usage = parse_usage(chunk_json);
 
         if (!chunk_json.contains("choices") || chunk_json["choices"].empty()) {
             return false;
@@ -373,7 +348,6 @@ nlohmann::json LLMProvider::build_request_body(const ChatCompletionRequest& requ
     
 ChatCompletionResponse LLMProvider::parse_response(const nlohmann::json& response) const {
     ChatCompletionResponse result;
-    result.usage = parse_usage(response);
 
     if (!response.contains("choices") || response["choices"].empty()) {
         result.finish_reason = "error";

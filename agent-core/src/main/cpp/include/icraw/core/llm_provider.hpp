@@ -24,18 +24,11 @@ struct ChatCompletionRequest {
 };
 
 struct ChatCompletionResponse {
-    struct Usage {
-        int prompt_tokens = 0;
-        int completion_tokens = 0;
-        int total_tokens = 0;
-    };
-
     std::string content;
     std::string reasoning_content;
     std::vector<ToolCall> tool_calls;
     std::string finish_reason;
     bool is_stream_end = false;
-    std::optional<Usage> usage;
 };
 
 // ============================================================================

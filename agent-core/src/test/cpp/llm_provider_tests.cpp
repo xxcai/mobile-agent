@@ -443,35 +443,6 @@ void test_glm_stream_parser_supports_reasoning_content() {
     expect(second_chunk.is_stream_end, "glm finish_reason should still end stream");
 }
 
-void test_parse_response_extracts_usage() {
-    GenericOpenAIProvider provider("test-key", "https://api.openai.com/v1", "gpt-4o");
-
-    const auto response = provider.parse_response(nlohmann::json::parse(
-        R"({
-            "choices":[{"finish_reason":"stop","message":{"content":"ok"}}],
-            "usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}
-        })"));
-
-    expect(response.usage.has_value(), "non-stream response should expose usage");
-    expect(response.usage->prompt_tokens == 12, "prompt_tokens should match");
-    expect(response.usage->completion_tokens == 34, "completion_tokens should match");
-    expect(response.usage->total_tokens == 46, "total_tokens should match");
-}
-
-void test_stream_parser_extracts_usage_from_final_chunk() {
-    OpenAIStreamParser parser;
-
-    ChatCompletionResponse response;
-    const std::string final_event =
-        R"(data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}})";
-    expect(parser.parse_chunk(final_event, response), "final stream chunk should parse");
-    expect(response.is_stream_end, "finish_reason=stop should end stream");
-    expect(response.usage.has_value(), "final stream chunk should expose usage");
-    expect(response.usage->prompt_tokens == 12, "stream prompt_tokens should match");
-    expect(response.usage->completion_tokens == 34, "stream completion_tokens should match");
-    expect(response.usage->total_tokens == 46, "stream total_tokens should match");
-}
-
 } // namespace
 } // namespace icraw
 
@@ -489,8 +460,6 @@ int main() {
     icraw::test_qwen_request_can_enable_thinking();
     icraw::test_qwen_request_can_disable_thinking();
     icraw::test_glm_stream_parser_supports_reasoning_content();
-    icraw::test_parse_response_extracts_usage();
-    icraw::test_stream_parser_extracts_usage_from_final_chunk();
     icraw::test_factory_returns_specialized_provider_classes();
     icraw::test_specialized_minimax_provider_injects_reasoning_split();
     icraw::test_specialized_glm_provider_controls_thinking();
