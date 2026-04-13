@@ -134,6 +134,11 @@ public class EdgeGlowView extends GLSurfaceView {
         if (this.active == active) return;
         this.active = active;
 
+        // 联动粒子发射
+        if (renderer != null) {
+            renderer.setEmitting(active);
+        }
+
         // 取消正在进行的动画
         if (currentAnimator != null) {
             currentAnimator.cancel();

@@ -9,6 +9,11 @@ uniform float uBlurRadius;     // 光晕扩散宽度（像素）
 uniform float uPadding;        // 内缩距离（像素）
 uniform float uAlpha;          // 全局透明度，状态动画驱动
 
+// ---- 粒子 ----
+const int MAX_PARTICLES = 80;
+uniform int uParticleCount;
+uniform vec4 uParticles[MAX_PARTICLES]; // xy=位置(UV), z=大小(px), w=alpha
+
 in vec2 vTexCoord;
 out vec4 fragColor;
 
@@ -142,6 +147,26 @@ void main() {
 
     float intensity = clamp(brightLine + outerGlow, 0.0, 1.0);
 
-    // 预乘 alpha 输出，uAlpha 由状态动画驱动
-    fragColor = vec4(color * intensity * uAlpha * 0.85, intensity * uAlpha * 0.85);
+    // ---- 粒子贡献 ----
+    vec3 particleAccum = vec3(0.0);
+    for (int i = 0; i < uParticleCount; i++) {
+        vec2 pPos = uParticles[i].xy;
+        float pSize = uParticles[i].z;
+        float pAlpha = uParticles[i].w;
+
+        // 像素空间距离
+        vec2 diff = (uv - pPos) * uResolution;
+        float dist = length(diff);
+
+        // 圆形实心软边，pow 让中心更饱满
+        float fade = pow(max(1.0 - dist / pSize, 0.0), 0.6);
+        // 粒子用自身位置对应的渐变色
+        vec3 pColor = computeEdgeColor(pPos);
+        particleAccum += pColor * fade * pAlpha * 1.5;
+    }
+
+    // 光晕颜色 + 粒子贡献，预乘 alpha 输出
+    vec3 finalColor = color * intensity + particleAccum;
+    float finalAlpha = clamp(intensity + dot(particleAccum, vec3(0.33)), 0.0, 1.0);
+    fragColor = vec4(finalColor * uAlpha * 0.85, finalAlpha * uAlpha * 0.85);
 }

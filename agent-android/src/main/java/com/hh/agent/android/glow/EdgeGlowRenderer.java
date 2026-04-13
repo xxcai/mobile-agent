@@ -52,11 +52,14 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private int uBlurRadiusLocation;
     private int uPaddingLocation;
     private int uAlphaLocation;
+    private int uParticleCountLocation;
+    private int uParticlesLocation;
 
     // 时间管理（支持 pause/resume）
     private long startTime;
     private long pausedTime;
     private long pauseStartMs;
+    private long lastFrameTime;
     private boolean paused;
 
     // 画布尺寸
@@ -68,6 +71,9 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private float blurRadius = DEFAULT_BLUR_RADIUS;
     private float padding = DEFAULT_PADDING;
     private volatile float alpha = 0f; // 初始透明，由 setActive 动画驱动
+
+    // 粒子系统
+    private final ParticleSystem particleSystem = new ParticleSystem();
 
     EdgeGlowRenderer(Context context) {
         this.context = context;
@@ -108,8 +114,11 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         uBlurRadiusLocation = GLES30.glGetUniformLocation(program, "uBlurRadius");
         uPaddingLocation = GLES30.glGetUniformLocation(program, "uPadding");
         uAlphaLocation = GLES30.glGetUniformLocation(program, "uAlpha");
+        uParticleCountLocation = GLES30.glGetUniformLocation(program, "uParticleCount");
+        uParticlesLocation = GLES30.glGetUniformLocation(program, "uParticles");
 
         startTime = System.currentTimeMillis();
+        lastFrameTime = startTime;
         pausedTime = 0;
 
         // 透明黑色背景
@@ -127,6 +136,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         this.width = width;
         this.height = height;
         GLES30.glViewport(0, 0, width, height);
+        particleSystem.setScreenSize(width, height);
     }
 
     @Override
@@ -135,19 +145,32 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
         if (glResource == null) return;
 
-        // 计算经过时间（排除 pause 间隔）
+        // 计算经过时间和帧间隔
         long now = System.currentTimeMillis();
         long elapsed = paused ? pausedTime : (now - startTime - pausedTime);
+        float dt = (now - lastFrameTime) / 1000f;
+        lastFrameTime = now;
+        if (dt > 0.1f) dt = 0.016f; // 防止大跳变
+
+        // 更新粒子
+        int aliveCount = particleSystem.update(dt);
 
         GLES30.glUseProgram(glResource.getProgramId());
 
-        // 设置 uniform
+        // 设置基础 uniform
         GLES30.glUniform1f(uTimeLocation, (float) elapsed);
         GLES30.glUniform2f(uResolutionLocation, (float) width, (float) height);
         GLES30.glUniform1f(uCornerRadiusLocation, cornerRadius);
         GLES30.glUniform1f(uBlurRadiusLocation, blurRadius);
         GLES30.glUniform1f(uPaddingLocation, padding);
         GLES30.glUniform1f(uAlphaLocation, alpha);
+
+        // 设置粒子 uniform
+        GLES30.glUniform1i(uParticleCountLocation, aliveCount);
+        if (aliveCount > 0) {
+            float[] particleData = particleSystem.packUniforms();
+            GLES30.glUniform4fv(uParticlesLocation, aliveCount, particleData, 0);
+        }
 
         // 绘制全屏 quad
         GLES30.glEnableVertexAttribArray(aPositionLocation);
@@ -176,6 +199,10 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         return alpha;
     }
 
+    void setEmitting(boolean emitting) {
+        particleSystem.setEmitting(emitting);
+    }
+
     void onPause() {
         if (!paused) {
             paused = true;
@@ -187,6 +214,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         if (paused) {
             paused = false;
             pausedTime += System.currentTimeMillis() - pauseStartMs;
+            lastFrameTime = System.currentTimeMillis();
         }
     }
 }
