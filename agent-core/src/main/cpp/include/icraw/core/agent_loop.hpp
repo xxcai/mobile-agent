@@ -52,7 +52,8 @@ public:
     const AgentConfig& get_config() const { return agent_config_; }
 
     // Trigger memory consolidation if needed (now async)
-    void maybe_consolidate_memory(const std::vector<Message>& messages);
+    void maybe_consolidate_memory(const std::string& session_id,
+                                  const std::vector<Message>& messages);
     
     // --- New Memory Management Methods ---
     
@@ -76,10 +77,12 @@ private:
         const std::vector<ToolCall>& tool_calls);
     
     // Perform memory consolidation via LLM
-    bool perform_consolidation(const std::vector<Message>& messages);
+    bool perform_consolidation(const std::string& session_id,
+                               const std::vector<Message>& messages);
     
     // Perform compaction with chunking and fallback
-    CompactionResult perform_compaction_with_fallback(
+    CompactionResult execute_memory_compaction(
+        const std::string& session_id,
         const std::vector<MemoryEntry>& messages);
     
     // Build consolidation prompt with identifier preservation

@@ -17,17 +17,17 @@ import com.hh.agent.android.viewcontext.ViewContextSourcePolicyRegistry;
 import com.hh.agent.android.voice.IVoiceRecognizer;
 import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.core.api.impl.NativeMobileAgentApi;
-import com.hh.agent.core.tool.ToolExecutor;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
 
 import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Centralized Agent bootstrapper for app, tool, and floating-ball initialization.
+ * Centralized Agent bootstrapper for app, shortcut, screen-vision, and floating-ball initialization.
  */
 public class AgentInitializer {
 
@@ -59,35 +59,28 @@ public class AgentInitializer {
 
     public static void initialize(Context application,
                                   IVoiceRecognizer voiceRecognizer,
-                                  Map<String, ToolExecutor> tools,
-                                  Runnable callback) {
-        initialize(application,
-                voiceRecognizer,
-                tools,
-                ActivityViewContextSourcePolicy.EMPTY,
-                callback);
-    }
-
-    public static void initialize(Context application,
-                                  IVoiceRecognizer voiceRecognizer,
-                                  Map<String, ToolExecutor> tools,
+                                  Collection<? extends ShortcutExecutor> shortcuts,
                                   ActivityViewContextSourcePolicy viewContextSourcePolicy,
                                   Runnable callback) {
+        initializeInternal(application, voiceRecognizer, shortcuts, viewContextSourcePolicy, callback);
+    }
+
+    private static void initializeInternal(Context application,
+                                           IVoiceRecognizer voiceRecognizer,
+                                           Collection<? extends ShortcutExecutor> shortcuts,
+                                           ActivityViewContextSourcePolicy viewContextSourcePolicy,
+                                           Runnable callback) {
         ensureScreenSnapshotAnalyzerInstalled(application);
-        int toolCount = tools != null ? tools.size() : 0;
+        int shortcutCount = shortcuts != null ? shortcuts.size() : 0;
         boolean analyzerRegistered = ScreenSnapshotAnalyzerHolder.getInstance().getAnalyzer() != null;
         String policyName = viewContextSourcePolicy != null
                 ? viewContextSourcePolicy.getClass().getName()
                 : "null";
         AgentLogs.info(TAG,
                 "initialize_start",
-                "tool_count=" + toolCount
+                "shortcut_count=" + shortcutCount
                         + " analyzer_registered=" + analyzerRegistered
                         + " view_context_policy=" + policyName);
-
-        if (tools == null) {
-            AgentLogs.warn(TAG, "tools_map_null", null);
-        }
         if (callback == null) {
             AgentLogs.warn(TAG, "initialize_callback_null", null);
         }
@@ -97,7 +90,9 @@ public class AgentInitializer {
         ViewContextSourcePolicyRegistry.setActivePolicy(viewContextSourcePolicy);
 
         AndroidToolManager toolManager = new AndroidToolManager(application);
-        toolManager.registerTools(tools);
+        if (shortcuts != null) {
+            toolManager.registerShortcuts(shortcuts);
+        }
         toolManager.initialize();
 
         loadConfigFromAssets(application);
@@ -204,6 +199,3 @@ public class AgentInitializer {
         }
     }
 }
-
-
-

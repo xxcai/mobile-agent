@@ -140,24 +140,6 @@ public class NativeMobileAgentApi implements MobileAgentApi {
     }
 
     @Override
-    public Message sendMessage(String content, String sessionKey) {
-        // 调用 Native Agent
-        String response;
-        try {
-            response = NativeAgent.nativeSendMessage(content);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send message to native agent: " + e.getMessage(), e);
-        }
-
-        // 创建助手回复消息
-        Message assistantMessage = new Message();
-        assistantMessage.setRole("assistant");
-        assistantMessage.setContent(response);
-
-        return assistantMessage;
-    }
-
-    @Override
     public void sendMessageStream(String content, String sessionKey, AgentEventListener listener) {
         NativeAgent.sendMessageStream(toSessionId(sessionKey), content, listener);
     }
@@ -230,6 +212,18 @@ public class NativeMobileAgentApi implements MobileAgentApi {
             return false;
         }
         info("memory_clear_complete", "session_key=" + nullToEmpty(sessionKey));
+        return true;
+    }
+
+    @Override
+    public boolean clearDailyMemory() {
+        info("daily_memory_clear_start", "");
+        boolean success = NativeAgent.nativeClearDailyMemory();
+        if (!success) {
+            warn("daily_memory_clear_failed", "");
+            return false;
+        }
+        info("daily_memory_clear_complete", "");
         return true;
     }
 

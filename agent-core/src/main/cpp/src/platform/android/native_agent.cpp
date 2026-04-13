@@ -365,43 +365,6 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeSetLogLevel(
 }
 
 /**
- * Send a message to the agent and get a response
- */
-JNIEXPORT jstring JNICALL Java_com_hh_agent_core_NativeAgent_nativeSendMessage(
-        JNIEnv* env,
-        jclass /* clazz */,
-        jstring message) {
-    const char* msg = env->GetStringUTFChars(message, nullptr);
-    std::string response;
-
-    if (!msg) {
-        return env->NewStringUTF("");
-    }
-
-    ICRAW_LOG_INFO("[NativeAgentJni][send_message_start] input_length={}", std::strlen(msg));
-    ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] input={}", msg);
-
-    // Check if agent is initialized
-    if (!g_agent) {
-        ICRAW_LOG_WARN("[NativeAgentJni][send_message_skipped] reason=agent_not_initialized");
-        response = "Error: Agent not initialized. Call nativeInitialize first.";
-    } else {
-        try {
-            // Call MobileAgent::chat()
-            response = g_agent->chat(msg);
-            ICRAW_LOG_INFO("[NativeAgentJni][send_message_complete] output_length={}", response.size());
-            ICRAW_LOG_DEBUG("[NativeAgentJni][send_message_debug] response={}", response);
-        } catch (const std::exception& e) {
-            ICRAW_LOG_ERROR("[NativeAgentJni][send_message_failed] message={}", e.what());
-            response = std::string("Error: ") + e.what();
-        }
-    }
-
-    env->ReleaseStringUTFChars(message, msg);
-    return env->NewStringUTF(response.c_str());
-}
-
-/**
  * Shutdown the native agent
  */
 JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeShutdown(
@@ -447,7 +410,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
     // Get method ID (can be cached, it's static)
     jclass cls = env->GetObjectClass(callback);
     jmethodID method_id = env->GetMethodID(cls, "callTool",
-        "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+        "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     env->DeleteLocalRef(cls);
 
     // Create a C++ callback that delegates to Java
@@ -456,7 +419,9 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
         JniCallback(JavaVM* jvm, jobject o, jmethodID mid)
             : java_vm_(jvm), callback_(o), method_id_(mid) {}
 
-        std::string call_tool(const std::string& tool_name, const nlohmann::json& args) override {
+        std::string call_tool(const std::string& tool_name,
+                              const nlohmann::json& args,
+                              const std::string& session_key) override {
             if (!callback_ || !method_id_) {
                 nlohmann::json error;
                 error["success"] = false;
@@ -486,8 +451,9 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
 
             jstring j_tool_name = env->NewStringUTF(tool_name.c_str());
             jstring j_args = env->NewStringUTF(args.dump().c_str());
+            jstring j_session_key = env->NewStringUTF(session_key.c_str());
 
-            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args);
+            jstring j_result = (jstring)env->CallObjectMethod(callback_, method_id_, j_tool_name, j_args, j_session_key);
 
             std::string result;
             if (j_result) {
@@ -503,6 +469,7 @@ JNIEXPORT void JNICALL Java_com_hh_agent_core_NativeAgent_nativeRegisterAndroidT
 
             env->DeleteLocalRef(j_tool_name);
             env->DeleteLocalRef(j_args);
+            env->DeleteLocalRef(j_session_key);
             if (j_result) env->DeleteLocalRef(j_result);
 
             // Detach thread if we attached it
@@ -931,6 +898,35 @@ JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearLongTer
         ICRAW_LOG_INFO("[NativeAgentJni][memory_clear_complete]");
     } else {
         ICRAW_LOG_WARN("[NativeAgentJni][memory_clear_failed] reason=clear_returned_false");
+    }
+    return success ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_hh_agent_core_NativeAgent_nativeClearDailyMemory(
+        JNIEnv* env,
+        jclass /* clazz */) {
+    (void) env;
+
+    ICRAW_LOG_INFO("[NativeAgentJni][daily_memory_clear_start]");
+    bool success = false;
+
+    if (g_agent) {
+        try {
+            auto memory_manager = g_agent->get_memory_manager();
+            if (memory_manager) {
+                success = memory_manager->clear_daily_memory();
+            }
+        } catch (const std::exception& e) {
+            ICRAW_LOG_ERROR("[NativeAgentJni][daily_memory_clear_failed] message={}", e.what());
+        }
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][daily_memory_clear_failed] reason=agent_not_initialized");
+    }
+
+    if (success) {
+        ICRAW_LOG_INFO("[NativeAgentJni][daily_memory_clear_complete]");
+    } else {
+        ICRAW_LOG_WARN("[NativeAgentJni][daily_memory_clear_failed] reason=clear_returned_false");
     }
     return success ? JNI_TRUE : JNI_FALSE;
 }

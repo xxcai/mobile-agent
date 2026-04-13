@@ -2,8 +2,4 @@
 <resources>
     <string name="app_name">HelloWorld</string>
     <string name="mock_im_launcher_name">Mock WeChat</string>
-    <string name="tool_test_launcher_name">Tool Channel Tests</string>
-    <string name="touch_dispatch_probe_launcher_name">Touch Dispatch Probe</string>
-    <string name="recycler_swipe_probe_launcher_name">Recycler Swipe Probe</string>
-    <string name="long_press_double_tap_probe_launcher_name">Long Press Double Tap Probe</string>
 </resources>

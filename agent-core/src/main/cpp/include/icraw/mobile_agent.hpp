@@ -16,49 +16,48 @@ class PromptBuilder;
 class AgentLoop;
 class LLMProvider;
 
-// Mobile Agent - Simplified facade for mobile platforms
-// Single session, no gateway, no shell commands
+// Mobile Agent - Simplified facade for mobile platforms.
 class MobileAgent {
 public:
     explicit MobileAgent(const IcrawConfig& config);
     ~MobileAgent();
 
-    // Send a message and get response
+    // Send a message and get a non-streaming response.
     std::string chat(const std::string& message);
 
-    // Send a message with streaming callback
+    // Send a message with streaming callback.
     void chat_stream(const std::string& message, AgentEventCallback callback);
     void chat_stream(const std::string& session_id,
                      const std::string& message,
                      AgentEventCallback callback);
 
-    // Get conversation history
+    // Get conversation history.
     const std::vector<Message>& get_history() const { return history_; }
 
-    // Clear conversation history
+    // Clear conversation history.
     void clear_history();
 
-    // Stop current operation
+    // Stop current operation.
     void stop();
 
-    // Get underlying components (for advanced usage)
+    // Get underlying components (for advanced usage).
     std::shared_ptr<MemoryManager> get_memory_manager() const { return memory_manager_; }
     std::shared_ptr<ToolRegistry> get_tool_registry() const { return tool_registry_; }
     std::shared_ptr<LLMProvider> get_llm_provider() const { return llm_provider_; }
 
-    // Factory method with default configuration
+    // Factory method with default configuration.
     static std::unique_ptr<MobileAgent> create(const std::string& workspace_path = "");
-    
-    // Factory method with custom configuration
+
+    // Factory method with custom configuration.
     static std::unique_ptr<MobileAgent> create_with_config(const IcrawConfig& config);
 
 private:
-    // Load conversation history from database
+    // Load conversation history from database.
     void load_history_from_memory();
-    std::string build_system_prompt_for_message() const;
+    std::string build_system_prompt_for_message(const std::string& session_id) const;
     void log_selected_skills(const std::vector<SkillMetadata>& selected_skills) const;
     std::vector<SkillMetadata> select_relevant_skills_for_message(const std::string& message) const;
-    
+
     IcrawConfig config_;
     std::shared_ptr<MemoryManager> memory_manager_;
     std::shared_ptr<SkillLoader> skill_loader_;
@@ -69,7 +68,6 @@ private:
 
     std::vector<Message> history_;
     std::vector<SkillMetadata> available_skills_;
-    std::string system_prompt_;
 };
 
 } // namespace icraw

@@ -14,16 +14,16 @@ public final class RouteResolver {
     private final UriAccessPolicy uriAccessPolicy;
     private final RouteScorer routeScorer;
     private final NativeRouteBridge nativeRouteBridge;
-    private final MiniAppRouteBridge miniAppRouteBridge;
+    private final WeCodeRouteBridge weCodeRouteBridge;
 
     public RouteResolver(UriAccessPolicy uriAccessPolicy,
                          RouteScorer routeScorer,
                          NativeRouteBridge nativeRouteBridge,
-                         MiniAppRouteBridge miniAppRouteBridge) {
+                         WeCodeRouteBridge weCodeRouteBridge) {
         this.uriAccessPolicy = uriAccessPolicy == null ? new AllowAllUriAccessPolicy() : uriAccessPolicy;
         this.routeScorer = routeScorer == null ? new NoOpRouteScorer() : routeScorer;
         this.nativeRouteBridge = nativeRouteBridge;
-        this.miniAppRouteBridge = miniAppRouteBridge;
+        this.weCodeRouteBridge = weCodeRouteBridge;
     }
 
     public RouteResolution resolve(RouteHint routeHint) {
@@ -64,8 +64,8 @@ public final class RouteResolver {
         if (RouteHint.TARGET_TYPE_NATIVE.equals(routeHint.getTargetTypeHint())) {
             return RouteHint.TARGET_TYPE_NATIVE;
         }
-        if (RouteHint.TARGET_TYPE_MINIAPP.equals(routeHint.getTargetTypeHint())) {
-            return RouteHint.TARGET_TYPE_MINIAPP;
+        if (RouteHint.TARGET_TYPE_WECODE.equals(routeHint.getTargetTypeHint())) {
+            return RouteHint.TARGET_TYPE_WECODE;
         }
         return RouteHint.TARGET_TYPE_UNKNOWN;
     }
@@ -81,7 +81,7 @@ public final class RouteResolver {
     private List<RouteTarget> collectCandidates(RouteHint routeHint) {
         List<RouteTarget> candidates = new ArrayList<>();
 
-        if (nativeRouteBridge != null) {
+        if (nativeRouteBridge != null && shouldSearchNative(routeHint)) {
             if (routeHint.getNativeModule() != null) {
                 candidates.addAll(mapNative(nativeRouteBridge.searchByModule(
                         routeHint.getNativeModule(),
@@ -91,10 +91,10 @@ public final class RouteResolver {
             }
         }
 
-        if (miniAppRouteBridge != null) {
-            String miniAppQuery = selectMiniAppQuery(routeHint);
-            if (miniAppQuery != null) {
-                candidates.addAll(mapMiniApp(miniAppRouteBridge.search(miniAppQuery)));
+        if (weCodeRouteBridge != null && shouldSearchWeCode(routeHint)) {
+            String weCodeQuery = selectWeCodeQuery(routeHint);
+            if (weCodeQuery != null) {
+                candidates.addAll(mapWeCode(weCodeRouteBridge.search(weCodeQuery)));
             }
         }
 
@@ -118,31 +118,39 @@ public final class RouteResolver {
         return targets;
     }
 
-    private List<RouteTarget> mapMiniApp(List<MiniAppRouteRecord> records) {
+    private List<RouteTarget> mapWeCode(List<WeCodeRouteRecord> records) {
         if (records == null || records.isEmpty()) {
             return Collections.emptyList();
         }
         List<RouteTarget> targets = new ArrayList<>();
-        for (MiniAppRouteRecord record : records) {
+        for (WeCodeRouteRecord record : records) {
             targets.add(new RouteTarget.Builder()
-                    .targetType(RouteHint.TARGET_TYPE_MINIAPP)
+                    .targetType(RouteHint.TARGET_TYPE_WECODE)
                     .uri(record.getUri())
                     .title(record.getTitle())
-                    .source("miniapp_bridge")
+                    .source("wecode_bridge")
                     .matchMode("bridge_search")
                     .build());
         }
         return targets;
     }
 
-    private String selectMiniAppQuery(RouteHint routeHint) {
-        if (routeHint.getMiniAppName() != null) {
-            return routeHint.getMiniAppName();
+    private String selectWeCodeQuery(RouteHint routeHint) {
+        if (routeHint.getWeCodeName() != null) {
+            return routeHint.getWeCodeName();
         }
         if (!routeHint.getKeywords().isEmpty()) {
             return routeHint.getKeywords().get(0);
         }
         return null;
+    }
+
+    private boolean shouldSearchNative(RouteHint routeHint) {
+        return !RouteHint.TARGET_TYPE_WECODE.equals(routeHint.getTargetTypeHint());
+    }
+
+    private boolean shouldSearchWeCode(RouteHint routeHint) {
+        return !RouteHint.TARGET_TYPE_NATIVE.equals(routeHint.getTargetTypeHint());
     }
 
     private JSONObject diagnostics(String key, String value) {

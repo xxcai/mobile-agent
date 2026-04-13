@@ -1,7 +1,7 @@
 # Tool Usage Notes
 
 Tool schemas are provided automatically via function calling.
-This file documents constraints and usage patterns.
+This file documents tool-side constraints, failure semantics, and execution rules.
 
 ## General Constraints
 
@@ -43,7 +43,7 @@ When the user asks about page elements, visible cards, buttons, positions, or th
 
 1. Prefer `android_view_context_tool` first to inspect the screen.
 2. Use `android_gesture_tool` only after the screen context is clear enough for execution.
-3. Keep business tools as the first choice only when they can directly express the target action without screen inspection.
+3. Keep business tools and shortcuts as the first choice only when they can directly express the target action without screen inspection.
 
 Do not jump directly to gesture execution when the task still depends on understanding the current UI structure.
 
@@ -63,6 +63,8 @@ When `hybridObservation.actionableNodes` is present:
 - Treat nodes with `source=vision_only` as weaker evidence and avoid using them for taps unless there is no better current-turn target evidence.
 
 ## Gesture Tool Rules
+
+When execution depends on the current UI structure, obtain fresh screen evidence before any gesture attempt.
 
 For `android_gesture_tool`, always follow these rules:
 
@@ -117,7 +119,7 @@ Example `swipe`:
 For route selection in the main conversation:
 
 1. Decide the first path inside the main response flow rather than waiting for any separate pre-routing step.
-2. If a stable business entity is explicit, prefer the corresponding business tool first.
+2. If a stable business entity is explicit, prefer the corresponding business tool or shortcut first.
 3. If the target is a visible UI element or the request depends on current screen structure, prefer `android_view_context_tool` first.
 4. If a business tool returns a structured capability or target-access failure and fallback is clearly allowed, then move to `android_view_context_tool` and `android_gesture_tool`.
 
@@ -130,11 +132,13 @@ For feed, list, and time-range tasks:
 ## Tool Categories
 
 ### File Operations
+
 - Read, write, list files within workspace
 - Search for text patterns
 - No access outside workspace directory
 
 ### Memory Tools
+
 - Save and retrieve long-term memories
 - Search conversation history
 

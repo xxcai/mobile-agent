@@ -35,6 +35,21 @@
                 android:textSize="14sp" />
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/businessDebugEntry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_business_indicator_inactive"
+            android:paddingStart="12dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="6dp"
+            android:text="打开业务调试页"
+            android:textColor="@color/business_blue"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <HorizontalScrollView
             android:id="@+id/quickActionScrollView"
             android:layout_width="match_parent"

@@ -9,9 +9,10 @@ public interface AndroidToolCallback {
     /**
      * Call an Android tool channel with the given name and raw parameters.
      *
-     * @param toolName The outer tool channel name (e.g., "call_android_tool")
+     * @param toolName The outer tool channel name (e.g., "run_shortcut")
      * @param argsJson JSON string containing the original tool parameters
+     * @param sessionKey Current agent session key, may be empty when unavailable
      * @return JSON string serialized from the structured tool result
      */
-    String callTool(String toolName, String argsJson);
+    String callTool(String toolName, String argsJson, String sessionKey);
 }

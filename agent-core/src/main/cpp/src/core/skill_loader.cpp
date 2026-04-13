@@ -104,7 +104,11 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
     std::ostringstream ss;
 
     ss << "<skills>\n";
+    ss << "When a request matches a skill, read its SKILL.md first.\n";
+    ss << "Skill names are not shortcut names. Never pass them to run_shortcut or describe_shortcut.\n";
+    ss << "If a shortcut's parameters are unclear, call describe_shortcut before run_shortcut.\n\n";
     for (const auto& skill : skills) {
+#if !defined(__ANDROID__) && !defined(ICRAW_ANDROID)
         bool available = true;
         std::string missing_reason;
 
@@ -163,32 +167,17 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
                 }
             }
         }
-
-        // Escape XML special characters
-        auto escape_xml = [](const std::string& s) -> std::string {
-            std::string result;
-            for (char c : s) {
-                switch (c) {
-                    case '&': result += "&amp;"; break;
-                    case '<': result += "&lt;"; break;
-                    case '>': result += "&gt;"; break;
-                    case '"': result += "&quot;"; break;
-                    case '\'': result += "&apos;"; break;
-                    default: result += c;
-                }
-            }
-            return result;
-        };
-
-        ss << "  <skill available=\"" << (available ? "true" : "false") << "\">\n";
-        ss << "    <name>" << escape_xml(skill.name) << "</name>\n";
-        ss << "    <description>" << escape_xml(skill.description) << "</description>\n";
-
-        if (!available && !missing_reason.empty()) {
-            ss << "    <requires>" << escape_xml(missing_reason) << "</requires>\n";
+#endif
+        ss << "- **" << skill.name << "**";
+        if (!skill.description.empty()) {
+            ss << ": " << skill.description;
         }
-
-        ss << "  </skill>\n";
+#if !defined(__ANDROID__) && !defined(ICRAW_ANDROID)
+        if (!available && !missing_reason.empty()) {
+            ss << " (" << missing_reason << ")";
+        }
+#endif
+        ss << "\n";
     }
     ss << "</skills>";
 
@@ -432,16 +421,16 @@ nlohmann::json SkillLoader::parse_yaml_frontmatter(const std::string& yaml_str) 
 
 bool SkillLoader::check_os_restriction(const std::vector<std::string>& os_list) const {
     if (os_list.empty()) {
-        return true;  // No restriction
+        return true;
     }
-    
+
     std::string current_os = get_current_os();
     for (const auto& os : os_list) {
         if (os == current_os) {
             return true;
         }
     }
-    
+
     return false;
 }
 

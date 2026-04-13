@@ -1,0 +1,10 @@
+{
+  "module": "myapp.settings",
+  "routes": [
+    {
+      "path": "ui://myapp.settings/changePassword",
+      "description": "账号安全修改密码页面",
+      "keywords": ["账号安全", "密码", "修改密码", "改密码"]
+    }
+  ]
+}

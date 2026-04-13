@@ -1,4 +1,5 @@
 #include "icraw/mobile_agent.hpp"
+#include "icraw/platform/android/android_tools.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include "icraw/core/skill_loader.hpp"
 #include "icraw/tools/tool_registry.hpp"
@@ -45,8 +46,10 @@ void replace_all(std::string& text, const std::string& needle, const std::string
 
 std::string normalize_for_match(std::string text) {
     static const std::array<std::string, 15> unicode_punctuation = {
-        u8"“", u8"”", u8"‘", u8"’", u8"。", u8"，", u8"：", u8"；",
-        u8"！", u8"？", u8"（", u8"）", u8"、", u8"《", u8"》"
+        "\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99",
+        "\xE3\x80\x82", "\xEF\xBC\x8C", "\xEF\xBC\x9A", "\xEF\xBC\x9B",
+        "\xEF\xBC\x81", "\xEF\xBC\x9F", "\xEF\xBC\x88", "\xEF\xBC\x89",
+        "\xE3\x80\x81", "\xE3\x80\x8A", "\xE3\x80\x8B"
     };
     for (const auto& mark : unicode_punctuation) {
         replace_all(text, mark, " ");
@@ -65,21 +68,21 @@ std::string normalize_for_match(std::string text) {
 
 bool is_generic_skill_phrase(const std::string& normalized_phrase) {
     static const std::array<std::string, 17> generic_phrases = {
-        normalize_for_match("用户"),
-        normalize_for_match("当前"),
-        normalize_for_match("页面"),
-        normalize_for_match("内容"),
-        normalize_for_match("说明"),
-        normalize_for_match("触发条件"),
-        normalize_for_match("工作流程"),
-        normalize_for_match("决策规则"),
-        normalize_for_match("输出要求"),
-        normalize_for_match("错误处理"),
-        normalize_for_match("注意"),
-        normalize_for_match("进入"),
-        normalize_for_match("查看"),
-        normalize_for_match("继续"),
-        normalize_for_match("总结"),
+        normalize_for_match("\xE7\x94\xA8\xE6\x88\xB7"),
+        normalize_for_match("\xE5\xBD\x93\xE5\x89\x8D"),
+        normalize_for_match("\xE9\xA1\xB5\xE9\x9D\xA2"),
+        normalize_for_match("\xE5\x86\x85\xE5\xAE\xB9"),
+        normalize_for_match("\xE8\xAF\xB4\xE6\x98\x8E"),
+        normalize_for_match("\xE8\xA7\xA6\xE5\x8F\x91\xE6\x9D\xA1\xE4\xBB\xB6"),
+        normalize_for_match("\xE5\xB7\xA5\xE4\xBD\x9C\xE6\xB5\x81\xE7\xA8\x8B"),
+        normalize_for_match("\xE5\x86\xB3\xE7\xAD\x96\xE8\xA7\x84\xE5\x88\x99"),
+        normalize_for_match("\xE8\xBE\x93\xE5\x87\xBA\xE8\xA6\x81\xE6\xB1\x82"),
+        normalize_for_match("\xE9\x94\x99\xE8\xAF\xAF\xE5\xA4\x84\xE7\x90\x86"),
+        normalize_for_match("\xE6\xB3\xA8\xE6\x84\x8F"),
+        normalize_for_match("\xE8\xBF\x9B\xE5\x85\xA5"),
+        normalize_for_match("\xE6\x9F\xA5\xE7\x9C\x8B"),
+        normalize_for_match("\xE7\xBB\xA7\xE7\xBB\xAD"),
+        normalize_for_match("\xE6\x80\xBB\xE7\xBB\x93"),
         normalize_for_match("skill"),
         normalize_for_match("agent")
     };
@@ -89,8 +92,8 @@ bool is_generic_skill_phrase(const std::string& normalized_phrase) {
 std::vector<std::string> extract_quoted_phrases(const std::string& text) {
     static const std::array<std::pair<std::string, std::string>, 3> quote_pairs = {{
         {"\"", "\""},
-        {u8"“", u8"”"},
-        {u8"‘", u8"’"}
+        {"\xE2\x80\x9C", "\xE2\x80\x9D"},
+        {"\xE2\x80\x98", "\xE2\x80\x99"}
     }};
 
     std::vector<std::string> phrases;
@@ -118,8 +121,9 @@ std::vector<std::string> extract_quoted_phrases(const std::string& text) {
 
 std::vector<std::string> split_fragments_for_matching(std::string text) {
     static const std::array<std::string, 15> delimiters = {
-        "\n", u8"。", u8"，", u8"：", u8"；", u8"！", u8"？", u8"（", u8"）",
-        u8"、", ",", ".", ":", ";", "!"
+        "\n", "\xE3\x80\x82", "\xEF\xBC\x8C", "\xEF\xBC\x9A", "\xEF\xBC\x9B",
+        "\xEF\xBC\x81", "\xEF\xBC\x9F", "\xEF\xBC\x88", "\xEF\xBC\x89",
+        "\xE3\x80\x81", ",", ".", ":", ";", "!"
     };
     for (const auto& delimiter : delimiters) {
         replace_all(text, delimiter, "\n");
@@ -205,12 +209,10 @@ static bool should_persist_message(const std::vector<Message>& messages, size_t 
     }
 
     const Message& next = messages[index + 1];
-    // 只展示最终结果：
-    // 如果 assistant 后面紧跟 tool，说明它只是“准备调用工具”的过渡话术，
-    // 应该只在流式过程中临时展示，不应该进入历史消息，否则会拆成两张卡片。
+    // Only persist final user-visible assistant messages. If the next message is a
+    // tool result, this assistant turn was just transitional tool-call prose.
     return next.role != "tool";
 }
-
 // MobileAgent implementation
 MobileAgent::MobileAgent(const IcrawConfig& config)
     : config_(config) {
@@ -274,10 +276,6 @@ MobileAgent::MobileAgent(const IcrawConfig& config)
     ICRAW_LOG_INFO("[MobileAgent][history_load_start] memory_window={}", config_.agent.memory_window);
     load_history_from_memory();
 
-    // Build system prompt (passing skills config from user config)
-    ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=system_prompt");
-    system_prompt_ = prompt_builder_->build_full(config_.skills);
-
     ICRAW_LOG_INFO("[MobileAgent][initialize_complete] history_count={}", history_.size());
 }
 
@@ -309,11 +307,13 @@ void MobileAgent::load_history_from_memory() {
 MobileAgent::~MobileAgent() = default;
 
 std::string MobileAgent::chat(const std::string& message) {
+    icraw::g_android_tools.set_current_session_id("default");
     const auto selected_skills = select_relevant_skills_for_message(message);
     log_selected_skills(selected_skills);
-    const std::string runtime_prompt = build_system_prompt_for_message();
+    const std::string runtime_prompt = build_system_prompt_for_message("default");
     auto new_messages = agent_loop_->process_message(
         message, history_, runtime_prompt, selected_skills);
+    icraw::g_android_tools.clear_current_session_id();
     
     // Add new messages to history
     for (const auto& msg : new_messages) {
@@ -338,6 +338,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
                               const std::string& message,
                               AgentEventCallback callback) {
     const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    icraw::g_android_tools.set_current_session_id(effective_session_id);
     auto session_entries = memory_manager_->get_recent_messages(
         config_.agent.memory_window, effective_session_id);
     std::vector<Message> session_history;
@@ -356,7 +357,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
 
     const auto selected_skills = select_relevant_skills_for_message(message);
     log_selected_skills(selected_skills);
-    const std::string runtime_prompt = build_system_prompt_for_message();
+    const std::string runtime_prompt = build_system_prompt_for_message(effective_session_id);
 
     // Save user message to SQLite first
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_start] session_id={} input_length={}",
@@ -390,7 +391,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
         if (!msg.content.empty()) {
             std::string content;
             for (const auto& block : msg.content) {
-                // Skip thinking content - it's internal reasoning, not actual response
+                // Skip thinking content; it is internal reasoning, not user-visible text.
                 if (block.type == "thinking") {
                     continue;
                 }
@@ -398,10 +399,8 @@ void MobileAgent::chat_stream(const std::string& session_id,
                     content += block.text + " ";
                 }
             }
-            // 这里必须先 trim 再决定是否落库：
-            // 某些 assistant 回合只有 think + 工具调用，中间夹带的 text block 可能只剩换行/空格。
-            // 如果直接用 !content.empty() 判断，会把“看起来空白”的伪消息写进 messages 表，
-            // 历史加载后就会出现一条空白消息卡片。
+            // Trim before persisting so whitespace-only assistant/tool-call turns
+            // do not become empty chat bubbles after history reload.
             content = trim_whitespace(content);
             if (!content.empty()) {
                 nlohmann::json metadata;
@@ -415,7 +414,6 @@ void MobileAgent::chat_stream(const std::string& session_id,
             }
         }
     }
-
     if (effective_session_id == "default") {
         history_ = session_history;
     }
@@ -424,13 +422,15 @@ void MobileAgent::chat_stream(const std::string& session_id,
     // Trigger memory consolidation if needed
     // Note: This is now non-blocking - consolidation runs asynchronously
     // to avoid delaying the user experience after message_end event
-    agent_loop_->maybe_consolidate_memory(new_messages);
+    agent_loop_->maybe_consolidate_memory(effective_session_id, new_messages);
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] session_id={} history_count={}",
             effective_session_id, session_history.size());
+    icraw::g_android_tools.clear_current_session_id();
 }
 
-std::string MobileAgent::build_system_prompt_for_message() const {
-    return system_prompt_;
+std::string MobileAgent::build_system_prompt_for_message(const std::string& session_id) const {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    return prompt_builder_->build_full(config_.skills, effective_session_id);
 }
 
 void MobileAgent::log_selected_skills(const std::vector<SkillMetadata>& selected_skills) const {

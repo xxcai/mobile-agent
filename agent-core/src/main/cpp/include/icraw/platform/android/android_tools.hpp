@@ -19,9 +19,12 @@ public:
      * Call an Android tool channel with the given name and raw parameters
      * @param tool_name The outer tool channel name
      * @param args JSON object containing the original tool parameters
+     * @param session_key Current agent session id
      * @return JSON string with result: {"success": true, "result": ...} or {"success": false, "error": "..."}
      */
-    virtual std::string call_tool(const std::string& tool_name, const nlohmann::json& args) = 0;
+    virtual std::string call_tool(const std::string& tool_name,
+                                  const nlohmann::json& args,
+                                  const std::string& session_key) = 0;
 };
 
 /**
@@ -45,6 +48,9 @@ public:
      * @return JSON string with result
      */
     std::string call_tool(const std::string& tool_name, const nlohmann::json& args);
+    void set_current_session_id(const std::string& session_id);
+    void clear_current_session_id();
+    const std::string& get_current_session_id() const { return current_session_id_; }
 
     /**
      * Check if a callback is registered
@@ -54,6 +60,7 @@ public:
 
 private:
     std::unique_ptr<AndroidToolCallback> callback_;
+    std::string current_session_id_;
 };
 
 // Global AndroidTools instance

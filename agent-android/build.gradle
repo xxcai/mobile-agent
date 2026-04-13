@@ -6,6 +6,7 @@ plugins {
 android {
     namespace 'com.hh.agent.android'
     compileSdk 34
+    buildToolsVersion '34.0.0'
 
     defaultConfig {
         minSdk 24
@@ -39,10 +40,10 @@ dependencies {
     api project(':agent-core')
     api 'androidx.core:core:1.12.0'
     api 'androidx.appcompat:appcompat:1.6.1'
+    api 'androidx.lifecycle:lifecycle-process:2.2.0'
     api 'com.google.android.material:material:1.11.0'
     api 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // Markwon Markdown 娓叉煋搴?
     implementation 'io.noties.markwon:core:4.6.2'
     implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
     implementation 'io.noties.markwon:ext-tables:4.6.2'

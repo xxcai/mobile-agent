@@ -26,15 +26,35 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
             "<html><body><div id=\"mock-root\"><button data-action=\"open-contact\">mock</button></div></body></html>";
 
     static final String MOCK_SCREEN_SNAPSHOT = "mock://screen/current/native-xml-validation";
-    private final Map<String, ViewContextSourceHandler> sourceHandlers = createSourceHandlers();
+    private final Map<String, ViewContextSourceHandler> sourceHandlers;
     private final RuntimeViewContextSourceResolver sourceResolver;
 
     public ViewContextToolChannel() {
         this(RuntimeViewContextSourceResolver.createDefault());
     }
 
+    public static ViewContextToolChannel createForJvmTests() {
+        return new ViewContextToolChannel(
+                new RuntimeViewContextSourceResolver(
+                        new com.hh.agent.android.viewcontext.ViewContextSourceSelector(null),
+                        new com.hh.agent.android.viewcontext.WebViewAreaFallbackSourceResolver() {
+                            @Override
+                            public ViewContextSourceSelection resolve(android.app.Activity activity) {
+                                return ViewContextSourceSelection.fallbackResolved(SOURCE_NATIVE_XML);
+                            }
+                        },
+                        () -> null),
+                java.util.Collections.emptyMap());
+    }
+
     ViewContextToolChannel(RuntimeViewContextSourceResolver sourceResolver) {
+        this(sourceResolver, null);
+    }
+
+    ViewContextToolChannel(RuntimeViewContextSourceResolver sourceResolver,
+                           Map<String, ViewContextSourceHandler> sourceHandlers) {
         this.sourceResolver = sourceResolver;
+        this.sourceHandlers = sourceHandlers != null ? sourceHandlers : createSourceHandlers();
     }
 
     @Override

@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
  */
 public final class ViewContextSnapshotProvider {
 
+    private static final String INTERACTION_DOMAIN_NATIVE = "native";
     private static final String SOURCE_NATIVE_XML = "native_xml";
     private static final String OBSERVATION_SCOPE_CURRENT_TURN = "current_turn";
 
@@ -175,8 +176,12 @@ public final class ViewContextSnapshotProvider {
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 activityClassName,
                 source,
+                INTERACTION_DOMAIN_NATIVE,
                 targetHint,
                 nativeViewXml,
+                null,
+                null,
+                null,
                 visualObservationJson,
                 screenSnapshotRef,
                 fullHybridObservationJson
@@ -196,6 +201,7 @@ public final class ViewContextSnapshotProvider {
 
         return ToolResult.success()
                 .with("source", source)
+                .with("interactionDomain", INTERACTION_DOMAIN_NATIVE)
                 .with("mock", false)
                 .with("targetHint", targetHint)
                 .with("activityClassName", activityClassName)
@@ -712,9 +718,9 @@ public final class ViewContextSnapshotProvider {
     }
 
     private static boolean hintSuggestsProfileEntry(@Nullable String targetHint) {
-        return containsNormalizedMatch(targetHint, "个人中心")
-                || containsNormalizedMatch(targetHint, "头像")
-                || containsNormalizedMatch(targetHint, "我的")
+        return containsNormalizedMatch(targetHint, "涓汉涓績")
+                || containsNormalizedMatch(targetHint, "澶村儚")
+                || containsNormalizedMatch(targetHint, "鎴戠殑")
                 || containsNormalizedMatch(targetHint, "profile")
                 || containsNormalizedMatch(targetHint, "avatar");
     }
@@ -831,4 +837,3 @@ public final class ViewContextSnapshotProvider {
         }
     }
 }
-

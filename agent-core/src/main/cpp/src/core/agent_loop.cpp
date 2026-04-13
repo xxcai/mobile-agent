@@ -26,7 +26,7 @@ static std::string generate_tool_id() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<> dis(0, 15);
-    
+
     std::string id = "toolu_";
     for (int i = 0; i < 24; ++i) {
         int val = dis(gen);
@@ -82,6 +82,7 @@ static std::string remove_markdown_section(const std::string& markdown,
 
 static std::string build_readout_system_prompt(const std::string& system_prompt) {
     std::string reduced = remove_markdown_section(system_prompt, "Available Skills");
+    reduced = remove_markdown_section(reduced, "Available Tools");
     reduced = remove_markdown_section(reduced, "Memory");
     return reduced;
 }
@@ -4988,30 +4989,30 @@ std::string build_local_readout_fallback_text(const ExecutionState& state) {
 
         std::ostringstream response;
         if (!page_name.empty()) {
-            response << u8"当前已进入页面：" << truncate_runtime_text(page_name, 80) << "。";
+            response << "Current page: " << truncate_runtime_text(page_name, 80) << ". ";
         }
         if (!summary.empty()) {
-            response << u8"页面概况：" << truncate_runtime_text(summary, 140) << "。";
+            response << "Page summary: " << truncate_runtime_text(summary, 140) << ". ";
         }
         if (!visible_items.empty()) {
-            response << u8"当前可见内容包括：";
+            response << "Visible content: ";
             for (size_t i = 0; i < visible_items.size() && i < 6; ++i) {
                 if (i > 0) {
-                    response << u8"、";
+                    response << ", ";
                 }
                 response << truncate_runtime_text(visible_items[i], 24);
             }
-            response << u8"。";
+            response << ". ";
         }
         if (!key_actions.empty()) {
-            response << u8"可执行操作包括：";
+            response << "Available actions: ";
             for (size_t i = 0; i < key_actions.size() && i < 4; ++i) {
                 if (i > 0) {
-                    response << u8"、";
+                    response << ", ";
                 }
                 response << truncate_runtime_text(key_actions[i], 24);
             }
-            response << u8"。";
+            response << ".";
         }
         return truncate_runtime_text(response.str(), 320);
     } catch (...) {
@@ -5040,7 +5041,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                                                   const std::vector<SkillMetadata>& selected_skills) {
     std::vector<Message> new_messages;
     stop_requested_ = false;
-    
+
     // Build request
     ChatCompletionRequest request;
     request.model = agent_config_.model;
@@ -5048,15 +5049,15 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     request.max_tokens = agent_config_.max_tokens;
     request.enable_thinking = agent_config_.enable_thinking;
     request.stream = false;
-    
+
     // Add system message
     request.messages.emplace_back("system", system_prompt);
-    
+
     // Add history
     for (const auto& msg : history) {
         request.messages.push_back(msg);
     }
-    
+
     // Add user message
     request.messages.emplace_back("user", message);
 
@@ -5073,7 +5074,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                 execution_state.intent_route.readout_goal,
                 execution_state.intent_route.stop_condition.requires_readout);
     }
-    
+
     // Agent loop
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
@@ -5253,12 +5254,12 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         // Call LLM
         auto response = llm_provider_->chat_completion(effective_request);
         execution_state.latest_escalation = NavigationEscalation{};
-        
+
         // Build assistant message
         Message assistant_msg;
         assistant_msg.role = "assistant";
         assistant_msg.content = build_response_blocks(response.content, response.reasoning_content);
-        
+
         auto filtered_tool_calls = filter_tool_calls_for_request(
                 response.tool_calls, effective_request, execution_state);
 
@@ -5269,15 +5270,15 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
             tc_msg.id = tool_id;
             tc_msg.type = "function";
             tc_msg.function_name = tc.name;
-            tc_msg.function_arguments = tc.arguments.is_string() 
-                ? tc.arguments.get<std::string>() 
+            tc_msg.function_arguments = tc.arguments.is_string()
+                ? tc.arguments.get<std::string>()
                 : tc.arguments.dump();
             assistant_msg.tool_calls.push_back(std::move(tc_msg));
         }
-        
+
         new_messages.push_back(assistant_msg);
         request.messages.push_back(assistant_msg);
-        
+
         // Log iteration timing before decision (ensures log even when breaking)
         auto iter_end_time = std::chrono::steady_clock::now();
         auto iter_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(iter_end_time - iter_start_time).count();
@@ -5318,7 +5319,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         if (response.finish_reason == "end_turn") {
             break;
         }
-        
+
         // Execute tool calls
         auto tool_phase_start = std::chrono::steady_clock::now();
         auto tool_calls_for_execution = enrich_tool_calls_for_execution(
@@ -5331,7 +5332,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
                 iteration,
                 tool_calls_for_execution.size(),
                 tool_phase_duration_ms);
-        
+
         // Add tool results
         for (size_t i = 0; i < tool_results.size(); ++i) {
             const auto& result = tool_results[i];
@@ -5417,7 +5418,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     std::vector<Message> new_messages;
     stop_requested_ = false;
     std::string loop_exit_reason;
-    
+
     // Build request
     ChatCompletionRequest request;
     request.model = agent_config_.model;
@@ -5425,15 +5426,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     request.max_tokens = agent_config_.max_tokens;
     request.enable_thinking = agent_config_.enable_thinking;
     request.stream = true;
-    
+
     // Add system message
     request.messages.emplace_back("system", system_prompt);
-    
+
     // Add history
     for (const auto& msg : history) {
         request.messages.push_back(msg);
     }
-    
+
     // Add user message
     request.messages.emplace_back("user", message);
 
@@ -5450,7 +5451,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 execution_state.intent_route.readout_goal,
                 execution_state.intent_route.stop_condition.requires_readout);
     }
-    
+
     // Agent loop
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
@@ -5654,7 +5655,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         // Reset state for this iteration
         last_finish_reason_.clear();
-        
+
         // === Accumulator Pattern ===
         // StreamParser handles tool call accumulation internally
         // We only accumulate text here for real-time display
@@ -5662,16 +5663,16 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         std::string accumulated_reasoning;
         std::vector<ToolCall> final_tool_calls;
         bool stream_complete = false;
-        
+
         ICRAW_LOG_INFO("[AgentLoop][stream_start] iteration={}", iteration);
-        
+
         // Stream LLM response
-        llm_provider_->chat_completion_stream(effective_request, 
+        llm_provider_->chat_completion_stream(effective_request,
             [&](const ChatCompletionResponse& chunk) {
                 // Accumulate and emit text delta
                 if (!chunk.content.empty()) {
                     accumulated_text += chunk.content;
-                    
+
                     AgentEvent event;
                     event.type = "text_delta";
                     event.data["delta"] = chunk.content;
@@ -5686,7 +5687,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     event.data["delta"] = chunk.reasoning_content;
                     callback(event);
                 }
-                
+
                 // When stream ends, StreamParser provides complete tool calls
                 if (chunk.is_stream_end) {
                     ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] finish_reason={} tool_call_count={}",
@@ -5714,32 +5715,32 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             callback(event);
             break;
         }
-        
+
         ICRAW_LOG_INFO("[AgentLoop][stream_complete] iteration={} stream_complete={} text_length={} reasoning_length={} tool_call_count={}",
             iteration, stream_complete, accumulated_text.length(), accumulated_reasoning.length(), final_tool_calls.size());
         execution_state.latest_escalation = NavigationEscalation{};
-        
+
         // === Deferred Processing ===
         // StreamParser has already accumulated and validated tool calls
         // Build assistant message with accumulated content
         Message assistant_msg;
         assistant_msg.role = "assistant";
-        
+
         assistant_msg.content = build_response_blocks(accumulated_text, accumulated_reasoning);
-        
+
         // Process tool calls - StreamParser already accumulated and validated them
         std::vector<ToolCall> valid_tool_calls;
         for (const auto& tc : final_tool_calls) {
             // Validate tool call has both name AND valid arguments
             if (tc.name.empty() || tc.arguments.is_null()) {
-                ICRAW_LOG_WARN("[AgentLoop][tool_call_invalid] reason=incomplete_tool_call tool_name={} has_arguments={}", 
+                ICRAW_LOG_WARN("[AgentLoop][tool_call_invalid] reason=incomplete_tool_call tool_name={} has_arguments={}",
                     tc.name, !tc.arguments.is_null());
                 continue;
             }
-            
+
             // StreamParser already parsed arguments, just validate
             nlohmann::json parsed_args;
-            
+
             if (tc.arguments.is_string()) {
                 try {
                     std::string args_str = tc.arguments.get<std::string>();
@@ -5753,15 +5754,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             } else {
                 continue;
             }
-            
+
             ToolCall valid_tc = tc;
             valid_tc.arguments = parsed_args;
             valid_tool_calls.push_back(valid_tc);
-            
+
             ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=validated tool_name={} tool_id={}",
                     valid_tc.name, valid_tc.id);
         }
-        
+
         valid_tool_calls = filter_tool_calls_for_request(valid_tool_calls, effective_request, execution_state);
 
         // Add valid tool calls to assistant message (OpenAI format)
@@ -5771,11 +5772,11 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             tc_msg.id = tool_id;
             tc_msg.type = "function";
             tc_msg.function_name = tc.name;
-            tc_msg.function_arguments = tc.arguments.is_string() 
-                ? tc.arguments.get<std::string>() 
+            tc_msg.function_arguments = tc.arguments.is_string()
+                ? tc.arguments.get<std::string>()
                 : tc.arguments.dump();
             assistant_msg.tool_calls.push_back(std::move(tc_msg));
-            
+
             // Emit tool_use event
             AgentEvent event;
             event.type = "tool_use";
@@ -5790,18 +5791,18 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         new_messages.push_back(assistant_msg);
         request.messages.push_back(assistant_msg);
-        
+
         // === Deduplication ===
         // Remove duplicate tool calls (same name + arguments)
         std::vector<ToolCall> deduplicated_tool_calls;
         std::set<std::pair<std::string, std::string>> seen_tool_signatures;
-        
+
         for (const auto& tc : valid_tool_calls) {
             // Create signature from tool name and normalized arguments
-            std::string args_str = tc.arguments.is_string() 
-                ? tc.arguments.get<std::string>() 
+            std::string args_str = tc.arguments.is_string()
+                ? tc.arguments.get<std::string>()
                 : tc.arguments.dump();
-            
+
             // Normalize JSON by re-parsing and re-dumping to catch equivalent JSON
             try {
                 auto args_json = nlohmann::json::parse(args_str);
@@ -5811,7 +5812,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             }
 
             std::pair<std::string, std::string> signature = {tc.name, args_str};
-            
+
             if (seen_tool_signatures.find(signature) == seen_tool_signatures.end()) {
                 seen_tool_signatures.insert(signature);
                 deduplicated_tool_calls.push_back(tc);
@@ -5820,14 +5821,14 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                         tc.name, args_str.size());
             }
         }
-        
-        ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=deduplication before={} after={} removed={}", 
-            valid_tool_calls.size(), deduplicated_tool_calls.size(), 
+
+        ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=deduplication before={} after={} removed={}",
+            valid_tool_calls.size(), deduplicated_tool_calls.size(),
             valid_tool_calls.size() - deduplicated_tool_calls.size());
-        
+
         // Use deduplicated tool calls
         valid_tool_calls = std::move(deduplicated_tool_calls);
-        
+
         // === Decision Point ===
         // Check if we should continue the loop or exit
         ICRAW_LOG_DEBUG("[AgentLoop][decision_debug] valid_tool_call_count={} finish_reason={}",
@@ -5892,7 +5893,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 callback(event);
                 break;  // Exit loop - LLM is done
             }
-            
+
             // For text-only responses (no tool calls), also exit the loop
             // The LLM has finished its response
             ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=text_only_response");
@@ -5904,7 +5905,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             break;
         }
         // If we have valid tool calls, execute them and loop continues
-        
+
         // Execute valid tool calls
         ICRAW_LOG_INFO("[AgentLoop][tool_call_execute_start] tool_call_count={}", valid_tool_calls.size());
         auto tool_phase_start = std::chrono::steady_clock::now();
@@ -5918,7 +5919,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                 iteration,
                 tool_calls_for_execution.size(),
                 tool_phase_duration_ms);
-        
+
         // Add tool results
         for (size_t i = 0; i < tool_results.size(); ++i) {
             const auto& result = tool_results[i];
@@ -5936,23 +5937,23 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     : nullptr;
             update_execution_state_with_tool_result(
                     execution_state, executed_tool_call, tool_name, result.content);
-            
+
             // Debug: Log tool result
             // Parse result JSON to check for success/failure
             try {
                 auto result_json = nlohmann::json::parse(result.content);
                 if (result_json.value("success", false)) {
-                    ICRAW_LOG_INFO("[AgentLoop][tool_call_execute_complete] tool_id={} result_success=true bytes_written={}", 
+                    ICRAW_LOG_INFO("[AgentLoop][tool_call_execute_complete] tool_id={} result_success=true bytes_written={}",
                         result.tool_use_id, result_json.value("bytes_written", 0));
                 } else {
-                    ICRAW_LOG_WARN("[AgentLoop][tool_call_execute_failed] tool_id={} error={}", 
+                    ICRAW_LOG_WARN("[AgentLoop][tool_call_execute_failed] tool_id={} error={}",
                         result.tool_use_id, result_json.value("error", "unknown error"));
                 }
             } catch (...) {
                 ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=result tool_id={} result_length={}",
                         result.tool_use_id, result.content.size());
             }
-            
+
             AgentEvent event;
             event.type = "tool_result";
             event.data["tool_use_id"] = result.tool_use_id;
@@ -6061,162 +6062,96 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     return new_messages;
 }
 
-void AgentLoop::maybe_consolidate_memory(const std::vector<Message>& messages) {
+void AgentLoop::maybe_consolidate_memory(const std::string& session_id,
+                                         const std::vector<Message>& messages) {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    (void)messages;
     // Check if consolidation is needed
-    int message_count = memory_manager_ ? memory_manager_->get_message_count() : 0;
+    int message_count = memory_manager_ ? memory_manager_->get_message_count(effective_session_id) : 0;
     int threshold = agent_config_.consolidation_threshold;
-    
-    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=check message_count={} threshold={}",
-            message_count, threshold);
-    
+
+    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=check session_id={} message_count={} threshold={}",
+            effective_session_id, message_count, threshold);
+
     if (message_count > threshold) {
         // Check if previous consolidation is still running
-        if (consolidation_future_.valid() && 
+        if (consolidation_future_.valid() &&
             consolidation_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=skip reason=previous_task_running");
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] stage=skip session_id={} reason=previous_task_running",
+                    effective_session_id);
             return;
         }
-        
-        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=async message_count={} threshold={}", 
-            message_count, threshold);
-        
-        // Launch async consolidation - captures shared_ptrs to ensure lifetime
-        auto memory_mgr = memory_manager_;
-        auto llm_prov = llm_provider_;
-        auto config = agent_config_;
-        auto msgs_copy = messages;
-        
-        consolidation_future_ = std::async(std::launch::async, 
-            [memory_mgr, llm_prov, config, msgs_copy]() {
-                // Re-create consolidation logic inline for async execution
-                if (!memory_mgr || !llm_prov) {
+
+        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=async session_id={} message_count={} threshold={}",
+            effective_session_id, message_count, threshold);
+
+        // Launch async compaction using the session-scoped message set.
+        auto target_session_id = effective_session_id;
+        auto* self = this;
+
+        consolidation_future_ = std::async(std::launch::async,
+            [self, target_session_id]() {
+                if (!self || !self->memory_manager_ || !self->llm_provider_) {
                     return false;
                 }
-                
-                int keep_count = config.memory_window / 2;
-                auto old_messages = memory_mgr->get_messages_for_consolidation(keep_count);
-                
+
+                const int keep_count = self->agent_config_.memory_window / 2;
+                auto old_messages = self->memory_manager_->get_messages_for_consolidation(keep_count, target_session_id);
+
                 if (old_messages.empty()) {
-                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages");
+                    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=no_messages session_id={} keep_count={}",
+                            target_session_id, keep_count);
                     return true;
                 }
-                
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=prepare message_count={}",
-                        old_messages.size());
-                
-                // Format messages for consolidation
-                std::string conversation;
-                for (const auto& msg : old_messages) {
-                    std::string tools_used;
-                    if (msg.metadata.contains("tools_used")) {
-                        auto tools = msg.metadata["tools_used"];
-                        for (const auto& t : tools) {
-                            if (!tools_used.empty()) tools_used += ", ";
-                            tools_used += t.get<std::string>();
-                        }
-                        if (!tools_used.empty()) {
-                            tools_used = " [tools: " + tools_used + "]";
-                        }
-                    }
-                    conversation += "[" + msg.timestamp.substr(0, 16) + "] " 
-                                + msg.role + tools_used + ": " 
-                                + msg.content + "\n";
+
+                ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_dispatch] mode=async session_id={} old_message_count={} keep_count={}",
+                        target_session_id, old_messages.size(), keep_count);
+
+                const CompactionResult result =
+                    self->execute_memory_compaction(target_session_id, old_messages);
+                const bool success = result == CompactionResult::Success ||
+                                     result == CompactionResult::PartialSuccess;
+
+                ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async session_id={} result={}",
+                        target_session_id, compaction_result_to_string(result));
+
+                if (!success && result != CompactionResult::Fallback) {
+                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async session_id={} result={}",
+                            target_session_id, compaction_result_to_string(result));
+                } else if (result == CompactionResult::Fallback) {
+                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_fallback] mode=async session_id={}",
+                            target_session_id);
                 }
-                
-                auto latest_summary = memory_mgr->get_latest_summary();
-                std::string current_memory = latest_summary ? latest_summary->summary : "(empty)";
-                
-                std::string system_prompt = "You are a memory consolidation agent. Call the save_memory tool to save important information from the conversation.";
-                std::string user_prompt = "Process this conversation and call the save_memory tool with your consolidation.\n\n"
-                                       "## Current Long-term Memory\n" + current_memory + "\n\n"
-                                       "## Conversation to Process\n" + conversation;
-                
-                nlohmann::json save_memory_tool;
-                save_memory_tool["type"] = "function";
-                save_memory_tool["function"]["name"] = "save_memory";
-                save_memory_tool["function"]["description"] = "Save the memory consolidation result to persistent storage.";
-                nlohmann::json params_obj;
-                params_obj["type"] = "object";
-                params_obj["properties"]["history_entry"] = nlohmann::json{{"type", "string"}, {"description", "A paragraph (2-5 sentences) summarizing key events/decisions/topics. Start with [YYYY-MM-DD HH:MM]."}};
-                params_obj["properties"]["memory_update"] = nlohmann::json{{"type", "string"}, {"description", "Full updated long-term memory as markdown. Include all existing facts plus new ones."}};
-                params_obj["required"] = nlohmann::json{"history_entry", "memory_update"};
-                save_memory_tool["function"]["parameters"] = params_obj;
-                
-                ChatCompletionRequest request;
-                request.model = config.model;
-                request.temperature = config.temperature;
-                request.max_tokens = config.max_tokens;
-                request.messages.emplace_back("system", system_prompt);
-                request.messages.emplace_back("user", user_prompt);
-                request.tools.push_back(save_memory_tool);
-                request.tool_choice_auto = true;
-                
-                ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=request_llm");
-                
-                auto response = llm_prov->chat_completion(request);
-                
-                if (response.tool_calls.empty()) {
-                    ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=async reason=missing_save_memory_tool");
-                    return false;
-                }
-                
-                try {
-                    auto args = response.tool_calls[0].arguments;
-                    
-                    std::string history_entry;
-                    std::string memory_update;
-                    
-                    if (args.is_string()) {
-                        auto parsed = nlohmann::json::parse(args.get<std::string>());
-                        history_entry = parsed.value("history_entry", "");
-                        memory_update = parsed.value("memory_update", "");
-                    } else if (args.is_object()) {
-                        history_entry = args.value("history_entry", "");
-                        memory_update = args.value("memory_update", "");
-                    }
-                    
-                    if (!history_entry.empty()) {
-                        memory_mgr->save_daily_memory(history_entry);
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_history_entry content_length={} preview={}",
-                                history_entry.size(), log_utils::truncate_for_debug(history_entry));
-                    }
-                    
-                    if (!memory_update.empty() && memory_update != current_memory) {
-                        memory_mgr->create_summary("default", memory_update, static_cast<int>(old_messages.size()));
-                        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=async stage=save_memory_update content_length={} preview={}",
-                                memory_update.size(), log_utils::truncate_for_debug(memory_update));
-                    }
-                    
-                    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=async");
-                    return true;
-                    
-                } catch (const std::exception& e) {
-                    ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=async message={}", e.what());
-                    return false;
-                }
+
+                return success || result == CompactionResult::Fallback;
             });
     }
 }
 
-bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
+bool AgentLoop::perform_consolidation(const std::string& session_id,
+                                      const std::vector<Message>& messages) {
     (void)messages; // Suppress unused parameter warning
-    
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+
     if (!memory_manager_ || !llm_provider_) {
-        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync reason=dependencies_unavailable");
+        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} reason=dependencies_unavailable",
+                effective_session_id);
         return false;
     }
-    
+
     // Get messages to consolidate
     int keep_count = agent_config_.memory_window / 2;
-    auto old_messages = memory_manager_->get_messages_for_consolidation(keep_count);
-    
+    auto old_messages = memory_manager_->get_messages_for_consolidation(keep_count, effective_session_id);
+
     if (old_messages.empty()) {
-        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=no_messages");
+        ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=no_messages session_id={}",
+                effective_session_id);
         return true;
     }
-    
-    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=sync message_count={}", old_messages.size());
-    
+
+    ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_start] mode=sync session_id={} message_count={}",
+            effective_session_id, old_messages.size());
+
     // Format messages for LLM - use simple string concatenation
     std::string conversation;
     for (const auto& msg : old_messages) {
@@ -6231,21 +6166,21 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
                 tools_used = " [tools: " + tools_used + "]";
             }
         }
-        conversation += "[" + msg.timestamp.substr(0, 16) + "] " 
-                    + msg.role + tools_used + ": " 
+        conversation += "[" + msg.timestamp.substr(0, 16) + "] "
+                    + msg.role + tools_used + ": "
                     + msg.content + "\n";
     }
-    
+
     // Get current long-term memory
-    auto latest_summary = memory_manager_->get_latest_summary();
+    auto latest_summary = memory_manager_->get_latest_summary(effective_session_id);
     std::string current_memory = latest_summary ? latest_summary->summary : "(empty)";
-    
+
     // Build prompt for LLM
     std::string system_prompt = "You are a memory consolidation agent. Call the save_memory tool to save important information from the conversation.";
     std::string user_prompt = "Process this conversation and call the save_memory tool with your consolidation.\n\n"
                            "## Current Long-term Memory\n" + current_memory + "\n\n"
                            "## Conversation to Process\n" + conversation;
-    
+
     // Create tool definition for save_memory
     nlohmann::json save_memory_tool;
     save_memory_tool["type"] = "function";
@@ -6257,7 +6192,7 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
     params_obj["properties"]["memory_update"] = nlohmann::json{{"type", "string"}, {"description", "Full updated long-term memory as markdown. Include all existing facts plus new ones."}};
     params_obj["required"] = nlohmann::json{"history_entry", "memory_update"};
     save_memory_tool["function"]["parameters"] = params_obj;
-    
+
     // Create chat request
     ChatCompletionRequest request;
     request.model = agent_config_.model;
@@ -6268,27 +6203,29 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
     request.messages.emplace_back("user", user_prompt);
     request.tools.push_back(save_memory_tool);
     request.tool_choice_auto = true;
-    
+
     // Log the consolidation request
-    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=request_llm");
-    
+    ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=request_llm session_id={}",
+            effective_session_id);
+
     // Call LLM (non-streaming for consolidation)
     auto response = llm_provider_->chat_completion(request);
-    
+
     // Check if LLM called the save_memory tool
     if (response.tool_calls.empty()) {
-        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync reason=missing_save_memory_tool");
+        ICRAW_LOG_WARN("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} reason=missing_save_memory_tool",
+                effective_session_id);
         return false;
     }
-    
+
     // Parse and save the result
     try {
         auto args = response.tool_calls[0].arguments;
-        
+
         // Handle both string and object arguments
         std::string history_entry;
         std::string memory_update;
-        
+
         if (args.is_string()) {
             auto parsed = nlohmann::json::parse(args.get<std::string>());
             history_entry = parsed.value("history_entry", "");
@@ -6297,26 +6234,28 @@ bool AgentLoop::perform_consolidation(const std::vector<Message>& messages) {
             history_entry = args.value("history_entry", "");
             memory_update = args.value("memory_update", "");
         }
-        
+
         if (!history_entry.empty()) {
             // Save to daily_memory (like mobile-agent's HISTORY.md)
             memory_manager_->save_daily_memory(history_entry);
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_history_entry content_length={} preview={}",
-                    history_entry.size(), log_utils::truncate_for_debug(history_entry));
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_history_entry session_id={} content_length={} preview={}",
+                    effective_session_id, history_entry.size(), log_utils::truncate_for_debug(history_entry));
         }
-        
+
         if (!memory_update.empty() && memory_update != current_memory) {
             // Save summary to summaries table
-            memory_manager_->create_summary("default", memory_update, static_cast<int>(old_messages.size()));
-            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_memory_update content_length={} preview={}",
-                    memory_update.size(), log_utils::truncate_for_debug(memory_update));
+            memory_manager_->create_summary(effective_session_id, memory_update, static_cast<int>(old_messages.size()));
+            ICRAW_LOG_DEBUG("[AgentLoop][memory_consolidation_debug] mode=sync stage=save_memory_update session_id={} content_length={} preview={}",
+                    effective_session_id, memory_update.size(), log_utils::truncate_for_debug(memory_update));
         }
-        
-        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=sync");
+
+        ICRAW_LOG_INFO("[AgentLoop][memory_consolidation_complete] mode=sync session_id={}",
+                effective_session_id);
         return true;
-        
+
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=sync message={}", e.what());
+        ICRAW_LOG_ERROR("[AgentLoop][memory_consolidation_failed] mode=sync session_id={} message={}",
+                effective_session_id, e.what());
         return false;
     }
 }
@@ -6335,11 +6274,11 @@ void AgentLoop::set_config(const AgentConfig& config) {
 
 std::vector<ContentBlock> AgentLoop::handle_tool_calls(const std::vector<ToolCall>& tool_calls) {
     std::vector<ContentBlock> results;
-    
+
     for (const auto& tc : tool_calls) {
         // Debug: Log raw tool call details before execution
-        ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=execute tool_name={} tool_id={} arguments_type={} arguments_preview={}", 
-            tc.name, tc.id, 
+        ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=execute tool_name={} tool_id={} arguments_type={} arguments_preview={}",
+            tc.name, tc.id,
             tc.arguments.is_string() ? "string" : (tc.arguments.is_object() ? "object" : (tc.arguments.is_null() ? "null" : "other")),
             log_utils::truncate_for_debug(tc.arguments.dump()));
 
@@ -6387,10 +6326,10 @@ std::vector<ContentBlock> AgentLoop::handle_tool_calls(const std::vector<ToolCal
                     "[AgentLoop][tool_result_pruned] tool_name={} tool_id={} pruned=true original_length={} pruned_length={}",
                     tc.name, tc.id, result.size(), pruned_result.size());
         }
-        
+
         results.push_back(ContentBlock::make_tool_result(tc.id, pruned_result));
     }
-    
+
     return results;
 }
 
@@ -6400,18 +6339,18 @@ bool AgentLoop::should_flush_memory() const {
     if (!memory_manager_) {
         return false;
     }
-    
+
     // Check if memory flush is enabled
     if (!agent_config_.compaction.memory_flush.enabled) {
         return false;
     }
-    
+
     // Don't flush if we already flushed since last compaction
     int compaction_count = memory_manager_->get_compaction_count();
     if (last_flush_compaction_count_ == compaction_count) {
         return false;
     }
-    
+
     return memory_manager_->needs_memory_flush(agent_config_.compaction);
 }
 
@@ -6419,9 +6358,9 @@ bool AgentLoop::execute_memory_flush() {
     if (!memory_manager_ || !llm_provider_) {
         return false;
     }
-    
+
     ICRAW_LOG_INFO("[AgentLoop][memory_flush_start]");
-    
+
     // Get current time for prompt
     auto now = std::chrono::system_clock::now();
     auto now_time = std::chrono::system_clock::to_time_t(now);
@@ -6429,17 +6368,17 @@ bool AgentLoop::execute_memory_flush() {
     std::ostringstream time_ss;
     time_ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S UTC");
     std::string current_time = time_ss.str();
-    
+
     // Build prompts
     std::string system_prompt = agent_config_.compaction.memory_flush.system_prompt;
     std::string user_prompt = agent_config_.compaction.memory_flush.user_prompt;
-    
+
     // Replace placeholder
     size_t pos = user_prompt.find("{current_datetime}");
     if (pos != std::string::npos) {
         user_prompt.replace(pos, 17, current_time);
     }
-    
+
     // Create save_memory tool
     nlohmann::json save_memory_tool;
     save_memory_tool["type"] = "function";
@@ -6448,12 +6387,12 @@ bool AgentLoop::execute_memory_flush() {
     nlohmann::json params;
     params["type"] = "object";
     params["properties"]["content"] = nlohmann::json{
-        {"type", "string"}, 
+        {"type", "string"},
         {"description", "The memory content to save"}
     };
     params["required"] = nlohmann::json::array({"content"});
     save_memory_tool["function"]["parameters"] = params;
-    
+
     ChatCompletionRequest request;
     request.model = agent_config_.model;
     request.temperature = 0.3;  // Lower temperature for memory extraction
@@ -6463,23 +6402,23 @@ bool AgentLoop::execute_memory_flush() {
     request.messages.emplace_back("user", user_prompt);
     request.tools.push_back(save_memory_tool);
     request.tool_choice_auto = true;
-    
+
     try {
         auto response = llm_provider_->chat_completion(request);
-        
+
         // Process save_memory tool calls
         for (const auto& tc : response.tool_calls) {
             if (tc.name == "save_memory") {
                 auto args = tc.arguments;
                 std::string content;
-                
+
                 if (args.is_string()) {
                     auto parsed = nlohmann::json::parse(args.get<std::string>());
                     content = parsed.value("content", "");
                 } else if (args.is_object()) {
                     content = args.value("content", "");
                 }
-                
+
                 if (!content.empty()) {
                     memory_manager_->save_daily_memory(content);
                     ICRAW_LOG_DEBUG("[AgentLoop][memory_flush_debug] content_length={} preview={}",
@@ -6487,14 +6426,14 @@ bool AgentLoop::execute_memory_flush() {
                 }
             }
         }
-        
+
         // Record flush execution
         memory_manager_->record_memory_flush();
         last_flush_compaction_count_ = memory_manager_->get_compaction_count();
-        
+
         ICRAW_LOG_INFO("[AgentLoop][memory_flush_complete]");
         return true;
-        
+
     } catch (const std::exception& e) {
         ICRAW_LOG_ERROR("[AgentLoop][memory_flush_failed] message={}", e.what());
         return false;
@@ -6505,7 +6444,7 @@ bool AgentLoop::should_compact() const {
     if (!memory_manager_) {
         return false;
     }
-    
+
     int64_t total_tokens = memory_manager_->get_total_tokens();
     return should_trigger_compaction(static_cast<int>(total_tokens), agent_config_.compaction);
 }
@@ -6519,58 +6458,60 @@ int AgentLoop::get_current_token_count() const {
 
 MemoryMetrics AgentLoop::get_memory_metrics() const {
     MemoryMetrics metrics;
-    
+
     if (!memory_manager_) {
         return metrics;
     }
-    
+
     metrics.total_messages = memory_manager_->get_message_count();
     metrics.context_tokens = get_current_token_count();
     metrics.compaction_count = static_cast<int>(memory_manager_->get_compaction_count());
-    
+
     auto stats = memory_manager_->get_token_stats();
     if (stats) {
         // Could add more stats here
     }
-    
+
     auto latest_compaction = memory_manager_->get_latest_compaction();
     if (latest_compaction) {
         if (latest_compaction->tokens_before > 0) {
-            metrics.compression_ratio = static_cast<double>(latest_compaction->tokens_after) / 
+            metrics.compression_ratio = static_cast<double>(latest_compaction->tokens_after) /
                                         latest_compaction->tokens_before;
         }
     }
-    
+
     return metrics;
 }
 
-CompactionResult AgentLoop::perform_compaction_with_fallback(
+CompactionResult AgentLoop::execute_memory_compaction(
+    const std::string& session_id,
     const std::vector<MemoryEntry>& messages) {
-    
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+
     if (messages.empty()) {
         return CompactionResult::Success;
     }
-    
-    ICRAW_LOG_INFO("[AgentLoop][compaction_start] message_count={}", messages.size());
-    
+
+    ICRAW_LOG_INFO("[AgentLoop][compaction_start] session_id={} message_count={}", effective_session_id, messages.size());
+
     // Try full compaction first
     try {
         // Chunk messages if too large
         auto chunks = chunk_messages_by_tokens(messages, agent_config_.compaction.max_chunk_tokens);
-        
+
         std::string combined_summary;
         int total_tokens_before = estimate_memory_entries_tokens(messages);
         int64_t first_kept_id = messages.empty() ? 0 : messages.back().id;
-        
+
         for (size_t i = 0; i < chunks.size(); ++i) {
-            ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=chunk index={} total={} message_count={}", 
-                i + 1, chunks.size(), chunks[i].size());
-            
-            auto current_summary = memory_manager_->get_latest_summary();
+            ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=chunk session_id={} index={} total={} message_count={}",
+                effective_session_id, i + 1, chunks.size(), chunks[i].size());
+
+            auto current_summary = memory_manager_->get_latest_summary(effective_session_id);
             std::string summary_str = current_summary ? current_summary->summary : "";
-            
+
             std::string prompt = build_consolidation_prompt(chunks[i], summary_str);
-            
+
             // Create save_memory tool
             nlohmann::json save_memory_tool;
             save_memory_tool["type"] = "function";
@@ -6579,38 +6520,39 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             nlohmann::json params;
             params["type"] = "object";
             params["properties"]["history_entry"] = nlohmann::json{
-                {"type", "string"}, 
+                {"type", "string"},
                 {"description", "A paragraph (2-5 sentences) summarizing key events/decisions/topics. Start with [YYYY-MM-DD HH:MM]."}
             };
             params["properties"]["memory_update"] = nlohmann::json{
-                {"type", "string"}, 
+                {"type", "string"},
                 {"description", "Full updated long-term memory as markdown. Include all existing facts plus new ones."}
             };
             params["required"] = nlohmann::json::array({"history_entry", "memory_update"});
             save_memory_tool["function"]["parameters"] = params;
-            
+
             ChatCompletionRequest request;
             request.model = agent_config_.model;
             request.temperature = 0.3;
             request.max_tokens = agent_config_.max_tokens;
             request.enable_thinking = agent_config_.enable_thinking;
-            request.messages.emplace_back("system", 
+            request.messages.emplace_back("system",
                 "You are a memory consolidation agent. Call the save_memory tool to save important information.");
             request.messages.emplace_back("user", prompt);
             request.tools.push_back(save_memory_tool);
             request.tool_choice_auto = true;
-            
+
             auto response = llm_provider_->chat_completion(request);
-            
+
             if (response.tool_calls.empty()) {
-                ICRAW_LOG_WARN("[AgentLoop][compaction_failed] reason=missing_save_memory_tool chunk_index={}", i + 1);
+                ICRAW_LOG_WARN("[AgentLoop][compaction_failed] session_id={} reason=missing_save_memory_tool chunk_index={}",
+                        effective_session_id, i + 1);
                 continue;
             }
-            
+
             auto args = response.tool_calls[0].arguments;
             std::string history_entry;
             std::string memory_update;
-            
+
             if (args.is_string()) {
                 auto parsed = nlohmann::json::parse(args.get<std::string>());
                 history_entry = parsed.value("history_entry", "");
@@ -6619,46 +6561,58 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
                 history_entry = args.value("history_entry", "");
                 memory_update = args.value("memory_update", "");
             }
-            
+
             if (!history_entry.empty()) {
                 memory_manager_->save_daily_memory(history_entry);
+                ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=save_history_entry session_id={} chunk_index={} content_length={} preview={}",
+                        effective_session_id, i + 1, history_entry.size(), log_utils::truncate_for_debug(history_entry));
             }
-            
+
             if (!memory_update.empty()) {
                 combined_summary = memory_update;
+                ICRAW_LOG_DEBUG("[AgentLoop][compaction_debug] stage=save_memory_update session_id={} chunk_index={} content_length={} preview={}",
+                        effective_session_id, i + 1, memory_update.size(), log_utils::truncate_for_debug(memory_update));
             }
-            
+
             if (!chunks[i].empty()) {
                 first_kept_id = std::min(first_kept_id, chunks[i].back().id);
             }
         }
-        
-        // Save final summary
-        if (!combined_summary.empty()) {
-            memory_manager_->create_summary("default", combined_summary, 
-                static_cast<int>(messages.size()));
+
+        if (combined_summary.empty()) {
+            ICRAW_LOG_WARN("[AgentLoop][compaction_failed] session_id={} reason=empty_combined_summary", effective_session_id);
+            return CompactionResult::Failed;
         }
-        
+
+        // Save final summary
+        memory_manager_->create_summary(effective_session_id, combined_summary,
+            static_cast<int>(messages.size()));
+
         // Mark messages as consolidated
-        memory_manager_->mark_consolidated(static_cast<int>(messages.size()));
-        
+        memory_manager_->mark_consolidated(static_cast<int>(messages.size()), effective_session_id);
+
         // Create compaction record
         int total_tokens_after = estimate_tokens(combined_summary);
-        memory_manager_->create_compaction_record("default", combined_summary,
+        memory_manager_->create_compaction_record(effective_session_id, combined_summary,
             first_kept_id, total_tokens_before, total_tokens_after, "full");
-        
+
         // Update token stats
-        memory_manager_->update_token_stats();
-        
-        ICRAW_LOG_INFO("[AgentLoop][compaction_complete] tokens_before={} tokens_after={} reduction_percent={:.1f}",
-            total_tokens_before, total_tokens_after,
+        memory_manager_->update_token_stats(effective_session_id);
+
+        // Delete compacted messages now that the summary has been persisted.
+        const int64_t deleted_count = memory_manager_->delete_consolidated_messages(effective_session_id);
+        ICRAW_LOG_INFO("[AgentLoop][compaction_cleanup_complete] session_id={} deleted_count={}",
+                effective_session_id, deleted_count);
+
+        ICRAW_LOG_INFO("[AgentLoop][compaction_complete] session_id={} tokens_before={} tokens_after={} reduction_percent={:.1f}",
+            effective_session_id, total_tokens_before, total_tokens_after,
             100.0 * (1.0 - static_cast<double>(total_tokens_after) / total_tokens_before));
-        
+
         return CompactionResult::Success;
-        
+
     } catch (const std::exception& e) {
-        ICRAW_LOG_ERROR("[AgentLoop][compaction_failed] message={}", e.what());
-        
+        ICRAW_LOG_ERROR("[AgentLoop][compaction_failed] session_id={} message={}", effective_session_id, e.what());
+
         // Fallback: just record metadata
         try {
             // Generate timestamp locally
@@ -6667,13 +6621,12 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
             std::tm tm = *std::gmtime(&now_time);
             std::ostringstream time_ss;
             time_ss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-            
-            std::string fallback_summary = "Compaction failed at " + time_ss.str() + 
+
+            std::string fallback_summary = "Compaction failed at " + time_ss.str() +
                 ". Messages: " + std::to_string(messages.size());
-            memory_manager_->create_summary("default", fallback_summary, 
+            memory_manager_->create_summary(effective_session_id, fallback_summary,
                 static_cast<int>(messages.size()));
-            memory_manager_->mark_consolidated(static_cast<int>(messages.size()));
-            
+
             return CompactionResult::Fallback;
         } catch (...) {
             return CompactionResult::Failed;
@@ -6684,17 +6637,17 @@ CompactionResult AgentLoop::perform_compaction_with_fallback(
 std::string AgentLoop::build_consolidation_prompt(
     const std::vector<MemoryEntry>& messages,
     const std::string& current_summary) const {
-    
+
     std::ostringstream ss;
-    
+
     ss << "Process this conversation and call the save_memory tool with your consolidation.\n\n";
-    
+
     // Add identifier preservation instructions
     ss << get_identifier_preservation_prompt(agent_config_.compaction.identifier_policy);
-    
+
     ss << "\n## Current Long-term Memory\n";
     ss << (current_summary.empty() ? "(empty)" : current_summary) << "\n\n";
-    
+
     ss << "## Conversation to Process\n";
     for (const auto& msg : messages) {
         std::string tools_used;
@@ -6708,16 +6661,16 @@ std::string AgentLoop::build_consolidation_prompt(
                 tools_used = " [tools: " + tools_used + "]";
             }
         }
-        
+
         std::string timestamp = msg.timestamp;
         if (timestamp.length() >= 16) {
             timestamp = timestamp.substr(0, 16);
         }
-        
-        ss << "[" << timestamp << "] " << msg.role << tools_used << ": " 
+
+        ss << "[" << timestamp << "] " << msg.role << tools_used << ": "
            << msg.content << "\n";
     }
-    
+
     return ss.str();
 }
 

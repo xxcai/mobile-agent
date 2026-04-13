@@ -17,11 +17,13 @@ public:
                   std::shared_ptr<SkillLoader> skill_loader,
                   std::shared_ptr<ToolRegistry> tool_registry);
 
-    // Full system prompt: identity + behavior + tool-usage guidance + skills + memory
+    // Full system prompt: SOUL + AGENTS + TOOLS + skills + memory.
     std::string build_full() const;
     std::string build_full(const SkillsConfig& skills_config) const;
+    std::string build_full(const SkillsConfig& skills_config,
+                           const std::string& session_id) const;
 
-    // Minimal system prompt: identity + short tool-calling guidance
+    // Minimal system prompt: identity + tools only.
     std::string build_minimal() const;
 
 private:
@@ -35,7 +37,7 @@ private:
     std::string format_parameter_block(const nlohmann::json& schema,
                                        const std::string& indent,
                                        bool include_heading) const;
-    std::string build_memory_section() const;
+    std::string build_memory_section(const std::string& session_id) const;
 };
 
 } // namespace icraw

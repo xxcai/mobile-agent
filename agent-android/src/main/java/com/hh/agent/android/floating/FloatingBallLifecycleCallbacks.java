@@ -6,6 +6,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.ProcessLifecycleOwner;
+
 import com.hh.agent.android.log.AgentLogs;
 
 import java.lang.ref.WeakReference;
@@ -23,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class FloatingBallLifecycleCallbacks implements Application.ActivityLifecycleCallbacks {
 
     private static final String TAG = "FloatingBallLifecycle";
-    private static final long STABLE_ACTIVITY_DELAY_MS = 90L;
+    private static final long STABLE_ACTIVITY_DELAY_MS = 180L;
     private static final long VISIBILITY_SETTLE_DELAY_MS = 180L;
     private static final long FOREGROUND_TRANSITION_GRACE_MS = 1500L;
 
@@ -38,8 +43,8 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
             new WeakReference<>(null);
     private static final Object OBSERVER_LOCK = new Object();
     private static final List<StableActivityObserver> STABLE_ACTIVITY_OBSERVERS = new ArrayList<>();
-    private int foregroundActivityCount = 0;
     private Activity currentForegroundActivity;
+    private boolean appInForeground;
     private long lastEligibleForegroundAtMs = 0L;
 
     public FloatingBallLifecycleCallbacks(Application application,
@@ -49,27 +54,41 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         if (hiddenActivityClassNames != null) {
             this.hiddenActivityClassNames.addAll(hiddenActivityClassNames);
         }
+        this.appInForeground = ProcessLifecycleOwner.get()
+                .getLifecycle()
+                .getCurrentState()
+                .isAtLeast(Lifecycle.State.STARTED);
+        ProcessLifecycleOwner.get().getLifecycle().addObserver(new DefaultLifecycleObserver() {
+            @Override
+            public void onStart(LifecycleOwner owner) {
+                appInForeground = true;
+                lastEligibleForegroundAtMs = SystemClock.elapsedRealtime();
+                AgentLogs.debug(TAG, "process_on_start", null);
+                scheduleFloatingBallVisibilityUpdate("process_on_start", 0L);
+            }
+
+            @Override
+            public void onStop(LifecycleOwner owner) {
+                appInForeground = false;
+                AgentLogs.debug(TAG, "process_on_stop", null);
+                scheduleFloatingBallVisibilityUpdate("process_on_stop", VISIBILITY_SETTLE_DELAY_MS);
+            }
+        });
     }
 
     @Override
     public void onActivityStarted(Activity activity) {
-        foregroundActivityCount++;
         currentForegroundActivity = isActivityEligibleForForegroundTracking(activity) ? activity : null;
         if (currentForegroundActivity != null) {
             lastEligibleForegroundAtMs = SystemClock.elapsedRealtime();
         }
         currentForegroundActivityRef = new WeakReference<>(activity);
-        AgentLogs.debug(TAG, "activity_started", "foreground_count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_started", "activity=" + activity.getClass().getName());
         scheduleFloatingBallVisibilityUpdate("activity_started");
     }
 
     @Override
     public void onActivityStopped(Activity activity) {
-        foregroundActivityCount--;
-        if (foregroundActivityCount < 0) {
-            foregroundActivityCount = 0;
-        }
-
         if (activity == currentForegroundActivity) {
             currentForegroundActivity = null;
         }
@@ -78,7 +97,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
             currentForegroundActivityRef = new WeakReference<>(null);
         }
 
-        AgentLogs.debug(TAG, "activity_stopped", "foreground_count=" + foregroundActivityCount);
+        AgentLogs.debug(TAG, "activity_stopped", "activity=" + activity.getClass().getName());
         scheduleFloatingBallVisibilityUpdate("activity_stopped");
     }
 
@@ -108,9 +127,12 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
 
     @Override
     public void onActivityPaused(Activity activity) {
+        // ContainerActivity may finish before its transition fully settles. Delay visibility updates
+        // so the host page can become stable before deciding whether to hide the floating ball.
         if (activity == currentForegroundActivity && activity.isFinishing()) {
             AgentLogs.debug(TAG, "activity_paused_finishing",
                     "activity=" + activity.getClass().getName() + " action=wait_for_settle");
+            currentForegroundActivity = null;
             scheduleFloatingBallVisibilityUpdate("activity_paused_finishing");
         }
     }
@@ -128,7 +150,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         MAIN_HANDLER.removeCallbacks(visibilityUpdateRunnable);
         AgentLogs.debug(TAG, "visibility_update_scheduled",
                 "reason=" + reason
-                        + " foreground_count=" + foregroundActivityCount
+                        + " app_in_foreground=" + appInForeground
                         + " activity=" + describeActivity(currentForegroundActivity)
                         + " delay_ms=" + delayMs);
         MAIN_HANDLER.postDelayed(visibilityUpdateRunnable, delayMs);
@@ -139,23 +161,21 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
         long sinceLastEligibleForegroundMs = now - lastEligibleForegroundAtMs;
         boolean withinForegroundGrace = lastEligibleForegroundAtMs > 0
                 && sinceLastEligibleForegroundMs < FOREGROUND_TRANSITION_GRACE_MS;
-        boolean appInForeground = foregroundActivityCount > 0
-                || currentForegroundActivity != null
-                || withinForegroundGrace;
+        boolean foreground = appInForeground || currentForegroundActivity != null || withinForegroundGrace;
         boolean blockedByCurrentActivity = shouldHideForActivity(currentForegroundActivity);
         AgentLogs.debug(TAG, "visibility_update_applied",
-                "foreground=" + appInForeground
+                "foreground=" + foreground
+                        + " app_in_foreground=" + appInForeground
                         + " within_grace=" + withinForegroundGrace
-                        + " foreground_count=" + foregroundActivityCount
                         + " blocked=" + blockedByCurrentActivity
                         + " activity=" + describeActivity(currentForegroundActivity));
         FloatingBallManager.getInstance(application).updateVisibility(
-                appInForeground,
+                foreground,
                 blockedByCurrentActivity
         );
 
         if (withinForegroundGrace
-                && foregroundActivityCount == 0
+                && !appInForeground
                 && currentForegroundActivity == null
                 && !blockedByCurrentActivity) {
             long remainingGraceMs = FOREGROUND_TRANSITION_GRACE_MS - sinceLastEligibleForegroundMs;

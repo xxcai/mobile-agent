@@ -174,6 +174,9 @@ public:
 
     // Clear persisted long-term memory for a session.
     bool clear_long_term_memory(const std::string& session_id = "default");
+
+    // Clear persisted daily memory log entries globally.
+    bool clear_daily_memory();
     
     // Get message count
     int64_t get_message_count(const std::string& session_id = "default") const;
@@ -182,7 +185,8 @@ public:
     
     // Search memory for content (LIKE-based, legacy)
     std::vector<MemoryEntry> search_memory(const std::string& query,
-                                           int limit = 10) const;
+                                           int limit = 10,
+                                           const std::string& session_id = "default") const;
     
     // FTS5 full-text search (faster, more accurate)
     std::vector<MemoryEntry> search_memory_fts(const std::string& query,
@@ -290,6 +294,9 @@ private:
 
     // Get current timestamp as ISO 8601
     static std::string get_timestamp();
+
+    // Recalculate token totals directly from messages without reading token_stats cache.
+    int64_t calculate_total_tokens_uncached(const std::string& session_id) const;
     
     std::filesystem::path workspace_path_;
     std::unique_ptr<SQLiteDatabase> db_;

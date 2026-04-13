@@ -50,18 +50,18 @@ bool SQLiteDatabase::open() {
     if (db_ != nullptr) {
         return true;
     }
-    
+
     int result = sqlite3_open(db_path_.string().c_str(), &db_);
     if (result != SQLITE_OK) {
         sqlite3_close(db_);
         db_ = nullptr;
         return false;
     }
-    
+
     // Enable WAL mode for better concurrency
     execute("PRAGMA journal_mode=WAL;");
     execute("PRAGMA synchronous=NORMAL;");
-    
+
     return true;
 }
 
@@ -80,14 +80,14 @@ bool SQLiteDatabase::execute(const std::string& sql) {
     if (db_ == nullptr) {
         return false;
     }
-    
+
     char* error_msg = nullptr;
     int result = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &error_msg);
-    
+
     if (error_msg != nullptr) {
         sqlite3_free(error_msg);
     }
-    
+
     return result == SQLITE_OK;
 }
 
@@ -95,13 +95,13 @@ std::optional<std::string> SQLiteDatabase::query_string(const std::string& sql) 
     if (db_ == nullptr) {
         return std::nullopt;
     }
-    
+
     sqlite3_stmt* stmt = nullptr;
     int result = sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr);
     if (result != SQLITE_OK) {
         return std::nullopt;
     }
-    
+
     std::optional<std::string> value;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
@@ -109,7 +109,7 @@ std::optional<std::string> SQLiteDatabase::query_string(const std::string& sql) 
             value = std::string(text);
         }
     }
-    
+
     sqlite3_finalize(stmt);
     return value;
 }
@@ -118,47 +118,47 @@ std::optional<int64_t> SQLiteDatabase::query_int(const std::string& sql) {
     if (db_ == nullptr) {
         return std::nullopt;
     }
-    
+
     sqlite3_stmt* stmt = nullptr;
     int result = sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr);
     if (result != SQLITE_OK) {
         return std::nullopt;
     }
-    
+
     std::optional<int64_t> value;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         value = sqlite3_column_int64(stmt, 0);
     }
-    
+
     sqlite3_finalize(stmt);
     return value;
 }
 
 std::vector<std::vector<std::string>> SQLiteDatabase::query_rows(const std::string& sql) {
     std::vector<std::vector<std::string>> rows;
-    
+
     if (db_ == nullptr) {
         return rows;
     }
-    
+
     sqlite3_stmt* stmt = nullptr;
     int result = sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr);
     if (result != SQLITE_OK) {
         return rows;
     }
-    
+
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         int col_count = sqlite3_column_count(stmt);
         std::vector<std::string> row;
         row.reserve(col_count);
-        
+
         for (int i = 0; i < col_count; ++i) {
             const char* text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
             row.push_back(text != nullptr ? std::string(text) : "");
         }
         rows.push_back(std::move(row));
     }
-    
+
     sqlite3_finalize(stmt);
     return rows;
 }
@@ -167,12 +167,12 @@ bool SQLiteDatabase::prepare(const std::string& sql) {
     if (db_ == nullptr) {
         return false;
     }
-    
+
     if (stmt_ != nullptr) {
         sqlite3_finalize(stmt_);
         stmt_ = nullptr;
     }
-    
+
     int result = sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt_, nullptr);
     return result == SQLITE_OK;
 }
@@ -270,10 +270,10 @@ int64_t SQLiteDatabase::last_insert_rowid() const {
 MemoryManager::MemoryManager(const std::filesystem::path& workspace_path)
     : workspace_path_(workspace_path)
     , db_(std::make_unique<SQLiteDatabase>(workspace_path / "memory.db")) {
-    
+
     // Create database schema
     create_schema();
-    
+
     // Load workspace files into cache
     load_workspace_files();
 }
@@ -285,7 +285,7 @@ bool MemoryManager::create_schema() {
     if (!db_ || !db_->is_open()) {
         return false;
     }
-    
+
     // Create messages table with new columns
     const char* create_messages_sql = R"(
         CREATE TABLE IF NOT EXISTS messages (
@@ -298,16 +298,16 @@ bool MemoryManager::create_schema() {
             token_count INTEGER DEFAULT 0,
             consolidated INTEGER DEFAULT 0
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
         CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
         CREATE INDEX IF NOT EXISTS idx_messages_consolidated ON messages(consolidated);
     )";
-    
+
     if (!db_->execute(create_messages_sql)) {
         return false;
     }
-    
+
     // Create summaries table
     const char* create_summaries_sql = R"(
         CREATE TABLE IF NOT EXISTS summaries (
@@ -318,14 +318,14 @@ bool MemoryManager::create_schema() {
             updated_at TEXT NOT NULL,
             message_count INTEGER DEFAULT 0
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_summaries_session ON summaries(session_id);
     )";
-    
+
     if (!db_->execute(create_summaries_sql)) {
         return false;
     }
-    
+
     // Create daily_memory table
     const char* create_daily_sql = R"(
         CREATE TABLE IF NOT EXISTS daily_memory (
@@ -334,14 +334,14 @@ bool MemoryManager::create_schema() {
             content TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_daily_memory_date ON daily_memory(date);
     )";
-    
+
     if (!db_->execute(create_daily_sql)) {
         return false;
     }
-    
+
     // Create compactions table (for tracking compaction history)
     const char* create_compactions_sql = R"(
         CREATE TABLE IF NOT EXISTS compactions (
@@ -354,14 +354,14 @@ bool MemoryManager::create_schema() {
             created_at TEXT NOT NULL,
             mode TEXT DEFAULT 'full'
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_compactions_session ON compactions(session_id);
     )";
-    
+
     if (!db_->execute(create_compactions_sql)) {
         return false;
     }
-    
+
     // Create token_stats table (for quick token count queries)
     const char* create_token_stats_sql = R"(
         CREATE TABLE IF NOT EXISTS token_stats (
@@ -370,11 +370,11 @@ bool MemoryManager::create_schema() {
             last_updated TEXT NOT NULL
         );
     )";
-    
+
     if (!db_->execute(create_token_stats_sql)) {
         return false;
     }
-    
+
     // Create memory_flush_log table (for tracking flush operations)
     const char* create_flush_log_sql = R"(
         CREATE TABLE IF NOT EXISTS memory_flush_log (
@@ -382,14 +382,14 @@ bool MemoryManager::create_schema() {
             session_id TEXT NOT NULL,
             executed_at TEXT NOT NULL
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_flush_log_session ON memory_flush_log(session_id);
     )";
-    
+
     if (!db_->execute(create_flush_log_sql)) {
         return false;
     }
-    
+
     db_->execute("DROP TRIGGER IF EXISTS messages_ai;");
     db_->execute("DROP TRIGGER IF EXISTS messages_ad;");
     db_->execute("DROP TRIGGER IF EXISTS messages_au;");
@@ -406,10 +406,10 @@ bool MemoryManager::create_schema() {
             tokenize='unicode61'
         );
     )";
-    
+
     // FTS5 might not be available on all SQLite builds.
     const bool fts_available = db_->execute(create_fts_sql);
-    
+
     // Create FTS triggers for automatic sync (only if FTS table exists)
     const char* create_fts_triggers_sql = R"(
         -- Trigger to update FTS on INSERT
@@ -417,13 +417,13 @@ bool MemoryManager::create_schema() {
             INSERT INTO messages_fts(rowid, content, role, timestamp)
             VALUES (new.id, new.content, new.role, new.timestamp);
         END;
-        
+
         -- Trigger to update FTS on DELETE
         CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
             INSERT INTO messages_fts(messages_fts, rowid, content, role, timestamp)
             VALUES ('delete', old.id, old.content, old.role, old.timestamp);
         END;
-        
+
         -- Trigger to update FTS on UPDATE
         CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
             INSERT INTO messages_fts(messages_fts, rowid, content, role, timestamp)
@@ -432,7 +432,7 @@ bool MemoryManager::create_schema() {
             VALUES (new.id, new.content, new.role, new.timestamp);
         END;
     )";
-    
+
     if (fts_available) {
         if (!db_->execute(create_fts_triggers_sql)) {
             ICRAW_LOG_WARN("[MemoryManager][fts_trigger_create_failed] db_path={} error={}",
@@ -442,29 +442,29 @@ bool MemoryManager::create_schema() {
         ICRAW_LOG_WARN("[MemoryManager][fts_unavailable] db_path={} error={}",
                 db_->path().string(), db_->get_error());
     }
-    
+
     // Migration: Add new columns to existing tables if they don't exist
     // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we try and ignore errors
     db_->execute("ALTER TABLE messages ADD COLUMN token_count INTEGER DEFAULT 0;");
     db_->execute("ALTER TABLE messages ADD COLUMN consolidated INTEGER DEFAULT 0;");
-    
+
     return true;
 }
 
 std::string MemoryManager::get_timestamp() {
     auto now = std::chrono::system_clock::now();
     auto now_time = std::chrono::system_clock::to_time_t(now);
-    
+
     // Get milliseconds
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
-    
+
     std::tm tm = *std::gmtime(&now_time);
-    
+
     std::ostringstream ss;
     ss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count() << 'Z';
-    
+
     return ss.str();
 }
 
@@ -519,13 +519,13 @@ int64_t MemoryManager::add_message(const std::string& role,
         ICRAW_LOG_ERROR("add_message: db is not open");
         return -1;
     }
-    
+
     std::string timestamp = get_timestamp();
     std::string metadata_str = metadata.dump();
-    
+
     // Estimate token count for this message
     int token_count = estimate_tokens(content) + 4;  // +4 for role and formatting overhead
-    
+
     // Check if messages_fts exists, if not we may need to handle FTS trigger issues
     auto fts_check = db_->query_string("SELECT name FROM sqlite_master WHERE type='table' AND name='messages_fts';");
     if (!fts_check) {
@@ -553,7 +553,7 @@ int64_t MemoryManager::add_message(const std::string& role,
     db_->step_exec();
 
     int64_t id = db_->last_insert_rowid();
-    
+
     // Update token stats (async-friendly: just invalidate cache)
     if (id > 0) {
         // Update total tokens in cache
@@ -569,7 +569,7 @@ int64_t MemoryManager::add_message(const std::string& role,
             }
         }
     }
-    
+
     return id;
 }
 
@@ -631,23 +631,23 @@ std::vector<MemoryEntry> MemoryManager::get_recent_messages(int limit,
                                                              const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> messages;
-    
+
     if (!db_ || !db_->is_open()) {
         return messages;
     }
-    
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "SELECT id, role, content, timestamp, session_id, metadata, token_count, consolidated FROM messages "
                       "WHERE session_id = ? "
                       "ORDER BY timestamp DESC LIMIT ?;";
-    
+
     if (!db_->prepare(sql)) {
         return messages;
     }
-    
+
     db_->bind(1, session_id);
     db_->bind(2, static_cast<int64_t>(limit));
-    
+
     while (db_->step()) {
         MemoryEntry entry;
         entry.id = db_->get_column_int(0);
@@ -665,9 +665,9 @@ std::vector<MemoryEntry> MemoryManager::get_recent_messages(int limit,
         entry.consolidated = db_->get_column_int(7) != 0;
         messages.push_back(std::move(entry));
     }
-    
+
     db_->reset();
-    
+
     // Reverse to get chronological order
     std::reverse(messages.begin(), messages.end());
     return messages;
@@ -742,13 +742,24 @@ bool MemoryManager::clear_long_term_memory(const std::string& session_id) {
         }
     }
 
-    if (!db_->execute("DELETE FROM daily_memory;")) {
-        ICRAW_LOG_ERROR("[MemoryManager][long_term_clear_exec_failed] table=daily_memory session_id={} db_path={} error={}",
-                session_id, db_->path().string(), db_->get_error());
-        success = false;
+    return success;
+}
+
+bool MemoryManager::clear_daily_memory() {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex_);
+    if (!db_ || !db_->is_open()) {
+        return false;
     }
 
-    return success;
+    const bool success = db_->execute("DELETE FROM daily_memory;");
+    if (!success) {
+        ICRAW_LOG_ERROR("[MemoryManager][daily_memory_clear_failed] db_path={} error={}",
+                db_->path().string(), db_->get_error());
+        return false;
+    }
+
+    ICRAW_LOG_INFO("[MemoryManager][daily_memory_clear_complete] db_path={}", db_->path().string());
+    return true;
 }
 
 int64_t MemoryManager::get_message_count(const std::string& session_id) const {
@@ -756,21 +767,21 @@ int64_t MemoryManager::get_message_count(const std::string& session_id) const {
     if (!db_ || !db_->is_open()) {
         return 0;
     }
-    
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "SELECT COUNT(*) FROM messages WHERE session_id = ?;";
-    
+
     if (!db_->prepare(sql)) {
         return 0;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     int64_t count = 0;
     if (db_->step()) {
         count = db_->get_column_int(0);
     }
-    
+
     db_->reset();
     return count;
 }
@@ -778,28 +789,30 @@ int64_t MemoryManager::get_message_count(const std::string& session_id) const {
 // --- Search ---
 
 std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
-                                                       int limit) const {
+                                                       int limit,
+                                                       const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> results;
-    
+
     if (!db_ || !db_->is_open()) {
         return results;
     }
-    
+
     // Use parameterized query to prevent SQL injection
     // The LIKE pattern with wildcards needs to be constructed safely
     std::string like_pattern = "%" + query + "%";
     std::string sql = "SELECT id, role, content, timestamp, session_id, metadata FROM messages "
-                      "WHERE content LIKE ? "
+                      "WHERE content LIKE ? AND session_id = ? "
                       "ORDER BY timestamp DESC LIMIT ?;";
-    
+
     if (!db_->prepare(sql)) {
         return results;
     }
-    
+
     db_->bind(1, like_pattern);
-    db_->bind(2, static_cast<int64_t>(limit));
-    
+    db_->bind(2, session_id);
+    db_->bind(3, static_cast<int64_t>(limit));
+
     while (db_->step()) {
         MemoryEntry entry;
         entry.id = db_->get_column_int(0);
@@ -813,9 +826,9 @@ std::vector<MemoryEntry> MemoryManager::search_memory(const std::string& query,
         }
         results.push_back(std::move(entry));
     }
-    
+
     db_->reset();
-    
+
     return results;
 }
 
@@ -828,14 +841,14 @@ void MemoryManager::save_daily_memory(const std::string& content) {
         auto now = std::chrono::system_clock::now();
         auto now_time = std::chrono::system_clock::to_time_t(now);
         std::tm tm = *std::gmtime(&now_time);
-        
+
         std::ostringstream date_ss;
         date_ss << std::put_time(&tm, "%Y-%m-%d");
         std::string date_str = date_ss.str();
         std::string timestamp = get_timestamp();
-        
+
         std::string sql = "INSERT INTO daily_memory (date, content, created_at) VALUES (?, ?, ?);";
-        
+
         if (db_->prepare(sql)) {
             db_->bind(1, date_str);
             db_->bind(2, content);
@@ -843,19 +856,19 @@ void MemoryManager::save_daily_memory(const std::string& content) {
             db_->step_exec();
         }
     }
-    
+
     // Also save to file for compatibility
     auto now = std::chrono::system_clock::now();
     auto now_time = std::chrono::system_clock::to_time_t(now);
     std::tm tm = *std::localtime(&now_time);
-    
+
     std::ostringstream date_ss;
     date_ss << std::put_time(&tm, "%Y-%m-%d");
     std::string date_str = date_ss.str();
-    
+
     auto memory_dir = workspace_path_ / "memory";
     std::filesystem::create_directories(memory_dir);
-    
+
     auto filepath = memory_dir / (date_str + ".md");
     std::ofstream file(filepath, std::ios::app);
     if (file.is_open()) {
@@ -867,34 +880,34 @@ void MemoryManager::save_daily_memory(const std::string& content) {
 std::vector<MemoryEntry> MemoryManager::get_daily_memory(const std::string& date) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> entries;
-    
+
     if (!db_ || !db_->is_open()) {
         return entries;
     }
-    
+
     std::string date_filter = date;
     if (date_filter.empty()) {
         // Get today's date
         auto now = std::chrono::system_clock::now();
         auto now_time = std::chrono::system_clock::to_time_t(now);
         std::tm tm = *std::gmtime(&now_time);
-        
+
         std::ostringstream date_ss;
         date_ss << std::put_time(&tm, "%Y-%m-%d");
         date_filter = date_ss.str();
     }
-    
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "SELECT id, date, content, created_at FROM daily_memory "
                       "WHERE date = ? "
                       "ORDER BY created_at ASC;";
-    
+
     if (!db_->prepare(sql)) {
         return entries;
     }
-    
+
     db_->bind(1, date_filter);
-    
+
     while (db_->step()) {
         MemoryEntry entry;
         entry.id = db_->get_column_int(0);
@@ -903,9 +916,9 @@ std::vector<MemoryEntry> MemoryManager::get_daily_memory(const std::string& date
         entry.role = "daily_memory";
         entries.push_back(std::move(entry));
     }
-    
+
     db_->reset();
-    
+
     return entries;
 }
 
@@ -918,46 +931,46 @@ int64_t MemoryManager::create_summary(const std::string& session_id,
     if (!db_ || !db_->is_open()) {
         return -1;
     }
-    
+
     std::string timestamp = get_timestamp();
-    
+
     std::string sql = "INSERT INTO summaries (session_id, summary, created_at, updated_at, message_count) "
                       "VALUES (?, ?, ?, ?, ?);";
-    
+
     if (!db_->prepare(sql)) {
         return -1;
     }
-    
+
     db_->bind(1, session_id);
     db_->bind(2, summary);
     db_->bind(3, timestamp);
     db_->bind(4, timestamp);
     db_->bind(5, static_cast<int64_t>(message_count));
-    
+
     db_->step_exec();
-    
+
     return db_->last_insert_rowid();
 }
 
 std::optional<ConversationSummary> MemoryManager::get_latest_summary(
     const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
-    
+
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
     }
-    
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "SELECT id, session_id, summary, created_at, updated_at, message_count "
                       "FROM summaries WHERE session_id = ? "
                       "ORDER BY created_at DESC LIMIT 1;";
-    
+
     if (!db_->prepare(sql)) {
         return std::nullopt;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     std::optional<ConversationSummary> result;
     if (db_->step()) {
         ConversationSummary sum;
@@ -969,7 +982,7 @@ std::optional<ConversationSummary> MemoryManager::get_latest_summary(
         sum.message_count = static_cast<int>(db_->get_column_int(5));
         result = std::move(sum);
     }
-    
+
     db_->reset();
     return result;
 }
@@ -978,34 +991,34 @@ std::vector<MemoryEntry> MemoryManager::get_messages_for_consolidation(
     int keep_count,
     const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
-    
+
     std::vector<MemoryEntry> messages;
-    
+
     if (!db_ || !db_->is_open()) {
         return messages;
     }
-    
+
     // Get total count first
     int64_t total = get_message_count(session_id);
     if (total <= keep_count) {
         return messages;  // Nothing to consolidate
     }
-    
+
     // Get oldest messages (excluding the most recent 'keep_count' ones)
     int skip_count = total - keep_count;
-    
+
     // Use parameterized query to prevent SQL injection
     std::string sql = "SELECT id, role, content, timestamp, session_id, metadata FROM messages "
                       "WHERE session_id = ? "
                       "ORDER BY timestamp ASC LIMIT ?;";
-    
+
     if (!db_->prepare(sql)) {
         return messages;
     }
-    
+
     db_->bind(1, session_id);
     db_->bind(2, static_cast<int64_t>(skip_count));
-    
+
     while (db_->step()) {
         MemoryEntry entry;
         entry.id = db_->get_column_int(0);
@@ -1019,9 +1032,9 @@ std::vector<MemoryEntry> MemoryManager::get_messages_for_consolidation(
         }
         messages.push_back(std::move(entry));
     }
-    
+
     db_->reset();
-    
+
     return messages;
 }
 
@@ -1030,27 +1043,27 @@ void MemoryManager::mark_consolidated(int count, const std::string& session_id) 
     if (!db_ || !db_->is_open()) {
         return;
     }
-    
+
     // Mark the oldest 'count' messages as consolidated
     std::string sql = R"(
-        UPDATE messages SET consolidated = 1 
+        UPDATE messages SET consolidated = 1
         WHERE id IN (
-            SELECT id FROM messages 
+            SELECT id FROM messages
             WHERE session_id = ? AND consolidated = 0
-            ORDER BY timestamp ASC 
+            ORDER BY timestamp ASC
             LIMIT ?
         );
     )";
-    
+
     if (!db_->prepare(sql)) {
         return;
     }
-    
+
     db_->bind(1, session_id);
     db_->bind(2, static_cast<int64_t>(count));
     db_->step_exec();
     db_->reset();
-    
+
     // Update token stats after consolidation
     update_token_stats(session_id);
 }
@@ -1066,11 +1079,11 @@ std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& que
                                                            const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     std::vector<MemoryEntry> results;
-    
+
     if (!db_ || !db_->is_open()) {
         return results;
     }
-    
+
     // Try FTS5 search first
     // FTS5 uses MATCH operator with query string
     std::string fts_sql = R"(
@@ -1081,12 +1094,12 @@ std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& que
         ORDER BY rank
         LIMIT ?;
     )";
-    
+
     if (db_->prepare(fts_sql)) {
         db_->bind(1, query);
         db_->bind(2, session_id);
         db_->bind(3, static_cast<int64_t>(limit));
-        
+
         while (db_->step()) {
             MemoryEntry entry;
             entry.id = db_->get_column_int(0);
@@ -1102,16 +1115,16 @@ std::vector<MemoryEntry> MemoryManager::search_memory_fts(const std::string& que
             }
             results.push_back(std::move(entry));
         }
-        
+
         db_->reset();
-        
+
         if (!results.empty()) {
             return results;  // FTS5 worked, return results
         }
     }
-    
+
     // Fallback to LIKE search if FTS5 not available or no results
-    return search_memory(query, limit);
+    return search_memory(query, limit, session_id);
 }
 
 // --- Token-aware Methods ---
@@ -1120,27 +1133,27 @@ std::vector<MemoryEntry> MemoryManager::get_messages_within_token_budget(
     int max_tokens,
     const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
-    
+
     std::vector<MemoryEntry> messages;
-    
+
     if (!db_ || !db_->is_open()) {
         return messages;
     }
-    
+
     // Get recent messages in reverse order (newest first)
     std::string sql = "SELECT id, role, content, timestamp, session_id, metadata, token_count "
                       "FROM messages WHERE session_id = ? "
                       "ORDER BY timestamp DESC;";
-    
+
     if (!db_->prepare(sql)) {
         return messages;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     int total_tokens = 0;
     std::vector<MemoryEntry> temp_messages;
-    
+
     while (db_->step()) {
         MemoryEntry entry;
         entry.id = db_->get_column_int(0);
@@ -1155,29 +1168,29 @@ std::vector<MemoryEntry> MemoryManager::get_messages_within_token_budget(
             } catch (...) {}
         }
         entry.token_count = static_cast<int>(db_->get_column_int(6));
-        
+
         // If token_count is 0, estimate it
         if (entry.token_count == 0) {
             // Simple estimation: ~4 chars per token for English, ~1.5 for Chinese
             entry.token_count = static_cast<int>(entry.content.size() / 3.0 * 1.2);
         }
-        
+
         int entry_tokens = entry.token_count > 0 ? entry.token_count : 10;  // Minimum 10 tokens
-        
+
         if (total_tokens + entry_tokens > max_tokens) {
             break;  // Budget exceeded
         }
-        
+
         total_tokens += entry_tokens;
         temp_messages.push_back(std::move(entry));
     }
-    
+
     db_->reset();
-    
+
     // Reverse to get chronological order
     std::reverse(temp_messages.begin(), temp_messages.end());
     messages = std::move(temp_messages);
-    
+
     return messages;
 }
 
@@ -1188,40 +1201,8 @@ int64_t MemoryManager::get_total_tokens(const std::string& session_id) const {
     if (stats && stats->total_tokens > 0) {
         return stats->total_tokens;
     }
-    
-    // Calculate from messages
-    if (!db_ || !db_->is_open()) {
-        return 0;
-    }
-    
-    std::string sql = "SELECT COALESCE(SUM(token_count), 0) FROM messages WHERE session_id = ?;";
-    
-    if (!db_->prepare(sql)) {
-        return 0;
-    }
-    
-    db_->bind(1, session_id);
-    
-    int64_t total = 0;
-    if (db_->step()) {
-        total = db_->get_column_int(0);
-    }
-    
-    db_->reset();
-    
-    // If token_count column is empty, estimate from content
-    if (total == 0) {
-        sql = "SELECT COALESCE(SUM(LENGTH(content) / 3), 0) FROM messages WHERE session_id = ?;";
-        if (db_->prepare(sql)) {
-            db_->bind(1, session_id);
-            if (db_->step()) {
-                total = static_cast<int64_t>(db_->get_column_int(0) * 1.2);  // 20% margin
-            }
-            db_->reset();
-        }
-    }
-    
-    return total;
+
+    return calculate_total_tokens_uncached(session_id);
 }
 
 void MemoryManager::update_token_stats(const std::string& session_id) {
@@ -1229,14 +1210,14 @@ void MemoryManager::update_token_stats(const std::string& session_id) {
     if (!db_ || !db_->is_open()) {
         return;
     }
-    
-    int64_t total = get_total_tokens(session_id);
+
+    int64_t total = calculate_total_tokens_uncached(session_id);
     std::string timestamp = get_timestamp();
-    
+
     // Use INSERT OR REPLACE
     std::string sql = "INSERT OR REPLACE INTO token_stats (session_id, total_tokens, last_updated) "
                       "VALUES (?, ?, ?);";
-    
+
     if (db_->prepare(sql)) {
         db_->bind(1, session_id);
         db_->bind(2, total);
@@ -1246,20 +1227,55 @@ void MemoryManager::update_token_stats(const std::string& session_id) {
     }
 }
 
+int64_t MemoryManager::calculate_total_tokens_uncached(const std::string& session_id) const {
+    if (!db_ || !db_->is_open()) {
+        return 0;
+    }
+
+    std::string sql = "SELECT COALESCE(SUM(token_count), 0) FROM messages WHERE session_id = ?;";
+
+    if (!db_->prepare(sql)) {
+        return 0;
+    }
+
+    db_->bind(1, session_id);
+
+    int64_t total = 0;
+    if (db_->step()) {
+        total = db_->get_column_int(0);
+    }
+
+    db_->reset();
+
+    // If token_count column is empty, estimate from content.
+    if (total == 0) {
+        sql = "SELECT COALESCE(SUM(LENGTH(content) / 3), 0) FROM messages WHERE session_id = ?;";
+        if (db_->prepare(sql)) {
+            db_->bind(1, session_id);
+            if (db_->step()) {
+                total = static_cast<int64_t>(db_->get_column_int(0) * 1.2);
+            }
+            db_->reset();
+        }
+    }
+
+    return total;
+}
+
 std::optional<TokenStats> MemoryManager::get_token_stats(const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
     }
-    
+
     std::string sql = "SELECT session_id, total_tokens, last_updated FROM token_stats WHERE session_id = ?;";
-    
+
     if (!db_->prepare(sql)) {
         return std::nullopt;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     std::optional<TokenStats> result;
     if (db_->step()) {
         TokenStats stats;
@@ -1268,7 +1284,7 @@ std::optional<TokenStats> MemoryManager::get_token_stats(const std::string& sess
         stats.last_updated = db_->get_column_string(2);
         result = std::move(stats);
     }
-    
+
     db_->reset();
     return result;
 }
@@ -1285,17 +1301,17 @@ int64_t MemoryManager::create_compaction_record(const std::string& session_id,
     if (!db_ || !db_->is_open()) {
         return -1;
     }
-    
+
     std::string timestamp = get_timestamp();
-    
+
     std::string sql = "INSERT INTO compactions (session_id, summary, first_kept_message_id, "
                       "tokens_before, tokens_after, created_at, mode) "
                       "VALUES (?, ?, ?, ?, ?, ?, ?);";
-    
+
     if (!db_->prepare(sql)) {
         return -1;
     }
-    
+
     db_->bind(1, session_id);
     db_->bind(2, summary);
     db_->bind(3, first_kept_message_id);
@@ -1303,31 +1319,31 @@ int64_t MemoryManager::create_compaction_record(const std::string& session_id,
     db_->bind(5, static_cast<int64_t>(tokens_after));
     db_->bind(6, timestamp);
     db_->bind(7, mode);
-    
+
     db_->step_exec();
-    
+
     return db_->last_insert_rowid();
 }
 
 std::optional<CompactionRecord> MemoryManager::get_latest_compaction(
     const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
-    
+
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
     }
-    
+
     std::string sql = "SELECT id, session_id, summary, first_kept_message_id, "
                       "tokens_before, tokens_after, created_at, mode "
                       "FROM compactions WHERE session_id = ? "
                       "ORDER BY created_at DESC LIMIT 1;";
-    
+
     if (!db_->prepare(sql)) {
         return std::nullopt;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     std::optional<CompactionRecord> result;
     if (db_->step()) {
         CompactionRecord record;
@@ -1341,7 +1357,7 @@ std::optional<CompactionRecord> MemoryManager::get_latest_compaction(
         record.mode = db_->get_column_string(7);
         result = std::move(record);
     }
-    
+
     db_->reset();
     return result;
 }
@@ -1351,20 +1367,20 @@ int64_t MemoryManager::get_compaction_count(const std::string& session_id) const
     if (!db_ || !db_->is_open()) {
         return 0;
     }
-    
+
     std::string sql = "SELECT COUNT(*) FROM compactions WHERE session_id = ?;";
-    
+
     if (!db_->prepare(sql)) {
         return 0;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     int64_t count = 0;
     if (db_->step()) {
         count = db_->get_column_int(0);
     }
-    
+
     db_->reset();
     return count;
 }
@@ -1376,13 +1392,13 @@ bool MemoryManager::needs_memory_flush(const CompactionConfig& config) const {
     if (!config.memory_flush.enabled) {
         return false;
     }
-    
+
     int64_t total_tokens = get_total_tokens();
-    
+
     // Calculate threshold
-    int threshold = config.context_window_tokens - config.reserve_tokens_floor 
+    int threshold = config.context_window_tokens - config.reserve_tokens_floor
                   - config.memory_flush.soft_threshold_tokens;
-    
+
     return total_tokens >= threshold;
 }
 
@@ -1391,11 +1407,11 @@ void MemoryManager::record_memory_flush(const std::string& session_id) {
     if (!db_ || !db_->is_open()) {
         return;
     }
-    
+
     std::string timestamp = get_timestamp();
-    
+
     std::string sql = "INSERT INTO memory_flush_log (session_id, executed_at) VALUES (?, ?);";
-    
+
     if (db_->prepare(sql)) {
         db_->bind(1, session_id);
         db_->bind(2, timestamp);
@@ -1407,25 +1423,25 @@ void MemoryManager::record_memory_flush(const std::string& session_id) {
 std::optional<std::string> MemoryManager::get_last_flush_timestamp(
     const std::string& session_id) const {
     std::lock_guard<std::recursive_mutex> lock(db_mutex_);
-    
+
     if (!db_ || !db_->is_open()) {
         return std::nullopt;
     }
-    
+
     std::string sql = "SELECT executed_at FROM memory_flush_log WHERE session_id = ? "
                       "ORDER BY executed_at DESC LIMIT 1;";
-    
+
     if (!db_->prepare(sql)) {
         return std::nullopt;
     }
-    
+
     db_->bind(1, session_id);
-    
+
     std::optional<std::string> result;
     if (db_->step()) {
         result = db_->get_column_string(0);
     }
-    
+
     db_->reset();
     return result;
 }
@@ -1437,11 +1453,11 @@ int64_t MemoryManager::delete_consolidated_messages(const std::string& session_i
     if (!db_ || !db_->is_open()) {
         return 0;
     }
-    
+
     // First count how many will be deleted
     std::string count_sql = "SELECT COUNT(*) FROM messages WHERE session_id = ? AND consolidated = 1;";
     int64_t count = 0;
-    
+
     if (db_->prepare(count_sql)) {
         db_->bind(1, session_id);
         if (db_->step()) {
@@ -1449,23 +1465,23 @@ int64_t MemoryManager::delete_consolidated_messages(const std::string& session_i
         }
         db_->reset();
     }
-    
+
     if (count == 0) {
         return 0;
     }
-    
+
     // Delete consolidated messages
     std::string delete_sql = "DELETE FROM messages WHERE session_id = ? AND consolidated = 1;";
-    
+
     if (db_->prepare(delete_sql)) {
         db_->bind(1, session_id);
         db_->step_exec();
         db_->reset();
     }
-    
+
     // Update token stats after deletion
     update_token_stats(session_id);
-    
+
     return count;
 }
 
@@ -1476,7 +1492,7 @@ std::string MemoryManager::read_file(const std::filesystem::path& filepath) cons
     if (!file.is_open()) {
         return "";
     }
-    
+
     std::ostringstream ss;
     ss << file.rdbuf();
     return ss.str();
@@ -1484,7 +1500,7 @@ std::string MemoryManager::read_file(const std::filesystem::path& filepath) cons
 
 void MemoryManager::write_file(const std::filesystem::path& filepath, const std::string& content) const {
     std::filesystem::create_directories(filepath.parent_path());
-    
+
     std::ofstream file(filepath, std::ios::binary);
     if (file.is_open()) {
         file << content;

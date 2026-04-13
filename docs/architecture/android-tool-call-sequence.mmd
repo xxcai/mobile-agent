@@ -9,8 +9,8 @@ sequenceDiagram
     participant Channel as Java tool channel
 
     rect rgb(32, 39, 70)
-        App->>Init: initialize(tools, ...)
-        Init->>Manager: create and register tools/channels
+        App->>Init: initialize(shortcuts, ...)
+        Init->>Manager: create and register shortcuts/channels
         Manager->>Manager: buildToolDefinition()
         Manager->>Api: set tools.json
         Api->>Native: nativeSetToolsSchema(...)

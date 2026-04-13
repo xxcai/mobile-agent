@@ -1,0 +1,215 @@
+package com.hh.agent.android.channel;
+
+import com.hh.agent.android.selection.CandidateSelectionStateStore;
+import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.ui.ToolUiDecision;
+import com.hh.agent.core.shortcut.ShortcutDefinition;
+import com.hh.agent.core.shortcut.ShortcutExecutor;
+import com.hh.agent.core.shortcut.ShortcutRuntime;
+import com.hh.agent.core.tool.ToolResult;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+/**
+ * Top-level channel that routes stable shortcut names through the shortcut runtime.
+ */
+public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
+
+    public static final String CHANNEL_NAME = "run_shortcut";
+
+    private final ShortcutRuntime shortcutRuntime;
+    private final CandidateSelectionStateStore selectionStateStore;
+
+    public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime) {
+        this(shortcutRuntime, null);
+    }
+
+    public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime,
+                                  CandidateSelectionStateStore selectionStateStore) {
+        if (shortcutRuntime == null) {
+            throw new IllegalArgumentException("ShortcutRuntime cannot be null");
+        }
+        this.shortcutRuntime = shortcutRuntime;
+        this.selectionStateStore = selectionStateStore;
+    }
+
+    @Override
+    public String getChannelName() {
+        return CHANNEL_NAME;
+    }
+
+    @Override
+    public JSONObject buildToolDefinition() throws Exception {
+        return ToolSchemaBuilder.function(
+                        CHANNEL_NAME,
+                        "运行已注册的 shortcut 原子动作。"
+                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。")
+                .property("shortcut", ToolSchemaBuilder.string()
+                        .description(buildShortcutChoicesDescription()), true)
+                .property("args", ToolSchemaBuilder.object()
+                        .description(buildArgsDescription()), true)
+                .build();
+    }
+
+    @Override
+    public ToolResult execute(JSONObject params) {
+        String shortcutName = params.optString("shortcut", "").trim();
+        if (shortcutName.isEmpty()) {
+            return ToolResult.error("invalid_args", "run_shortcut requires a non-empty 'shortcut' field")
+                    .with("channel", CHANNEL_NAME);
+        }
+
+        JSONObject args = params.optJSONObject("args");
+        if (args == null) {
+            return ToolResult.error("invalid_args", "run_shortcut requires an 'args' object")
+                    .with("channel", CHANNEL_NAME)
+                    .with("shortcut", shortcutName);
+        }
+        JSONObject effectiveArgs = copyJson(args);
+        String sessionKey = params.optString("_sessionKey", null);
+        if (sessionKey != null && !sessionKey.trim().isEmpty()) {
+            try {
+                effectiveArgs.put("_sessionKey", sessionKey.trim());
+            } catch (Exception exception) {
+                return ToolResult.error("invalid_args", "Failed to inject session context into shortcut args")
+                        .with("channel", CHANNEL_NAME)
+                        .with("shortcut", shortcutName);
+            }
+        }
+
+        ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
+        if (executor == null) {
+            return ToolResult.error("shortcut_not_supported",
+                            "Shortcut '" + shortcutName + "' is not supported. "
+                                    + "If this is a skill name, read skills/" + shortcutName
+                                    + "/SKILL.md with read_file before calling run_shortcut.")
+                    .with("channel", CHANNEL_NAME)
+                    .with("shortcut", shortcutName)
+                    .with("requestedShortcut", shortcutName)
+                    .with("suggestedSkillPath", "skills/" + shortcutName + "/SKILL.md");
+        }
+
+        ToolResult result = shortcutRuntime.execute(shortcutName, effectiveArgs);
+        ShortcutDefinition definition = executor.getDefinition();
+
+        if (result == null) {
+            return ToolResult.error("execution_failed", "Shortcut returned null result")
+                    .with("channel", CHANNEL_NAME)
+                    .with("shortcut", shortcutName);
+        }
+
+        result.with("channel", CHANNEL_NAME)
+                .with("shortcut", shortcutName);
+        if (definition != null) {
+            if (definition.getDomain() != null) {
+                result.with("domain", definition.getDomain());
+            }
+            if (definition.getRequiredSkill() != null) {
+                result.with("requiredSkill", definition.getRequiredSkill());
+                result.withJson("governance", buildGovernanceJson(definition).toString());
+            }
+        }
+        maybePersistCandidateSelection(params, result);
+        return result;
+    }
+
+    @Override
+    public boolean shouldExposeInnerToolInToolUi() {
+        return true;
+    }
+
+    @Override
+    public ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
+        String shortcutName = extractShortcutName(argumentsJson);
+        if (shortcutName == null || shortcutName.isEmpty()) {
+            return ToolUiDecision.hidden();
+        }
+        ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
+        if (executor == null) {
+            return ToolUiDecision.hidden();
+        }
+        ShortcutDefinition definition = executor.getDefinition();
+        if (definition == null) {
+            return ToolUiDecision.hidden();
+        }
+        return ToolUiDecision.visible(definition.getTitle(), definition.getDescription());
+    }
+
+    private JSONObject buildGovernanceJson(ShortcutDefinition definition) {
+        try {
+            return new JSONObject()
+                    .put("mode", "advisory")
+                    .put("requiredSkill", definition.getRequiredSkill())
+                    .put("message", "This shortcut should normally be selected via the "
+                            + definition.getRequiredSkill() + " skill.");
+        } catch (JSONException e) {
+            throw new IllegalStateException("Failed to serialize governance metadata", e);
+        }
+    }
+
+    private String buildShortcutChoicesDescription() {
+        return "要运行的 shortcut 名称。";
+    }
+
+    private String buildArgsDescription() {
+        return "传给 shortcut 的 JSON 参数对象，字段结构由目标 shortcut 定义决定。";
+    }
+
+    private String extractShortcutName(String argumentsJson) {
+        String normalized = normalizeArgumentsJson(argumentsJson);
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        try {
+            JSONObject payload = new JSONObject(normalized);
+            String shortcutName = payload.optString("shortcut", "").trim();
+            return shortcutName.isEmpty() ? null : shortcutName;
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    private String normalizeArgumentsJson(String argumentsJson) {
+        if (argumentsJson == null) {
+            return null;
+        }
+        String normalized = argumentsJson.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() >= 2
+                && normalized.startsWith("\"")
+                && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+        }
+        return normalized;
+    }
+
+    private void maybePersistCandidateSelection(JSONObject params, ToolResult result) {
+        if (selectionStateStore == null || result == null) {
+            return;
+        }
+        String sessionKey = params.optString("_sessionKey", null);
+        if (sessionKey == null || sessionKey.trim().isEmpty()) {
+            return;
+        }
+        try {
+            JSONObject root = new JSONObject(result.toJsonString());
+            JSONObject candidateSelection = root.optJSONObject("candidateSelection");
+            if (candidateSelection != null && candidateSelection.length() > 0) {
+                selectionStateStore.save(sessionKey, candidateSelection);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private JSONObject copyJson(JSONObject source) {
+        try {
+            return new JSONObject(source.toString());
+        } catch (JSONException exception) {
+            throw new IllegalStateException("Failed to copy shortcut args", exception);
+        }
+    }
+}

@@ -12,24 +12,15 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.hh.agent.android.AndroidToolManager;
-import com.hh.agent.core.tool.ToolExecutor;
-import com.hh.agent.tool.DisplayNotificationTool;
-import com.hh.agent.tool.ReadClipboardTool;
-import com.hh.agent.tool.SearchContactsTool;
-import com.hh.agent.tool.SendImMessageTool;
-import com.hh.agent.viewcontext.ObservationTargetResolver;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Shared debug probe entry for MainActivity mock chat pages.
- * It keeps verification on the real chat UI instead of routing back to ToolChannelTestActivity.
+ * Shared IM debug probe entry for MainActivity mock chat pages.
+ * It keeps gesture/view verification on the real chat UI.
  */
 public final class MockChatProbeRunner {
 
@@ -65,7 +56,8 @@ public final class MockChatProbeRunner {
                     report = buildFailureReport(reportTitle, targetHint, viewContextResult);
                 } else {
                     String snapshotId = viewContextJson.optString("snapshotId", "");
-                    ObservationTargetResolver.TargetReference nodeReference = ObservationTargetResolver.resolve(viewContextJson, targetHint);
+                    String nativeViewXml = viewContextJson.optString("nativeViewXml", "");
+                    NodeReference nodeReference = findNodeReference(nativeViewXml, targetHint);
                     String gestureArgs = buildGestureArgs(
                             snapshotId,
                             targetHint,
@@ -94,81 +86,8 @@ public final class MockChatProbeRunner {
         worker.start();
     }
 
-    public static void runBusinessFallbackLinkageProbe(AppCompatActivity activity,
-                                                       String reportTitle,
-                                                       String targetHint,
-                                                       int fallbackX,
-                                                       int fallbackY) {
-        Handler mainHandler = new Handler(Looper.getMainLooper());
-
-        showReportDialog(activity, reportTitle,
-                "# " + reportTitle + "\n"
-                        + "step_1=call_android_tool(send_im_message -> business_target_not_accessible)\n"
-                        + "step_2=android_view_context_tool(runtime_auto)\n"
-                        + "step_3=android_gesture_tool(tap + observation)\n"
-                        + "target_hint=" + targetHint + "\n"
-                        + "note=waiting for runtime result...");
-
-        Thread worker = new Thread(() -> {
-            String report;
-            try {
-                AndroidToolManager manager = buildToolManager(activity);
-                String businessArgs = "{\"function\":\"send_im_message\","
-                        + "\"args\":{\"contact_id\":\"ui_current_chat\",\"message\":\"test\"}}";
-                String businessResult = manager.callTool("call_android_tool", businessArgs);
-
-                String viewContextResult = manager.callTool(
-                        "android_view_context_tool",
-                        "{\"targetHint\":\"" + escape(targetHint) + "\"}");
-                JSONObject viewContextJson = new JSONObject(viewContextResult);
-                if (!viewContextJson.optBoolean("success", false)) {
-                    report = buildBusinessFallbackFailureReport(
-                            reportTitle,
-                            targetHint,
-                            businessArgs,
-                            businessResult,
-                            viewContextResult);
-                } else {
-                    String snapshotId = viewContextJson.optString("snapshotId", "");
-                    ObservationTargetResolver.TargetReference nodeReference = ObservationTargetResolver.resolve(viewContextJson, targetHint);
-                    String gestureArgs = buildGestureArgs(
-                            snapshotId,
-                            targetHint,
-                            fallbackX,
-                            fallbackY,
-                            nodeReference);
-                    String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
-                    report = buildBusinessFallbackSuccessReport(
-                            reportTitle,
-                            targetHint,
-                            businessArgs,
-                            businessResult,
-                            viewContextResult,
-                            gestureArgs,
-                            gestureResult,
-                            nodeReference);
-                }
-            } catch (Exception e) {
-                report = "# " + reportTitle + "\n"
-                        + "target_hint=" + targetHint + "\n"
-                        + "error=probe_failed\n"
-                        + "message=" + e.getMessage();
-            }
-
-            String finalReport = report;
-            mainHandler.post(() -> showReportDialog(activity, reportTitle, finalReport));
-        });
-        worker.start();
-    }
-
     private static AndroidToolManager buildToolManager(AppCompatActivity activity) {
         AndroidToolManager manager = new AndroidToolManager(activity);
-        Map<String, ToolExecutor> tools = new HashMap<>();
-        tools.put("display_notification", new DisplayNotificationTool(activity));
-        tools.put("read_clipboard", new ReadClipboardTool(activity));
-        tools.put("search_contacts", new SearchContactsTool());
-        tools.put("send_im_message", new SendImMessageTool());
-        manager.registerTools(tools);
         manager.initialize();
         return manager;
     }
@@ -181,24 +100,12 @@ public final class MockChatProbeRunner {
                 + "view_context_result=" + viewContextResult;
     }
 
-    private static String buildBusinessFallbackFailureReport(String reportTitle,
-                                                             String targetHint,
-                                                             String businessArgs,
-                                                             String businessResult,
-                                                             String viewContextResult) {
-        return "# " + reportTitle + "\n"
-                + "target_hint=" + targetHint + "\n\n"
-                + "business_input=" + businessArgs + "\n"
-                + "business_result=" + businessResult + "\n\n"
-                + "view_context_result=" + viewContextResult;
-    }
-
     private static String buildSuccessReport(String reportTitle,
                                              String targetHint,
                                              String viewContextResult,
                                              String gestureArgs,
                                              String gestureResult,
-                                             ObservationTargetResolver.TargetReference nodeReference) throws Exception {
+                                             NodeReference nodeReference) throws Exception {
         JSONObject viewContextJson = new JSONObject(viewContextResult);
         JSONObject gestureJson = new JSONObject(gestureResult);
         JSONObject paramsJson = gestureJson.optJSONObject("params");
@@ -211,7 +118,6 @@ public final class MockChatProbeRunner {
                 ? observationJson.optString("snapshotId", "<none>")
                 : "<none>";
         String nativeViewXml = viewContextJson.optString("nativeViewXml", "");
-        JSONObject hybridObservation = viewContextJson.optJSONObject("hybridObservation");
 
         StringBuilder report = new StringBuilder();
         report.append("# ").append(reportTitle).append('\n');
@@ -222,29 +128,14 @@ public final class MockChatProbeRunner {
         report.append("observationMode=")
                 .append(viewContextJson.optString("observationMode", "<none>"))
                 .append('\n');
-        report.append("hybrid_mode=")
-                .append(hybridObservation != null ? hybridObservation.optString("mode", "<none>") : "<none>")
-                .append('\n');
-        report.append("hybrid_summary=")
-                .append(hybridObservation != null ? hybridObservation.optString("summary", "<none>") : "<none>")
-                .append('\n');
-        report.append("hybrid_actionable_nodes=")
-                .append(lengthOf(hybridObservation != null ? hybridObservation.optJSONArray("actionableNodes") : null))
-                .append('\n');
-        report.append("hybrid_conflicts=")
-                .append(lengthOf(hybridObservation != null ? hybridObservation.optJSONArray("conflicts") : null))
-                .append('\n');
         report.append("view_context_mock=")
                 .append(viewContextJson.optBoolean("mock", true))
                 .append('\n');
         report.append("nativeViewXml_contains_target=")
                 .append(nativeViewXml.contains(targetHint))
                 .append('\n');
-        report.append("target_resolution_source=")
-                .append(nodeReference != null ? nodeReference.source : "<none>")
-                .append('\n');
         report.append("matched_target_node_index=")
-                .append(nodeReference != null && nodeReference.nodeIndex != null ? nodeReference.nodeIndex : "<none>")
+                .append(nodeReference != null ? nodeReference.nodeIndex : "<none>")
                 .append('\n');
         report.append("matched_target_bounds=")
                 .append(nodeReference != null ? nodeReference.bounds : "<none>")
@@ -272,47 +163,18 @@ public final class MockChatProbeRunner {
                                            String targetHint,
                                            int fallbackX,
                                            int fallbackY,
-                                           ObservationTargetResolver.TargetReference nodeReference) {
+                                           NodeReference nodeReference) {
         StringBuilder gestureArgs = new StringBuilder();
         gestureArgs.append("{\"action\":\"tap\",\"x\":").append(fallbackX)
                 .append(",\"y\":").append(fallbackY)
                 .append(",\"observation\":{\"snapshotId\":\"").append(escape(snapshotId)).append("\"")
                 .append(",\"targetDescriptor\":\"").append(escape(targetHint)).append("\"");
         if (nodeReference != null) {
-            if (nodeReference.nodeIndex != null) {
-                gestureArgs.append(",\"targetNodeIndex\":").append(nodeReference.nodeIndex);
-            }
-            if (nodeReference.bounds != null && !nodeReference.bounds.isEmpty()) {
-                gestureArgs.append(",\"referencedBounds\":\"").append(escape(nodeReference.bounds)).append("\"");
-            }
+            gestureArgs.append(",\"targetNodeIndex\":").append(nodeReference.nodeIndex);
+            gestureArgs.append(",\"referencedBounds\":\"").append(escape(nodeReference.bounds)).append("\"");
         }
         gestureArgs.append("}}");
         return gestureArgs.toString();
-    }
-
-    private static String buildBusinessFallbackSuccessReport(String reportTitle,
-                                                             String targetHint,
-                                                             String businessArgs,
-                                                             String businessResult,
-                                                             String viewContextResult,
-                                                             String gestureArgs,
-                                                             String gestureResult,
-                                                             ObservationTargetResolver.TargetReference nodeReference) throws Exception {
-        JSONObject businessJson = new JSONObject(businessResult);
-        StringBuilder report = new StringBuilder(buildSuccessReport(
-                reportTitle,
-                targetHint,
-                viewContextResult,
-                gestureArgs,
-                gestureResult,
-                nodeReference));
-        report.insert(("# " + reportTitle + "\n").length(),
-                "business_input=" + businessArgs + "\n"
-                        + "business_result=" + businessResult + "\n"
-                        + "business_error=" + businessJson.optString("error", "<none>") + "\n"
-                        + "business_suggested_next_tool="
-                        + businessJson.optString("suggestedNextTool", "<none>") + "\n\n");
-        return report.toString();
     }
 
     private static NodeReference findNodeReference(String nativeViewXml, String targetHint) {
@@ -337,10 +199,6 @@ public final class MockChatProbeRunner {
         return null;
     }
 
-    private static int lengthOf(JSONArray array) {
-        return array == null ? 0 : array.length();
-    }
-
     private static void showReportDialog(AppCompatActivity activity, String title, String report) {
         TextView contentView = new TextView(activity);
         int padding = dp(activity, 16);
@@ -358,7 +216,7 @@ public final class MockChatProbeRunner {
         new AlertDialog.Builder(activity)
                 .setTitle(title)
                 .setView(scrollView)
-                .setPositiveButton("鍏抽棴", null)
+                .setPositiveButton("关闭", null)
                 .show();
     }
 

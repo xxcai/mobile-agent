@@ -11,15 +11,6 @@ import java.util.List;
 public interface MobileAgentApi {
 
     /**
-     * 发送消息（同步）
-     *
-     * @param content    消息内容
-     * @param sessionKey 会话密钥
-     * @return 机器人回复消息
-     */
-    Message sendMessage(String content, String sessionKey);
-
-    /**
      * 获取历史消息
      *
      * @param sessionKey   会话密钥
@@ -50,4 +41,9 @@ public interface MobileAgentApi {
      * @param sessionKey 会话密钥
      */
     boolean clearHistoryAndLongTermMemory(String sessionKey);
+
+    /**
+     * Clear persisted daily memory logs globally.
+     */
+    boolean clearDailyMemory();
 }

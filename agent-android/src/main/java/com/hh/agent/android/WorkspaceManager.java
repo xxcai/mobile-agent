@@ -17,6 +17,7 @@ public class WorkspaceManager {
 
     private static final String TAG = "WorkspaceManager";
     private static final String WORKSPACE_DIR = ".icraw/workspace";
+    private static final String BUILTIN_ASSETS_WORKSPACE = "builtin_workspace";
     private static final String ASSETS_WORKSPACE = "workspace";
 
 
@@ -87,7 +88,7 @@ public class WorkspaceManager {
             // Copy USER.md
             copyAssetFile(ASSETS_WORKSPACE + "/USER.md", new File(workspaceDir, "USER.md"));
 
-            // Copy skills directory - dynamically read from assets/skills/
+            // Copy builtin skills first, then overlay with app workspace skills.
             syncBuiltinSkillsIntoWorkspace(workspaceDir);
 
             return true;
@@ -112,20 +113,25 @@ public class WorkspaceManager {
             return;
         }
 
-        String[] skillNames = context.getAssets().list(ASSETS_WORKSPACE + "/skills");
+        syncSkillsFromAssetRoot(BUILTIN_ASSETS_WORKSPACE, skillsDir, "builtin");
+        syncSkillsFromAssetRoot(ASSETS_WORKSPACE, skillsDir, "workspace");
+    }
+
+    private void syncSkillsFromAssetRoot(String assetRoot, File skillsDir, String sourceTag) throws IOException {
+        String[] skillNames = context.getAssets().list(assetRoot + "/skills");
         if (skillNames == null) {
-            AgentLogs.debug(TAG, "builtin_skill_sync_skipped", "reason=assets_list_empty");
+            AgentLogs.debug(TAG, "builtin_skill_sync_skipped", "source=" + sourceTag + " reason=assets_list_empty");
             return;
         }
-
         for (String skillName : skillNames) {
             File targetSkillDir = new File(skillsDir, skillName);
-            if (!targetSkillDir.exists()) {
-                AgentLogs.debug(TAG, "builtin_skill_copy", "skill_name=" + skillName);
-                copyAssetDirectory(ASSETS_WORKSPACE + "/skills/" + skillName, targetSkillDir);
+            if (targetSkillDir.exists()) {
+                AgentLogs.debug(TAG, "builtin_skill_overwrite", "source=" + sourceTag + " skill_name=" + skillName);
+                deleteRecursively(targetSkillDir);
             } else {
-                AgentLogs.debug(TAG, "builtin_skill_skip", "skill_name=" + skillName);
+                AgentLogs.debug(TAG, "builtin_skill_copy", "source=" + sourceTag + " skill_name=" + skillName);
             }
+            copyAssetDirectory(assetRoot + "/skills/" + skillName, targetSkillDir);
         }
     }
 
@@ -171,6 +177,21 @@ public class WorkspaceManager {
                 // If not a file, try as directory
                 copyAssetDirectory(assetSubPath, destSubPath);
             }
+        }
+    }
+
+    private void deleteRecursively(File file) throws IOException {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursively(child);
+                }
+            }
+        }
+
+        if (file.exists() && !file.delete()) {
+            throw new IOException("Failed to delete " + file.getAbsolutePath());
         }
     }
 

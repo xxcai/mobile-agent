@@ -15,24 +15,24 @@ import java.util.Set;
  */
 public final class RouteHint {
     public static final String TARGET_TYPE_NATIVE = "native";
-    public static final String TARGET_TYPE_MINIAPP = "miniapp";
+    public static final String TARGET_TYPE_WECODE = "wecode";
     public static final String TARGET_TYPE_UNKNOWN = "unknown";
 
     private final String targetTypeHint;
     private final String uri;
     private final String nativeModule;
-    private final String miniAppName;
+    private final String weCodeName;
     private final List<String> keywords;
 
     private RouteHint(String targetTypeHint,
                       String uri,
                       String nativeModule,
-                      String miniAppName,
+                      String weCodeName,
                       List<String> keywords) {
         this.targetTypeHint = normalizeTargetType(targetTypeHint);
         this.uri = normalizeText(uri);
         this.nativeModule = normalizeText(nativeModule);
-        this.miniAppName = normalizeText(miniAppName);
+        this.weCodeName = normalizeText(weCodeName);
         this.keywords = Collections.unmodifiableList(new ArrayList<>(keywords));
     }
 
@@ -44,7 +44,7 @@ public final class RouteHint {
                 routeHintJson.optString("targetTypeHint", TARGET_TYPE_UNKNOWN),
                 routeHintJson.optString("uri", null),
                 routeHintJson.optString("nativeModule", null),
-                routeHintJson.optString("miniAppName", null),
+                routeHintJson.optString("weCodeName", null),
                 normalizeKeywords(routeHintJson.optJSONArray("keywords"))
         );
     }
@@ -65,8 +65,8 @@ public final class RouteHint {
         return nativeModule;
     }
 
-    public String getMiniAppName() {
-        return miniAppName;
+    public String getWeCodeName() {
+        return weCodeName;
     }
 
     public List<String> getKeywords() {
@@ -76,7 +76,7 @@ public final class RouteHint {
     public boolean isSearchable() {
         return uri != null
                 || nativeModule != null
-                || miniAppName != null
+                || weCodeName != null
                 || !keywords.isEmpty();
     }
 
@@ -85,7 +85,7 @@ public final class RouteHint {
         put(json, "targetTypeHint", targetTypeHint);
         putIfPresent(json, "uri", uri);
         putIfPresent(json, "nativeModule", nativeModule);
-        putIfPresent(json, "miniAppName", miniAppName);
+        putIfPresent(json, "weCodeName", weCodeName);
         JSONArray keywordsJson = new JSONArray();
         for (String keyword : keywords) {
             keywordsJson.put(keyword);
@@ -114,7 +114,7 @@ public final class RouteHint {
 
     private static String normalizeTargetType(String raw) {
         String normalized = normalizeText(raw);
-        if (TARGET_TYPE_NATIVE.equals(normalized) || TARGET_TYPE_MINIAPP.equals(normalized)) {
+        if (TARGET_TYPE_NATIVE.equals(normalized) || TARGET_TYPE_WECODE.equals(normalized)) {
             return normalized;
         }
         return TARGET_TYPE_UNKNOWN;
