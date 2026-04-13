@@ -3446,6 +3446,8 @@ CanonicalCandidate build_canonical_candidate(const std::vector<ObservationCandid
     int best_tap_score = std::numeric_limits<int>::min();
     int best_stable_tap_score = std::numeric_limits<int>::min();
     bool has_stable_tap_candidate = false;
+    bool has_stable_member = false;
+    bool has_vision_only_member = false;
     std::set<std::string> source_set;
     std::vector<std::string> risk_flags;
     std::set<std::string> risk_seen;
@@ -3493,6 +3495,12 @@ CanonicalCandidate build_canonical_candidate(const std::vector<ObservationCandid
                 stable_tap_index = i;
             }
         }
+        if (is_stable_non_vision_candidate(member)) {
+            has_stable_member = true;
+        }
+        if (member.source == "vision_only") {
+            has_vision_only_member = true;
+        }
         if (!member.source.empty()) {
             source_set.insert(member.source);
         }
@@ -3526,6 +3534,12 @@ CanonicalCandidate build_canonical_candidate(const std::vector<ObservationCandid
     canonical.aggregate.resource_id = members[tap_index].resource_id.empty()
             ? members[label_index].resource_id
             : members[tap_index].resource_id;
+    if (!is_stable_non_vision_candidate(canonical.aggregate) && has_stable_member && has_vision_only_member) {
+        // A canonical cluster can combine a native text label with a visual-only clickable region. Treat the
+        // merged concept as fused so exact-label entries can pass the normal stable-candidate safeguards while
+        // still using the best tap bounds from the visual/control member.
+        canonical.aggregate.source = "fused";
+    }
     canonical.aggregate.clickable = false;
     canonical.aggregate.container_clickable = false;
     canonical.aggregate.badge_like = false;
@@ -4361,11 +4375,16 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     std::string conflict_reason;
     if (should_block_fast_execute_on_conflicts(snapshot, step, matched_candidates[0], conflict_reason)) {
         ICRAW_LOG_INFO(
-                "[AgentLoop][fast_execute_fallback] reason={} warning_count={} target={} candidate={}",
+                "[AgentLoop][fast_execute_fallback] reason={} warning_count={} target={} candidate={} candidate_source={} clickable={} container_clickable={} badge_like={} numeric_like={}",
                 conflict_reason,
                 snapshot.warning_conflict_count,
                 step.target,
-                matched_candidates[0].label);
+                matched_candidates[0].label,
+                matched_candidates[0].source,
+                matched_candidates[0].clickable,
+                matched_candidates[0].container_clickable,
+                matched_candidates[0].badge_like,
+                matched_candidates[0].numeric_like);
         return std::nullopt;
     }
 
