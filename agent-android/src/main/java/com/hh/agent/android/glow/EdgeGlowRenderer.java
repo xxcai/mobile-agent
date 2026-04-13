@@ -15,14 +15,14 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * EdgeGlow 的 GL 渲染器。
- * 编译 shader、管理 uniform、绘制全屏 quad。
+ * 边缘光晕 GL 渲染器。
+ * 负责编译 shader、管理 uniform、绘制全屏 quad。
  */
 class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
     private static final String TAG = "EdgeGlowRenderer";
 
-    // Full-screen quad vertices (TRIANGLE_STRIP): [-1,-1] [1,-1] [-1,1] [1,1]
+    // 全屏 quad 顶点（TRIANGLE_STRIP）：左下 → 右下 → 左上 → 右上
     private static final float[] QUAD_VERTICES = {
             -1f, -1f,
              1f, -1f,
@@ -32,17 +32,19 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private static final int FLOAT_SIZE = 4;
     private static final int STRIDE = 2 * FLOAT_SIZE;
 
-    /** Default corner radius (px) when system value is unavailable. */
+    /** 默认圆角半径（像素），系统 API 不可用时的回退值 */
     static final float DEFAULT_CORNER_RADIUS = 80f;
-    /** Default blur radius (px) for edge glow spread. */
+    /** 默认光晕扩散宽度（像素） */
     static final float DEFAULT_BLUR_RADIUS = 25f;
-    /** Default inner padding (px). */
-    static final float DEFAULT_PADDING = 16f * 3f; // ~16dp at 3x density
+    /** 默认内缩距离（像素） */
+    static final float DEFAULT_PADDING = 16f * 3f;
 
     private final Context context;
     private final FloatBuffer vertexBuffer;
 
     private GlResource glResource;
+
+    // Attribute / Uniform 位置
     private int aPositionLocation;
     private int uTimeLocation;
     private int uResolutionLocation;
@@ -51,19 +53,21 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
     private int uPaddingLocation;
     private int uAlphaLocation;
 
+    // 时间管理（支持 pause/resume）
     private long startTime;
     private long pausedTime;
     private long pauseStartMs;
     private boolean paused;
 
+    // 画布尺寸
     private int width;
     private int height;
 
-    // Configurable parameters
+    // 可配置参数
     private float cornerRadius = DEFAULT_CORNER_RADIUS;
     private float blurRadius = DEFAULT_BLUR_RADIUS;
     private float padding = DEFAULT_PADDING;
-    private volatile float alpha = 0f;
+    private volatile float alpha = 0f; // 初始透明，由 setActive 动画驱动
 
     EdgeGlowRenderer(Context context) {
         this.context = context;
@@ -76,6 +80,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+        // 编译 shader
         String vertexSource = GlUtils.loadShaderFromRaw(context, R.raw.edge_glow_vertex);
         String fragmentSource = GlUtils.loadShaderFromRaw(context, R.raw.edge_glow_fragment);
 
@@ -83,18 +88,19 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         int fragmentShader = GlUtils.compileShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource);
 
         if (vertexShader == 0 || fragmentShader == 0) {
-            Log.e(TAG, "Shader compilation failed");
+            Log.e(TAG, "Shader 编译失败");
             return;
         }
 
         int program = GlUtils.linkProgram(vertexShader, fragmentShader);
         if (program == 0) {
-            Log.e(TAG, "Program linking failed");
+            Log.e(TAG, "Program 链接失败");
             return;
         }
 
         glResource = new GlResource(program, vertexShader, fragmentShader);
 
+        // 缓存 attribute / uniform 位置
         aPositionLocation = GLES30.glGetAttribLocation(program, "aPosition");
         uTimeLocation = GLES30.glGetUniformLocation(program, "uTime");
         uResolutionLocation = GLES30.glGetUniformLocation(program, "uResolution");
@@ -106,13 +112,14 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         startTime = System.currentTimeMillis();
         pausedTime = 0;
 
+        // 透明黑色背景
         GLES30.glClearColor(0f, 0f, 0f, 0f);
 
-        // Enable premultiplied alpha blending
+        // 预乘 alpha 混合
         GLES30.glEnable(GLES30.GL_BLEND);
         GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA);
 
-        Log.d(TAG, "onSurfaceCreated done, program=" + program);
+        Log.d(TAG, "onSurfaceCreated 完成, program=" + program);
     }
 
     @Override
@@ -128,11 +135,13 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
 
         if (glResource == null) return;
 
+        // 计算经过时间（排除 pause 间隔）
         long now = System.currentTimeMillis();
         long elapsed = paused ? pausedTime : (now - startTime - pausedTime);
 
         GLES30.glUseProgram(glResource.getProgramId());
 
+        // 设置 uniform
         GLES30.glUniform1f(uTimeLocation, (float) elapsed);
         GLES30.glUniform2f(uResolutionLocation, (float) width, (float) height);
         GLES30.glUniform1f(uCornerRadiusLocation, cornerRadius);
@@ -140,6 +149,7 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform1f(uPaddingLocation, padding);
         GLES30.glUniform1f(uAlphaLocation, alpha);
 
+        // 绘制全屏 quad
         GLES30.glEnableVertexAttribArray(aPositionLocation);
         GLES30.glVertexAttribPointer(aPositionLocation, 2, GLES30.GL_FLOAT, false, STRIDE, vertexBuffer);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4);
