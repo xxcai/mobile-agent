@@ -180,10 +180,14 @@ public class EdgeGlowView extends GLSurfaceView {
         animator.addListener(new android.animation.AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(android.animation.Animator animation) {
-                if (!active) {
-                    // 消失完成后切回按需渲染，节省 GPU
+                // cancel() 也会触发 onAnimationEnd，但此时 active 已被新值覆盖，
+                // 不应执行消失回调，否则快速切换会把悬浮窗误删
+                if (animation instanceof ValueAnimator && ((ValueAnimator) animation).isRunning()) {
+                    return;
+                }
+                // 只处理真正的消失动画自然结束
+                if (!active && animation == currentAnimator) {
                     setRenderMode(RENDERMODE_WHEN_DIRTY);
-                    // 通知外部（EdgeGlowManager）移除悬浮窗
                     if (onDisappearListener != null) {
                         onDisappearListener.run();
                     }

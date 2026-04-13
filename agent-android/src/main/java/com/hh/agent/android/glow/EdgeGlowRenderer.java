@@ -115,7 +115,8 @@ class EdgeGlowRenderer implements GLSurfaceView.Renderer {
         uPaddingLocation = GLES30.glGetUniformLocation(program, "uPadding");
         uAlphaLocation = GLES30.glGetUniformLocation(program, "uAlpha");
         uParticleCountLocation = GLES30.glGetUniformLocation(program, "uParticleCount");
-        uParticlesLocation = GLES30.glGetUniformLocation(program, "uParticles");
+        // 部分驱动需要 uParticles[0] 查询数组 uniform
+        uParticlesLocation = GLES30.glGetUniformLocation(program, "uParticles[0]");
 
         startTime = System.currentTimeMillis();
         lastFrameTime = startTime;
