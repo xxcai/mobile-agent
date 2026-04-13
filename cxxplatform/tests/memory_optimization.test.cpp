@@ -27,6 +27,7 @@ TEST_CASE("Token estimation for Chinese text", "[token_utils]") {
     int tokens = icraw::estimate_tokens(text);
     
     CHECK(tokens > 0);
+    CHECK(tokens < static_cast<int>(text.size()));
 }
 
 TEST_CASE("Token estimation for empty text", "[token_utils]") {
@@ -35,13 +36,15 @@ TEST_CASE("Token estimation for empty text", "[token_utils]") {
 }
 
 TEST_CASE("Token estimation with safety margin", "[token_utils]") {
-    // Verify 20% safety margin is applied
     std::string text = "Test text";
-    int base_estimate = static_cast<int>(text.size() / icraw::CHARS_PER_TOKEN);
-    int estimated = icraw::estimate_tokens(text);
-    
-    // Estimated should be at least base * 1.2
-    CHECK(estimated >= base_estimate);
+    icraw::Message msg;
+    msg.role = "user";
+    msg.content.push_back(icraw::ContentBlock::make_text(text));
+
+    int plain = icraw::estimate_tokens(text);
+    int estimated = icraw::estimate_message_tokens(msg);
+
+    CHECK(estimated > plain);
 }
 
 TEST_CASE("Message token estimation", "[token_utils]") {

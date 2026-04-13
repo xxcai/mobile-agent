@@ -4,6 +4,7 @@ set(ICRAW_LLM_PROVIDER_TEST_SOURCES
         ../../main/cpp/src/core/openai_compatible_provider_base.cpp
         ../../main/cpp/src/core/llm_provider_factory.cpp
         ../../main/cpp/src/core/curl_http_client.cpp
+        ../../main/cpp/src/core/token_utils.cpp
         ../../main/cpp/src/core/providers/generic_openai_provider.cpp
         ../../main/cpp/src/core/providers/minimax_provider.cpp
         ../../main/cpp/src/core/providers/qwen_provider.cpp

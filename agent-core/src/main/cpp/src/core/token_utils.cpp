@@ -1,6 +1,7 @@
 #include "icraw/core/token_utils.hpp"
 #include "icraw/core/memory_manager.hpp"
 #include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <regex>
 
@@ -54,6 +55,16 @@ size_t utf8_safe_suffix_start(std::string_view value, size_t max_bytes) {
     return start;
 }
 
+size_t utf8_codepoint_count(std::string_view value) {
+    size_t count = 0;
+    for (unsigned char ch : value) {
+        if ((ch & 0xC0) != 0x80) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 } // namespace
 
 // ============================================================================
@@ -64,13 +75,11 @@ int estimate_tokens(const std::string& text) {
     if (text.empty()) {
         return 0;
     }
-    
-    // Simple estimation: characters / average chars per token
-    // With safety margin for robustness
-    int base_estimate = static_cast<int>(text.size() / CHARS_PER_TOKEN);
-    
-    // Apply 20% safety margin
-    return static_cast<int>(base_estimate * TOKEN_SAFETY_MARGIN);
+
+    // 中文等多字节字符按 code point 计数，避免把 UTF-8 字节数误当字符数。
+    const double codepoint_count = static_cast<double>(utf8_codepoint_count(text));
+    const int base_estimate = static_cast<int>(std::ceil(codepoint_count / CHARS_PER_TOKEN));
+    return std::max(1, base_estimate);
 }
 
 int estimate_message_tokens(const Message& msg) {
@@ -107,7 +116,8 @@ int estimate_message_tokens(const Message& msg) {
         total += estimate_tokens(msg.tool_call_id);
     }
     
-    return static_cast<int>(total * TOKEN_SAFETY_MARGIN);
+    // 只在 message 聚合层加一次 safety margin，避免重复放大。
+    return static_cast<int>(std::ceil(total * TOKEN_SAFETY_MARGIN));
 }
 
 int estimate_messages_tokens(const std::vector<Message>& messages) {
@@ -125,7 +135,7 @@ int estimate_memory_entry_tokens(const MemoryEntry& entry) {
     total += estimate_tokens(entry.role);
     total += estimate_tokens(entry.content);
     total += estimate_tokens(entry.metadata.dump());
-    return static_cast<int>(total * TOKEN_SAFETY_MARGIN);
+    return static_cast<int>(std::ceil(total * TOKEN_SAFETY_MARGIN));
 }
 
 int estimate_memory_entries_tokens(const std::vector<MemoryEntry>& entries) {

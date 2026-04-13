@@ -18,6 +18,9 @@ void MinimaxProvider::apply_request_quirks(const ChatCompletionRequest& request,
                                            nlohmann::json& body) const {
     (void) request;
     body["reasoning_split"] = true;
+    if (body.value("stream", false)) {
+        body["stream_options"]["include_usage"] = true;
+    }
 }
 
 } // namespace icraw
