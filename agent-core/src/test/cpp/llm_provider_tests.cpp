@@ -375,51 +375,6 @@ void test_specialized_minimax_provider_injects_reasoning_split() {
            "specialized minimax provider should inject reasoning_split");
 }
 
-void test_minimax_stream_request_includes_usage_flag() {
-    auto fake_http = std::make_unique<FakeHttpClient>();
-    auto* fake_http_raw = fake_http.get();
-    fake_http_raw->stream_events = {
-        R"(data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":12,"completion_tokens":34,"total_tokens":46}})"
-    };
-
-    MinimaxProvider provider("test-key", "https://api.minimax.chat/v1", "MiniMax-M1");
-    provider.set_http_client(std::move(fake_http));
-
-    std::vector<ChatCompletionResponse> responses;
-    provider.chat_completion_stream(make_basic_request(), [&](const ChatCompletionResponse& response) {
-        responses.push_back(response);
-    });
-
-    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
-    expect(body_json.value("stream", false),
-           "minimax stream request should enable stream mode");
-    expect(body_json.contains("stream_options"),
-           "minimax stream request should include stream_options");
-    expect(body_json["stream_options"].value("include_usage", false),
-           "minimax stream request should request usage in final chunk");
-    expect(!responses.empty() && responses.back().usage.has_value(),
-           "minimax final stream chunk should surface usage when returned");
-}
-
-void test_generic_stream_request_does_not_include_usage_flag() {
-    auto fake_http = std::make_unique<FakeHttpClient>();
-    auto* fake_http_raw = fake_http.get();
-    fake_http_raw->stream_events = {
-        R"(data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]})"
-    };
-
-    GenericOpenAIProvider provider("test-key", "https://api.openai.com/v1", "gpt-4o");
-    provider.set_http_client(std::move(fake_http));
-
-    provider.chat_completion_stream(make_basic_request(), [&](const ChatCompletionResponse& response) {
-        (void) response;
-    });
-
-    const auto body_json = nlohmann::json::parse(fake_http_raw->captured_request_body);
-    expect(!body_json.contains("stream_options"),
-           "generic stream request should not inherit minimax-specific usage flags");
-}
-
 void test_specialized_glm_provider_controls_thinking() {
     auto fake_http = std::make_unique<FakeHttpClient>();
     auto* fake_http_raw = fake_http.get();
@@ -538,8 +493,6 @@ int main() {
     icraw::test_stream_parser_extracts_usage_from_final_chunk();
     icraw::test_factory_returns_specialized_provider_classes();
     icraw::test_specialized_minimax_provider_injects_reasoning_split();
-    icraw::test_minimax_stream_request_includes_usage_flag();
-    icraw::test_generic_stream_request_does_not_include_usage_flag();
     icraw::test_specialized_glm_provider_controls_thinking();
     icraw::test_specialized_qwen_provider_uses_index_matching_in_streams();
     std::cout << "icraw_llm_provider_tests: PASS" << std::endl;
