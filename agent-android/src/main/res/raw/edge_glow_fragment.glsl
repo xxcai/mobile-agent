@@ -86,12 +86,12 @@ vec3 computeEdgeColor(vec2 uv) {
     vec2 centered = uv - 0.5;
     // 纵横比修正，使角度分布均匀
     centered.y *= uResolution.x / uResolution.y;
-    float angle = atan(centered.y, centered.x);
+    float angle = atan(centered.y, centered.x) + uTime * 0.001 * 0.2;
 
-    // 角度 [-PI, PI] 映射到 [0, 2]
-    float t = angle / 3.14159265 + 1.0;
+    // 角度映射到 [0, 3) 闭环，mod 确保时间偏移后不越界
+    float t = mod((angle / 3.14159265 + 1.0) * 1.5, 3.0);
 
-    // 紫 → 青 → 蓝
+    // 紫 → 青 → 蓝 → 紫（闭环）
     vec3 purple = vec3(0.77, 0.53, 1.0);
     vec3 cyan   = vec3(0.01, 0.77, 1.0);
     vec3 blue   = vec3(0.33, 0.51, 1.0);
@@ -99,8 +99,10 @@ vec3 computeEdgeColor(vec2 uv) {
     vec3 color;
     if (t < 1.0) {
         color = mix(purple, cyan, t);
-    } else {
+    } else if (t < 2.0) {
         color = mix(cyan, blue, t - 1.0);
+    } else {
+        color = mix(blue, purple, t - 2.0);
     }
 
     // HDR 色域增强
@@ -123,7 +125,7 @@ void main() {
     vec2 ac = (uv - 0.5) * vec2(1.0, uResolution.y / uResolution.x);
     float angle = atan(ac.y, ac.x);
     // sin(angle*3 + time*0.5PI)：3 个鼓包，约 4 秒转一圈
-    float wave = sin(angle * 3.0 + uTime * 0.001 * 0.5 * 3.14159265) * 0.3 + 0.7;
+    float wave = sin(angle * 3.0 + uTime * 0.001 * 0.5 * 3.14159265) * 0.45 + 0.55;
     float dynamicBlur = uBlurRadius * wave;
 
     // SDF 距离 → sigmoid：内部≈0，边界≈0.5，外部≈1
