@@ -147,6 +147,14 @@ void main() {
 
     float intensity = clamp(brightLine + outerGlow, 0.0, 1.0);
 
+    // ---- 流光：沿边缘流动的窄亮带 ----
+    float flowPos = mod(uTime * 0.001 * 0.4, 2.0 * 3.14159265);
+    float flowDist = abs(mod(angle - flowPos + 3.14159265, 2.0 * 3.14159265) - 3.14159265);
+    float flowFade = smoothstep(0.3, 0.0, flowDist);
+    // 只在边缘区域可见（借用 brightLine 的空间分布）
+    float flowLight = flowFade * brightLine * 0.8;
+    intensity = clamp(intensity + flowLight, 0.0, 1.0);
+
     // ---- 粒子贡献 ----
     vec3 particleAccum = vec3(0.0);
     for (int i = 0; i < uParticleCount; i++) {
