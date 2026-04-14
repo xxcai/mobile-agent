@@ -1,0 +1,269 @@
+﻿--------- beginning of main
+04-14 14:46:54.432 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=13 analyze_ms=894 total_ms=907 compact_length=9321
+04-14 14:46:54.432 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=13 analyze_ms=894 total_ms=907 compact_length=9321
+04-14 14:46:54.436 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=follow_up duration_ms=912 visual_mode=screenvision_compact_ocr_ui compact_length=9321 image=1080x2400
+04-14 14:46:54.436 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=follow_up duration_ms=912 visual_mode=screenvision_compact_ocr_ui compact_length=9321 image=1080x2400
+04-14 14:46:54.542 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=follow_up visual_mode=screenvision_compact_ocr_ui native_xml_length=2028 compact_length=1469 hybrid_length=4243 raw_included=false snapshot_id=obs_c9248b88c1dd4bec8d8b9054ec1bcac0
+04-14 14:46:54.542 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=follow_up visual_mode=screenvision_compact_ocr_ui native_xml_length=2028 compact_length=1469 hybrid_length=4243 raw_included=false snapshot_id=obs_c9248b88c1dd4bec8d8b9054ec1bcac0
+04-14 14:46:54.544 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:54.544 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:54.544 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=8909
+04-14 14:46:54.544 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=8909
+04-14 14:46:54.544 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=1040
+04-14 14:46:54.544 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=1040
+04-14 14:46:54.544 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_62764d5179db41755f8721b6 duration_ms=1040 detail_mode=follow_up target_hint=业务
+04-14 14:46:54.544 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_62764d5179db41755f8721b6 duration_ms=1040 detail_mode=follow_up target_hint=业务
+04-14 14:46:54.544 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=1040
+04-14 14:46:54.544 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=1040
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡〉secondary88业务决策在线〉nativetreecaptured169nodesandfused28screenshotmat|业务,mall,打卡,前... changed=true activity=huawei.w3.MainActivity labels=业务,MALL,|打卡,|前往HIS MALL发现更多应用,云盘 conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡〉secondary88业务决策在线〉nativetreecaptured169nodesandfused28screenshotmat|业务,mall,打卡,前... changed=true activity=huawei.w3.MainActivity labels=业务,MALL,|打卡,|前往HIS MALL发现更多应用,云盘 conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=0; pending={action=tap; target=业务; activity=MainActivity; region=bottom; anchor=bottom_tab; container=tab_bar; aliases=业务,业务Tab,工作台}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应...
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=0; pending={action=tap; target=业务; activity=MainActivity; region=bottom; anchor=bottom_tab; container=tab_bar; aliases=业务,业务Tab,工作台}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应...
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=6 canonical_count=6 activity=huawei.w3.MainActivity summary_chars=781
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=6 canonical_count=6 activity=huawei.w3.MainActivity summary_chars=781
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][execution_state_step_confirmed] step_index=0 current_page=huawei.w3.MainActivity phase=advance
+04-14 14:46:54.546 16218 18770 I icraw   : [AgentLoop][execution_state_step_confirmed] step_index=0 current_page=huawei.w3.MainActivity phase=advance
+04-14 14:46:54.546 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_62764d5179db41755f8721b6 content_length=8909
+04-14 14:46:54.546 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_62764d5179db41755f8721b6 content_length=8909
+04-14 14:46:54.547 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_62764d5179db41755f8721b6 result_length=8661
+04-14 14:46:54.547 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_62764d5179db41755f8721b6 result_length=8661
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=5 truncated_text_count=0
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=5 truncated_text_count=0
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=5 original_chars=10874 summarized_chars=2494 saved_chars=8380
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=5 original_chars=10874 summarized_chars=2494 saved_chars=8380
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][navigation_observe_refresh] mode=stream reason=pending_target_changed last_hint=业务 pending_step=action=tap; target=打卡; page=业务; anchor=card; container=business_grid; aliases=打卡,每日打卡,手机打卡
+04-14 14:46:54.548 16218 18770 I icraw   : [AgentLoop][navigation_observe_refresh] mode=stream reason=pending_target_changed last_hint=业务 pending_step=action=tap; target=打卡; page=业务; anchor=card; container=business_grid; aliases=打卡,每日打卡,手机打卡
+04-14 14:46:54.548 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_view_context_tool tool_id=toolu_73f48c94391f29b37332ea69
+04-14 14:46:54.548 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_view_context_tool tool_id=toolu_73f48c94391f29b37332ea69
+04-14 14:46:54.549 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_73f48c94391f29b37332ea69 tool_name=android_view_context_tool
+04-14 14:46:54.549 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_73f48c94391f29b37332ea69 tool_name=android_view_context_tool
+04-14 14:46:54.549 16218 18770 I icraw   : [AgentLoop][observation_detail_mode] mode=follow_up phase=advance
+04-14 14:46:54.549 16218 18770 I icraw   : [AgentLoop][observation_detail_mode] mode=follow_up phase=advance
+04-14 14:46:54.549 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_view_context_tool session_id=container
+04-14 14:46:54.549 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_view_context_tool session_id=container
+04-14 14:46:54.549 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_view_context_tool
+04-14 14:46:54.549 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_view_context_tool
+04-14 14:46:54.551 16218 16218 I AgentAndroid: [InProcessViewHierarchyDumper][dump_complete] activity=huawei.w3.MainActivity node_count=161 max_nodes=300
+04-14 14:46:54.551 16218 16218 I AgentAndroid: [InProcessViewHierarchyDumper][dump_complete] activity=huawei.w3.MainActivity node_count=161 max_nodes=300
+04-14 14:46:54.551 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_start] activity=huawei.w3.MainActivity target_hint=打卡
+04-14 14:46:54.551 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_start] activity=huawei.w3.MainActivity target_hint=打卡
+04-14 14:46:54.562 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][capture_complete] activity=huawei.w3.MainActivity duration_ms=11 image=1080x2400
+04-14 14:46:54.562 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][capture_complete] activity=huawei.w3.MainActivity duration_ms=11 image=1080x2400
+04-14 14:46:55.219 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=11 analyze_ms=652 total_ms=663 compact_length=9759
+04-14 14:46:55.219 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=11 analyze_ms=652 total_ms=663 compact_length=9759
+04-14 14:46:55.221 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=follow_up duration_ms=670 visual_mode=screenvision_compact_ocr_ui compact_length=9759 image=1080x2400
+04-14 14:46:55.221 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=follow_up duration_ms=670 visual_mode=screenvision_compact_ocr_ui compact_length=9759 image=1080x2400
+04-14 14:46:55.316 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=follow_up visual_mode=screenvision_compact_ocr_ui native_xml_length=2081 compact_length=1497 hybrid_length=4334 raw_included=false snapshot_id=obs_304bddc3606a4fe2bae245f3ab03ad9d
+04-14 14:46:55.316 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=follow_up visual_mode=screenvision_compact_ocr_ui native_xml_length=2081 compact_length=1497 hybrid_length=4334 raw_included=false snapshot_id=obs_304bddc3606a4fe2bae245f3ab03ad9d
+04-14 14:46:55.318 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:55.318 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:55.318 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=9137
+04-14 14:46:55.318 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=9137
+04-14 14:46:55.318 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=769
+04-14 14:46:55.318 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=769
+04-14 14:46:55.318 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_73f48c94391f29b37332ea69 duration_ms=769 detail_mode=follow_up target_hint=打卡
+04-14 14:46:55.318 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_73f48c94391f29b37332ea69 duration_ms=769 detail_mode=follow_up target_hint=打卡
+04-14 14:46:55.318 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=769
+04-14 14:46:55.318 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=769
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡》secondary抓住战路机遇。追求有质量的増长打卡2024商些nativetreecaptu|每日打卡,打卡,... changed=true activity=huawei.w3.MainActivity labels=每日打卡,打卡,MALL,+土@,云盘,|前往HIS MALL发现更多应用 conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡》secondary抓住战路机遇。追求有质量的増长打卡2024商些nativetreecaptu|每日打卡,打卡,... changed=true activity=huawei.w3.MainActivity labels=每日打卡,打卡,MALL,+土@,云盘,|前往HIS MALL发现更多应用 conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=1; pending={action=tap; target=打卡; page=业务; anchor=card; container=business_grid; aliases=打卡,每日打卡,手机打卡}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应用 / 每日打卡》...
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=1; pending={action=tap; target=打卡; page=业务; anchor=card; container=business_grid; aliases=打卡,每日打卡,手机打卡}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应用 / 每日打卡》...
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=6 canonical_count=6 activity=huawei.w3.MainActivity summary_chars=781
+04-14 14:46:55.320 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=6 canonical_count=6 activity=huawei.w3.MainActivity summary_chars=781
+04-14 14:46:55.320 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_73f48c94391f29b37332ea69 content_length=9137
+04-14 14:46:55.320 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_73f48c94391f29b37332ea69 content_length=9137
+04-14 14:46:55.321 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_73f48c94391f29b37332ea69 result_length=8831
+04-14 14:46:55.321 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_73f48c94391f29b37332ea69 result_length=8831
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=6 truncated_text_count=0
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=6 truncated_text_count=0
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=6 original_chars=11403 summarized_chars=3067 saved_chars=8336
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=6 original_chars=11403 summarized_chars=3067 saved_chars=8336
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] stage=high_confidence raw_count=6 canonical_count=6 target=打卡按钮 activity=huawei.w3.MainActivity
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] stage=high_confidence raw_count=6 canonical_count=6 target=打卡按钮 activity=huawei.w3.MainActivity
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] stage=matched raw_count=1 canonical_count=1 target=打卡按钮 activity=huawei.w3.MainActivity
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] stage=matched raw_count=1 canonical_count=1 target=打卡按钮 activity=huawei.w3.MainActivity
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_evaluated] target=打卡按钮 aliases=["punch","上班打卡","下班打卡","打卡","打卡按钮","提交打卡","立即打卡","签到"] activity=huawei.w3.MainActivity source=native_xml candidate_count=6 high_confidence_count=6 primary_matches=1 alias_matches=1 warning_conflicts=3
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_evaluated] target=打卡按钮 aliases=["punch","上班打卡","下班打卡","打卡","打卡按钮","提交打卡","立即打卡","签到"] activity=huawei.w3.MainActivity source=native_xml candidate_count=6 high_confidence_count=6 primary_matches=1 alias_matches=1 warning_conflicts=3
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.322 16218 18770 I icraw   : [AgentLoop][fast_execute_conflict_ignored] code=vision_only_candidate candidate=打卡 candidate_source=fused reason=stable_non_vision_candidate_non_overlapping
+04-14 14:46:55.323 16218 18770 I icraw   : [AgentLoop][canonical_candidate_selected] target=打卡按钮 display_label=打卡 tap_bounds=[720,984][924,1052] source_set=fused actionability_rank=2 member_count=1 risk_flags=
+04-14 14:46:55.323 16218 18770 I icraw   : [AgentLoop][canonical_candidate_selected] target=打卡按钮 display_label=打卡 tap_bounds=[720,984][924,1052] source_set=fused actionability_rank=2 member_count=1 risk_flags=
+04-14 14:46:55.323 16218 18770 I icraw   : [AgentLoop][fast_execute_hit] action=tap target=打卡按钮 source=fused score=1 page=huawei.w3.MainActivity
+04-14 14:46:55.323 16218 18770 I icraw   : [AgentLoop][fast_execute_hit] action=tap target=打卡按钮 source=fused score=1 page=huawei.w3.MainActivity
+04-14 14:46:55.323 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_gesture_tool tool_id=toolu_a53642a24af9bcb75d5e865a
+04-14 14:46:55.323 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_gesture_tool tool_id=toolu_a53642a24af9bcb75d5e865a
+04-14 14:46:55.323 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_a53642a24af9bcb75d5e865a tool_name=android_gesture_tool
+04-14 14:46:55.323 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_a53642a24af9bcb75d5e865a tool_name=android_gesture_tool
+04-14 14:46:55.323 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_gesture_tool session_id=container
+04-14 14:46:55.323 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_gesture_tool session_id=container
+04-14 14:46:55.323 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_gesture_tool
+04-14 14:46:55.323 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_gesture_tool
+04-14 14:46:55.356 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_gesture_tool result_success=true
+04-14 14:46:55.356 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_gesture_tool result_success=true
+04-14 14:46:55.356 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_gesture_tool result_length=1140
+04-14 14:46:55.356 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_gesture_tool result_length=1140
+04-14 14:46:55.356 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_gesture_tool duration_ms=32
+04-14 14:46:55.356 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_gesture_tool duration_ms=32
+04-14 14:46:55.356 16218 18770 I icraw   : [AgentLoop][gesture_duration_ms] tool_id=toolu_a53642a24af9bcb75d5e865a duration_ms=32 action=tap
+04-14 14:46:55.356 16218 18770 I icraw   : [AgentLoop][gesture_duration_ms] tool_id=toolu_a53642a24af9bcb75d5e865a duration_ms=32 action=tap
+04-14 14:46:55.356 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_fast_execute tool_call_count=1 duration_ms=33
+04-14 14:46:55.357 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_fast_execute tool_call_count=1 duration_ms=33
+04-14 14:46:55.358 16218 18770 I icraw   : [AgentLoop][execution_state_step_pending_confirmation] step_index=2 target=打卡按钮 previous_page=huawei.w3.MainActivity
+04-14 14:46:55.358 16218 18770 I icraw   : [AgentLoop][execution_state_step_pending_confirmation] step_index=2 target=打卡按钮 previous_page=huawei.w3.MainActivity
+04-14 14:46:55.358 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_a53642a24af9bcb75d5e865a content_length=1140
+04-14 14:46:55.358 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_a53642a24af9bcb75d5e865a content_length=1140
+04-14 14:46:55.360 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_a53642a24af9bcb75d5e865a result_length=1128
+04-14 14:46:55.360 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_a53642a24af9bcb75d5e865a result_length=1128
+04-14 14:46:55.361 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=7 truncated_text_count=0
+04-14 14:46:55.361 16218 18770 I icraw   : [AgentLoop][context_assistant_compacted] compacted_tool_use_count=7 truncated_text_count=0
+04-14 14:46:55.361 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=7 original_chars=4109 summarized_chars=3039 saved_chars=1070
+04-14 14:46:55.361 16218 18770 I icraw   : [AgentLoop][context_tool_results_summarized] summarized_count=7 original_chars=4109 summarized_chars=3039 saved_chars=1070
+04-14 14:46:55.361 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_view_context_tool tool_id=toolu_d0a8835b07578e538d7e1a2c
+04-14 14:46:55.361 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_use tool_name=android_view_context_tool tool_id=toolu_d0a8835b07578e538d7e1a2c
+04-14 14:46:55.362 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_d0a8835b07578e538d7e1a2c tool_name=android_view_context_tool
+04-14 14:46:55.362 16218 18770 I AgentAndroid: [MainPresenter][tool_use] tool_id=toolu_d0a8835b07578e538d7e1a2c tool_name=android_view_context_tool
+04-14 14:46:55.362 16218 18770 I icraw   : [AgentLoop][observation_detail_mode] mode=readout phase=advance
+04-14 14:46:55.362 16218 18770 I icraw   : [AgentLoop][observation_detail_mode] mode=readout phase=advance
+04-14 14:46:55.363 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_view_context_tool session_id=container
+04-14 14:46:55.363 16218 18770 I icraw   : [AndroidTools][tool_call_start] tool_name=android_view_context_tool session_id=container
+04-14 14:46:55.363 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_view_context_tool
+04-14 14:46:55.363 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_start] channel=android_view_context_tool
+04-14 14:46:55.386 16218 16218 I AgentAndroid: [InProcessViewHierarchyDumper][dump_complete] activity=huawei.w3.MainActivity node_count=161 max_nodes=300
+04-14 14:46:55.386 16218 16218 I AgentAndroid: [InProcessViewHierarchyDumper][dump_complete] activity=huawei.w3.MainActivity node_count=161 max_nodes=300
+04-14 14:46:55.386 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_start] activity=huawei.w3.MainActivity target_hint=打卡按钮
+04-14 14:46:55.386 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_start] activity=huawei.w3.MainActivity target_hint=打卡按钮
+04-14 14:46:55.400 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][capture_complete] activity=huawei.w3.MainActivity duration_ms=14 image=1080x2400
+04-14 14:46:55.400 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][capture_complete] activity=huawei.w3.MainActivity duration_ms=14 image=1080x2400
+04-14 14:46:56.131 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=14 analyze_ms=721 total_ms=735 compact_length=9761
+04-14 14:46:56.131 16218 18770 I AgentAndroid: [ScreenVisionSnapshotAnalyzer][analyze_complete] activity=huawei.w3.MainActivity capture_ms=14 analyze_ms=721 total_ms=735 compact_length=9761
+04-14 14:46:56.134 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=readout duration_ms=748 visual_mode=screenvision_compact_ocr_ui compact_length=9761 image=1080x2400
+04-14 14:46:56.134 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][screen_snapshot_complete] activity=huawei.w3.MainActivity detail_mode=readout duration_ms=748 visual_mode=screenvision_compact_ocr_ui compact_length=9761 image=1080x2400
+04-14 14:46:56.244 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=readout visual_mode=screenvision_compact_ocr_ui native_xml_length=1403 compact_length=2324 hybrid_length=1784 raw_included=false snapshot_id=obs_0f03c4b891ea436a86e4e06535c24872
+04-14 14:46:56.244 16218 18770 I AgentAndroid: [ViewContextSnapshotProvider][observation_built] source=native_xml activity=huawei.w3.MainActivity observation_mode=in_process_view_tree detail_mode=readout visual_mode=screenvision_compact_ocr_ui native_xml_length=1403 compact_length=2324 hybrid_length=1784 raw_included=false snapshot_id=obs_0f03c4b891ea436a86e4e06535c24872
+04-14 14:46:56.246 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:56.246 16218 18770 I AgentAndroid: [AndroidToolManager][tool_call_complete] channel=android_view_context_tool result_success=true
+04-14 14:46:56.246 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=6732
+04-14 14:46:56.246 16218 18770 I icraw   : [AndroidTools][tool_call_complete] tool_name=android_view_context_tool result_length=6732
+04-14 14:46:56.246 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=883
+04-14 14:46:56.246 16218 18770 I icraw   : [ToolRegistry][tool_execute_complete] tool_name=android_view_context_tool duration_ms=883
+04-14 14:46:56.246 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_d0a8835b07578e538d7e1a2c duration_ms=883 detail_mode=readout target_hint=打卡按钮
+04-14 14:46:56.246 16218 18770 I icraw   : [AgentLoop][view_context_duration_ms] tool_id=toolu_d0a8835b07578e538d7e1a2c duration_ms=883 detail_mode=readout target_hint=打卡按钮
+04-14 14:46:56.246 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=883
+04-14 14:46:56.246 16218 18770 I icraw   : [AgentLoop][tool_phase_duration_ms] mode=stream iteration=0 phase=navigation_observe tool_call_count=1 duration_ms=883
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡》secondary抓住战路机遇。追求有质量的増长打卡2024商些nativetreecaptu|每日打卡,打卡,... changed=true activity=huawei.w3.MainActivity labels=每日打卡,打卡,MALL,+土@ conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][observation_fingerprint] value=huaweiw3mainactivity|primary前往hismall发现更多应用每日打卡》secondary抓住战路机遇。追求有质量的増长打卡2024商些nativetreecaptu|每日打卡,打卡,... changed=true activity=huawei.w3.MainActivity labels=每日打卡,打卡,MALL,+土@ conflicts=vision_only_candidate stagnant_rounds=0
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=2; pending={action=tap; target=打卡按钮; page=打卡; anchor=button; aliases=打卡,打卡按钮,立即打卡}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应用 / 每日打卡》 | secondary: 抓...
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][navigation_trace_summary] current_page=huawei.w3.MainActivity; step_index=2; pending={action=tap; target=打卡按钮; page=打卡; anchor=button; aliases=打卡,打卡按钮,立即打卡}; last_action=android_gesture_tool -> success=true, result=executed; observation=primary: |前往HIS MALL发现更多应用 / 每日打卡》 | secondary: 抓...
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=4 canonical_count=4 activity=huawei.w3.MainActivity summary_chars=483
+04-14 14:46:56.247 16218 18770 I icraw   : [AgentLoop][canonical_candidate_count] raw_count=4 canonical_count=4 activity=huawei.w3.MainActivity summary_chars=483
+04-14 14:46:56.248 16218 18770 I icraw   : [AgentLoop][execution_state_step_confirmed] step_index=2 current_page=huawei.w3.MainActivity phase=readout
+04-14 14:46:56.248 16218 18770 I icraw   : [AgentLoop][execution_state_step_confirmed] step_index=2 current_page=huawei.w3.MainActivity phase=readout
+04-14 14:46:56.248 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_d0a8835b07578e538d7e1a2c content_length=6732
+04-14 14:46:56.248 16218 18770 I icraw   : [NativeAgentJni][stream_event] event_type=tool_result tool_id=toolu_d0a8835b07578e538d7e1a2c content_length=6732
+04-14 14:46:56.249 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_d0a8835b07578e538d7e1a2c result_length=6388
+04-14 14:46:56.249 16218 18770 I AgentAndroid: [MainPresenter][tool_result] tool_id=toolu_d0a8835b07578e538d7e1a2c result_length=6388
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][readout_system_prompt_reduced] before_chars=12339 after_chars=3989 saved_chars=8350
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][readout_system_prompt_reduced] before_chars=12339 after_chars=3989 saved_chars=8350
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][readout_observation_summary_chars] chars=1041
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][readout_observation_summary_chars] chars=1041
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][goal_reached_context_reset] mode=stream phase=readout current_page=huawei.w3.MainActivity
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][goal_reached_context_reset] mode=stream phase=readout current_page=huawei.w3.MainActivity
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][skill_context_injected] iteration=1 skill_count=1 full_content_injected=false chars=931
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][skill_context_injected] iteration=1 skill_count=1 full_content_injected=false chars=931
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][execution_state_mode] mode=free_llm phase=readout iteration=1
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][execution_state_mode] mode=free_llm phase=readout iteration=1
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][request_profile] mode=stream iteration=1 profile=readout max_tokens=1280 temperature=0.45
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][request_profile] mode=stream iteration=1 profile=readout max_tokens=1280 temperature=0.45
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][stream_start] iteration=1
+04-14 14:46:56.249 16218 18770 I icraw   : [AgentLoop][stream_start] iteration=1
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][parser_selected] parser=OpenAI-compatible
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][parser_selected] parser=OpenAI-compatible
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_request_start] mode=stream request_profile=readout message_count=4 tool_count=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_request_start] mode=stream request_profile=readout message_count=4 tool_count=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_request_flags] mode=stream provider=qwen request_profile=readout payload_log_mode=summary thinking_type=disabled_not_emitted reasoning_split=false max_tokens=1280 temperature=0.45
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_request_flags] mode=stream provider=qwen request_profile=readout payload_log_mode=summary thinking_type=disabled_not_emitted reasoning_split=false max_tokens=1280 temperature=0.45
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][prompt_segment_lengths] mode=stream request_profile=readout payload_log_mode=summary system_chars=4939 user_chars=117 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][prompt_segment_lengths] mode=stream request_profile=readout payload_log_mode=summary system_chars=4939 user_chars=117 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][request_payload_summary] mode=stream request_profile=readout payload_log_mode=summary body_length=6851 message_count=4 tool_count=0 system_chars=4939 user_chars=117 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][request_payload_summary] mode=stream request_profile=readout payload_log_mode=summary body_length=6851 message_count=4 tool_count=0 system_chars=4939 user_chars=117 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_stream_start] request_profile=readout
+04-14 14:46:56.249 16218 18770 I icraw   : [LlmProvider][chat_stream_start] request_profile=readout
+04-14 14:46:56.250 16218 18770 I icraw   : [HttpClient][stream_request_start] method=POST url=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions request_body_length=6851
+04-14 14:46:56.250 16218 18770 I icraw   : [HttpClient][stream_request_start] method=POST url=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions request_body_length=6851
+04-14 14:46:57.396 16218 18770 I icraw   : [LlmProvider][first_delta_ms] request_profile=readout duration_ms=1146
+04-14 14:46:57.396 16218 18770 I icraw   : [LlmProvider][first_delta_ms] request_profile=readout duration_ms=1146
+04-14 14:46:57.396 16218 18770 I icraw   : [LlmProvider][first_tool_call_delta_ms] request_profile=readout duration_ms=1146
+04-14 14:46:57.396 16218 18770 I icraw   : [LlmProvider][first_tool_call_delta_ms] request_profile=readout duration_ms=1146
+04-14 14:46:58.380 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=tool_calls
+04-14 14:46:58.380 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=tool_calls
+04-14 14:46:58.384 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=tool_calls
+04-14 14:46:58.384 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=tool_calls
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][network_timing_summary] mode=stream request_profile=readout dns_ms=21 connect_ms=155 tls_ms=204 ttfb_ms=766 download_ms=989 total_ms=2135
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][network_timing_summary] mode=stream request_profile=readout dns_ms=21 connect_ms=155 tls_ms=204 ttfb_ms=766 download_ms=989 total_ms=2135
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][stream_complete_ms] request_profile=readout duration_ms=2137
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][stream_complete_ms] request_profile=readout duration_ms=2137
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][chat_stream_complete] duration_ms=2137
+04-14 14:46:58.387 16218 18770 I icraw   : [LlmProvider][chat_stream_complete] duration_ms=2137
+04-14 14:46:58.387 16218 18770 I icraw   : [AgentLoop][stream_complete] iteration=1 stream_complete=true text_length=0 reasoning_length=0 tool_call_count=1
+04-14 14:46:58.387 16218 18770 I icraw   : [AgentLoop][stream_complete] iteration=1 stream_complete=true text_length=0 reasoning_length=0 tool_call_count=1
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][tool_call_rejected] reason=phase_disallows_tools phase=readout goal_reached=true tool_name=android_gesture_tool
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][tool_call_rejected] reason=phase_disallows_tools phase=readout goal_reached=true tool_name=android_gesture_tool
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][iteration_complete] mode=stream iteration=1 duration_ms=2139
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][iteration_complete] mode=stream iteration=1 duration_ms=2139
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][readout_retry_scheduled] mode=stream retry_count=1 current_page=huawei.w3.MainActivity
+04-14 14:46:58.388 16218 18770 I icraw   : [AgentLoop][readout_retry_scheduled] mode=stream retry_count=1 current_page=huawei.w3.MainActivity
+04-14 14:46:58.390 16218 18770 I icraw   : [AgentLoop][skill_context_injected] iteration=2 skill_count=1 full_content_injected=false chars=931
+04-14 14:46:58.390 16218 18770 I icraw   : [AgentLoop][skill_context_injected] iteration=2 skill_count=1 full_content_injected=false chars=931
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][execution_state_injected] mode=stream iteration=2 prompt_length=1877
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][execution_state_injected] mode=stream iteration=2 prompt_length=1877
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][execution_state_mode] mode=free_llm phase=readout iteration=2
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][execution_state_mode] mode=free_llm phase=readout iteration=2
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][request_profile] mode=stream iteration=2 profile=readout max_tokens=1280 temperature=0.45
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][request_profile] mode=stream iteration=2 profile=readout max_tokens=1280 temperature=0.45
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][stream_start] iteration=2
+04-14 14:46:58.391 16218 18770 I icraw   : [AgentLoop][stream_start] iteration=2
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][parser_selected] parser=OpenAI-compatible
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][parser_selected] parser=OpenAI-compatible
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][chat_request_start] mode=stream request_profile=readout message_count=6 tool_count=0
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][chat_request_start] mode=stream request_profile=readout message_count=6 tool_count=0
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][chat_request_flags] mode=stream provider=qwen request_profile=readout payload_log_mode=summary thinking_type=disabled_not_emitted reasoning_split=false max_tokens=1280 temperature=0.45
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][chat_request_flags] mode=stream provider=qwen request_profile=readout payload_log_mode=summary thinking_type=disabled_not_emitted reasoning_split=false max_tokens=1280 temperature=0.45
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][prompt_segment_lengths] mode=stream request_profile=readout payload_log_mode=summary system_chars=6835 user_chars=328 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][prompt_segment_lengths] mode=stream request_profile=readout payload_log_mode=summary system_chars=6835 user_chars=328 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:58.392 16218 18770 I icraw   : [LlmProvider][request_payload_summary] mode=stream request_profile=readout payload_log_mode=summary body_length=9077 message_count=6 tool_count=0 system_chars=6835 user_chars=328 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:58.393 16218 18770 I icraw   : [LlmProvider][request_payload_summary] mode=stream request_profile=readout payload_log_mode=summary body_length=9077 message_count=6 tool_count=0 system_chars=6835 user_chars=328 assistant_chars=0 tool_result_chars=1041 tool_schema_chars=0
+04-14 14:46:58.393 16218 18770 I icraw   : [LlmProvider][chat_stream_start] request_profile=readout
+04-14 14:46:58.393 16218 18770 I icraw   : [LlmProvider][chat_stream_start] request_profile=readout
+04-14 14:46:58.393 16218 18770 I icraw   : [HttpClient][stream_request_start] method=POST url=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions request_body_length=9077
+04-14 14:46:58.393 16218 18770 I icraw   : [HttpClient][stream_request_start] method=POST url=https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions request_body_length=9077
+04-14 14:46:59.226 16218 18770 I icraw   : [LlmProvider][first_delta_ms] request_profile=readout duration_ms=834
+04-14 14:46:59.226 16218 18770 I icraw   : [LlmProvider][first_delta_ms] request_profile=readout duration_ms=834
+04-14 14:46:59.343 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=stop
+04-14 14:46:59.343 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=stop
+04-14 14:46:59.348 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=stop
+04-14 14:46:59.349 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=stop
+04-14 14:46:59.352 16218 18770 I icraw   : [LlmProvider][network_timing_summary] mode=stream request_profile=readout dns_ms=5 connect_ms=55 tls_ms=190 ttfb_ms=581 download_ms=125 total_ms=956
+04-14 14:46:59.352 16218 18770 I icraw   : [LlmProvider][network_timing_summary] mode=stream request_profile=readout dns_ms=5 connect_ms=55 tls_ms=190 ttfb_ms=581 download_ms=125 total_ms=956
+04-14 14:46:59.352 16218 18770 I icraw   : [LlmProvider][stream_complete_ms] request_profile=readout duration_ms=961
+04-14 14:46:59.352 16218 18770 I icraw   : [LlmProvider][stream_complete_ms] request_profile=readout duration_ms=961
+04-14 14:46:59.353 16218 18770 I icraw   : [LlmProvider][chat_stream_complete] duration_ms=961
+04-14 14:46:59.353 16218 18770 I icraw   : [LlmProvider][chat_stream_complete] duration_ms=961
+04-14 14:46:59.353 16218 18770 I icraw   : [AgentLoop][stream_complete] iteration=2 stream_complete=true text_length=15 reasoning_length=0 tool_call_count=0
+04-14 14:46:59.353 16218 18770 I icraw   : [AgentLoop][stream_complete] iteration=2 stream_complete=true text_length=15 reasoning_length=0 tool_call_count=0
+04-14 14:46:59.354 16218 18770 I icraw   : [AgentLoop][iteration_complete] mode=stream iteration=2 duration_ms=965
+04-14 14:46:59.354 16218 18770 I icraw   : [AgentLoop][iteration_complete] mode=stream iteration=2 duration_ms=965
+04-14 14:46:59.354 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=stop
+04-14 14:46:59.354 16218 18770 I icraw   : [NativeAgentJni][stream_complete] finish_reason=stop
+04-14 14:46:59.356 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=stop
+04-14 14:46:59.356 16218 18770 I AgentAndroid: [MainPresenter][stream_finish] finish_reason=stop
+04-14 14:46:59.357 16218 18770 I icraw   : [AgentLoop][loop_complete] mode=stream duration_ms=11117 iteration_count=2 exit_reason=stop
+04-14 14:46:59.357 16218 18770 I icraw   : [AgentLoop][loop_complete] mode=stream duration_ms=11117 iteration_count=2 exit_reason=stop
+04-14 14:46:59.359 16218 18770 I icraw   : [MobileAgent][chat_stream_loop_complete] session_id=container new_message_count=22
+04-14 14:46:59.359 16218 18770 I icraw   : [MobileAgent][chat_stream_loop_complete] session_id=container new_message_count=22
+04-14 14:46:59.363 16218 18770 I icraw   : [MobileAgent][chat_stream_complete] session_id=container history_count=22
+04-14 14:46:59.363 16218 18770 I icraw   : [MobileAgent][chat_stream_complete] session_id=container history_count=22

@@ -2184,6 +2184,8 @@ std::string build_navigation_attempt_cache_key(int step_index,
                                                const std::string& fingerprint);
 bool candidate_label_matches_step_target_exactly(const ObservationCandidate& candidate,
                                                  const SkillStepHint& step);
+int candidate_match_strength(const ObservationCandidate& candidate,
+                             const SkillStepHint& step);
 
 std::string activity_simple_name(const std::string& activity);
 bool matches_activity_name(const std::string& actual_activity,
@@ -2198,6 +2200,43 @@ bool matches_step_page(const ObservationSnapshot& snapshot, const SkillStepHint&
         return true;
     }
     return step.activity.empty() && step.page.empty();
+}
+
+bool step_requires_visible_target_for_arrival(const SkillStepHint& step) {
+    return (step.action == "tap" || step.action == "open")
+            && (!step.target.empty() || !step.aliases.empty());
+}
+
+bool snapshot_has_step_target_candidate(const ObservationSnapshot& snapshot,
+                                        const SkillStepHint& step) {
+    std::vector<std::string> terms;
+    if (!step.target.empty()) {
+        terms.push_back(step.target);
+    }
+    for (const auto& alias : step.aliases) {
+        if (!alias.empty()) {
+            terms.push_back(alias);
+        }
+    }
+    if (terms.empty()) {
+        return true;
+    }
+
+    for (const auto& candidate : snapshot.actionable_candidates) {
+        if (candidate_match_strength(candidate, step) > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool matches_arrival_step(const ObservationSnapshot& snapshot,
+                          const SkillStepHint& step) {
+    if (!matches_step_page(snapshot, step)) {
+        return false;
+    }
+    return !step_requires_visible_target_for_arrival(step)
+            || snapshot_has_step_target_candidate(snapshot, step);
 }
 
 bool matches_goal_page(const ObservationSnapshot& snapshot, const std::string& goal) {
@@ -2426,7 +2465,7 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
 
     if (next_index < static_cast<int>(steps.size())) {
         const auto& next_step = steps[static_cast<size_t>(next_index)];
-        confirmed = matches_step_page(snapshot, next_step);
+        confirmed = matches_arrival_step(snapshot, next_step);
         if (!confirmed && next_step.readout) {
             confirmed = matches_goal_page(snapshot, state.goal)
                     || (state.route_ready
@@ -2480,22 +2519,43 @@ void refresh_pending_step_from_observation(ExecutionState& state,
     }
 
     const auto& steps = state.active_hints->steps;
-    for (size_t i = 0; i < steps.size(); ++i) {
-        if (!matches_step_page(snapshot, steps[i])) {
+    const size_t start_index = state.pending_step_index > 0
+            ? static_cast<size_t>(state.pending_step_index)
+            : 0;
+    std::optional<size_t> activity_fallback_index;
+    for (size_t i = start_index; i < steps.size(); ++i) {
+        const auto& step = steps[i];
+        if (!matches_arrival_step(snapshot, step)) {
+            continue;
+        }
+        const bool page_specific_match = !step.page.empty() || step.readout;
+        if (!page_specific_match) {
+            if (!activity_fallback_index.has_value()) {
+                activity_fallback_index = i;
+            }
             continue;
         }
         state.pending_step_index = static_cast<int>(i);
-        state.pending_step = build_step_json(steps[i]);
+        state.pending_step = build_step_json(step);
         state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
         state.latest_observation_summary = snapshot.summary;
-        state.phase = steps[i].readout ? "readout" : (i == 0 ? "discovery" : "advance");
-        state.goal_reached = steps[i].readout
+        state.phase = step.readout ? "readout" : (i == 0 ? "discovery" : "advance");
+        state.goal_reached = step.readout
                 || ((i + 1) == steps.size()
-                    && (steps[i].action.empty() || steps[i].action == "read" || steps[i].action == "readout"));
+                    && (step.action.empty() || step.action == "read" || step.action == "readout"));
         if (state.goal_reached) {
             state.mode = "free_llm";
         }
         return;
+    }
+    if (activity_fallback_index.has_value()) {
+        const size_t i = *activity_fallback_index;
+        const auto& step = steps[i];
+        state.pending_step_index = static_cast<int>(i);
+        state.pending_step = build_step_json(step);
+        state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+        state.latest_observation_summary = snapshot.summary;
+        state.phase = i == 0 ? "discovery" : "advance";
     }
 }
 
@@ -3156,6 +3216,9 @@ int candidate_term_match_strength(const ObservationCandidate& candidate,
     }
     if (!label.empty() && label.find(normalized) != std::string::npos) {
         return contains_label;
+    }
+    if (!label.empty() && label.size() >= 6 && normalized.find(label) != std::string::npos) {
+        return contains_label - 8;
     }
     if (contains_text > 0 && !match_text.empty() && match_text.find(normalized) != std::string::npos) {
         return contains_text;
@@ -4995,6 +5058,40 @@ std::set<std::string> collect_allowed_tool_names(const ChatCompletionRequest& re
     return names;
 }
 
+bool is_downward_swipe_tool_call(const ToolCall& tool_call) {
+    if (tool_call.name != "android_gesture_tool" || !tool_call.arguments.is_object()) {
+        return false;
+    }
+    const std::string action = normalize_runtime_key(
+            first_string_value(tool_call.arguments, {"action", "gesture", "type"}));
+    if (action != "swipe" && action != "scroll") {
+        return false;
+    }
+    const std::string direction = normalize_runtime_key(
+            first_string_value(tool_call.arguments, {"direction"}));
+    return direction == "down" || contains_runtime_match(direction, u8"\u4e0b");
+}
+
+bool should_reject_downward_swipe_for_pending_step(const SkillStepHint& pending_step) {
+    if (pending_step.action == "swipe" || pending_step.action == "scroll") {
+        return false;
+    }
+    std::string target_context = pending_step.target;
+    for (const auto& alias : pending_step.aliases) {
+        target_context += " ";
+        target_context += alias;
+    }
+    if (contains_runtime_match(target_context, "refresh")
+            || contains_runtime_match(target_context, u8"\u5237\u65b0")) {
+        return false;
+    }
+    return pending_step.action.empty()
+            || pending_step.action == "tap"
+            || pending_step.action == "open"
+            || pending_step.action == "read"
+            || pending_step.action == "readout";
+}
+
 std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>& tool_calls,
                                                     const ChatCompletionRequest& request,
                                                     const ExecutionState& state) {
@@ -5030,6 +5127,16 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                         state.pending_step_index,
                         truncate_runtime_text(pending_step.target, 80),
                         pending_step.max_attempts);
+                continue;
+            }
+            if (is_downward_swipe_tool_call(tool_call)
+                    && should_reject_downward_swipe_for_pending_step(pending_step)) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_call_rejected] reason=unsafe_downward_swipe tool_name={} step_index={} target={} action={}",
+                        tool_call.name,
+                        state.pending_step_index,
+                        truncate_runtime_text(pending_step.target, 80),
+                        pending_step.action);
                 continue;
             }
         }
