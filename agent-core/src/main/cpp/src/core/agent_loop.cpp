@@ -319,6 +319,7 @@ struct SkillStepHint {
     std::string anchor_type;
     std::string container_role;
     std::string action;
+    int max_attempts = 0;
     bool readout = false;
 };
 
@@ -674,6 +675,9 @@ nlohmann::json build_step_json(const SkillStepHint& step) {
     if (!step.action.empty()) {
         json["action"] = step.action;
     }
+    if (step.max_attempts > 0) {
+        json["maxAttempts"] = step.max_attempts;
+    }
     if (step.readout) {
         json["readout"] = true;
     }
@@ -728,6 +732,12 @@ std::string describe_step(const SkillStepHint& step) {
         }
         stream << (!step.page.empty() ? step.page : step.activity);
     }
+    if (step.max_attempts > 0) {
+        if (stream.tellp() > 0) {
+            stream << " ";
+        }
+        stream << "[maxAttempts=" << step.max_attempts << "]";
+    }
     if (step.readout) {
         if (stream.tellp() > 0) {
             stream << " -> ";
@@ -769,6 +779,8 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
                     {"container_role", "containerRole"});
             step.action = first_string_value(step_json,
                     {"action", "gesture", "type"});
+            step.max_attempts = step_json.value("maxAttempts",
+                    step_json.value("max_attempts", 0));
             const std::string phase = first_string_value(step_json, {"phase"});
             step.readout = step_json.value("goalReached", false)
                     || phase == "readout"
@@ -777,7 +789,7 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
             if (step.page.empty() && step.activity.empty() && step.target.empty()
                     && step.aliases.empty() && step.region.empty()
                     && step.anchor_type.empty() && step.container_role.empty()
-                    && step.action.empty() && !step.readout) {
+                    && step.action.empty() && step.max_attempts <= 0 && !step.readout) {
                 continue;
             }
             parsed.steps.push_back(std::move(step));
@@ -2138,6 +2150,29 @@ std::string build_navigation_attempt_cache_key(int step_index,
     return stream.str();
 }
 
+int navigation_attempt_count_for_step(const ExecutionState& state,
+                                      int step_index) {
+    if (step_index < 0) {
+        return 0;
+    }
+    const std::string prefix = std::to_string(step_index) + "|";
+    int attempts = 0;
+    for (const auto& entry : state.navigation_attempt_cache) {
+        if (entry.first.rfind(prefix, 0) != 0) {
+            continue;
+        }
+        attempts += entry.second.attempt_count;
+    }
+    return attempts;
+}
+
+bool step_attempt_limit_reached(const ExecutionState& state,
+                                const SkillStepHint& step,
+                                int step_index) {
+    return step.max_attempts > 0
+            && navigation_attempt_count_for_step(state, step_index) >= step.max_attempts;
+}
+
 std::vector<CanonicalCandidate> build_canonical_candidates(
         const std::vector<ObservationCandidate>& candidates);
 std::string build_canonical_candidate_summary(const std::vector<CanonicalCandidate>& candidates,
@@ -2440,6 +2475,9 @@ void refresh_pending_step_from_observation(ExecutionState& state,
     if (!state.active_hints || state.active_hints->empty()) {
         return;
     }
+    if (state.goal_reached || state.phase == "readout") {
+        return;
+    }
 
     const auto& steps = state.active_hints->steps;
     for (size_t i = 0; i < steps.size(); ++i) {
@@ -2569,7 +2607,9 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 ICRAW_LOG_INFO(
                         "[AgentLoop][execution_state_step_confirmed] step_index={} current_page={} phase={}",
                         awaiting_index, state.current_page, state.phase);
-                refresh_pending_step_from_observation(state, snapshot);
+                if (!state.goal_reached) {
+                    refresh_pending_step_from_observation(state, snapshot);
+                }
             } else {
                 if (state.active_hints && awaiting_index >= 0
                         && awaiting_index < static_cast<int>(state.active_hints->steps.size())) {
@@ -2577,6 +2617,35 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                             state.active_hints->steps[static_cast<size_t>(awaiting_index)];
                     state.pending_step_index = awaiting_index;
                     state.pending_step = build_step_json(awaiting_step);
+                }
+                if (state.active_hints && awaiting_index >= 0
+                        && awaiting_index < static_cast<int>(state.active_hints->steps.size())) {
+                    const auto& awaiting_step =
+                            state.active_hints->steps[static_cast<size_t>(awaiting_index)];
+                    const int next_index = awaiting_index + 1;
+                    const bool next_is_readout =
+                            next_index < static_cast<int>(state.active_hints->steps.size())
+                            && state.active_hints->steps[static_cast<size_t>(next_index)].readout;
+                    if (next_is_readout
+                            && step_attempt_limit_reached(state, awaiting_step, awaiting_index)) {
+                        record_completed_step(state, awaiting_step);
+                        state.pending_step_index = next_index;
+                        state.pending_step = build_step_json(
+                                state.active_hints->steps[static_cast<size_t>(next_index)]);
+                        state.goal_reached = true;
+                        state.phase = "readout";
+                        state.mode = "free_llm";
+                        state.readout_context.current_page =
+                                snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+                        clear_step_confirmation(state);
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][non_repeatable_step_guard] reason=max_attempts_reached_after_action step_index={} step_target={} max_attempts={} next_phase={}",
+                                awaiting_index,
+                                truncate_runtime_text(awaiting_step.target, 80),
+                                awaiting_step.max_attempts,
+                                state.phase);
+                        return;
+                    }
                 }
                 if (should_retry_pending_step_confirmation(state, snapshot)) {
                     state.awaiting_confirmation_retry_count++;
@@ -2641,6 +2710,24 @@ void update_execution_state_with_tool_result(ExecutionState& state,
             }
         } else {
             refresh_pending_step_from_observation(state, snapshot);
+        }
+        if (!state.goal_reached && state.active_hints && state.pending_step_index >= 0
+                && state.pending_step_index < static_cast<int>(state.active_hints->steps.size())) {
+            const auto& pending_step =
+                    state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+            if (step_attempt_limit_reached(state, pending_step, state.pending_step_index)) {
+                state.goal_reached = true;
+                state.phase = "readout";
+                state.mode = "free_llm";
+                state.pending_step_index = -1;
+                state.pending_step = nlohmann::json::object();
+                clear_step_confirmation(state);
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][non_repeatable_step_guard] reason=max_attempts_reached step_target={} max_attempts={} phase={}",
+                        truncate_runtime_text(pending_step.target, 80),
+                        pending_step.max_attempts,
+                        state.phase);
+            }
         }
         if (!state.goal_reached && !state.active_hints && matches_goal_page(snapshot, state.goal)) {
             state.goal_reached = true;
@@ -3929,6 +4016,14 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     }
 
     const SkillStepHint& step = state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+    if (step_attempt_limit_reached(state, step, state.pending_step_index)) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][fast_execute_fallback] reason=max_attempts_reached step_index={} target={} max_attempts={}",
+                state.pending_step_index,
+                truncate_runtime_text(step.target, 80),
+                step.max_attempts);
+        return std::nullopt;
+    }
     if (step.action != "tap" && step.action != "open") {
         ICRAW_LOG_INFO("[AgentLoop][fast_execute_fallback] reason=unsupported_action action={}", step.action);
         return std::nullopt;
@@ -4921,6 +5016,22 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                     tool_call.name,
                     allowed_tool_names.size());
             continue;
+        }
+        if (tool_call.name == "android_gesture_tool"
+                && state.active_hints
+                && state.pending_step_index >= 0
+                && state.pending_step_index < static_cast<int>(state.active_hints->steps.size())) {
+            const auto& pending_step =
+                    state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+            if (step_attempt_limit_reached(state, pending_step, state.pending_step_index)) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_call_rejected] reason=max_attempts_reached tool_name={} step_index={} target={} max_attempts={}",
+                        tool_call.name,
+                        state.pending_step_index,
+                        truncate_runtime_text(pending_step.target, 80),
+                        pending_step.max_attempts);
+                continue;
+            }
         }
         filtered.push_back(tool_call);
     }
