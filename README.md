@@ -137,9 +137,16 @@ ARM64 Linux 下如果需要直接完成 NDK 构建，当前已验证可用的 SD
 
 ```bash
 cd agent-core
-conan install . -pr android.profile -s arch=armv8 --build missing
+conan install . -pr android.profile -s arch=armv8 \
+  -c tools.android:ndk_path=/your/sdk/ndk/26.3.11579264 \
+  --build missing
 cd ..
 ```
+
+说明：
+
+- 仓库内的 `agent-core/android.profile` 不再硬编码机器私有 NDK 路径
+- 请通过 Conan 命令行 `-c tools.android:ndk_path=...` 或本地 profile include 注入
 
 构建全部模块：
 

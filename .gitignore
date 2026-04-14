@@ -256,6 +256,11 @@ memory.db
 .env.local
 .env.*.local
 
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
 # Backup files
 *.orig
 
