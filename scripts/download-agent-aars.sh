@@ -21,7 +21,7 @@ usage() {
   GITHUB_TOKEN   可选。访问私有仓库时用于下载 Release assets
 
 脚本行为:
-  1. 从 GitHub Release 下载 agent-core.aar 和 agent-android.aar
+  1. 从 GitHub Release 下载 agent-core.aar、agent-android.aar 和 benchmark-android.aar
   2. 下载到指定目录
   3. 不修改任何 Gradle 配置，不自动添加依赖
 
@@ -43,7 +43,7 @@ fi
 REPO="${1:-}"
 VERSION="${2:-latest}"
 DOWNLOAD_DIR="${3:-./libs/mobile-agent}"
-ASSETS=("agent-core.aar" "agent-android.aar")
+ASSETS=("agent-core.aar" "agent-android.aar" "benchmark-android.aar")
 
 if [[ -z "$REPO" ]]; then
   usage >&2
