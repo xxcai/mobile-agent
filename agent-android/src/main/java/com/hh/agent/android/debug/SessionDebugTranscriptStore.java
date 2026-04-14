@@ -21,9 +21,10 @@ import java.util.Locale;
 public final class SessionDebugTranscriptStore {
 
     private static final String TAG = "SessionDebugTranscript";
-    private static final String DEBUG_DIR = ".icraw/debug-transcripts";
+    private static final String TASKS_DIR = ".icraw/tasks";
     private static final int INPUT_LABEL_MAX = 40;
     private static final String EVENT_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
+    private static final String META_TIME_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
     private static final SessionTranscript NO_OP_TRANSCRIPT = new NoOpSessionTranscript();
 
     private static SessionDebugTranscriptStore instance;
@@ -46,6 +47,7 @@ public final class SessionDebugTranscriptStore {
     }
 
     public SessionTranscript startTurn(String sessionKey, String userInput) {
+        BenchmarkTaskContext taskContext = BenchmarkTaskContextHolder.consumeCurrent();
         File rootDir = getRootDirectory();
         if (rootDir == null) {
             return NO_OP_TRANSCRIPT;
@@ -56,9 +58,11 @@ public final class SessionDebugTranscriptStore {
         }
 
         String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(new Date());
-        String dirName = timestamp + "__" + sanitizeInputLabel(userInput);
+        String dirName = taskContext != null && !taskContext.getRunId().isEmpty()
+                ? sanitizeRunId(taskContext.getRunId())
+                : timestamp + "__" + sanitizeInputLabel(userInput);
         File turnDir = new File(rootDir, dirName);
-        if (!turnDir.mkdirs()) {
+        if (!turnDir.exists() && !turnDir.mkdirs()) {
             AgentLogs.warn(TAG, "turn_dir_create_failed", "path=" + turnDir.getAbsolutePath());
             return NO_OP_TRANSCRIPT;
         }
@@ -68,11 +72,7 @@ public final class SessionDebugTranscriptStore {
         File responseFile = new File(turnDir, "response.txt");
 
         try {
-            JSONObject meta = new JSONObject()
-                    .put("createdAt", timestamp)
-                    .put("sessionKey", sessionKey == null ? "" : sessionKey)
-                    .put("userInput", userInput == null ? "" : userInput)
-                    .put("directory", turnDir.getAbsolutePath());
+            JSONObject meta = mergeMeta(readWholeJson(metaFile), sessionKey, userInput, taskContext);
             writeWholeFile(metaFile, meta.toString(2));
             writeWholeFile(responseFile, "");
         } catch (Exception e) {
@@ -81,7 +81,7 @@ public final class SessionDebugTranscriptStore {
         }
 
         AgentLogs.info(TAG, "turn_transcript_created", "path=" + turnDir.getAbsolutePath());
-        return new FileSessionTranscript(turnDir, eventsFile, responseFile);
+        return new FileSessionTranscript(turnDir, metaFile, eventsFile, responseFile);
     }
 
     private File getRootDirectory() {
@@ -92,7 +92,7 @@ public final class SessionDebugTranscriptStore {
         if (filesDir == null) {
             return null;
         }
-        return new File(filesDir, DEBUG_DIR);
+        return new File(filesDir, TASKS_DIR);
     }
 
     private static String sanitizeInputLabel(String userInput) {
@@ -116,6 +116,63 @@ public final class SessionDebugTranscriptStore {
         }
     }
 
+    private static JSONObject readWholeJson(File file) {
+        if (file == null || !file.exists()) {
+            return new JSONObject();
+        }
+        try {
+            byte[] bytes;
+            try (java.io.FileInputStream inputStream = new java.io.FileInputStream(file)) {
+                bytes = inputStream.readAllBytes();
+            }
+            String raw = new String(bytes, StandardCharsets.UTF_8);
+            return raw.trim().isEmpty() ? new JSONObject() : new JSONObject(raw);
+        } catch (Exception ignored) {
+            return new JSONObject();
+        }
+    }
+
+    private static JSONObject mergeMeta(JSONObject existing,
+                                        String sessionKey,
+                                        String userInput,
+                                        BenchmarkTaskContext taskContext) throws Exception {
+        JSONObject meta = existing == null ? new JSONObject() : existing;
+        if (!meta.has("runId")) {
+            meta.put("runId", taskContext != null ? taskContext.getRunId() : "");
+        }
+        if (!meta.has("taskId")) {
+            meta.put("taskId", taskContext != null ? taskContext.getTaskId() : "");
+        }
+        meta.put("sessionKey", sessionKey == null ? "" : sessionKey);
+        meta.put("userInput", userInput == null ? "" : userInput);
+        if (meta.optString("createdAt", "").isEmpty()) {
+            meta.put("createdAt", nowIso());
+        }
+        if (!meta.has("endedAt")) {
+            meta.put("endedAt", "");
+        }
+        if (meta.optString("status", "").isEmpty()) {
+            meta.put("status", "running");
+        }
+        if (!meta.has("errorMessage")) {
+            meta.put("errorMessage", "");
+        }
+        return meta;
+    }
+
+    private static String sanitizeRunId(String runId) {
+        String normalized = runId == null ? "" : runId.trim();
+        normalized = normalized.replaceAll("[^\\p{L}\\p{N}_-]", "_");
+        while (normalized.contains("__")) {
+            normalized = normalized.replace("__", "_");
+        }
+        return normalized.isEmpty() ? "task" : normalized;
+    }
+
+    private static String nowIso() {
+        return new SimpleDateFormat(META_TIME_PATTERN, Locale.US).format(new Date());
+    }
+
     public interface SessionTranscript {
         void onTextDelta(String text);
         void onReasoningDelta(String text);
@@ -127,14 +184,16 @@ public final class SessionDebugTranscriptStore {
 
     private static final class FileSessionTranscript implements SessionTranscript {
         private final File turnDir;
+        private final File metaFile;
         private final File eventsFile;
         private final File responseFile;
         private final StringBuilder responseBuilder = new StringBuilder();
         private final SimpleDateFormat eventTimeFormat =
                 new SimpleDateFormat(EVENT_TIME_PATTERN, Locale.US);
 
-        private FileSessionTranscript(File turnDir, File eventsFile, File responseFile) {
+        private FileSessionTranscript(File turnDir, File metaFile, File eventsFile, File responseFile) {
             this.turnDir = turnDir;
+            this.metaFile = metaFile;
             this.eventsFile = eventsFile;
             this.responseFile = responseFile;
         }
@@ -176,6 +235,10 @@ public final class SessionDebugTranscriptStore {
             appendEvent("message_end", buildPayload(
                     "finishReason", nullToEmpty(finishReason)));
             flushResponse();
+            if (!"tool_calls".equals(finishReason)) {
+                markFinished("stop".equals(finishReason) ? "completed" : "failed",
+                        "stop".equals(finishReason) ? "" : nullToEmpty(finishReason));
+            }
         }
 
         @Override
@@ -184,6 +247,7 @@ public final class SessionDebugTranscriptStore {
                     "errorCode", nullToEmpty(errorCode),
                     "errorMessage", nullToEmpty(errorMessage)));
             flushResponse();
+            markFinished("failed", nullToEmpty(errorMessage));
         }
 
         private void appendEvent(String type, JSONObject payload) {
@@ -206,6 +270,22 @@ public final class SessionDebugTranscriptStore {
                 writeWholeFile(responseFile, responseBuilder.toString());
             } catch (IOException e) {
                 AgentLogs.warn(TAG, "response_write_failed",
+                        "path=" + turnDir.getAbsolutePath() + " message=" + e.getMessage());
+            }
+        }
+
+        private void markFinished(String status, String errorMessage) {
+            try {
+                JSONObject meta = readWholeJson(metaFile);
+                if (!"running".equals(meta.optString("status", "running"))) {
+                    return;
+                }
+                meta.put("status", status);
+                meta.put("endedAt", nowIso());
+                meta.put("errorMessage", errorMessage == null ? "" : errorMessage);
+                writeWholeFile(metaFile, meta.toString(2));
+            } catch (Exception e) {
+                AgentLogs.warn(TAG, "meta_finalize_failed",
                         "path=" + turnDir.getAbsolutePath() + " message=" + e.getMessage());
             }
         }

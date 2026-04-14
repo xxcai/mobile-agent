@@ -20,6 +20,18 @@ app (示例宿主)
 - `agent-android` 当前也承载了 route tooling 的通用运行时、bridge 适配器和 route 打开时序
 - `app` 是示例工程，用来演示如何把两个库模块接到应用里，并保留宿主数据源、demo 页面和装配代码
 
+## Benchmark 工具
+
+仓库内已提供一套最小可用的 benchmark 工具链，包含：
+
+- Android 侧任务触发模块：`benchmark-android/`
+- PC 侧运行与分析工具：`benchmark-py/`
+- 最小 smoke case 集合：`benchmark-cases/`
+
+使用方式和当前能力边界见：
+
+- [`benchmark-py/README.md`](benchmark-py/README.md)
+
 ## 模块说明
 
 ### agent-core
