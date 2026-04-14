@@ -1,4 +1,4 @@
-﻿# 当前项目业务流程时序图版
+# 当前项目业务流程时序图版
 
 本文档是《[当前项目业务流程与方案说明](./current-agent-business-flow.md)》的配套版本，重点用时序图和分段说明来解释系统运行路径。
 
@@ -15,9 +15,10 @@
 2. 页面观测请求时序
 3. `native_xml` 采集时序
 4. `screen_snapshot` 采集时序
-5. `hybridObservation` 融合与快照时序
-6. 目标解析与 gesture 执行时序
-7. Demo 调试链路时序
+5. `web_dom` 采集与 Web 动作时序
+6. `hybridObservation` 融合与快照时序
+7. 目标解析与 gesture 执行时序
+8. Demo 调试链路时序
 
 ## 1. 启动初始化时序
 
@@ -26,17 +27,17 @@
 ```mermaid
 sequenceDiagram
     participant App as "App.onCreate()"
-    participant VisionInstall as "AgentScreenVision.install"
     participant Init as "AgentInitializer"
     participant ToolManager as "AndroidToolManager"
+    participant Vision as "AgentScreenVision auto install"
     participant Workspace as "WorkspaceManager"
     participant Native as "NativeMobileAgentApi"
     participant Floating as "FloatingBallInitializer"
 
-    App->>VisionInstall: 安装 ScreenSnapshotAnalyzer
-    App->>Init: initialize(application, tools, policy, callback)
-    Init->>ToolManager: 创建并注册 tool channel
-    Init->>ToolManager: 注册宿主业务工具
+    App->>Init: initialize(application, voiceRecognizer, shortcuts, policy, callback)
+    Init->>Vision: 若 agent-screen-vision 在 classpath，自动 install
+    Init->>ToolManager: 创建并注册内置 tool channel
+    Init->>ToolManager: 注册宿主业务 shortcut
     Init->>Init: 读取 config.json
     Init->>Workspace: 初始化 workspace 目录
     Workspace-->>Init: 返回 workspacePath
@@ -49,8 +50,8 @@ sequenceDiagram
 ### 关键代码
 
 - [App.java](../../app/src/main/java/com/hh/agent/app/App.java)
-- [AgentScreenVision.java](../../agent-screen-vision/src/main/java/com/hh/agent/screenvision/AgentScreenVision.java)
 - [AgentInitializer.java](../../agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java)
+- [AgentScreenVision.java](../../agent-screen-vision/src/main/java/com/hh/agent/screenvision/AgentScreenVision.java)
 - [AndroidToolManager.java](../../agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java)
 
 ### 业务意义
@@ -59,7 +60,7 @@ sequenceDiagram
 
 - 给 native Agent 准备可调用的 tool 列表
 - 给 native runtime 准备配置和 workspace 环境
-- 提前把视觉分析能力和浮球能力挂上去
+- 自动挂载视觉分析能力，并在回调中初始化浮球能力
 
 ## 2. 页面观测请求总时序
 
@@ -73,6 +74,7 @@ sequenceDiagram
     participant Resolver as "Source Resolver"
     participant NativeHandler as "native_xml handler"
     participant ScreenHandler as "screen_snapshot handler"
+    participant WebHandler as "web_dom handler"
     participant AllHandler as "all handler"
 
     Native->>ToolMgr: callTool("android_view_context_tool", args)
@@ -84,6 +86,9 @@ sequenceDiagram
     else source = screen_snapshot
         Resolver-->>ScreenHandler: 走截图视觉采集
         ScreenHandler-->>ViewCtx: ToolResult
+    else source = web_dom
+        Resolver-->>WebHandler: 走 WebView DOM 采集
+        WebHandler-->>ViewCtx: ToolResult
     else source = all
         Resolver-->>AllHandler: 返回多路结果
         AllHandler-->>ViewCtx: ToolResult
@@ -96,6 +101,7 @@ sequenceDiagram
 
 - [ViewContextToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java)
 - [AllViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/AllViewContextSourceHandler.java)
+- [WebDomViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
 
 ### 业务意义
 
@@ -103,6 +109,7 @@ sequenceDiagram
 
 - 模型侧不用感知 Android 内部实现差异
 - 底层可以继续替换 source，而不需要改 prompt 入口
+- 原生、视觉、WebView 三类页面都能走同一个 observation 协议
 - 后续可以继续加入新的观测源，而不破坏整体调用习惯
 
 ## 3. `native_xml` 采集时序
@@ -189,7 +196,60 @@ sequenceDiagram
 
 即使当前 source 是 `screen_snapshot`，系统也会尽量再补采一次 `nativeViewXml`。这意味着 screenshot 路径并不是纯视觉孤岛，而是尽量把自己也拉回 hybrid 主链路。
 
-## 5. 融合与快照注册时序
+## 5. `web_dom` 采集与 Web 动作时序
+
+这一阶段的目标是：在 WebView / H5 页面里，不再只依赖屏幕坐标点击，而是优先采集 DOM 结构，并通过 `android_web_action_tool` 基于 `ref` 或 `selector` 执行动作。
+
+```mermaid
+sequenceDiagram
+    participant Native as "Native Agent / LLM Runtime"
+    participant ToolMgr as "AndroidToolManager"
+    participant ViewCtx as "android_view_context_tool"
+    participant WebHandler as "WebDomViewContextSourceHandler"
+    participant Provider as "RealWebDomSnapshotProvider"
+    participant Finder as "WebViewFinder"
+    participant Script as "WebDomScriptFactory"
+    participant Bridge as "WebViewJsBridge"
+    participant Registry as "ViewObservationSnapshotRegistry"
+    participant WebAction as "android_web_action_tool"
+    participant Executor as "RealWebActionExecutor"
+
+    Native->>ToolMgr: callTool("android_view_context_tool", source=web_dom)
+    ToolMgr->>ViewCtx: execute(params)
+    ViewCtx->>WebHandler: execute(params, targetHint)
+    WebHandler->>Provider: getCurrentWebDomSnapshot(targetHint)
+    Provider->>Finder: 查找当前前台 WebView
+    Provider->>Script: 生成 DOM 采集脚本
+    Provider->>Bridge: evaluateJavascript(script)
+    Bridge-->>Provider: webDom / pageUrl / pageTitle
+    Provider->>Registry: createSnapshot(... webDom ...)
+    Registry-->>Provider: snapshotId
+    Provider-->>ViewCtx: ToolResult(source=web_dom, interactionDomain=web)
+    ViewCtx-->>Native: 返回 web_dom observation
+
+    Native->>ToolMgr: callTool("android_web_action_tool", ref/selector + snapshotId)
+    ToolMgr->>WebAction: execute(params)
+    WebAction->>Executor: click/input/eval_js/scroll_to_bottom
+    Executor->>Registry: 校验 web snapshot 与元素引用
+    Executor-->>WebAction: ToolResult
+    WebAction-->>Native: 动作结果
+```
+
+### 关键代码
+
+- [WebDomViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
+- [RealWebDomSnapshotProvider.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/RealWebDomSnapshotProvider.java)
+- [WebViewJsBridge.java](../../agent-android/src/main/java/com/hh/agent/android/web/WebViewJsBridge.java)
+- [WebDomScriptFactory.java](../../agent-android/src/main/java/com/hh/agent/android/web/WebDomScriptFactory.java)
+- [WebActionToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
+
+### 业务意义
+
+WebView 页面和原生页面的主要差异在于：WebView 内部元素在原生 View 树里通常只是一个大容器，无法稳定表达按钮、输入框和链接。`web_dom` 让 Agent 能看到 DOM 层的真实结构，`android_web_action_tool` 则让执行从“点击某个屏幕坐标”升级为“操作某个 DOM ref 或 selector”。
+
+这条链路和 `android_gesture_tool` 不是替代关系，而是分工关系：原生页面优先 gesture，WebView 页面优先 web action；当 DOM 不可用或页面限制 JS 时，再回退到 native/screen/gesture 路径。
+
+## 6. 融合与快照注册时序
 
 这一阶段的目标是：把原生树和视觉结果融合成单一 observation，并生成 `snapshotId`。
 
@@ -235,7 +295,7 @@ sequenceDiagram
 - 它把当前页面状态沉淀成一个可校验的快照
 - 它让后续 gesture 能做到 observation-bound
 
-## 6. 目标选择与手势执行时序
+## 7. 目标选择与手势执行时序
 
 这一阶段的目标是：让模型或业务代码优先基于 `hybridObservation.actionableNodes` 选目标，再以 observation 绑定方式执行动作。
 
@@ -279,7 +339,7 @@ sequenceDiagram
 - gesture 不会直接猜点击位置
 - 任何动作都必须绑定当前 observation 上下文
 
-## 7. Demo 调试链路时序
+## 8. Demo 调试链路时序
 
 这一阶段的目标是：让开发者能看到融合过程本身，而不是只看到最终点击结果。
 
@@ -319,11 +379,11 @@ sequenceDiagram
 
 如果只记一条主线，可以记成：
 
-`App 初始化 Agent 环境 -> LLM 调 android_view_context_tool -> 原生树和视觉结果分别采集 -> HybridObservationComposer 融合并生成 snapshotId -> ObservationTargetResolver 选目标 -> android_gesture_tool 校验 observation 后执行动作`
+`App 初始化 Agent 环境 -> LLM 调 android_view_context_tool -> 按 source 采集 native_xml / screen_snapshot / web_dom -> 原生/视觉页面生成 hybridObservation，WebView 页面生成 webDom snapshot -> 原生目标走 android_gesture_tool，WebView 目标走 android_web_action_tool -> 执行动作前校验 snapshotId`
 
 其中最重要的设计点是两条：
 
-- 所有页面理解最终都会被收敛成 `hybridObservation`
-- 所有页面动作最终都必须绑定 `snapshotId`
+- 原生/视觉页面理解最终会收敛成 `hybridObservation`
+- 原生 gesture 与 Web DOM action 都必须绑定 `snapshotId`
 
-这也是当前项目“可解释、可执行、可调试”的核心原因。
+这也是当前项目“可解释、可执行、可调试”的核心原因：原生页面靠融合后的动作候选稳定执行，WebView 页面靠 DOM ref / selector 稳定执行。

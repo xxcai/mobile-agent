@@ -1,10 +1,10 @@
-﻿# 当前项目业务流程与方案说明
+# 当前项目业务流程与方案说明
 
 本文档面向需要快速理解当前工程运行方式的开发者，重点说明：
 
 - 当前项目的端到端业务闭环是什么
 - 启动阶段、观测阶段、融合阶段、执行阶段分别由哪些模块负责
-- `InProcessViewHierarchyDumper`、`agent-screen-vision`、`hybridObservation` 之间如何协作
+- `InProcessViewHierarchyDumper`、`agent-screen-vision`、`web_dom`、`hybridObservation` 之间如何协作
 - 大模型最终消费的页面信息是什么，以及动作是如何安全落地的
 
 如果你更关心单个协议或单个模块的扩展方式，可以继续阅读：
@@ -22,7 +22,7 @@
 
 当前项目的核心业务流可以概括为：
 
-`应用启动 -> 初始化 Android/Native Agent 运行环境 -> 大模型通过 tool 请求页面观测 -> 系统同时采集原生 View 树与本地视觉理解 -> 融合成 hybridObservation -> 模型优先从 actionableNodes 中选目标 -> gesture 侧用 snapshotId 校验后执行动作 -> 页面变化后再次观测`
+`应用启动 -> 初始化 Android/Native Agent 运行环境 -> 大模型通过 tool 请求页面观测 -> 根据 source 选择 native_xml / screen_snapshot / web_dom -> 原生页融合 nativeViewXml 与 screenVisionCompact -> WebView 页采集 webDom/pageUrl/pageTitle -> 本地优先执行 gesture 或 web_action -> 到达目标页后 readout 轻量总结`
 
 这是一条典型的 Agent 闭环：
 
@@ -50,6 +50,16 @@
 - `agent-screen-vision` 负责提供视觉语义补充
 - `app` 负责把业务能力和 demo 页面接入整条链路
 
+合并 main 之后，页面观测能力已经扩展为三源：
+
+| 来源 | 适用页面 | 主要输出 | 下游动作 |
+| --- | --- | --- | --- |
+| `native_xml` | 原生 Android 页面 | `nativeViewXml` | `android_gesture_tool` |
+| `screen_snapshot` | 原生/强视觉页面 | `screenVisionCompact`、`hybridObservation` | `android_gesture_tool` |
+| `web_dom` | WebView / H5 页面 | `webDom`、`pageUrl`、`pageTitle` | `android_web_action_tool` |
+
+三者不是互斥的产品能力，而是运行时按页面形态选择的观测路径。原生页面继续走 `nativeViewXml + screenVisionCompact -> hybridObservation`，WebView 页面优先走 `webDom -> android_web_action_tool`。
+
 ## 端到端业务时序
 
 ```mermaid
@@ -59,31 +69,42 @@ sequenceDiagram
     participant TM as "AndroidToolManager"
     participant Native as "NativeMobileAgentApi"
     participant ViewCtx as "android_view_context_tool"
+    participant Source as "Source Resolver"
     participant NativeDump as "InProcessViewHierarchyDumper"
     participant Vision as "ScreenVisionSnapshotAnalyzer"
+    participant WebDom as "WebDomSnapshotProvider"
     participant Hybrid as "HybridObservationComposer"
     participant Registry as "ViewObservationSnapshotRegistry"
     participant Resolver as "ObservationTargetResolver"
     participant Gesture as "android_gesture_tool"
+    participant WebAction as "android_web_action_tool"
 
     App->>Init: initialize(...)
-    Init->>TM: 注册 channel 与业务工具
+    Init->>TM: 注册 shortcut 与内置 tool channel
     Init->>Native: initialize(toolsJson, configJson)
 
     Native->>ViewCtx: 请求当前页面 observation
-    ViewCtx->>NativeDump: 采集 nativeViewXml
-    ViewCtx->>Vision: 采集 screenVisionCompact
-    NativeDump-->>Hybrid: 原生结构
-    Vision-->>Hybrid: 视觉语义
-    Hybrid-->>Registry: 生成 snapshotId 与 hybridObservation
-    Registry-->>ViewCtx: 返回统一结果
-
-    Native->>Resolver: 基于 hybridObservation 选目标
-    Resolver-->>Native: bounds / nativeNodeIndex / source
-
-    Native->>Gesture: 发起 tap 或 swipe
-    Gesture->>Registry: 校验 snapshotId 是否仍有效
-    Gesture-->>Native: 动作结果
+    ViewCtx->>Source: 选择 native_xml / screen_snapshot / web_dom / all
+    alt 原生或视觉页面
+        Source->>NativeDump: 采集 nativeViewXml
+        Source->>Vision: 采集 screenVisionCompact
+        NativeDump-->>Hybrid: 原生结构
+        Vision-->>Hybrid: 视觉语义
+        Hybrid-->>Registry: 生成 snapshotId 与 hybridObservation
+        Registry-->>ViewCtx: 返回原生/视觉融合 observation
+        Native->>Resolver: 基于 hybridObservation 选目标
+        Resolver-->>Native: bounds / nativeNodeIndex / source
+        Native->>Gesture: 发起 tap 或 swipe
+        Gesture->>Registry: 校验 snapshotId 是否仍有效
+        Gesture-->>Native: 动作结果
+    else WebView / H5 页面
+        Source->>WebDom: 采集 webDom / pageUrl / pageTitle
+        WebDom-->>Registry: 注册 web snapshot
+        Registry-->>ViewCtx: 返回 web_dom observation
+        Native->>WebAction: 基于 ref / selector / snapshotId 执行 DOM 动作
+        WebAction->>Registry: 校验 snapshotId 与 webDom 引用
+        WebAction-->>Native: 动作结果
+    end
 ```
 
 ## 第一阶段：应用启动与 Agent 初始化
@@ -98,14 +119,16 @@ sequenceDiagram
 
 它主要做三件事：
 
-1. 安装本地视觉分析器  
-   调用 `AgentScreenVision.install(this)`，把 `ScreenVisionSnapshotAnalyzer` 注入到 `agent-android`。
+1. 准备本地视觉能力
+   合并 main 之后，`AgentInitializer.initialize(...)` 会在 `agent-screen-vision` 位于 classpath 时自动尝试调用 `com.hh.agent.screenvision.AgentScreenVision.install(context)`。宿主侧通常不再需要手动调用 `AgentInitializer.setScreenSnapshotAnalyzer(...)`，除非要替换成自定义 analyzer。
 
-2. 组装业务工具  
-   把通知、剪贴板、联系人搜索、IM 发消息等业务能力注册成 tool。
+2. 组装业务 shortcut
+   旧版 `ToolExecutor` 已经迁移为 `ShortcutExecutor`。联系人搜索、IM 发消息等宿主业务能力应注册为 shortcut，而不是再注册成底层 Android tool。
 
-3. 初始化整个 Agent 运行时  
-   调用 `AgentInitializer.initialize(...)`，把工具、策略、语音识别器、浮球初始化回调统一接入。
+3. 初始化整个 Agent 运行时
+   调用 `AgentInitializer.initialize(application, voiceRecognizer, shortcuts, viewContextSourcePolicy, callback)`，把业务 shortcut、页面 source 策略、语音识别器、浮球初始化回调统一接入。
+
+合并后的接入重点是：宿主只负责初始化和注册业务 shortcut；页面观测、screen vision 自动安装、gesture、web_dom、web_action 都在 AAR 内部闭环。
 
 ### 2. `AgentInitializer.initialize(...)`
 
@@ -117,8 +140,8 @@ sequenceDiagram
 
 1. 初始化 transcript store、logger、策略依赖
 2. 创建 `AndroidToolManager`
-3. 注册 Android 顶层 tool channel 和宿主业务工具
-4. 初始化 callback bridge，使 native 能回调 Java tool
+3. 注册 Android 内置 tool channel 和宿主业务 shortcut
+4. 初始化 callback bridge，使 native 能回调 Java channel
 5. 读取 `assets/config.json`
 6. 初始化 workspace 目录
 7. 将 `workspacePath` 注入 config JSON
@@ -142,13 +165,15 @@ sequenceDiagram
 1. 生成给 native 的 `tools.json`
 2. 在 native 触发 tool call 时，把调用路由回正确的 Java channel
 
-当前它默认注册 3 个核心 channel：
+当前它默认注册 5 类核心 channel：
 
-- `call_android_tool`
-- `android_gesture_tool`
-- `android_view_context_tool`
+- `run_shortcut`：执行宿主注册的业务 shortcut
+- `describe_shortcut`：向模型描述当前可用的业务 shortcut
+- `android_view_context_tool`：采集 native_xml / screen_snapshot / web_dom 页面观测
+- `android_gesture_tool`：执行原生页面 tap / swipe 等屏幕动作
+- `android_web_action_tool`：执行 WebView DOM click / input / eval_js / scroll_to_bottom
 
-因此，从业务层面看，所有 Android 能力最终都被抽象成“工具”，而不是散落在页面代码里的直接调用。
+因此，从业务层面看，宿主业务能力走 shortcut，Android 页面能力走内置 tool channel。两者都由 `AndroidToolManager` 汇总后暴露给 native runtime，但职责边界比旧版工具注册方式更清晰。
 
 ## 第二阶段：页面观测入口
 
@@ -187,6 +212,37 @@ sequenceDiagram
 - 是否需要返回多路结果一起调试
 
 source 选择完成后，才会进入具体 handler。
+
+### 3. `web_dom` 与 `android_web_action_tool`
+
+合并 main 后，`web_dom` 已经进入正式页面观测链路。它的定位不是替代原生树或 screen vision，而是专门服务 WebView / H5 页面。
+
+相关入口包括：
+
+- [agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
+- [agent-android/src/main/java/com/hh/agent/android/viewcontext/RealWebDomSnapshotProvider.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/RealWebDomSnapshotProvider.java)
+- [agent-android/src/main/java/com/hh/agent/android/web/WebViewJsBridge.java](../../agent-android/src/main/java/com/hh/agent/android/web/WebViewJsBridge.java)
+- [agent-android/src/main/java/com/hh/agent/android/web/WebDomScriptFactory.java](../../agent-android/src/main/java/com/hh/agent/android/web/WebDomScriptFactory.java)
+- [agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
+
+当 source 被选为 `web_dom` 时，执行路径是：
+
+1. `RuntimeViewContextSourceResolver` 根据 Activity 级策略或 WebView fallback 选择 `web_dom`
+2. `WebDomViewContextSourceHandler` 调用 `RealWebDomSnapshotProvider`
+3. `RealWebDomSnapshotProvider` 通过 `WebViewFinder` 找到当前前台 WebView
+4. `WebViewJsBridge` 注入由 `WebDomScriptFactory` 生成的 JS
+5. JS 返回当前页面 DOM、元素引用、URL、title 等结构化信息
+6. `ViewObservationSnapshotRegistry` 保存包含 `webDom/pageUrl/pageTitle` 的 snapshot
+7. 模型或 runtime 后续可以基于同一 `snapshotId` 调用 `android_web_action_tool`
+
+`android_web_action_tool` 和 `android_gesture_tool` 的边界很清晰：
+
+| 工具 | 适用对象 | 执行依据 |
+| --- | --- | --- |
+| `android_gesture_tool` | 原生 View / 屏幕坐标 | `bounds`、`referencedBounds`、`snapshotId` |
+| `android_web_action_tool` | WebView DOM 元素 | `ref`、`selector`、`snapshotId` |
+
+因此，原生页面的点击仍然由 gesture 执行；WebView 内部按钮、输入框、链接、表单提交优先由 web action 执行。
 
 ## 第三阶段：原生结构观测
 
@@ -385,6 +441,10 @@ source 选择完成后，才会进入具体 handler。
 - `screenVisionCompact`
 - `screenSnapshotRef`
 - `hybridObservationJson`
+- `interactionDomain`
+- `webDom`
+- `pageUrl`
+- `pageTitle`
 
 ### 2. 为什么必须有 `snapshotId`
 
@@ -400,14 +460,16 @@ source 选择完成后，才会进入具体 handler。
 
 ### 1. prompt 侧当前推荐顺序
 
-当前 prompt 和工具定义已经统一成 hybrid-first 的消费顺序：
+当前 prompt 和工具定义已经统一成“按页面类型消费”的顺序：
 
-1. 先看 `hybridObservation.summary`
+1. 原生/视觉页面先看 `hybridObservation.summary`
 2. 再看 `hybridObservation.actionableNodes`
 3. 再看 `hybridObservation.conflicts`
 4. 最后才回退到 `nativeViewXml` 或 `screenVisionCompact`
+5. WebView 页面优先读取 `webDom`、`pageUrl`、`pageTitle`
+6. WebView 内动作优先通过 `android_web_action_tool` 使用 `ref` 或 `selector` 执行
 
-因此，当前系统并不是要求模型直接读底层原始数据，而是要求模型优先消费“已经面向动作决策整理好的结果”。
+因此，当前系统并不是要求模型直接读底层原始数据，而是要求模型优先消费“已经面向动作决策整理好的结果”。原生页面的动作候选由 `hybridObservation` 收口，WebView 页面的动作候选由 `webDom` 收口。
 
 ### 2. `ObservationTargetResolver`
 
@@ -529,6 +591,7 @@ source 选择完成后，才会进入具体 handler。
 
 - 相比纯截图，`nativeViewXml` 更省 token、更利于结构化推理
 - 相比纯原生树，视觉模块能补充图像语义与页面区域理解
+- 相比纯坐标点击，`web_dom + android_web_action_tool` 能在 WebView/H5 页面里基于 DOM ref 或 selector 执行动作
 - hybrid 输出更贴近动作决策，而不是要求模型自己做底层对齐
 - observation-bound execution 能显著降低误点风险
 
@@ -537,6 +600,7 @@ source 选择完成后，才会进入具体 handler。
 - 当前视觉模块仍可能存在组件识别不准、分块异常
 - `vision_only` 候选仍然缺少和原生控件一样稳定的执行锚点
 - 当前方案仍以宿主进程内页面为主，不是跨 App 的通用 Accessibility 方案
+- `web_dom` 依赖宿主内 WebView 可被注入 JS；如果 WebView 禁止 JS、跨进程隔离或页面强混淆，需要回退到 native/screen/gesture 路径
 - 对强视觉型页面，后续仍需要持续优化 hybrid 策略与 fallback 策略
 
 ## 推荐阅读顺序
@@ -547,12 +611,15 @@ source 选择完成后，才会进入具体 handler。
 2. [agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java](../../agent-android/src/main/java/com/hh/agent/android/AgentInitializer.java)
 3. [agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java](../../agent-android/src/main/java/com/hh/agent/android/AndroidToolManager.java)
 4. [agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java)
-5. [agent-android/src/main/java/com/hh/agent/android/viewcontext/InProcessViewHierarchyDumper.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/InProcessViewHierarchyDumper.java)
-6. [agent-screen-vision/src/main/java/com/hh/agent/screenvision/ScreenVisionSnapshotAnalyzer.java](../../agent-screen-vision/src/main/java/com/hh/agent/screenvision/ScreenVisionSnapshotAnalyzer.java)
-7. [agent-android/src/main/java/com/hh/agent/android/viewcontext/HybridObservationComposer.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/HybridObservationComposer.java)
-8. [app/src/main/java/com/hh/agent/viewcontext/ObservationTargetResolver.java](../../app/src/main/java/com/hh/agent/viewcontext/ObservationTargetResolver.java)
-9. [agent-android/src/main/java/com/hh/agent/android/gesture/InProcessGestureExecutor.java](../../agent-android/src/main/java/com/hh/agent/android/gesture/InProcessGestureExecutor.java)
-10. [app/src/main/java/com/hh/agent/ScreenSnapshotProbeActivity.java](../../app/src/main/java/com/hh/agent/ScreenSnapshotProbeActivity.java)
+5. [agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
+6. [agent-android/src/main/java/com/hh/agent/android/viewcontext/RealWebDomSnapshotProvider.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/RealWebDomSnapshotProvider.java)
+7. [agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
+8. [agent-android/src/main/java/com/hh/agent/android/viewcontext/InProcessViewHierarchyDumper.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/InProcessViewHierarchyDumper.java)
+9. [agent-screen-vision/src/main/java/com/hh/agent/screenvision/ScreenVisionSnapshotAnalyzer.java](../../agent-screen-vision/src/main/java/com/hh/agent/screenvision/ScreenVisionSnapshotAnalyzer.java)
+10. [agent-android/src/main/java/com/hh/agent/android/viewcontext/HybridObservationComposer.java](../../agent-android/src/main/java/com/hh/agent/android/viewcontext/HybridObservationComposer.java)
+11. [app/src/main/java/com/hh/agent/viewcontext/ObservationTargetResolver.java](../../app/src/main/java/com/hh/agent/viewcontext/ObservationTargetResolver.java)
+12. [agent-android/src/main/java/com/hh/agent/android/gesture/InProcessGestureExecutor.java](../../agent-android/src/main/java/com/hh/agent/android/gesture/InProcessGestureExecutor.java)
+13. [app/src/main/java/com/hh/agent/ScreenSnapshotProbeActivity.java](../../app/src/main/java/com/hh/agent/ScreenSnapshotProbeActivity.java)
 
 ## 总结
 
@@ -564,5 +631,5 @@ source 选择完成后，才会进入具体 handler。
 - 能把页面理解和动作执行绑定成同一轮快照上下文
 - 能把融合过程显式暴露出来，便于持续优化识别质量和执行稳定性
 
-因此，当前方案的真正核心不是 `nativeViewXml`、不是 `screenVisionCompact`，而是它们共同构成的 `hybridObservation`，以及围绕它建立起来的 observation-bound 执行闭环。
+因此，当前方案的真正核心不是单独的 `nativeViewXml`、`screenVisionCompact` 或 `webDom`，而是按页面形态选择合适观测源，并围绕 snapshot 建立起来的 observation-bound 执行闭环。原生页面靠 `hybridObservation` 提升动作稳定性，WebView 页面靠 `webDom + android_web_action_tool` 提升 DOM 操作稳定性。
 
