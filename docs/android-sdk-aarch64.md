@@ -75,6 +75,11 @@ conan install . -pr android.profile -s arch=armv8 \
   --build missing
 ```
 
+说明：
+
+- 仓库内的 `agent-core/android.profile` 不再写死 `tools.android:ndk_path`
+- 需要在本地通过 `-c tools.android:ndk_path=...` 或本地 profile include 注入
+
 然后在仓库根目录执行：
 
 ```bash
@@ -86,7 +91,7 @@ JAVA_HOME="/home/tony/android-studio/jbr" PATH="/home/tony/android-studio/jbr/bi
 
 已 fresh 验证通过：
 
-- `conan install . -pr android.profile -s arch=armv8 --build missing`
+- `conan install . -pr android.profile -s arch=armv8 -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 --build missing`
 - `./gradlew :agent-core:assembleDebug`
 - `./gradlew :app:assembleDebug`
 

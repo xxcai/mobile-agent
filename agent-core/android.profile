@@ -9,4 +9,6 @@ compiler.cppstd=17
 build_type=Release
 
 [conf]
-# Configure tools.android:ndk_path via local Conan command or profile include.
+# Repository profile intentionally does not hardcode tools.android:ndk_path.
+# Provide it via local Conan command (-c tools.android:ndk_path=...)
+# or a machine-local profile include.
