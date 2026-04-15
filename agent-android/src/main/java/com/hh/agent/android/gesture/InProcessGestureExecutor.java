@@ -8,7 +8,7 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
-import TextView;
+import android.widget.TextView;
 import android.widget.ScrollView;
 
 import androidx.recyclerview.widget.RecyclerView;

@@ -1,6 +1,6 @@
 package com.hh.agent.android.channel;
 
-import Activity;
+import android.app.Activity;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.android.viewcontext.RuntimeViewContextSourceResolver;
 import com.hh.agent.android.viewcontext.ViewContextSourceSelection;

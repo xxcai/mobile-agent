@@ -2,7 +2,7 @@ package com.hh.agent.android;
 
 import android.app.Application;
 import android.content.Context;
-import Intent;
+import android.content.Intent;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.debug.SessionDebugTranscriptStore;

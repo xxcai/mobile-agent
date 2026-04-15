@@ -1,6 +1,6 @@
 package com.hh.agent.android;
 
-import Activity;
+import android.app.Activity;
 import android.content.Context;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.DescribeShortcutChannel;
