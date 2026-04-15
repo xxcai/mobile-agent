@@ -308,6 +308,7 @@ constexpr size_t SKILL_PRELOAD_MAX_TOTAL_CHARS = 20000;
 constexpr size_t SKILL_SUMMARY_MAX_CHARS = 1200;
 constexpr double FAST_EXECUTE_NATIVE_SCORE_MIN = 0.82;
 constexpr double FAST_EXECUTE_VISION_ONLY_SCORE_MIN = 0.97;
+constexpr size_t OBSERVATION_VISIBLE_TEXT_MAX_CHARS = 16000;
 constexpr bool COMPACT_NAVIGATION_ESCALATION_ENABLED = false;
 
 struct SkillStepHint {
@@ -319,6 +320,7 @@ struct SkillStepHint {
     std::string anchor_type;
     std::string container_role;
     std::string action;
+    int max_attempts = 0;
     bool readout = false;
 };
 
@@ -368,6 +370,7 @@ struct ObservationSnapshot {
     size_t warning_conflict_count = 0;
     std::vector<ObservationConflict> warning_conflicts;
     std::vector<ObservationCandidate> actionable_candidates;
+    std::string visible_text;
 };
 
 struct CanonicalCandidate {
@@ -422,6 +425,7 @@ struct ExecutionState {
     NavigationTraceSummary latest_navigation_trace;
     ReadoutRequestContext readout_context;
     std::unordered_map<std::string, NavigationAttemptCacheEntry> navigation_attempt_cache;
+    std::unordered_map<int, int> step_action_attempt_counts;
     int readout_retry_count = 0;
 };
 
@@ -674,6 +678,9 @@ nlohmann::json build_step_json(const SkillStepHint& step) {
     if (!step.action.empty()) {
         json["action"] = step.action;
     }
+    if (step.max_attempts > 0) {
+        json["maxAttempts"] = step.max_attempts;
+    }
     if (step.readout) {
         json["readout"] = true;
     }
@@ -722,6 +729,12 @@ std::string describe_step(const SkillStepHint& step) {
         }
         stream << "[container_role=" << step.container_role << "]";
     }
+    if (step.max_attempts > 0) {
+        if (stream.tellp() > 0) {
+            stream << " ";
+        }
+        stream << "[maxAttempts=" << step.max_attempts << "]";
+    }
     if (!step.page.empty() || !step.activity.empty()) {
         if (stream.tellp() > 0) {
             stream << " on ";
@@ -769,6 +782,8 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
                     {"container_role", "containerRole"});
             step.action = first_string_value(step_json,
                     {"action", "gesture", "type"});
+            step.max_attempts = step_json.value("maxAttempts",
+                    step_json.value("max_attempts", 0));
             const std::string phase = first_string_value(step_json, {"phase"});
             step.readout = step_json.value("goalReached", false)
                     || phase == "readout"
@@ -1952,6 +1967,78 @@ void prune_context_messages_for_state(std::vector<Message>& messages,
 
 namespace {
 
+void append_visible_text_fragment(std::string& visible_text,
+                                  const std::string& fragment,
+                                  size_t max_chars = OBSERVATION_VISIBLE_TEXT_MAX_CHARS) {
+    const std::string trimmed = trim_whitespace(fragment);
+    if (trimmed.empty() || visible_text.size() >= max_chars) {
+        return;
+    }
+    if (!visible_text.empty()) {
+        visible_text.push_back(' ');
+    }
+    const size_t remaining = max_chars - visible_text.size();
+    visible_text += truncate_runtime_text(trimmed, remaining);
+}
+
+void append_json_text_fields(std::string& visible_text,
+                             const nlohmann::json& object,
+                             const std::vector<std::string>& keys) {
+    if (!object.is_object()) {
+        return;
+    }
+    for (const auto& key : keys) {
+        append_visible_text_fragment(visible_text, first_string_value(object, {key}));
+    }
+}
+
+void append_json_text_array(std::string& visible_text,
+                            const nlohmann::json& array,
+                            const std::vector<std::string>& keys,
+                            size_t max_items = 80) {
+    if (!array.is_array()) {
+        return;
+    }
+    size_t count = 0;
+    for (const auto& item : array) {
+        if (count++ >= max_items || visible_text.size() >= OBSERVATION_VISIBLE_TEXT_MAX_CHARS) {
+            break;
+        }
+        if (item.is_string()) {
+            append_visible_text_fragment(visible_text, item.get<std::string>());
+        } else if (item.is_object()) {
+            append_json_text_fields(visible_text, item, keys);
+        }
+    }
+}
+
+void append_native_xml_text_attributes(std::string& visible_text,
+                                       const std::string& xml,
+                                       size_t max_values = 120) {
+    static const std::vector<std::string> attributes = {
+        "text", "content-desc", "contentDescription"
+    };
+    size_t appended = 0;
+    for (const auto& attribute : attributes) {
+        std::string pattern = attribute + "=\"";
+        size_t pos = 0;
+        while (appended < max_values && visible_text.size() < OBSERVATION_VISIBLE_TEXT_MAX_CHARS) {
+            pos = xml.find(pattern, pos);
+            if (pos == std::string::npos) {
+                break;
+            }
+            pos += pattern.size();
+            const size_t end = xml.find('"', pos);
+            if (end == std::string::npos) {
+                break;
+            }
+            append_visible_text_fragment(visible_text, xml.substr(pos, end - pos));
+            pos = end + 1;
+            appended++;
+        }
+    }
+}
+
 ObservationSnapshot parse_observation_snapshot(const std::string& content) {
     ObservationSnapshot snapshot;
     try {
@@ -1966,20 +2053,50 @@ ObservationSnapshot parse_observation_snapshot(const std::string& content) {
         snapshot.snapshot_id = json.value("snapshotId", "");
         snapshot.screen_width = json.value("screenSnapshotWidth", 0);
         snapshot.screen_height = json.value("screenSnapshotHeight", 0);
+        append_visible_text_fragment(snapshot.visible_text, snapshot.activity);
+        if (json.contains("nativeViewXml") && json["nativeViewXml"].is_string()) {
+            append_native_xml_text_attributes(snapshot.visible_text,
+                    json["nativeViewXml"].get<std::string>());
+        }
+        if (json.contains("screenVisionCompact") && json["screenVisionCompact"].is_object()) {
+            const auto& compact = json["screenVisionCompact"];
+            append_json_text_fields(snapshot.visible_text, compact, {"summary"});
+            if (compact.contains("page")) {
+                if (compact["page"].is_string()) {
+                    append_visible_text_fragment(snapshot.visible_text,
+                            compact["page"].get<std::string>());
+                } else if (compact["page"].is_object()) {
+                    append_json_text_fields(snapshot.visible_text, compact["page"],
+                            {"title", "name", "summary"});
+                }
+            }
+            for (const auto& key : {"texts", "controls", "items", "topTexts", "topControls", "topItems"}) {
+                if (compact.contains(key)) {
+                    append_json_text_array(snapshot.visible_text, compact[key],
+                            {"text", "label", "title", "name", "contentDescription", "content_description"});
+                }
+            }
+        }
         if (!json.contains("hybridObservation") || !json["hybridObservation"].is_object()) {
             return snapshot;
         }
 
         const auto& hybrid = json["hybridObservation"];
         snapshot.summary = hybrid.value("summary", "");
+        append_visible_text_fragment(snapshot.visible_text, snapshot.summary);
         if (hybrid.contains("page") && hybrid["page"].is_object()) {
             const auto& page = hybrid["page"];
+            append_json_text_fields(snapshot.visible_text, page, {"title", "name", "summary"});
             if (snapshot.screen_width <= 0) {
                 snapshot.screen_width = page.value("width", 0);
             }
             if (snapshot.screen_height <= 0) {
                 snapshot.screen_height = page.value("height", 0);
             }
+        }
+        if (hybrid.contains("visibleItems")) {
+            append_json_text_array(snapshot.visible_text, hybrid["visibleItems"],
+                    {"text", "label", "title", "name", "summary"});
         }
         if (hybrid.contains("conflicts") && hybrid["conflicts"].is_array()) {
             for (const auto& conflict : hybrid["conflicts"]) {
@@ -2030,6 +2147,8 @@ ObservationSnapshot parse_observation_snapshot(const std::string& content) {
                 candidate.decorative_like = node.value("decorativeLike", false);
                 candidate.repeat_group = node.value("repeatGroup", false);
                 candidate.score = node.value("score", 0.0);
+                append_visible_text_fragment(snapshot.visible_text, candidate.label);
+                append_visible_text_fragment(snapshot.visible_text, candidate.match_text);
                 snapshot.actionable_candidates.push_back(std::move(candidate));
             }
         }
@@ -2165,9 +2284,32 @@ bool matches_step_page(const ObservationSnapshot& snapshot, const SkillStepHint&
     return step.activity.empty() && step.page.empty();
 }
 
+bool snapshot_has_step_target_visible(const ObservationSnapshot& snapshot,
+                                      const SkillStepHint& step) {
+    const std::string page_context = snapshot.activity + " " + snapshot.summary + " " + snapshot.visible_text;
+    if (!step.target.empty() && contains_runtime_match(page_context, step.target)) {
+        return true;
+    }
+    for (const auto& alias : step.aliases) {
+        if (!alias.empty() && contains_runtime_match(page_context, alias)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool step_requires_visible_target_for_arrival(const SkillStepHint& step) {
+    return (step.action == "tap" || step.action == "open")
+            && (!step.target.empty() || !step.aliases.empty());
+}
+
 bool matches_goal_page(const ObservationSnapshot& snapshot, const std::string& goal) {
     const std::string page_context = snapshot.activity + " " + snapshot.summary;
     return contains_runtime_match(page_context, goal);
+}
+
+std::string visible_observation_context(const ObservationSnapshot& snapshot) {
+    return snapshot.activity + " " + snapshot.summary + " " + snapshot.visible_text;
 }
 
 bool matches_any_predicate(const std::string& text,
@@ -2183,19 +2325,63 @@ bool matches_any_predicate(const std::string& text,
     return false;
 }
 
+bool is_weak_completion_signal(const std::string& predicate) {
+    const std::string normalized = normalize_for_runtime_match(predicate);
+    if (normalized.empty()) {
+        return true;
+    }
+    static const std::set<std::string> weak_signals = {
+        u8"\u6210\u529f",      // 成功
+        u8"\u4eca\u5929",      // 今天
+        u8"\u4eca\u65e5",      // 今日
+        u8"\u65e5\u7a0b",      // 日程
+        u8"\u65e5\u5386",      // 日历
+        u8"\u9875\u9762",      // 页面
+        u8"\u5185\u5bb9",      // 内容
+        u8"\u5217\u8868",      // 列表
+        u8"\u67e5\u770b",      // 查看
+        "success",
+        "done",
+        "read",
+        "content",
+        "page"
+    };
+    return weak_signals.count(normalized) > 0;
+}
+
+bool matches_any_strong_completion_predicate(const std::string& text,
+                                             const std::vector<std::string>& predicates) {
+    for (const auto& predicate : predicates) {
+        if (is_weak_completion_signal(predicate)) {
+            continue;
+        }
+        if (contains_runtime_match(text, predicate)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool matches_stop_condition(const ObservationSnapshot& snapshot,
                             const StopConditionSpec& stop_condition,
                             const std::string& goal) {
     const std::string page_context = snapshot.activity + " " + snapshot.summary;
+    const std::string visible_context = visible_observation_context(snapshot);
     const bool page_hit = matches_any_predicate(page_context, stop_condition.page_predicates);
     const bool content_hit = stop_condition.content_predicates.empty()
-            ? matches_goal_page(snapshot, goal)
-            : matches_any_predicate(page_context, stop_condition.content_predicates);
+            ? (matches_goal_page(snapshot, goal) || contains_runtime_match(visible_context, goal))
+            : matches_any_predicate(visible_context, stop_condition.content_predicates);
     const bool success_hit = !stop_condition.success_signals.empty()
-            && matches_any_predicate(page_context, stop_condition.success_signals);
-    const bool failure_hit = matches_any_predicate(page_context, stop_condition.failure_signals);
+            && matches_any_predicate(visible_context, stop_condition.success_signals);
+    const bool strong_success_hit = matches_any_strong_completion_predicate(
+            visible_context, stop_condition.success_signals);
+    const bool failure_hit = !stop_condition.failure_signals.empty()
+            && matches_any_predicate(visible_context, stop_condition.failure_signals);
     if (failure_hit && !success_hit) {
         return false;
+    }
+    if (strong_success_hit) {
+        return true;
     }
     if (success_hit && page_hit) {
         return true;
@@ -2273,6 +2459,75 @@ bool gesture_matches_step_intent(const ToolCall& tool_call, const SkillStepHint&
     return false;
 }
 
+bool snapshot_has_readout_completion_signal(const ObservationSnapshot& snapshot,
+                                            const SkillStepHint& step) {
+    const std::string visible_context = visible_observation_context(snapshot);
+    if (!step.target.empty()
+            && !is_weak_completion_signal(step.target)
+            && contains_runtime_match(visible_context, step.target)) {
+        return true;
+    }
+    for (const auto& alias : step.aliases) {
+        if (alias.empty() || is_weak_completion_signal(alias)) {
+            continue;
+        }
+        if (contains_runtime_match(visible_context, alias)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool is_pull_refresh_swipe_tool_call(const ToolCall& tool_call) {
+    if (tool_call.name != "android_gesture_tool" || !tool_call.arguments.is_object()) {
+        return false;
+    }
+    const std::string action = normalize_for_runtime_match(
+            first_string_value(tool_call.arguments, {"action", "gesture", "type"}));
+    if (action != "swipe" && action != "scroll") {
+        return false;
+    }
+    const std::string direction = normalize_for_runtime_match(
+            first_string_value(tool_call.arguments, {"direction", "scrollDirection", "swipeDirection"}));
+    // In the Android runtime, direction=down scrolls content down by injecting an upward finger swipe.
+    // direction=up injects a downward finger drag and can trigger pull-to-refresh at the top of a list.
+    return direction == "up" || direction == "pull_down" || direction == "pulldown";
+}
+
+bool should_guard_pull_refresh_for_pending_step(const SkillStepHint& pending_step) {
+    if (pending_step.action == "swipe" || pending_step.action == "scroll") {
+        return false;
+    }
+    return pending_step.action.empty()
+            || pending_step.action == "tap"
+            || pending_step.action == "open"
+            || pending_step.action == "read"
+            || pending_step.action == "readout";
+}
+
+bool step_supports_forward_scroll_search(const SkillStepHint& pending_step) {
+    if (pending_step.action != "tap" && pending_step.action != "open") {
+        return false;
+    }
+    const std::string region = normalize_for_runtime_match(pending_step.region);
+    const std::string anchor = normalize_for_runtime_match(pending_step.anchor_type);
+    const std::string role = normalize_for_runtime_match(pending_step.container_role);
+    if (region.find("topleft") != std::string::npos
+            || region.find("headerleft") != std::string::npos
+            || anchor.find("profile") != std::string::npos
+            || anchor.find("bottomtab") != std::string::npos
+            || role.find("tabbar") != std::string::npos) {
+        return false;
+    }
+    return anchor.find("card") != std::string::npos
+            || anchor.find("item") != std::string::npos
+            || anchor.find("row") != std::string::npos
+            || role.find("grid") != std::string::npos
+            || role.find("list") != std::string::npos
+            || role.find("feed") != std::string::npos
+            || role.find("scroll") != std::string::npos;
+}
+
 bool looks_like_readout_target_hint(const std::string& target_hint) {
     static const std::vector<std::string> keywords = {
         u8"\u4e91\u7a7a\u95f4", u8"\u6587\u6863", u8"\u6587\u4ef6", u8"\u5185\u5bb9",
@@ -2330,6 +2585,49 @@ bool snapshot_matches_confirmation_previous_page(const ExecutionState& state,
     return false;
 }
 
+bool matches_confirmed_arrival_after_action(const ExecutionState& state,
+                                            const ObservationSnapshot& snapshot,
+                                            const SkillStepHint& next_step) {
+    const std::string page_context = snapshot.activity + " " + snapshot.summary;
+    if (!next_step.page.empty() && contains_runtime_match(page_context, next_step.page)) {
+        return true;
+    }
+
+    if (!next_step.activity.empty() && matches_activity_name(snapshot.activity, next_step.activity)) {
+        if (!snapshot_matches_confirmation_previous_page(state, snapshot)
+                || !step_requires_visible_target_for_arrival(next_step)) {
+            return true;
+        }
+        if (snapshot_has_step_target_visible(snapshot, next_step)) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][execution_state_arrival_confirmed_by_visible_target] page={} target={} activity={}",
+                    next_step.page,
+                    next_step.target,
+                    snapshot.activity);
+            return true;
+        }
+    }
+
+    if (snapshot_has_step_target_visible(snapshot, next_step)) {
+        const bool observation_changed = state.navigation_checkpoint.stagnant_rounds == 0;
+        const bool page_context_changed = !snapshot_matches_confirmation_previous_page(state, snapshot);
+        if (observation_changed || page_context_changed) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][execution_state_arrival_confirmed_by_next_target] page={} target={} activity={} observation_changed={} page_context_changed={}",
+                    next_step.page,
+                    next_step.target,
+                    snapshot.activity,
+                    observation_changed,
+                    page_context_changed);
+            return true;
+        }
+    }
+
+    return next_step.page.empty()
+            && next_step.activity.empty()
+            && snapshot_has_step_target_visible(snapshot, next_step);
+}
+
 bool should_retry_pending_step_confirmation(const ExecutionState& state,
                                            const ObservationSnapshot& snapshot) {
     if (state.awaiting_step_confirmation_index < 0) {
@@ -2367,6 +2665,18 @@ void record_completed_step(ExecutionState& state, const SkillStepHint& step) {
     }
 }
 
+int step_action_attempt_count(const ExecutionState& state, int step_index) {
+    const auto it = state.step_action_attempt_counts.find(step_index);
+    return it == state.step_action_attempt_counts.end() ? 0 : it->second;
+}
+
+bool step_attempt_limit_reached(const ExecutionState& state,
+                                const SkillStepHint& step,
+                                int step_index) {
+    return step.max_attempts > 0
+            && step_action_attempt_count(state, step_index) >= step.max_attempts;
+}
+
 bool step_requires_page_confirmation(const SkillStepHint& step) {
     return step.action == "tap" || step.action == "open" || step.action == "back";
 }
@@ -2391,7 +2701,16 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
 
     if (next_index < static_cast<int>(steps.size())) {
         const auto& next_step = steps[static_cast<size_t>(next_index)];
-        confirmed = matches_step_page(snapshot, next_step);
+        confirmed = matches_confirmed_arrival_after_action(state, snapshot, next_step);
+        if (!confirmed && next_step.readout) {
+            if (snapshot_has_readout_completion_signal(snapshot, next_step)) {
+                confirmed = true;
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][execution_state_readout_confirmed_by_visible_signal] target={} activity={}",
+                        next_step.target,
+                        snapshot.activity);
+            }
+        }
         if (!confirmed && next_step.readout) {
             confirmed = matches_goal_page(snapshot, state.goal)
                     || (state.route_ready
@@ -2401,6 +2720,8 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
             record_completed_step(state, current_step);
             state.pending_step_index = next_index;
             state.pending_step = build_step_json(next_step);
+            state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+            state.latest_observation_summary = snapshot.summary;
             state.phase = next_step.readout ? "readout" : "advance";
             state.goal_reached = next_step.readout
                     || ((next_index + 1) == static_cast<int>(steps.size())
@@ -2426,6 +2747,8 @@ bool confirm_pending_step_from_observation(ExecutionState& state,
         record_completed_step(state, current_step);
         state.pending_step_index = -1;
         state.pending_step = nlohmann::json::object();
+        state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+        state.latest_observation_summary = snapshot.summary;
         state.goal_reached = true;
         state.phase = "readout";
         state.mode = "free_llm";
@@ -2442,7 +2765,10 @@ void refresh_pending_step_from_observation(ExecutionState& state,
     }
 
     const auto& steps = state.active_hints->steps;
-    for (size_t i = 0; i < steps.size(); ++i) {
+    const size_t start_index = state.pending_step_index > 0
+            ? static_cast<size_t>(state.pending_step_index)
+            : 0;
+    for (size_t i = start_index; i < steps.size(); ++i) {
         if (!matches_step_page(snapshot, steps[i])) {
             continue;
         }
@@ -2569,7 +2895,7 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                 ICRAW_LOG_INFO(
                         "[AgentLoop][execution_state_step_confirmed] step_index={} current_page={} phase={}",
                         awaiting_index, state.current_page, state.phase);
-                refresh_pending_step_from_observation(state, snapshot);
+                refresh_navigation_trace_summary(state);
             } else {
                 if (state.active_hints && awaiting_index >= 0
                         && awaiting_index < static_cast<int>(state.active_hints->steps.size())) {
@@ -2706,6 +3032,13 @@ void update_execution_state_with_tool_result(ExecutionState& state,
                         current_step.target, state.last_gesture_target);
                 return;
             }
+            state.step_action_attempt_counts[state.pending_step_index]++;
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][step_action_attempt_recorded] step_index={} target={} attempt_count={} max_attempts={}",
+                    state.pending_step_index,
+                    current_step.target,
+                    state.step_action_attempt_counts[state.pending_step_index],
+                    current_step.max_attempts);
             if (step_requires_page_confirmation(current_step)) {
                 state.awaiting_step_confirmation_index = state.pending_step_index;
                 state.awaiting_confirmation_target = current_step.target.empty()
@@ -2854,10 +3187,7 @@ std::vector<ToolCall> enrich_tool_calls_for_execution(const std::vector<ToolCall
                     state.pending_step["target"].get<std::string>());
             const std::string existing_target = trim_whitespace(
                     first_string_value(tool_call.arguments, {"targetHint", "target", "pageHint"}));
-            if (!pending_target.empty()
-                    && (existing_target.empty()
-                        || (!contains_runtime_match(existing_target, pending_target)
-                            && !contains_runtime_match(pending_target, existing_target)))) {
+            if (!pending_target.empty() && existing_target.empty()) {
                 tool_call.arguments["targetHint"] = pending_target;
             }
         }
@@ -3929,6 +4259,15 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     }
 
     const SkillStepHint& step = state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+    if (step_attempt_limit_reached(state, step, state.pending_step_index)) {
+        ICRAW_LOG_INFO(
+                "[AgentLoop][fast_execute_fallback] reason=max_attempts_reached step_index={} target={} attempt_count={} max_attempts={}",
+                state.pending_step_index,
+                truncate_runtime_text(step.target, 80),
+                step_action_attempt_count(state, state.pending_step_index),
+                step.max_attempts);
+        return std::nullopt;
+    }
     if (step.action != "tap" && step.action != "open") {
         ICRAW_LOG_INFO("[AgentLoop][fast_execute_fallback] reason=unsupported_action action={}", step.action);
         return std::nullopt;
@@ -4528,7 +4867,10 @@ void rebuild_tools_for_phase(const std::vector<ToolSchema>& tool_schemas,
     request.tools.clear();
     for (const auto& schema : tool_schemas) {
         const bool is_gesture = schema.name == "android_gesture_tool";
-        const bool is_route_phase = state.phase == "discovery" && state.route_ready && !state.goal_reached;
+        const bool is_route_phase = state.phase == "discovery"
+                && state.route_ready
+                && state.latest_escalation.reason.empty()
+                && !state.goal_reached;
         const bool is_readout_phase = state.phase == "readout" || state.goal_reached;
         if (is_readout_phase) {
             continue;
@@ -4906,7 +5248,8 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
     std::vector<ToolCall> filtered;
     const auto allowed_tool_names = collect_allowed_tool_names(request);
     const bool forbid_tool_calls = request.tools.empty() || state.goal_reached || state.phase == "readout";
-    for (const auto& tool_call : tool_calls) {
+    for (const auto& original_tool_call : tool_calls) {
+        ToolCall tool_call = original_tool_call;
         if (forbid_tool_calls) {
             ICRAW_LOG_INFO(
                     "[AgentLoop][tool_call_rejected] reason=phase_disallows_tools phase={} goal_reached={} tool_name={}",
@@ -4921,6 +5264,47 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                     tool_call.name,
                     allowed_tool_names.size());
             continue;
+        }
+        if (tool_call.name == "android_gesture_tool"
+                && state.active_hints
+                && state.pending_step_index >= 0
+                && state.pending_step_index < static_cast<int>(state.active_hints->steps.size())) {
+            const auto& pending_step =
+                    state.active_hints->steps[static_cast<size_t>(state.pending_step_index)];
+            if (step_attempt_limit_reached(state, pending_step, state.pending_step_index)) {
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_call_rejected] reason=max_attempts_reached tool_name={} step_index={} target={} attempt_count={} max_attempts={}",
+                        tool_call.name,
+                        state.pending_step_index,
+                        truncate_runtime_text(pending_step.target, 80),
+                        step_action_attempt_count(state, state.pending_step_index),
+                        pending_step.max_attempts);
+                continue;
+            }
+            if (is_pull_refresh_swipe_tool_call(tool_call)
+                    && should_guard_pull_refresh_for_pending_step(pending_step)) {
+                if (step_supports_forward_scroll_search(pending_step)
+                        && tool_call.arguments.is_object()) {
+                    const std::string old_direction = first_string_value(
+                            tool_call.arguments, {"direction", "scrollDirection", "swipeDirection"});
+                    tool_call.arguments["direction"] = "down";
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][tool_call_direction_rewritten] reason=avoid_pull_refresh old_direction={} new_direction=down step_index={} target={} anchor_type={} container_role={}",
+                            old_direction,
+                            state.pending_step_index,
+                            truncate_runtime_text(pending_step.target, 80),
+                            truncate_runtime_text(pending_step.anchor_type, 60),
+                            truncate_runtime_text(pending_step.container_role, 60));
+                } else {
+                    ICRAW_LOG_INFO(
+                            "[AgentLoop][tool_call_rejected] reason=unsafe_pull_refresh_swipe tool_name={} step_index={} target={} action={}",
+                            tool_call.name,
+                            state.pending_step_index,
+                            truncate_runtime_text(pending_step.target, 80),
+                            pending_step.action);
+                    continue;
+                }
+            }
         }
         filtered.push_back(tool_call);
     }
