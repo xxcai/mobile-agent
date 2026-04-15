@@ -384,10 +384,71 @@ bool is_weak_completion_signal(const std::string& predicate) {
     return weak_signals.count(normalized) > 0;
 }
 
+bool is_time_completion_signal(const std::string& predicate) {
+    const std::string normalized = normalize_for_runtime_match(predicate);
+    return normalized.find(u8"\u65f6\u95f4") != std::string::npos
+            || normalized.find("time") != std::string::npos;
+}
+
+bool contains_clock_time_value(const std::string& text) {
+    for (size_t i = 0; i + 2 < text.size(); ++i) {
+        const unsigned char ch = static_cast<unsigned char>(text[i]);
+        if (!std::isdigit(ch)) {
+            continue;
+        }
+        size_t j = i;
+        int hour_digits = 0;
+        while (j < text.size()
+                && std::isdigit(static_cast<unsigned char>(text[j]))
+                && hour_digits < 2) {
+            j++;
+            hour_digits++;
+        }
+        if (hour_digits == 0 || j >= text.size()) {
+            continue;
+        }
+        const unsigned char separator = static_cast<unsigned char>(text[j]);
+        const bool ascii_colon = separator == ':';
+        const bool full_width_colon = j + 2 < text.size()
+                && static_cast<unsigned char>(text[j]) == 0xEF
+                && static_cast<unsigned char>(text[j + 1]) == 0xBC
+                && static_cast<unsigned char>(text[j + 2]) == 0x9A;
+        if (!ascii_colon && !full_width_colon) {
+            continue;
+        }
+        j += ascii_colon ? 1 : 3;
+        int minute_digits = 0;
+        while (j < text.size()
+                && std::isdigit(static_cast<unsigned char>(text[j]))
+                && minute_digits < 2) {
+            j++;
+            minute_digits++;
+        }
+        if (minute_digits == 2) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool matches_success_predicate_for_stop(const std::string& text,
+                                        const std::vector<std::string>& predicates) {
+    for (const auto& predicate : predicates) {
+        if (predicate.empty() || !contains_runtime_match(text, predicate)) {
+            continue;
+        }
+        if (is_time_completion_signal(predicate) && !contains_clock_time_value(text)) {
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+
 bool matches_any_strong_completion_predicate(const std::string& text,
                                              const std::vector<std::string>& predicates) {
     for (const auto& predicate : predicates) {
-        if (is_weak_completion_signal(predicate)) {
+        if (is_weak_completion_signal(predicate) || is_time_completion_signal(predicate)) {
             continue;
         }
         if (contains_runtime_match(text, predicate)) {
@@ -407,12 +468,12 @@ bool matches_stop_condition(const ObservationSnapshot& snapshot,
             ? (matches_goal_page(snapshot, goal) || contains_runtime_match(visible_context, goal))
             : matches_any_predicate(visible_context, stop_condition.content_predicates);
     const bool success_hit = !stop_condition.success_signals.empty()
-            && matches_any_predicate(visible_context, stop_condition.success_signals);
+            && matches_success_predicate_for_stop(visible_context, stop_condition.success_signals);
     const bool strong_success_hit = matches_any_strong_completion_predicate(
             visible_context, stop_condition.success_signals);
     const bool failure_hit = !stop_condition.failure_signals.empty()
             && matches_any_predicate(visible_context, stop_condition.failure_signals);
-    if (failure_hit && !success_hit) {
+    if (failure_hit && !strong_success_hit) {
         return false;
     }
     if (strong_success_hit) {
@@ -421,7 +482,7 @@ bool matches_stop_condition(const ObservationSnapshot& snapshot,
     if (success_hit && page_hit) {
         return true;
     }
-    if (page_hit && content_hit) {
+    if (page_hit && content_hit && stop_condition.success_signals.empty()) {
         return true;
     }
     if (page_hit

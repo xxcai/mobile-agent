@@ -39,6 +39,28 @@ std::string build_skill_summary_prompt(const SkillMetadata& skill) {
                 stream << i + 1 << ". " << describe_step(parsed->steps[i]) << "\n";
             }
         }
+        if (skill.execution_hints.contains("stop_condition")
+                && skill.execution_hints["stop_condition"].is_object()) {
+            const auto& stop = skill.execution_hints["stop_condition"];
+            auto append_values = [&](const std::string& label,
+                                     const std::vector<std::string>& values) {
+                if (values.empty()) {
+                    return;
+                }
+                stream << label << ": ";
+                for (size_t i = 0; i < values.size(); ++i) {
+                    if (i > 0) {
+                        stream << ", ";
+                    }
+                    stream << truncate_runtime_text(values[i], 40);
+                }
+                stream << "\n";
+            };
+            append_values("Success signals", string_array_values(stop,
+                    {"success_signals", "successSignals", "success"}));
+            append_values("Failure signals", string_array_values(stop,
+                    {"failure_signals", "failureSignals", "failure"}));
+        }
     }
     return truncate_runtime_text(stream.str(), SKILL_SUMMARY_MAX_CHARS);
 }
