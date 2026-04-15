@@ -13,6 +13,8 @@ set(ICRAW_SOURCES
         src/core/skill_loader.cpp
         src/core/prompt_builder.cpp
         src/core/agent_loop.cpp
+        src/core/agent_tool_runner.cpp
+        src/core/agent_memory_maintenance.cpp
         src/core/llm_provider.cpp
         src/core/openai_compatible_provider_base.cpp
         src/core/llm_provider_factory.cpp
@@ -38,6 +40,13 @@ set(ICRAW_HEADERS
         include/icraw/core/skill_loader.hpp
         include/icraw/core/prompt_builder.hpp
         include/icraw/core/agent_loop.hpp
+        src/core/agent_runtime_state.hpp
+        src/core/agent_route_planner.hpp
+        src/core/agent_context_manager.hpp
+        src/core/agent_observation.hpp
+        src/core/agent_navigation_executor.hpp
+        src/core/agent_candidate_matcher.hpp
+        src/core/agent_request_builder.hpp
         include/icraw/core/llm_provider.hpp
         include/icraw/core/openai_compatible_provider_base.hpp
         include/icraw/core/llm_provider_factory.hpp
