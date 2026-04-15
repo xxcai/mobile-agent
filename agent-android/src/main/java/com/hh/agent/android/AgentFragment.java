@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.graphics.Rect;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -130,6 +131,16 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         // 设置 RecyclerView
         adapter = new MessageAdapter(getContext());
         rvMessages.setLayoutManager(new LinearLayoutManager(getContext()));
+        rvMessages.addItemDecoration(new RecyclerView.ItemDecoration() {
+            private final int spacing = (int) (8 * getResources().getDisplayMetrics().density);
+            @Override
+            public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                int pos = parent.getChildAdapterPosition(view);
+                if (pos > 0) {
+                    outRect.top = spacing;
+                }
+            }
+        });
         rvMessages.setAdapter(adapter);
 
         // 设置发送按钮点击事件

@@ -8,6 +8,7 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
+import android.widget.TextView;
 import android.widget.ScrollView;
 
 import androidx.recyclerview.widget.RecyclerView;
@@ -771,8 +772,8 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         }
 
         private static String resolveViewText(View view) {
-            if (view instanceof android.widget.TextView) {
-                CharSequence text = ((android.widget.TextView) view).getText();
+            if (view instanceof TextView) {
+                CharSequence text = ((TextView) view).getText();
                 return text != null ? text.toString() : "";
             }
             CharSequence contentDescription = view.getContentDescription();

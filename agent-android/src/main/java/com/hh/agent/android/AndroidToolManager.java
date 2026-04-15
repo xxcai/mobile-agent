@@ -1,5 +1,6 @@
 package com.hh.agent.android;
 
+import android.app.Activity;
 import android.content.Context;
 import com.hh.agent.android.channel.AndroidToolChannelExecutor;
 import com.hh.agent.android.channel.DescribeShortcutChannel;
@@ -176,9 +177,9 @@ public class AndroidToolManager implements AndroidToolCallback {
         }
     }
 
-    private android.app.Activity getActivity() {
-        if (context instanceof android.app.Activity) {
-            return (android.app.Activity) context;
+    private Activity getActivity() {
+        if (context instanceof Activity) {
+            return (Activity) context;
         }
         throw new IllegalStateException("Context must be an Activity");
     }

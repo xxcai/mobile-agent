@@ -1,9 +1,12 @@
 package com.hh.agent.android.glow;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
+import android.os.Build;
 import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -69,7 +72,7 @@ public class EdgeGlowView extends GLSurfaceView {
     private void applyScreenCornerRadius(Context context) {
         float cornerRadius = EdgeGlowRenderer.DEFAULT_CORNER_RADIUS;
 
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (Build.VERSION.SDK_INT >= 31) {
             DisplayManager dm = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
             if (dm != null) {
                 Display display = dm.getDisplay(Display.DEFAULT_DISPLAY);
@@ -177,9 +180,9 @@ public class EdgeGlowView extends GLSurfaceView {
                 renderer.setAlpha(value);
             }
         });
-        animator.addListener(new android.animation.AnimatorListenerAdapter() {
+        animator.addListener(new AnimatorListenerAdapter() {
             @Override
-            public void onAnimationEnd(android.animation.Animator animation) {
+            public void onAnimationEnd(Animator animation) {
                 // cancel() 也会触发 onAnimationEnd，但此时 active 已被新值覆盖，
                 // 不应执行消失回调，否则快速切换会把悬浮窗误删
                 if (animation instanceof ValueAnimator && ((ValueAnimator) animation).isRunning()) {

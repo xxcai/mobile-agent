@@ -1,5 +1,6 @@
 package com.hh.agent.android.channel;
 
+import android.app.Activity;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.android.viewcontext.RuntimeViewContextSourceResolver;
 import com.hh.agent.android.viewcontext.ViewContextSourceSelection;
@@ -40,7 +41,7 @@ public class ViewContextToolChannel implements AndroidToolChannelExecutor {
                         new com.hh.agent.android.viewcontext.ViewContextSourceSelector(null),
                         new com.hh.agent.android.viewcontext.WebViewAreaFallbackSourceResolver() {
                             @Override
-                            public ViewContextSourceSelection resolve(android.app.Activity activity) {
+                            public ViewContextSourceSelection resolve(Activity activity) {
                                 return ViewContextSourceSelection.fallbackResolved(SOURCE_NATIVE_XML);
                             }
                         },
