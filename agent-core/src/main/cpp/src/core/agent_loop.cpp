@@ -23,518 +23,9 @@
 
 namespace icraw {
 
-// Helper to generate unique tool call IDs (must be defined before use)
-static std::string generate_tool_id() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<> dis(0, 15);
-
-    std::string id = "toolu_";
-    for (int i = 0; i < 24; ++i) {
-        int val = dis(gen);
-        id += (val < 10) ? ('0' + val) : ('a' + val - 10);
-    }
-    return id;
-}
-
-static std::string trim_whitespace(const std::string& text) {
-    const size_t start = text.find_first_not_of(" \t\n\r");
-    if (start == std::string::npos) {
-        return "";
-    }
-    const size_t end = text.find_last_not_of(" \t\n\r");
-    return text.substr(start, end - start + 1);
-}
-
-static std::string remove_markdown_section(const std::string& markdown,
-                                           const std::string& heading) {
-    if (markdown.empty() || heading.empty()) {
-        return markdown;
-    }
-
-    const std::string marker = "# " + heading + "\n";
-    const size_t section_begin = markdown.find(marker);
-    if (section_begin == std::string::npos) {
-        return markdown;
-    }
-
-    const size_t next_heading_break = markdown.find("\n# ", section_begin + marker.size());
-    const size_t section_end = next_heading_break == std::string::npos
-            ? markdown.size()
-            : next_heading_break + 1;
-
-    std::string prefix = markdown.substr(0, section_begin);
-    std::string suffix = section_end < markdown.size() ? markdown.substr(section_end) : "";
-
-    while (!prefix.empty() && (prefix.back() == '\n' || prefix.back() == '\r')) {
-        prefix.pop_back();
-    }
-    while (!suffix.empty() && (suffix.front() == '\n' || suffix.front() == '\r')) {
-        suffix.erase(suffix.begin());
-    }
-
-    if (prefix.empty()) {
-        return suffix;
-    }
-    if (suffix.empty()) {
-        return prefix;
-    }
-    return prefix + "\n\n" + suffix;
-}
-
-static std::string build_readout_system_prompt(const std::string& system_prompt) {
-    std::string reduced = remove_markdown_section(system_prompt, "Available Skills");
-    reduced = remove_markdown_section(reduced, "Available Tools");
-    reduced = remove_markdown_section(reduced, "Memory");
-    return reduced;
-}
-
-static void append_text_block_if_not_empty(std::vector<ContentBlock>& blocks,
-                                           const std::string& text) {
-    if (!text.empty()) {
-        blocks.push_back(ContentBlock::make_text(text));
-    }
-}
-
-static void append_think_block_if_not_empty(std::vector<ContentBlock>& blocks,
-                                            const std::string& text) {
-    const std::string trimmed = trim_whitespace(text);
-    if (!trimmed.empty()) {
-        blocks.push_back(ContentBlock::make_think(trimmed));
-    }
-}
-
-static std::vector<ContentBlock> build_response_blocks(const std::string& visible_text,
-                                                       const std::string& reasoning_text) {
-    std::vector<ContentBlock> blocks;
-    append_think_block_if_not_empty(blocks, reasoning_text);
-    append_text_block_if_not_empty(blocks, visible_text);
-    return blocks;
-}
-
 namespace {
 
-constexpr int CONTEXT_RECENT_TOOL_RESULT_MAX_CHARS = 32000;
-constexpr int CONTEXT_OLDER_TOOL_RESULT_MAX_CHARS = 12000;
-constexpr size_t CONTEXT_DETAILED_TOOL_RESULT_COUNT = 3;
-constexpr size_t EXECUTION_STATE_MAX_TOOL_EVENTS = 3;
-constexpr size_t EXECUTION_STATE_MAX_OBJECTIVE_CHARS = 220;
-constexpr size_t EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS = 180;
-
-std::string truncate_runtime_text(const std::string& text, size_t max_chars);
-
-int count_tool_result_messages(const std::vector<Message>& messages) {
-    int count = 0;
-    for (const auto& message : messages) {
-        if (message.role != "tool") {
-            continue;
-        }
-        for (const auto& block : message.content) {
-            if (block.type == "tool_result") {
-                count++;
-                break;
-            }
-        }
-    }
-    return count;
-}
-
-}  // namespace
-
-std::string summarize_tool_result_for_state(const std::string& tool_name,
-                                            const std::string& content) {
-    auto summarize_text = [](const std::string& text, size_t max_chars) {
-        return truncate_runtime_text(text, max_chars);
-    };
-
-    try {
-        const auto json = nlohmann::json::parse(content);
-        if (!json.is_object()) {
-            return summarize_text(content, EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
-        }
-
-        std::vector<std::string> parts;
-        if (json.contains("success")) {
-            parts.push_back(std::string("success=") + (json["success"].get<bool>() ? "true" : "false"));
-        }
-        if (json.contains("error") && json["error"].is_string()) {
-            parts.push_back("error=" + summarize_text(json["error"].get<std::string>(), 80));
-        }
-        if (json.contains("activityClassName") && json["activityClassName"].is_string()) {
-            parts.push_back("activity=" + json["activityClassName"].get<std::string>());
-        }
-        if (json.contains("source") && json["source"].is_string()) {
-            parts.push_back("source=" + json["source"].get<std::string>());
-        }
-        if (json.contains("visualObservationMode") && json["visualObservationMode"].is_string()) {
-            parts.push_back("visual=" + json["visualObservationMode"].get<std::string>());
-        }
-        if (json.contains("hybridObservation") && json["hybridObservation"].is_object()) {
-            const auto& hybrid = json["hybridObservation"];
-            if (hybrid.contains("summary") && hybrid["summary"].is_string()) {
-                parts.push_back("summary=" + summarize_text(hybrid["summary"].get<std::string>(), 80));
-            }
-        }
-        if (json.contains("message") && json["message"].is_string()) {
-            parts.push_back("message=" + summarize_text(json["message"].get<std::string>(), 80));
-        }
-        if (json.contains("result") && json["result"].is_string()) {
-            parts.push_back("result=" + summarize_text(json["result"].get<std::string>(), 80));
-        }
-
-        std::ostringstream stream;
-        stream << tool_name;
-        if (!parts.empty()) {
-            stream << " -> ";
-            for (size_t i = 0; i < parts.size(); ++i) {
-                if (i > 0) {
-                    stream << ", ";
-                }
-                stream << parts[i];
-            }
-        }
-        return summarize_text(stream.str(), EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
-    } catch (...) {
-        return summarize_text(tool_name + " -> " + content, EXECUTION_STATE_MAX_TOOL_SUMMARY_CHARS);
-    }
-}
-
-std::vector<std::string> collect_recent_tool_events(const std::vector<Message>& messages) {
-    std::unordered_map<std::string, std::string> tool_names_by_id;
-    for (const auto& message : messages) {
-        if (message.role != "assistant") {
-            continue;
-        }
-        for (const auto& tool_call : message.tool_calls) {
-            if (!tool_call.id.empty() && !tool_call.function_name.empty()) {
-                tool_names_by_id[tool_call.id] = tool_call.function_name;
-            }
-        }
-    }
-
-    std::vector<std::string> events;
-    for (auto it = messages.rbegin(); it != messages.rend() && events.size() < EXECUTION_STATE_MAX_TOOL_EVENTS; ++it) {
-        if (it->role != "tool" || it->content.empty()) {
-            continue;
-        }
-        const auto tool_name_it = tool_names_by_id.find(it->tool_call_id);
-        const std::string tool_name = tool_name_it == tool_names_by_id.end() ? "tool" : tool_name_it->second;
-        for (const auto& block : it->content) {
-            if (block.type != "tool_result") {
-                continue;
-            }
-            events.push_back(summarize_tool_result_for_state(tool_name, block.content));
-            break;
-        }
-    }
-    std::reverse(events.begin(), events.end());
-    return events;
-}
-
-std::string build_execution_state_prompt(const std::string& objective,
-                                         int iteration,
-                                         const std::vector<Message>& messages) {
-    const auto recent_tool_events = collect_recent_tool_events(messages);
-    if (iteration <= 1 || recent_tool_events.empty()) {
-        return "";
-    }
-
-    const std::string objective_trimmed = trim_whitespace(objective);
-    const std::string objective_compact = objective_trimmed.size() <= EXECUTION_STATE_MAX_OBJECTIVE_CHARS
-            ? objective_trimmed
-            : objective_trimmed.substr(0, EXECUTION_STATE_MAX_OBJECTIVE_CHARS) + "...";
-    const std::string last_event = recent_tool_events.back();
-
-    std::ostringstream prompt;
-    prompt << "# Turn Execution State\n\n";
-    prompt << "Primary objective: " << objective_compact << "\n";
-    prompt << "Current iteration: " << iteration << "\n";
-    prompt << "Execution policy:\n";
-    prompt << "- Continue from the latest confirmed progress toward the same objective.\n";
-    prompt << "- Do not restart planning from scratch unless the latest tool result proves the plan is blocked or the objective is already complete.\n";
-    prompt << "- Reuse any skill or plan already established in this turn instead of re-reading or re-deriving it.\n";
-    if (last_event.find("android_gesture_tool") != std::string::npos) {
-        prompt << "- The last concrete action was a gesture. Prefer a fresh observation next to confirm the new page state.\n";
-    } else if (last_event.find("android_view_context_tool") != std::string::npos) {
-        prompt << "- The last concrete action was an observation. Prefer the next concrete action that advances the same objective using that observation.\n";
-    }
-    prompt << "\nRecent confirmed tool events:\n";
-    for (size_t i = 0; i < recent_tool_events.size(); ++i) {
-        prompt << i + 1 << ". " << recent_tool_events[i] << "\n";
-    }
-    return prompt.str();
-}
-
-void inject_execution_state_into_request(ChatCompletionRequest& request,
-                                         const std::string& execution_state_prompt) {
-    if (execution_state_prompt.empty()) {
-        return;
-    }
-
-    for (auto& msg : request.messages) {
-        if (msg.role != "system") {
-            continue;
-        }
-
-        std::string merged = msg.text();
-        if (!merged.empty() && merged.back() != '\n') {
-            merged += '\n';
-        }
-        merged += "\n[Execution State]\n";
-        merged += execution_state_prompt;
-
-        msg.content.clear();
-        msg.content.push_back(ContentBlock::make_text(std::move(merged)));
-        return;
-    }
-
-    request.messages.insert(request.messages.begin(), Message("system", execution_state_prompt));
-}
-
-namespace {
-
-constexpr size_t CONTEXT_KEEP_FULL_OBSERVATION_COUNT = 1;
-constexpr size_t CONTEXT_KEEP_RECENT_ASSISTANT_COUNT = 2;
-constexpr int CONTEXT_TOTAL_SOFT_MAX_CHARS = 60000;
-constexpr int CONTEXT_READOUT_SOFT_MAX_CHARS = 40000;
-constexpr int CONTEXT_OLDER_ASSISTANT_MAX_CHARS = 600;
-constexpr int CONTEXT_MIN_SUMMARY_MAX_CHARS = 900;
-constexpr int TOOL_RESULT_SUMMARY_MAX_CHARS = 1200;
-constexpr int PLANNED_ADVANCE_OBSERVATION_MAX_CHARS = 7000;
-constexpr int NAVIGATION_ESCALATION_OBSERVATION_MAX_CHARS = 4200;
-constexpr int READOUT_OBSERVATION_MAX_CHARS = 2600;
-constexpr size_t OBSERVATION_SUMMARY_ACTIONABLE_COUNT = 4;
-constexpr size_t CANONICAL_CANDIDATE_SUMMARY_COUNT = 6;
-constexpr size_t SKILL_PRELOAD_MAX_COUNT = 2;
-constexpr size_t SKILL_PRELOAD_MAX_TOTAL_CHARS = 20000;
-constexpr size_t SKILL_SUMMARY_MAX_CHARS = 1200;
-constexpr double FAST_EXECUTE_NATIVE_SCORE_MIN = 0.82;
-constexpr double FAST_EXECUTE_VISION_ONLY_SCORE_MIN = 0.97;
-constexpr size_t OBSERVATION_VISIBLE_TEXT_MAX_CHARS = 16000;
-constexpr bool COMPACT_NAVIGATION_ESCALATION_ENABLED = false;
-
-constexpr int kMaxPendingConfirmationRetries = 1;
-constexpr auto kPendingConfirmationRetryDelay = std::chrono::milliseconds(350);
-
-enum class LlmRequestProfileKind {
-    Route,
-    NavigationEscalation,
-    ToolCall,
-    Readout,
-    FinalAnswer
-};
-
-struct LlmRequestProfile {
-    LlmRequestProfileKind kind = LlmRequestProfileKind::ToolCall;
-    double temperature = 0.7;
-    int max_tokens = 4096;
-    PayloadLogMode payload_log_mode = PayloadLogMode::Summary;
-};
-
-const char* llm_request_profile_name(LlmRequestProfileKind kind) {
-    switch (kind) {
-        case LlmRequestProfileKind::Route:
-            return "route";
-        case LlmRequestProfileKind::NavigationEscalation:
-            return "navigation_escalation";
-        case LlmRequestProfileKind::Readout:
-            return "readout";
-        case LlmRequestProfileKind::FinalAnswer:
-            return "final_answer";
-        case LlmRequestProfileKind::ToolCall:
-        default:
-            return "tool_call";
-    }
-}
-
-LlmRequestProfile resolve_llm_request_profile(const AgentConfig& config,
-                                             const ExecutionState& state,
-                                             const ChatCompletionRequest& request) {
-    LlmRequestProfile profile;
-    profile.temperature = config.temperature;
-    profile.max_tokens = config.max_tokens;
-
-    if (request.request_profile == "route") {
-        profile.kind = LlmRequestProfileKind::Route;
-        profile.max_tokens = std::min(config.max_tokens, 512);
-        profile.temperature = std::min(config.temperature, 0.20);
-        return profile;
-    }
-
-    if (request.request_profile == "navigation_escalation" || !state.latest_escalation.reason.empty()) {
-        profile.kind = LlmRequestProfileKind::NavigationEscalation;
-        profile.max_tokens = std::min(config.max_tokens, 640);
-        profile.temperature = std::min(config.temperature, 0.15);
-        return profile;
-    }
-
-    if (state.goal_reached || state.phase == "readout" || request.request_profile == "readout") {
-        profile.kind = LlmRequestProfileKind::Readout;
-        profile.max_tokens = std::min(config.max_tokens, 1280);
-        profile.temperature = std::min(config.temperature, 0.45);
-        return profile;
-    }
-
-    if (request.tools.empty()) {
-        profile.kind = LlmRequestProfileKind::FinalAnswer;
-        profile.max_tokens = std::min(config.max_tokens, 1536);
-        profile.temperature = std::min(config.temperature, 0.45);
-        return profile;
-    }
-
-    profile.kind = LlmRequestProfileKind::ToolCall;
-    profile.max_tokens = std::min(config.max_tokens, 640);
-    profile.temperature = std::min(config.temperature, 0.20);
-    return profile;
-}
-
-void apply_llm_request_profile(ChatCompletionRequest& request,
-                               const LlmRequestProfile& profile) {
-    request.temperature = profile.temperature;
-    request.max_tokens = profile.max_tokens;
-    request.request_profile = llm_request_profile_name(profile.kind);
-    request.payload_log_mode = profile.payload_log_mode;
-}
-size_t utf8_safe_truncation_index(const std::string& text, size_t max_chars) {
-    if (text.size() <= max_chars) {
-        return text.size();
-    }
-    size_t index = max_chars;
-    while (index > 0 && (static_cast<unsigned char>(text[index]) & 0xC0u) == 0x80u) {
-        index--;
-    }
-    if (index == 0) {
-        return max_chars;
-    }
-    const unsigned char lead = static_cast<unsigned char>(text[index]);
-    size_t sequence_length = 1;
-    if ((lead & 0x80u) == 0x00u) {
-        sequence_length = 1;
-    } else if ((lead & 0xE0u) == 0xC0u) {
-        sequence_length = 2;
-    } else if ((lead & 0xF0u) == 0xE0u) {
-        sequence_length = 3;
-    } else if ((lead & 0xF8u) == 0xF0u) {
-        sequence_length = 4;
-    }
-    if (index + sequence_length > max_chars) {
-        return index;
-    }
-    return max_chars;
-}
-
-std::string truncate_runtime_text(const std::string& text, size_t max_chars) {
-    const std::string trimmed = trim_whitespace(text);
-    if (trimmed.size() <= max_chars) {
-        return trimmed;
-    }
-    const size_t safe_index = utf8_safe_truncation_index(trimmed, max_chars);
-    return trimmed.substr(0, safe_index) + "...";
-}
-
-std::string normalize_for_runtime_match(const std::string& text) {
-    std::string normalized;
-    normalized.reserve(text.size());
-    for (unsigned char ch : text) {
-        if (std::isalnum(ch)) {
-            normalized.push_back(static_cast<char>(std::tolower(ch)));
-            continue;
-        }
-        if (ch >= 0x80) {
-            normalized.push_back(static_cast<char>(ch));
-        }
-    }
-    return normalized;
-}
-
-bool contains_runtime_match(const std::string& haystack, const std::string& needle) {
-    const std::string normalized_needle = normalize_for_runtime_match(needle);
-    if (normalized_needle.empty()) {
-        return false;
-    }
-    return normalize_for_runtime_match(haystack).find(normalized_needle) != std::string::npos;
-}
-
-std::string first_string_value(const nlohmann::json& object,
-                               const std::vector<std::string>& keys) {
-    if (!object.is_object()) {
-        return "";
-    }
-    for (const auto& key : keys) {
-        if (!object.contains(key) || !object[key].is_string()) {
-            continue;
-        }
-        return trim_whitespace(object[key].get<std::string>());
-    }
-    return "";
-}
-
-nlohmann::json build_string_array_json(const std::vector<std::string>& values) {
-    nlohmann::json array = nlohmann::json::array();
-    for (const auto& value : values) {
-        if (!value.empty()) {
-            array.push_back(value);
-        }
-    }
-    return array;
-}
-
-std::vector<std::string> string_array_values(const nlohmann::json& object,
-                                             const std::vector<std::string>& keys) {
-    std::vector<std::string> values;
-    if (!object.is_object()) {
-        return values;
-    }
-    for (const auto& key : keys) {
-        if (!object.contains(key)) {
-            continue;
-        }
-        const auto& value = object[key];
-        if (value.is_string()) {
-            const std::string text = trim_whitespace(value.get<std::string>());
-            if (!text.empty()) {
-                values.push_back(text);
-            }
-            continue;
-        }
-        if (!value.is_array()) {
-            continue;
-        }
-        for (const auto& item : value) {
-            if (!item.is_string()) {
-                continue;
-            }
-            const std::string text = trim_whitespace(item.get<std::string>());
-            if (!text.empty()) {
-                values.push_back(text);
-            }
-        }
-        if (!values.empty()) {
-            break;
-        }
-    }
-    return values;
-}
-
-nlohmann::json append_unique_strings(const nlohmann::json& values) {
-    std::set<std::string> unique_values;
-    if (values.is_array()) {
-        for (const auto& item : values) {
-            if (!item.is_string()) {
-                continue;
-            }
-            const std::string value = trim_whitespace(item.get<std::string>());
-            if (!value.empty()) {
-                unique_values.insert(value);
-            }
-        }
-    }
-    nlohmann::json array = nlohmann::json::array();
-    for (const auto& value : unique_values) {
-        array.push_back(value);
-    }
-    return array;
-}
+#include "agent_runtime_utils.hpp"
 
 // The refactor keeps AgentLoop as the turn orchestrator and moves policy-heavy
 // logic into internal slices. These files are included inside this anonymous
@@ -555,53 +46,7 @@ nlohmann::json append_unique_strings(const nlohmann::json& values) {
 
 #include "agent_request_builder.hpp"
 
-using ToolExecutionFn = std::function<std::vector<ContentBlock>(const std::vector<ToolCall>&)>;
-
-void emit_tool_use_event_if_needed(const AgentEventCallback& callback, const ToolCall& tool_call) {
-    if (!callback) {
-        return;
-    }
-    AgentEvent tool_use_event;
-    tool_use_event.type = "tool_use";
-    tool_use_event.data["id"] = tool_call.id;
-    tool_use_event.data["name"] = tool_call.name;
-    tool_use_event.data["input"] = tool_call.arguments;
-    callback(tool_use_event);
-}
-
-void emit_tool_result_event_if_needed(const AgentEventCallback& callback, const ContentBlock& result) {
-    if (!callback) {
-        return;
-    }
-    AgentEvent tool_result_event;
-    tool_result_event.type = "tool_result";
-    tool_result_event.data["tool_use_id"] = result.tool_use_id;
-    tool_result_event.data["content"] = result.content;
-    callback(tool_result_event);
-}
-
-Message build_tool_result_message(const ContentBlock& result) {
-    Message tool_msg;
-    tool_msg.role = "tool";
-    tool_msg.tool_call_id = result.tool_use_id;
-    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
-    return tool_msg;
-}
-
-void append_tool_result_and_update_state(std::vector<Message>& new_messages,
-                                         ChatCompletionRequest& request,
-                                         ExecutionState& execution_state,
-                                         const ContentBlock& result,
-                                         const ToolCall* executed_tool_call,
-                                         const std::string& tool_name,
-                                         const AgentEventCallback& callback) {
-    Message tool_msg = build_tool_result_message(result);
-    new_messages.push_back(tool_msg);
-    request.messages.push_back(std::move(tool_msg));
-    update_execution_state_with_tool_result(
-            execution_state, executed_tool_call, tool_name, result.content);
-    emit_tool_result_event_if_needed(callback, result);
-}
+#include "agent_tool_orchestrator.hpp"
 
 bool try_run_deterministic_navigation_step(ChatCompletionRequest& request,
                                            std::vector<Message>& new_messages,
@@ -695,36 +140,18 @@ bool try_run_deterministic_navigation_step(ChatCompletionRequest& request,
         const auto latest_observation = find_latest_tool_result_content(
                 request.messages, "android_view_context_tool");
         if (latest_observation.has_value()) {
-            auto fast_tool_call = maybe_build_fast_execute_tool_call(
-                    execution_state, latest_observation.value());
-            if (fast_tool_call.has_value()) {
-                Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
-                new_messages.push_back(fast_assistant);
-                request.messages.push_back(fast_assistant);
-                emit_tool_use_event_if_needed(callback, *fast_tool_call);
-
-                std::vector<ToolCall> fast_calls{*fast_tool_call};
-                auto fast_phase_start = std::chrono::steady_clock::now();
-                auto fast_results = execute_tools(fast_calls);
-                auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - fast_phase_start).count();
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][tool_phase_duration_ms] mode={} iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
-                        mode,
-                        iteration,
-                        fast_calls.size(),
-                        fast_phase_duration_ms);
-                for (const auto& fast_result : fast_results) {
-                    append_tool_result_and_update_state(
-                            new_messages,
-                            request,
-                            execution_state,
-                            fast_result,
-                            &(*fast_tool_call),
-                            fast_tool_call->name,
-                            callback);
-                }
-                deterministic_navigation_executed = !fast_results.empty();
+            const auto fast_attempt = maybe_run_fast_execute_from_observation(
+                    request,
+                    new_messages,
+                    execution_state,
+                    latest_observation.value(),
+                    iteration,
+                    mode,
+                    execute_tools,
+                    callback,
+                    "navigation_fast_execute");
+            if (fast_attempt.attempted) {
+                deterministic_navigation_executed = fast_attempt.executed;
             } else {
                 execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
                 execution_state.latest_escalation.detail =
@@ -738,17 +165,7 @@ bool try_run_deterministic_navigation_step(ChatCompletionRequest& request,
         }
     }
 
-    if (execution_state.goal_reached && !execution_state.context_reset) {
-        // Once the stop condition is hit, discard navigation history before
-        // readout so the final model call only reads target-page content.
-        reset_messages_for_readout(request.messages, execution_state);
-        execution_state.context_reset = true;
-        ICRAW_LOG_INFO(
-                "[AgentLoop][goal_reached_context_reset] mode={} phase={} current_page={}",
-                mode,
-                execution_state.phase,
-                execution_state.current_page);
-    }
+    reset_context_for_readout_if_needed(request, execution_state, mode);
 
     return deterministic_navigation_executed;
 }
@@ -821,23 +238,8 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     // Stage 1: seed the provider request with stable turn inputs. Later phases
     // may build a slimmer effective_request, but request remains the canonical
     // transcript used for tool result replay and ExecutionState updates.
-    ChatCompletionRequest request;
-    request.model = agent_config_.model;
-    request.temperature = agent_config_.temperature;
-    request.max_tokens = agent_config_.max_tokens;
-    request.enable_thinking = agent_config_.enable_thinking;
-    request.stream = false;
-
-    // Add system message
-    request.messages.emplace_back("system", system_prompt);
-
-    // Add history
-    for (const auto& msg : history) {
-        request.messages.push_back(msg);
-    }
-
-    // Add user message
-    request.messages.emplace_back("user", message);
+    ChatCompletionRequest request =
+            build_turn_request(agent_config_, false, system_prompt, history, message);
 
     // Stage 2: resolve route/navigation/readout intent from the user message
     // and selected skills. Known skills can resolve locally from execution_hints;
@@ -846,15 +248,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
     maybe_resolve_route_with_llm(execution_state, agent_config_, llm_provider_.get(), message, selected_skills);
     rebuild_tools_for_phase(tool_schemas, execution_state, request);
-    if (execution_state.route_ready) {
-        ICRAW_LOG_INFO(
-                "[AgentLoop][route_resolved] task_type={} selected_skill={} navigation_goal={} readout_goal={} stop_requires_readout={}",
-                execution_state.intent_route.task_type,
-                execution_state.intent_route.selected_skill,
-                execution_state.intent_route.navigation_goal,
-                execution_state.intent_route.readout_goal,
-                execution_state.intent_route.stop_condition.requires_readout);
-    }
+    log_route_resolved_if_needed(execution_state, "non_stream");
 
     // Stage 3: run the turn loop. Each pass first gives the local navigation
     // state machine a chance to advance without spending an LLM round.
@@ -879,44 +273,15 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         // Stage 4: fallback/normal LLM step. The effective request is rebuilt
         // for the current phase, so route/navigation/readout can use different
         // tool sets, token budgets, and context compaction rules.
-        const bool has_navigation_escalation = !execution_state.latest_escalation.reason.empty();
-        const bool use_compact_navigation_escalation_request =
-                COMPACT_NAVIGATION_ESCALATION_ENABLED && has_navigation_escalation;
-        if (has_navigation_escalation && !use_compact_navigation_escalation_request) {
-            ICRAW_LOG_INFO(
-                    "[AgentLoop][navigation_escalation_compact_disabled] mode=non_stream iteration={} reason={}",
-                    iteration,
-                    execution_state.latest_escalation.reason);
-        }
-        ChatCompletionRequest effective_request = use_compact_navigation_escalation_request
-                ? build_compact_navigation_escalation_chat_request(
-                        request, message, tool_schemas, execution_state)
-                : request;
-        if (!use_compact_navigation_escalation_request) {
-            rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
-            inject_selected_skills_into_request(effective_request, selected_skills, iteration);
-            inject_navigation_escalation_into_request(effective_request, execution_state);
-            const std::string execution_state_prompt =
-                    build_execution_state_prompt_v2(execution_state, iteration);
-            if (!execution_state_prompt.empty()) {
-                inject_execution_state_into_request(effective_request, execution_state_prompt);
-                ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=non_stream iteration={} prompt_length={}",
-                        iteration, execution_state_prompt.size());
-            }
-        } else {
-            ICRAW_LOG_INFO("[AgentLoop][navigation_escalation_request_selected] mode=non_stream iteration={} reason={}",
-                    iteration, execution_state.latest_escalation.reason);
-        }
-        ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
-                execution_state.mode, execution_state.phase, iteration);
-
-        const auto llm_request_profile = resolve_llm_request_profile(agent_config_, execution_state, effective_request);
-        apply_llm_request_profile(effective_request, llm_request_profile);
-        ICRAW_LOG_INFO("[AgentLoop][request_profile] mode=non_stream iteration={} profile={} max_tokens={} temperature={}",
+        ChatCompletionRequest effective_request = build_effective_request_for_iteration(
+                request,
+                message,
+                tool_schemas,
+                selected_skills,
+                execution_state,
+                agent_config_,
                 iteration,
-                effective_request.request_profile,
-                effective_request.max_tokens,
-                effective_request.temperature);
+                "non_stream");
 
         // Call LLM
         auto response = llm_provider_->chat_completion(effective_request);
@@ -930,18 +295,7 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
         auto filtered_tool_calls = filter_tool_calls_for_request(
                 response.tool_calls, effective_request, execution_state);
 
-        // Add tool_calls as separate field (OpenAI format)
-        for (const auto& tc : filtered_tool_calls) {
-            std::string tool_id = tc.id.empty() ? generate_tool_id() : tc.id;
-            ToolCallForMessage tc_msg;
-            tc_msg.id = tool_id;
-            tc_msg.type = "function";
-            tc_msg.function_name = tc.name;
-            tc_msg.function_arguments = tc.arguments.is_string()
-                ? tc.arguments.get<std::string>()
-                : tc.arguments.dump();
-            assistant_msg.tool_calls.push_back(std::move(tc_msg));
-        }
+        append_tool_calls_to_assistant_message(assistant_msg, filtered_tool_calls);
 
         new_messages.push_back(assistant_msg);
         request.messages.push_back(assistant_msg);
@@ -987,91 +341,14 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
             break;
         }
 
-        // Execute tool calls
-        auto tool_phase_start = std::chrono::steady_clock::now();
-        auto tool_calls_for_execution = enrich_tool_calls_for_execution(
-                filtered_tool_calls, execution_state, request.messages);
-        auto tool_results = handle_tool_calls(tool_calls_for_execution);
-        auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - tool_phase_start).count();
-        ICRAW_LOG_INFO(
-                "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=primary tool_call_count={} duration_ms={}",
+        execute_tool_calls_and_maybe_fast_execute(
+                request,
+                new_messages,
+                execution_state,
+                filtered_tool_calls,
                 iteration,
-                tool_calls_for_execution.size(),
-                tool_phase_duration_ms);
-
-        // Add tool results
-        for (size_t i = 0; i < tool_results.size(); ++i) {
-            const auto& result = tool_results[i];
-            Message tool_msg;
-            tool_msg.role = "tool";
-            tool_msg.tool_call_id = result.tool_use_id;
-            tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
-            new_messages.push_back(tool_msg);
-            request.messages.push_back(tool_msg);
-            const std::string tool_name = i < tool_calls_for_execution.size()
-                    ? tool_calls_for_execution[i].name
-                    : "tool";
-            const ToolCall* executed_tool_call = i < tool_calls_for_execution.size()
-                    ? &tool_calls_for_execution[i]
-                    : nullptr;
-            update_execution_state_with_tool_result(
-                    execution_state, executed_tool_call, tool_name, result.content);
-        }
-
-        if (execution_state.goal_reached && !execution_state.context_reset) {
-            // Tool-driven observations can also detect the target page. Reset
-            // immediately so the next iteration becomes a clean readout call.
-            reset_messages_for_readout(request.messages, execution_state);
-            execution_state.context_reset = true;
-            ICRAW_LOG_INFO("[AgentLoop][goal_reached_context_reset] mode=non_stream phase={} current_page={}",
-                    execution_state.phase, execution_state.current_page);
-        }
-
-        if (!tool_results.empty()) {
-            const std::string last_tool_name = tool_calls_for_execution.back().name;
-            if (last_tool_name == "android_view_context_tool") {
-                // LLM may request an observation first; when that observation
-                // gives a unique candidate, execute the next tap locally instead
-                // of spending another model round.
-                auto fast_tool_call = maybe_build_fast_execute_tool_call(
-                        execution_state, tool_results.back().content);
-                if (fast_tool_call.has_value()) {
-                    Message fast_assistant_msg;
-                    fast_assistant_msg.role = "assistant";
-                    ToolCallForMessage tc_msg;
-                    tc_msg.id = fast_tool_call->id;
-                    tc_msg.type = "function";
-                    tc_msg.function_name = fast_tool_call->name;
-                    tc_msg.function_arguments = fast_tool_call->arguments.dump();
-                    fast_assistant_msg.tool_calls.push_back(std::move(tc_msg));
-                    new_messages.push_back(fast_assistant_msg);
-                    request.messages.push_back(fast_assistant_msg);
-
-                    std::vector<ToolCall> fast_calls{*fast_tool_call};
-                    auto fast_tool_phase_start = std::chrono::steady_clock::now();
-                    auto fast_results = handle_tool_calls(fast_calls);
-                    auto fast_tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - fast_tool_phase_start).count();
-                    ICRAW_LOG_INFO(
-                            "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=fast_execute tool_call_count={} duration_ms={}",
-                            iteration,
-                            fast_calls.size(),
-                            fast_tool_phase_duration_ms);
-                    for (const auto& fast_result : fast_results) {
-                        Message fast_tool_msg;
-                        fast_tool_msg.role = "tool";
-                        fast_tool_msg.tool_call_id = fast_result.tool_use_id;
-                        fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
-                                fast_result.tool_use_id, fast_result.content));
-                        new_messages.push_back(fast_tool_msg);
-                        request.messages.push_back(fast_tool_msg);
-                        update_execution_state_with_tool_result(
-                                execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
-                    }
-                }
-            }
-        }
+                "non_stream",
+                execute_tools);
     }
 
     auto loop_end_time = std::chrono::steady_clock::now();
@@ -1096,23 +373,8 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
     // Stage 1 mirrors non-stream mode: keep request as the canonical transcript
     // and build phase-specific effective requests only when invoking the model.
-    ChatCompletionRequest request;
-    request.model = agent_config_.model;
-    request.temperature = agent_config_.temperature;
-    request.max_tokens = agent_config_.max_tokens;
-    request.enable_thinking = agent_config_.enable_thinking;
-    request.stream = true;
-
-    // Add system message
-    request.messages.emplace_back("system", system_prompt);
-
-    // Add history
-    for (const auto& msg : history) {
-        request.messages.push_back(msg);
-    }
-
-    // Add user message
-    request.messages.emplace_back("user", message);
+    ChatCompletionRequest request =
+            build_turn_request(agent_config_, true, system_prompt, history, message);
 
     // Stage 2 resolves the route before the main loop so navigation can often
     // proceed locally without waiting for a model decision on every step.
@@ -1120,15 +382,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     ExecutionState execution_state = initialize_execution_state(message, selected_skills);
     maybe_resolve_route_with_llm(execution_state, agent_config_, llm_provider_.get(), message, selected_skills);
     rebuild_tools_for_phase(tool_schemas, execution_state, request);
-    if (execution_state.route_ready) {
-        ICRAW_LOG_INFO(
-                "[AgentLoop][route_resolved] mode=stream task_type={} selected_skill={} navigation_goal={} readout_goal={} stop_requires_readout={}",
-                execution_state.intent_route.task_type,
-                execution_state.intent_route.selected_skill,
-                execution_state.intent_route.navigation_goal,
-                execution_state.intent_route.readout_goal,
-                execution_state.intent_route.stop_condition.requires_readout);
-    }
+    log_route_resolved_if_needed(execution_state, "stream");
 
     // Stage 3 mirrors non-stream mode, with callbacks emitted around local tool
     // execution so observers see deterministic navigation progress too.
@@ -1152,44 +406,15 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         // Stage 4: model fallback or readout. Streaming mode still applies the
         // same phase-specific request profile and context trimming.
-        const bool has_navigation_escalation = !execution_state.latest_escalation.reason.empty();
-        const bool use_compact_navigation_escalation_request =
-                COMPACT_NAVIGATION_ESCALATION_ENABLED && has_navigation_escalation;
-        if (has_navigation_escalation && !use_compact_navigation_escalation_request) {
-            ICRAW_LOG_INFO(
-                    "[AgentLoop][navigation_escalation_compact_disabled] mode=stream iteration={} reason={}",
-                    iteration,
-                    execution_state.latest_escalation.reason);
-        }
-        ChatCompletionRequest effective_request = use_compact_navigation_escalation_request
-                ? build_compact_navigation_escalation_chat_request(
-                        request, message, tool_schemas, execution_state)
-                : request;
-        if (!use_compact_navigation_escalation_request) {
-            rebuild_tools_for_phase(tool_schemas, execution_state, effective_request);
-            inject_selected_skills_into_request(effective_request, selected_skills, iteration);
-            inject_navigation_escalation_into_request(effective_request, execution_state);
-            const std::string execution_state_prompt =
-                    build_execution_state_prompt_v2(execution_state, iteration);
-            if (!execution_state_prompt.empty()) {
-                inject_execution_state_into_request(effective_request, execution_state_prompt);
-                ICRAW_LOG_INFO("[AgentLoop][execution_state_injected] mode=stream iteration={} prompt_length={}",
-                        iteration, execution_state_prompt.size());
-            }
-        } else {
-            ICRAW_LOG_INFO("[AgentLoop][navigation_escalation_request_selected] mode=stream iteration={} reason={}",
-                    iteration, execution_state.latest_escalation.reason);
-        }
-        ICRAW_LOG_INFO("[AgentLoop][execution_state_mode] mode={} phase={} iteration={}",
-                execution_state.mode, execution_state.phase, iteration);
-
-        const auto llm_request_profile = resolve_llm_request_profile(agent_config_, execution_state, effective_request);
-        apply_llm_request_profile(effective_request, llm_request_profile);
-        ICRAW_LOG_INFO("[AgentLoop][request_profile] mode=stream iteration={} profile={} max_tokens={} temperature={}",
+        ChatCompletionRequest effective_request = build_effective_request_for_iteration(
+                request,
+                message,
+                tool_schemas,
+                selected_skills,
+                execution_state,
+                agent_config_,
                 iteration,
-                effective_request.request_profile,
-                effective_request.max_tokens,
-                effective_request.temperature);
+                "stream");
 
         // Reset state for this iteration
         last_finish_reason_.clear();
@@ -1314,26 +539,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         valid_tool_calls = filter_tool_calls_for_request(valid_tool_calls, effective_request, execution_state);
 
-        // Add valid tool calls to assistant message (OpenAI format)
-        for (const auto& tc : valid_tool_calls) {
-            std::string tool_id = tc.id.empty() ? generate_tool_id() : tc.id;
-            ToolCallForMessage tc_msg;
-            tc_msg.id = tool_id;
-            tc_msg.type = "function";
-            tc_msg.function_name = tc.name;
-            tc_msg.function_arguments = tc.arguments.is_string()
-                ? tc.arguments.get<std::string>()
-                : tc.arguments.dump();
-            assistant_msg.tool_calls.push_back(std::move(tc_msg));
-
-            // Emit tool_use event
-            AgentEvent event;
-            event.type = "tool_use";
-            event.data["id"] = tool_id;
-            event.data["name"] = tc.name;
-            event.data["input"] = tc.arguments;
-            callback(event);
-        }
+        append_tool_calls_to_assistant_message(assistant_msg, valid_tool_calls, callback);
 
         ICRAW_LOG_DEBUG("[AgentLoop][assistant_message_debug] content_block_count={} tool_call_count={} text_length={}",
             assistant_msg.content.size(), assistant_msg.tool_calls.size(), accumulated_text.size());
@@ -1455,131 +661,20 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         }
         // If we have valid tool calls, execute them and loop continues
 
-        // Execute valid tool calls
-        ICRAW_LOG_INFO("[AgentLoop][tool_call_execute_start] tool_call_count={}", valid_tool_calls.size());
-        auto tool_phase_start = std::chrono::steady_clock::now();
-        auto tool_calls_for_execution = enrich_tool_calls_for_execution(
-                valid_tool_calls, execution_state, request.messages);
-        auto tool_results = handle_tool_calls(tool_calls_for_execution);
-        auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - tool_phase_start).count();
-        ICRAW_LOG_INFO(
-                "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=primary tool_call_count={} duration_ms={}",
+        const size_t tool_result_count = execute_tool_calls_and_maybe_fast_execute(
+                request,
+                new_messages,
+                execution_state,
+                valid_tool_calls,
                 iteration,
-                tool_calls_for_execution.size(),
-                tool_phase_duration_ms);
-
-        // Add tool results
-        for (size_t i = 0; i < tool_results.size(); ++i) {
-            const auto& result = tool_results[i];
-            Message tool_msg;
-            tool_msg.role = "tool";
-            tool_msg.tool_call_id = result.tool_use_id;
-            tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
-            new_messages.push_back(tool_msg);
-            request.messages.push_back(tool_msg);
-            const std::string tool_name = i < tool_calls_for_execution.size()
-                    ? tool_calls_for_execution[i].name
-                    : "tool";
-            const ToolCall* executed_tool_call = i < tool_calls_for_execution.size()
-                    ? &tool_calls_for_execution[i]
-                    : nullptr;
-            update_execution_state_with_tool_result(
-                    execution_state, executed_tool_call, tool_name, result.content);
-
-            // Debug: Log tool result
-            // Parse result JSON to check for success/failure
-            try {
-                auto result_json = nlohmann::json::parse(result.content);
-                if (result_json.value("success", false)) {
-                    ICRAW_LOG_INFO("[AgentLoop][tool_call_execute_complete] tool_id={} result_success=true bytes_written={}",
-                        result.tool_use_id, result_json.value("bytes_written", 0));
-                } else {
-                    ICRAW_LOG_WARN("[AgentLoop][tool_call_execute_failed] tool_id={} error={}",
-                        result.tool_use_id, result_json.value("error", "unknown error"));
-                }
-            } catch (...) {
-                ICRAW_LOG_DEBUG("[AgentLoop][tool_call_debug] stage=result tool_id={} result_length={}",
-                        result.tool_use_id, result.content.size());
-            }
-
-            AgentEvent event;
-            event.type = "tool_result";
-            event.data["tool_use_id"] = result.tool_use_id;
-            event.data["content"] = result.content;
-            callback(event);
-        }
-
-        if (execution_state.goal_reached && !execution_state.context_reset) {
-            // A tool result can satisfy the stop condition after the LLM phase;
-            // reset immediately so any following model call is readout-only.
-            reset_messages_for_readout(request.messages, execution_state);
-            execution_state.context_reset = true;
-            ICRAW_LOG_INFO("[AgentLoop][goal_reached_context_reset] mode=stream phase={} current_page={}",
-                    execution_state.phase, execution_state.current_page);
-        }
-
-        if (!tool_results.empty()) {
-            const std::string last_tool_name = tool_calls_for_execution.back().name;
-            if (last_tool_name == "android_view_context_tool") {
-                // Same optimization as non-stream mode: an observation result
-                // can immediately produce a local tap when matching is unique.
-                auto fast_tool_call = maybe_build_fast_execute_tool_call(
-                        execution_state, tool_results.back().content);
-                if (fast_tool_call.has_value()) {
-                    Message fast_assistant_msg;
-                    fast_assistant_msg.role = "assistant";
-                    ToolCallForMessage fast_tc_msg;
-                    fast_tc_msg.id = fast_tool_call->id;
-                    fast_tc_msg.type = "function";
-                    fast_tc_msg.function_name = fast_tool_call->name;
-                    fast_tc_msg.function_arguments = fast_tool_call->arguments.dump();
-                    fast_assistant_msg.tool_calls.push_back(std::move(fast_tc_msg));
-                    new_messages.push_back(fast_assistant_msg);
-                    request.messages.push_back(fast_assistant_msg);
-
-                    AgentEvent tool_use_event;
-                    tool_use_event.type = "tool_use";
-                    tool_use_event.data["id"] = fast_tool_call->id;
-                    tool_use_event.data["name"] = fast_tool_call->name;
-                    tool_use_event.data["input"] = fast_tool_call->arguments;
-                    callback(tool_use_event);
-
-                    std::vector<ToolCall> fast_calls{*fast_tool_call};
-                    auto fast_tool_phase_start = std::chrono::steady_clock::now();
-                    auto fast_results = handle_tool_calls(fast_calls);
-                    auto fast_tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - fast_tool_phase_start).count();
-                    ICRAW_LOG_INFO(
-                            "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=fast_execute tool_call_count={} duration_ms={}",
-                            iteration,
-                            fast_calls.size(),
-                            fast_tool_phase_duration_ms);
-                    for (const auto& fast_result : fast_results) {
-                        Message fast_tool_msg;
-                        fast_tool_msg.role = "tool";
-                        fast_tool_msg.tool_call_id = fast_result.tool_use_id;
-                        fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
-                                fast_result.tool_use_id, fast_result.content));
-                        new_messages.push_back(fast_tool_msg);
-                        request.messages.push_back(fast_tool_msg);
-                        update_execution_state_with_tool_result(
-                                execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
-
-                        AgentEvent fast_result_event;
-                        fast_result_event.type = "tool_result";
-                        fast_result_event.data["tool_use_id"] = fast_result.tool_use_id;
-                        fast_result_event.data["content"] = fast_result.content;
-                        callback(fast_result_event);
-                    }
-                }
-            }
-        }
+                "stream",
+                execute_tools,
+                callback);
 
         if (stop_requested_) {
             loop_exit_reason = "cancel";
             ICRAW_LOG_INFO("[AgentLoop][tool_phase_cancelled] iteration={} tool_result_count={}",
-                    iteration, tool_results.size());
+                    iteration, tool_result_count);
 
             AgentEvent event;
             event.type = "message_end";
