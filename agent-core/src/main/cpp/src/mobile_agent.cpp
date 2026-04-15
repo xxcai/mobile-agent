@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <functional>
 #include <sstream>
 #include <unordered_set>
 
@@ -67,7 +68,7 @@ std::string normalize_for_match(std::string text) {
 }
 
 bool is_generic_skill_phrase(const std::string& normalized_phrase) {
-    static const std::array<std::string, 17> generic_phrases = {
+    static const std::array<std::string, 23> generic_phrases = {
         normalize_for_match("\xE7\x94\xA8\xE6\x88\xB7"),
         normalize_for_match("\xE5\xBD\x93\xE5\x89\x8D"),
         normalize_for_match("\xE9\xA1\xB5\xE9\x9D\xA2"),
@@ -83,6 +84,12 @@ bool is_generic_skill_phrase(const std::string& normalized_phrase) {
         normalize_for_match("\xE6\x9F\xA5\xE7\x9C\x8B"),
         normalize_for_match("\xE7\xBB\xA7\xE7\xBB\xAD"),
         normalize_for_match("\xE6\x80\xBB\xE7\xBB\x93"),
+        normalize_for_match("\xE4\xBB\x8A\xE5\xA4\xA9"),
+        normalize_for_match("\xE4\xBB\x8A\xE6\x97\xA5"),
+        normalize_for_match("\xE4\xB8\x9A\xE5\x8A\xA1"),
+        normalize_for_match("\xE9\xA6\x96\xE9\xA1\xB5"),
+        normalize_for_match("\xE5\xBA\x94\xE7\x94\xA8"),
+        normalize_for_match("\xE6\x9C\x8D\xE5\x8A\xA1"),
         normalize_for_match("skill"),
         normalize_for_match("agent")
     };
@@ -181,8 +188,31 @@ std::vector<std::string> collect_skill_match_phrases(const SkillMetadata& skill)
     for (const auto& fragment : split_fragments_for_matching(skill.content)) {
         append_phrase(fragment);
     }
+    if (skill.execution_hints.is_object()) {
+        std::function<void(const nlohmann::json&)> append_json_strings =
+                [&](const nlohmann::json& value) {
+                    if (value.is_string()) {
+                        append_phrase(value.get<std::string>());
+                    } else if (value.is_array()) {
+                        for (const auto& item : value) {
+                            append_json_strings(item);
+                        }
+                    } else if (value.is_object()) {
+                        for (const auto& item : value.items()) {
+                            append_json_strings(item.value());
+                        }
+                    }
+                };
+        append_json_strings(skill.execution_hints);
+    }
 
     return phrases;
+}
+
+int skill_phrase_match_score(const std::string& normalized_phrase) {
+    return std::max(
+            PRELOADED_SKILL_MIN_SCORE,
+            std::min<int>(static_cast<int>(normalized_phrase.size()), 48));
 }
 
 std::string join_skill_names(const std::vector<SkillMetadata>& skills) {
@@ -491,7 +521,7 @@ std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const
             if (normalized_message.find(normalized_phrase) == std::string::npos) {
                 continue;
             }
-            score += std::min<int>(static_cast<int>(normalized_phrase.size()), 48);
+            score += skill_phrase_match_score(normalized_phrase);
         }
 
         if (score >= PRELOADED_SKILL_MIN_SCORE) {
