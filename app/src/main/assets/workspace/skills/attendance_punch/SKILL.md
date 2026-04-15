@@ -117,12 +117,12 @@ execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","ta
 - 不要选择历史记录、规则说明、统计报表等非执行入口
 - 如果仍不唯一，向用户确认或回退到模型决策，不要本地盲点
 
-如果当前业务页首屏没有看到“打卡”卡片或打卡按钮，可以受控上划页面继续寻找。这里的“上划”是指手指从屏幕下方向上滑动，让页面内容向上滚动，查看更多下方业务卡片；不要执行下拉刷新。
+如果当前业务页首屏没有看到“打卡”卡片或打卡按钮，可以受控滚动页面继续寻找。这里要查看更多下方业务卡片，调用 `android_gesture_tool` 时使用 `direction=down`，表示“内容向下滚动/露出更下方内容”；runtime 实际会注入手指上划动作。不要使用 `direction=up`，因为它会向页面顶部滚动，在顶部附近可能触发下拉刷新。
 
 1. 先从最新 observation 中明确选择业务页面的主要滚动容器
 2. 调用一次 `android_gesture_tool`
    - `action=swipe`
-   - `direction=up`
+   - `direction=down`
    - `amount=small` 或 `medium`
    - `observation.snapshotId`
    - `observation.referencedBounds`
@@ -131,7 +131,7 @@ execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","ta
 
 滑动限制：
 
-- 最多上划 2 次
+- 最多向下滚动 2 次（即实际手势上划 2 次）
 - 每次滑动后都必须重新观察页面
 - 如果滑动后页面没有新增内容或仍没有打卡入口，应停止继续滑动
 - 不要下拉刷新
