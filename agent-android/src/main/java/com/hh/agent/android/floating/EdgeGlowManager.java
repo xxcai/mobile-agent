@@ -1,9 +1,11 @@
 package com.hh.agent.android.floating;
 
 import android.content.Context;
+import android.graphics.Point;
 import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.Gravity;
 import android.view.WindowManager;
 
 import com.hh.agent.android.glow.EdgeGlowView;
@@ -53,7 +55,7 @@ public class EdgeGlowManager {
         // 使用 getRealSize() 获取包含状态栏/导航栏的完整屏幕尺寸。
         // MATCH_PARENT 和 displayMetrics.heightPixels 只返回应用可用区域，
         // 不包含系统栏，导致光晕无法贴到屏幕物理边缘。
-        android.graphics.Point realSize = new android.graphics.Point();
+        Point realSize = new Point();
         mWindowManager.getDefaultDisplay().getRealSize(realSize);
         int screenWidth = realSize.x;
         int screenHeight = realSize.y;
@@ -68,7 +70,7 @@ public class EdgeGlowManager {
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
-        mLayoutParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+        mLayoutParams.gravity = Gravity.TOP | Gravity.START;
     }
 
     /** 激活或关闭边缘光晕 */

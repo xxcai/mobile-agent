@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -136,13 +137,13 @@ public class EmailListFragment extends Fragment {
         handler.removeCallbacksAndMessages(null);
     }
 
-    private final class EndlessScrollListener implements android.widget.AbsListView.OnScrollListener {
+    private final class EndlessScrollListener implements AbsListView.OnScrollListener {
         @Override
-        public void onScrollStateChanged(android.widget.AbsListView view, int scrollState) {
+        public void onScrollStateChanged(AbsListView view, int scrollState) {
         }
 
         @Override
-        public void onScroll(android.widget.AbsListView view,
+        public void onScroll(AbsListView view,
                              int firstVisibleItem,
                              int visibleItemCount,
                              int totalItemCount) {

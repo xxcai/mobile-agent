@@ -11,6 +11,7 @@ import android.graphics.drawable.shapes.OvalShape;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewConfiguration;
 import android.view.animation.LinearInterpolator;
 import android.widget.ImageView;
@@ -50,7 +51,7 @@ public class FloatingBallView extends ImageView {
     private void init() {
         // 设置48dp尺寸
         int size48dp = dpToPx(48);
-        setLayoutParams(new android.view.ViewGroup.LayoutParams(size48dp, size48dp));
+        setLayoutParams(new ViewGroup.LayoutParams(size48dp, size48dp));
 
         // 使用偏科技感的冷色底色，便于衬托工作态环形动画
         ShapeDrawable background = new ShapeDrawable(new OvalShape());

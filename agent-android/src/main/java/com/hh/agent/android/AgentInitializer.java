@@ -2,6 +2,7 @@ package com.hh.agent.android;
 
 import android.app.Application;
 import android.content.Context;
+import Intent;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.debug.SessionDebugTranscriptStore;
@@ -153,8 +154,8 @@ public class AgentInitializer {
             // 隐藏悬浮球
             floatingBallManager.hide();
             // 启动容器Activity
-            android.content.Intent intent = new android.content.Intent(application, ContainerActivity.class);
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            Intent intent = new Intent(application, ContainerActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             application.startActivity(intent);
         });
 

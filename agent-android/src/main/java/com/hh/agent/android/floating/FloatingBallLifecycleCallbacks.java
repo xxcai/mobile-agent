@@ -2,6 +2,7 @@ package com.hh.agent.android.floating;
 
 import android.app.Activity;
 import android.app.Application;
+import Bundle;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -94,7 +95,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
     }
 
     @Override
-    public void onActivityCreated(Activity activity, android.os.Bundle savedInstanceState) {
+    public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
         // not used
     }
 
@@ -125,7 +126,7 @@ public class FloatingBallLifecycleCallbacks implements Application.ActivityLifec
     }
 
     @Override
-    public void onActivitySaveInstanceState(Activity activity, android.os.Bundle outState) {
+    public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
         // not used
     }
 

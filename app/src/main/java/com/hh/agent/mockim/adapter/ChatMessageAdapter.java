@@ -1,6 +1,7 @@
 package com.hh.agent.mockim.adapter;
 
 import android.content.Context;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,10 +57,10 @@ public class ChatMessageAdapter extends BaseAdapter {
 
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) holder.bubbleView.getLayoutParams();
         if (message.isFromMe()) {
-            params.gravity = android.view.Gravity.END;
+            params.gravity = Gravity.END;
             params.setMargins(dp(parent.getContext(), 56), dp(parent.getContext(), 6), 0, dp(parent.getContext(), 6));
         } else {
-            params.gravity = android.view.Gravity.START;
+            params.gravity = Gravity.START;
             params.setMargins(0, dp(parent.getContext(), 6), dp(parent.getContext(), 56), dp(parent.getContext(), 6));
         }
         holder.bubbleView.setLayoutParams(params);

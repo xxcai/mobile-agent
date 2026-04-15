@@ -1,5 +1,7 @@
 package com.hh.agent.app;
 
+import android.content.Context;
+
 import com.hh.agent.android.route.AllowAllUriAccessPolicy;
 import com.hh.agent.android.route.AndroidRouteRuntime;
 import com.hh.agent.android.route.NativeRouteRegistry;
@@ -26,7 +28,7 @@ public final class RouteShortcutProvider {
     private RouteShortcutProvider() {
     }
 
-    public static List<ShortcutExecutor> createShortcuts(android.content.Context context) {
+    public static List<ShortcutExecutor> createShortcuts(Context context) {
         AndroidRouteManifestAssetSource assetSource = new AndroidRouteManifestAssetSource(context);
         NativeRouteRegistry nativeRouteRegistry = createNativeRouteRegistry(assetSource);
         ManifestBackedRouteModuleResolver routeModuleResolver = createRouteModuleResolver(assetSource);
@@ -46,7 +48,7 @@ public final class RouteShortcutProvider {
         return shortcuts;
     }
 
-    static NativeRouteRegistry createNativeRouteRegistry(android.content.Context context) {
+    static NativeRouteRegistry createNativeRouteRegistry(Context context) {
         return createNativeRouteRegistry(new AndroidRouteManifestAssetSource(context));
     }
 
