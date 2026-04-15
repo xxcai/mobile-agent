@@ -17,6 +17,7 @@
 #include <thread>
 #include <cctype>
 #include <cstdio>
+#include <exception>
 #include <limits>
 #include <unordered_map>
 
@@ -554,6 +555,244 @@ nlohmann::json append_unique_strings(const nlohmann::json& values) {
 
 #include "agent_request_builder.hpp"
 
+using ToolExecutionFn = std::function<std::vector<ContentBlock>(const std::vector<ToolCall>&)>;
+
+void emit_tool_use_event_if_needed(const AgentEventCallback& callback, const ToolCall& tool_call) {
+    if (!callback) {
+        return;
+    }
+    AgentEvent tool_use_event;
+    tool_use_event.type = "tool_use";
+    tool_use_event.data["id"] = tool_call.id;
+    tool_use_event.data["name"] = tool_call.name;
+    tool_use_event.data["input"] = tool_call.arguments;
+    callback(tool_use_event);
+}
+
+void emit_tool_result_event_if_needed(const AgentEventCallback& callback, const ContentBlock& result) {
+    if (!callback) {
+        return;
+    }
+    AgentEvent tool_result_event;
+    tool_result_event.type = "tool_result";
+    tool_result_event.data["tool_use_id"] = result.tool_use_id;
+    tool_result_event.data["content"] = result.content;
+    callback(tool_result_event);
+}
+
+Message build_tool_result_message(const ContentBlock& result) {
+    Message tool_msg;
+    tool_msg.role = "tool";
+    tool_msg.tool_call_id = result.tool_use_id;
+    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
+    return tool_msg;
+}
+
+void append_tool_result_and_update_state(std::vector<Message>& new_messages,
+                                         ChatCompletionRequest& request,
+                                         ExecutionState& execution_state,
+                                         const ContentBlock& result,
+                                         const ToolCall* executed_tool_call,
+                                         const std::string& tool_name,
+                                         const AgentEventCallback& callback) {
+    Message tool_msg = build_tool_result_message(result);
+    new_messages.push_back(tool_msg);
+    request.messages.push_back(std::move(tool_msg));
+    update_execution_state_with_tool_result(
+            execution_state, executed_tool_call, tool_name, result.content);
+    emit_tool_result_event_if_needed(callback, result);
+}
+
+bool try_run_deterministic_navigation_step(ChatCompletionRequest& request,
+                                           std::vector<Message>& new_messages,
+                                           ExecutionState& execution_state,
+                                           int iteration,
+                                           const std::string& mode,
+                                           const ToolExecutionFn& execute_tools,
+                                           const AgentEventCallback& callback = AgentEventCallback{}) {
+    if (execution_state.mode != "planned_fast_execute"
+            || !execution_state.route_ready
+            || execution_state.goal_reached) {
+        return false;
+    }
+
+    // Happy path for structured skills: observe the current page, match the
+    // pending NavigationStep, and tap locally when there is exactly one safe
+    // high-confidence candidate. Ambiguous/no-progress cases deliberately fall
+    // through to the LLM path in the caller.
+    prune_context_messages_for_state(request.messages, execution_state);
+    const auto tool_name_by_id = build_tool_name_by_id(request.messages);
+    const int latest_observation_index = find_latest_tool_message_index(
+            request.messages, tool_name_by_id, "android_view_context_tool");
+    const int latest_gesture_index = find_latest_tool_message_index(
+            request.messages, tool_name_by_id, "android_gesture_tool");
+    const bool latest_observation_after_latest_gesture =
+            latest_observation_index >= 0 && latest_observation_index > latest_gesture_index;
+    const bool stale_pending_step_observation =
+            latest_observation_needs_pending_target_refresh(
+                    execution_state, latest_observation_after_latest_gesture);
+    const bool need_observation = latest_observation_index < 0
+            || latest_gesture_index > latest_observation_index
+            || execution_state.awaiting_step_confirmation_index >= 0
+            || stale_pending_step_observation;
+
+    bool deterministic_navigation_executed = false;
+    if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
+        execution_state.latest_escalation.reason = "no_progress";
+        execution_state.latest_escalation.detail =
+                "stagnant_rounds=" + std::to_string(execution_state.navigation_checkpoint.stagnant_rounds);
+        ICRAW_LOG_INFO(
+                "[AgentLoop][navigation_escalation] mode={} reason={} detail={}",
+                mode,
+                execution_state.latest_escalation.reason,
+                execution_state.latest_escalation.detail);
+    } else if (need_observation) {
+        // Observation is refreshed when no page snapshot exists yet, a gesture
+        // happened after the last snapshot, a tap is awaiting confirmation, or
+        // the pending target hint changed.
+        if (stale_pending_step_observation) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][navigation_observe_refresh] mode={} reason=pending_target_changed last_hint={} pending_step={}",
+                    mode,
+                    truncate_runtime_text(execution_state.last_observation_target_hint, 100),
+                    summarize_pending_step_json(execution_state.pending_step));
+        }
+        maybe_wait_before_confirmation_retry(execution_state);
+        ToolCall observation_call = build_navigation_observation_call(execution_state);
+        Message observation_assistant = build_assistant_tool_call_message(observation_call);
+        new_messages.push_back(observation_assistant);
+        request.messages.push_back(observation_assistant);
+        emit_tool_use_event_if_needed(callback, observation_call);
+
+        std::vector<ToolCall> observation_calls{observation_call};
+        auto tool_phase_start = std::chrono::steady_clock::now();
+        auto observation_calls_for_execution = enrich_tool_calls_for_execution(
+                observation_calls, execution_state, request.messages);
+        auto tool_results = execute_tools(observation_calls_for_execution);
+        auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - tool_phase_start).count();
+        ICRAW_LOG_INFO(
+                "[AgentLoop][tool_phase_duration_ms] mode={} iteration={} phase=navigation_observe tool_call_count={} duration_ms={}",
+                mode,
+                iteration,
+                observation_calls_for_execution.size(),
+                tool_phase_duration_ms);
+
+        for (size_t i = 0; i < tool_results.size(); ++i) {
+            append_tool_result_and_update_state(
+                    new_messages,
+                    request,
+                    execution_state,
+                    tool_results[i],
+                    &observation_calls_for_execution[i],
+                    observation_calls_for_execution[i].name,
+                    callback);
+        }
+        deterministic_navigation_executed = !tool_results.empty();
+    } else {
+        // We already have a fresh observation for the current step, so try a
+        // zero-LLM fast execute before asking the model again.
+        const auto latest_observation = find_latest_tool_result_content(
+                request.messages, "android_view_context_tool");
+        if (latest_observation.has_value()) {
+            auto fast_tool_call = maybe_build_fast_execute_tool_call(
+                    execution_state, latest_observation.value());
+            if (fast_tool_call.has_value()) {
+                Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
+                new_messages.push_back(fast_assistant);
+                request.messages.push_back(fast_assistant);
+                emit_tool_use_event_if_needed(callback, *fast_tool_call);
+
+                std::vector<ToolCall> fast_calls{*fast_tool_call};
+                auto fast_phase_start = std::chrono::steady_clock::now();
+                auto fast_results = execute_tools(fast_calls);
+                auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - fast_phase_start).count();
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][tool_phase_duration_ms] mode={} iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
+                        mode,
+                        iteration,
+                        fast_calls.size(),
+                        fast_phase_duration_ms);
+                for (const auto& fast_result : fast_results) {
+                    append_tool_result_and_update_state(
+                            new_messages,
+                            request,
+                            execution_state,
+                            fast_result,
+                            &(*fast_tool_call),
+                            fast_tool_call->name,
+                            callback);
+                }
+                deterministic_navigation_executed = !fast_results.empty();
+            } else {
+                execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
+                execution_state.latest_escalation.detail =
+                        "pending_step=" + execution_state.pending_step.dump();
+                ICRAW_LOG_INFO(
+                        "[AgentLoop][navigation_escalation] mode={} reason={} detail={}",
+                        mode,
+                        execution_state.latest_escalation.reason,
+                        truncate_runtime_text(execution_state.latest_escalation.detail, 160));
+            }
+        }
+    }
+
+    if (execution_state.goal_reached && !execution_state.context_reset) {
+        // Once the stop condition is hit, discard navigation history before
+        // readout so the final model call only reads target-page content.
+        reset_messages_for_readout(request.messages, execution_state);
+        execution_state.context_reset = true;
+        ICRAW_LOG_INFO(
+                "[AgentLoop][goal_reached_context_reset] mode={} phase={} current_page={}",
+                mode,
+                execution_state.phase,
+                execution_state.current_page);
+    }
+
+    return deterministic_navigation_executed;
+}
+
+bool emit_readout_stream_error_fallback(ChatCompletionRequest& request,
+                                        std::vector<Message>& new_messages,
+                                        const ExecutionState& execution_state,
+                                        const AgentEventCallback& callback,
+                                        const std::string& error_message) {
+    if (!execution_state.goal_reached || execution_state.phase != "readout") {
+        return false;
+    }
+
+    const std::string fallback = build_local_readout_fallback_text(execution_state);
+    if (fallback.empty()) {
+        return false;
+    }
+
+    Message assistant_msg;
+    assistant_msg.role = "assistant";
+    assistant_msg.content = build_response_blocks(fallback, "");
+    new_messages.push_back(assistant_msg);
+    request.messages.push_back(std::move(assistant_msg));
+
+    if (callback) {
+        AgentEvent text_event;
+        text_event.type = "text_delta";
+        text_event.data["delta"] = fallback;
+        callback(text_event);
+
+        AgentEvent end_event;
+        end_event.type = "message_end";
+        end_event.data["finish_reason"] = "stop";
+        callback(end_event);
+    }
+
+    ICRAW_LOG_WARN(
+            "[AgentLoop][readout_stream_error_local_fallback] chars={} current_page={} error={}",
+            fallback.size(),
+            execution_state.current_page,
+            truncate_runtime_text(error_message, 160));
+    return true;
+}
+
 AgentLoop::AgentLoop(std::shared_ptr<MemoryManager> memory_manager,
                      std::shared_ptr<SkillLoader> skill_loader,
                      std::shared_ptr<ToolRegistry> tool_registry,
@@ -622,143 +861,13 @@ std::vector<Message> AgentLoop::process_message(const std::string& message,
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
     ICRAW_LOG_INFO("[AgentLoop][loop_start] mode=non_stream max_iterations={}", max_iterations_);
+    const ToolExecutionFn execute_tools = [this](const std::vector<ToolCall>& tool_calls) {
+        return handle_tool_calls(tool_calls);
+    };
     while (iteration < max_iterations_ && !stop_requested_) {
-        bool deterministic_navigation_executed = false;
-        if (execution_state.mode == "planned_fast_execute"
-                && execution_state.route_ready
-                && !execution_state.goal_reached) {
-            // Happy path for structured skills: observe the current page, match
-            // the pending NavigationStep, and tap locally when there is exactly
-            // one safe high-confidence candidate. Ambiguous/no-progress cases
-            // deliberately fall through to the LLM path below.
-            prune_context_messages_for_state(request.messages, execution_state);
-            const auto tool_name_by_id = build_tool_name_by_id(request.messages);
-            const int latest_observation_index = find_latest_tool_message_index(
-                    request.messages, tool_name_by_id, "android_view_context_tool");
-            const int latest_gesture_index = find_latest_tool_message_index(
-                    request.messages, tool_name_by_id, "android_gesture_tool");
-            const bool latest_observation_after_latest_gesture =
-                    latest_observation_index >= 0 && latest_observation_index > latest_gesture_index;
-            const bool stale_pending_step_observation =
-                    latest_observation_needs_pending_target_refresh(
-                            execution_state, latest_observation_after_latest_gesture);
-            const bool need_observation = latest_observation_index < 0
-                    || latest_gesture_index > latest_observation_index
-                    || execution_state.awaiting_step_confirmation_index >= 0
-                    || stale_pending_step_observation;
-
-            if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
-                execution_state.latest_escalation.reason = "no_progress";
-                execution_state.latest_escalation.detail =
-                        "stagnant_rounds=" + std::to_string(execution_state.navigation_checkpoint.stagnant_rounds);
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][navigation_escalation] reason={} detail={}",
-                        execution_state.latest_escalation.reason,
-                        execution_state.latest_escalation.detail);
-            } else if (need_observation) {
-                // Observation is refreshed when no page snapshot exists yet, a
-                // gesture happened after the last snapshot, a tap is awaiting
-                // confirmation, or the pending target hint changed.
-                if (stale_pending_step_observation) {
-                    ICRAW_LOG_INFO(
-                            "[AgentLoop][navigation_observe_refresh] mode=non_stream reason=pending_target_changed last_hint={} pending_step={}",
-                            truncate_runtime_text(execution_state.last_observation_target_hint, 100),
-                            summarize_pending_step_json(execution_state.pending_step));
-                }
-                maybe_wait_before_confirmation_retry(execution_state);
-                ToolCall observation_call = build_navigation_observation_call(execution_state);
-                Message observation_assistant = build_assistant_tool_call_message(observation_call);
-                new_messages.push_back(observation_assistant);
-                request.messages.push_back(observation_assistant);
-
-                std::vector<ToolCall> observation_calls{observation_call};
-                auto tool_phase_start = std::chrono::steady_clock::now();
-                auto observation_calls_for_execution = enrich_tool_calls_for_execution(
-                        observation_calls, execution_state, request.messages);
-                auto tool_results = handle_tool_calls(observation_calls_for_execution);
-                auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - tool_phase_start).count();
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=navigation_observe tool_call_count={} duration_ms={}",
-                        iteration,
-                        observation_calls_for_execution.size(),
-                        tool_phase_duration_ms);
-
-                for (size_t i = 0; i < tool_results.size(); ++i) {
-                    const auto& result = tool_results[i];
-                    Message tool_msg;
-                    tool_msg.role = "tool";
-                    tool_msg.tool_call_id = result.tool_use_id;
-                    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
-                    new_messages.push_back(tool_msg);
-                    request.messages.push_back(tool_msg);
-                    update_execution_state_with_tool_result(
-                            execution_state,
-                            &observation_calls_for_execution[i],
-                            observation_calls_for_execution[i].name,
-                            result.content);
-                }
-                deterministic_navigation_executed = !tool_results.empty();
-            } else {
-                // We already have a fresh observation for the current step, so
-                // try a zero-LLM fast execute before asking the model again.
-                const auto latest_observation = find_latest_tool_result_content(
-                        request.messages, "android_view_context_tool");
-                if (latest_observation.has_value()) {
-                    auto fast_tool_call = maybe_build_fast_execute_tool_call(
-                            execution_state, latest_observation.value());
-                    if (fast_tool_call.has_value()) {
-                        Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
-                        new_messages.push_back(fast_assistant);
-                        request.messages.push_back(fast_assistant);
-
-                        std::vector<ToolCall> fast_calls{*fast_tool_call};
-                        auto fast_phase_start = std::chrono::steady_clock::now();
-                        auto fast_results = handle_tool_calls(fast_calls);
-                        auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                std::chrono::steady_clock::now() - fast_phase_start).count();
-                        ICRAW_LOG_INFO(
-                                "[AgentLoop][tool_phase_duration_ms] mode=non_stream iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
-                                iteration,
-                                fast_calls.size(),
-                                fast_phase_duration_ms);
-                        for (const auto& fast_result : fast_results) {
-                            Message fast_tool_msg;
-                            fast_tool_msg.role = "tool";
-                            fast_tool_msg.tool_call_id = fast_result.tool_use_id;
-                            fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
-                                    fast_result.tool_use_id, fast_result.content));
-                            new_messages.push_back(fast_tool_msg);
-                            request.messages.push_back(fast_tool_msg);
-                            update_execution_state_with_tool_result(
-                                    execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
-                        }
-                        deterministic_navigation_executed = !fast_results.empty();
-                    } else {
-                        execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
-                        execution_state.latest_escalation.detail = "pending_step=" + execution_state.pending_step.dump();
-                        ICRAW_LOG_INFO(
-                                "[AgentLoop][navigation_escalation] reason={} detail={}",
-                                execution_state.latest_escalation.reason,
-                                truncate_runtime_text(execution_state.latest_escalation.detail, 160));
-                    }
-                }
-            }
-
-            if (execution_state.goal_reached && !execution_state.context_reset) {
-                // Once the stop condition is hit, discard navigation history
-                // before readout so the final model call only reads target-page
-                // content instead of old pages and gesture traces.
-                reset_messages_for_readout(request.messages, execution_state);
-                execution_state.context_reset = true;
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][goal_reached_context_reset] mode=non_stream phase={} current_page={}",
-                        execution_state.phase,
-                        execution_state.current_page);
-            }
-            if (deterministic_navigation_executed) {
-                continue;
-            }
+        if (try_run_deterministic_navigation_step(
+                    request, new_messages, execution_state, iteration, "non_stream", execute_tools)) {
+            continue;
         }
 
         auto iter_start_time = std::chrono::steady_clock::now();
@@ -1026,165 +1135,13 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
     int iteration = 0;
     auto loop_start_time = std::chrono::steady_clock::now();
     ICRAW_LOG_INFO("[AgentLoop][loop_start] mode=stream max_iterations={}", max_iterations_);
+    const ToolExecutionFn execute_tools = [this](const std::vector<ToolCall>& tool_calls) {
+        return handle_tool_calls(tool_calls);
+    };
     while (iteration < max_iterations_ && !stop_requested_) {
-        bool deterministic_navigation_executed = false;
-        if (execution_state.mode == "planned_fast_execute"
-                && execution_state.route_ready
-                && !execution_state.goal_reached) {
-            // Local navigation is attempted before any LLM call. It only fires
-            // on a single safe candidate; otherwise latest_escalation records
-            // why the model must take over.
-            prune_context_messages_for_state(request.messages, execution_state);
-            const auto tool_name_by_id = build_tool_name_by_id(request.messages);
-            const int latest_observation_index = find_latest_tool_message_index(
-                    request.messages, tool_name_by_id, "android_view_context_tool");
-            const int latest_gesture_index = find_latest_tool_message_index(
-                    request.messages, tool_name_by_id, "android_gesture_tool");
-            const bool latest_observation_after_latest_gesture =
-                    latest_observation_index >= 0 && latest_observation_index > latest_gesture_index;
-            const bool stale_pending_step_observation =
-                    latest_observation_needs_pending_target_refresh(
-                            execution_state, latest_observation_after_latest_gesture);
-            const bool need_observation = latest_observation_index < 0
-                    || latest_gesture_index > latest_observation_index
-                    || execution_state.awaiting_step_confirmation_index >= 0
-                    || stale_pending_step_observation;
-
-            if (execution_state.navigation_checkpoint.stagnant_rounds >= 2) {
-                execution_state.latest_escalation.reason = "no_progress";
-                execution_state.latest_escalation.detail =
-                        "stagnant_rounds=" + std::to_string(execution_state.navigation_checkpoint.stagnant_rounds);
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][navigation_escalation] mode=stream reason={} detail={}",
-                        execution_state.latest_escalation.reason,
-                        execution_state.latest_escalation.detail);
-            } else if (need_observation) {
-                // Refresh the snapshot only when the current one cannot safely
-                // confirm or advance the pending navigation step.
-                if (stale_pending_step_observation) {
-                    ICRAW_LOG_INFO(
-                            "[AgentLoop][navigation_observe_refresh] mode=stream reason=pending_target_changed last_hint={} pending_step={}",
-                            truncate_runtime_text(execution_state.last_observation_target_hint, 100),
-                            summarize_pending_step_json(execution_state.pending_step));
-                }
-                maybe_wait_before_confirmation_retry(execution_state);
-                ToolCall observation_call = build_navigation_observation_call(execution_state);
-                Message observation_assistant = build_assistant_tool_call_message(observation_call);
-                new_messages.push_back(observation_assistant);
-                request.messages.push_back(observation_assistant);
-
-                AgentEvent tool_use_event;
-                tool_use_event.type = "tool_use";
-                tool_use_event.data["id"] = observation_call.id;
-                tool_use_event.data["name"] = observation_call.name;
-                tool_use_event.data["input"] = observation_call.arguments;
-                callback(tool_use_event);
-
-                std::vector<ToolCall> observation_calls{observation_call};
-                auto tool_phase_start = std::chrono::steady_clock::now();
-                auto observation_calls_for_execution = enrich_tool_calls_for_execution(
-                        observation_calls, execution_state, request.messages);
-                auto tool_results = handle_tool_calls(observation_calls_for_execution);
-                auto tool_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::steady_clock::now() - tool_phase_start).count();
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=navigation_observe tool_call_count={} duration_ms={}",
-                        iteration,
-                        observation_calls_for_execution.size(),
-                        tool_phase_duration_ms);
-
-                for (size_t i = 0; i < tool_results.size(); ++i) {
-                    const auto& result = tool_results[i];
-                    Message tool_msg;
-                    tool_msg.role = "tool";
-                    tool_msg.tool_call_id = result.tool_use_id;
-                    tool_msg.content.push_back(ContentBlock::make_tool_result(result.tool_use_id, result.content));
-                    new_messages.push_back(tool_msg);
-                    request.messages.push_back(tool_msg);
-                    update_execution_state_with_tool_result(
-                            execution_state,
-                            &observation_calls_for_execution[i],
-                            observation_calls_for_execution[i].name,
-                            result.content);
-                    AgentEvent tool_result_event;
-                    tool_result_event.type = "tool_result";
-                    tool_result_event.data["tool_use_id"] = result.tool_use_id;
-                    tool_result_event.data["content"] = result.content;
-                    callback(tool_result_event);
-                }
-                deterministic_navigation_executed = !tool_results.empty();
-            } else {
-                // Fresh observation is available, so try to convert it directly
-                // into a gesture tool call before spending another LLM round.
-                const auto latest_observation = find_latest_tool_result_content(
-                        request.messages, "android_view_context_tool");
-                if (latest_observation.has_value()) {
-                    auto fast_tool_call = maybe_build_fast_execute_tool_call(
-                            execution_state, latest_observation.value());
-                    if (fast_tool_call.has_value()) {
-                        Message fast_assistant = build_assistant_tool_call_message(*fast_tool_call);
-                        new_messages.push_back(fast_assistant);
-                        request.messages.push_back(fast_assistant);
-
-                        AgentEvent fast_use_event;
-                        fast_use_event.type = "tool_use";
-                        fast_use_event.data["id"] = fast_tool_call->id;
-                        fast_use_event.data["name"] = fast_tool_call->name;
-                        fast_use_event.data["input"] = fast_tool_call->arguments;
-                        callback(fast_use_event);
-
-                        std::vector<ToolCall> fast_calls{*fast_tool_call};
-                        auto fast_phase_start = std::chrono::steady_clock::now();
-                        auto fast_results = handle_tool_calls(fast_calls);
-                        auto fast_phase_duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                std::chrono::steady_clock::now() - fast_phase_start).count();
-                        ICRAW_LOG_INFO(
-                                "[AgentLoop][tool_phase_duration_ms] mode=stream iteration={} phase=navigation_fast_execute tool_call_count={} duration_ms={}",
-                                iteration,
-                                fast_calls.size(),
-                                fast_phase_duration_ms);
-                        for (const auto& fast_result : fast_results) {
-                            Message fast_tool_msg;
-                            fast_tool_msg.role = "tool";
-                            fast_tool_msg.tool_call_id = fast_result.tool_use_id;
-                            fast_tool_msg.content.push_back(ContentBlock::make_tool_result(
-                                    fast_result.tool_use_id, fast_result.content));
-                            new_messages.push_back(fast_tool_msg);
-                            request.messages.push_back(fast_tool_msg);
-                            update_execution_state_with_tool_result(
-                                    execution_state, &(*fast_tool_call), fast_tool_call->name, fast_result.content);
-                            AgentEvent fast_result_event;
-                            fast_result_event.type = "tool_result";
-                            fast_result_event.data["tool_use_id"] = fast_result.tool_use_id;
-                            fast_result_event.data["content"] = fast_result.content;
-                            callback(fast_result_event);
-                        }
-                        deterministic_navigation_executed = !fast_results.empty();
-                    } else {
-                        execution_state.latest_escalation.reason = "ambiguous_or_low_confidence";
-                        execution_state.latest_escalation.detail =
-                                "pending_step=" + execution_state.pending_step.dump();
-                        ICRAW_LOG_INFO(
-                                "[AgentLoop][navigation_escalation] mode=stream reason={} detail={}",
-                                execution_state.latest_escalation.reason,
-                                truncate_runtime_text(execution_state.latest_escalation.detail, 160));
-                    }
-                }
-            }
-
-            if (execution_state.goal_reached && !execution_state.context_reset) {
-                // Target reached: collapse the transcript to a readout-focused
-                // context and leave old navigation details behind.
-                reset_messages_for_readout(request.messages, execution_state);
-                execution_state.context_reset = true;
-                ICRAW_LOG_INFO(
-                        "[AgentLoop][goal_reached_context_reset] mode=stream phase={} current_page={}",
-                        execution_state.phase,
-                        execution_state.current_page);
-            }
-            if (deterministic_navigation_executed) {
-                continue;
-            }
+        if (try_run_deterministic_navigation_step(
+                    request, new_messages, execution_state, iteration, "stream", execute_tools, callback)) {
+            continue;
         }
 
         iteration++;
@@ -1247,43 +1204,54 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
 
         ICRAW_LOG_INFO("[AgentLoop][stream_start] iteration={}", iteration);
 
-        // Stream LLM response
-        llm_provider_->chat_completion_stream(effective_request,
-            [&](const ChatCompletionResponse& chunk) {
-                // Accumulate and emit text delta
-                if (!chunk.content.empty()) {
-                    accumulated_text += chunk.content;
+        // Stream LLM response. If readout already has target-page observation
+        // but the provider fails, return a local page-summary fallback instead
+        // of leaving the UI with only navigation tool events.
+        try {
+            llm_provider_->chat_completion_stream(effective_request,
+                [&](const ChatCompletionResponse& chunk) {
+                    // Accumulate and emit text delta
+                    if (!chunk.content.empty()) {
+                        accumulated_text += chunk.content;
 
-                    AgentEvent event;
-                    event.type = "text_delta";
-                    event.data["delta"] = chunk.content;
-                    callback(event);
-                }
+                        AgentEvent event;
+                        event.type = "text_delta";
+                        event.data["delta"] = chunk.content;
+                        callback(event);
+                    }
 
-                if (!chunk.reasoning_content.empty()) {
-                    accumulated_reasoning += chunk.reasoning_content;
+                    if (!chunk.reasoning_content.empty()) {
+                        accumulated_reasoning += chunk.reasoning_content;
 
-                    AgentEvent event;
-                    event.type = "reasoning_delta";
-                    event.data["delta"] = chunk.reasoning_content;
-                    callback(event);
-                }
+                        AgentEvent event;
+                        event.type = "reasoning_delta";
+                        event.data["delta"] = chunk.reasoning_content;
+                        callback(event);
+                    }
 
-                // When stream ends, StreamParser provides complete tool calls
-                if (chunk.is_stream_end) {
-                    ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] finish_reason={} tool_call_count={}",
-                        chunk.finish_reason, chunk.tool_calls.size());
-                    stream_complete = true;
-                    final_tool_calls = chunk.tool_calls;  // Already accumulated by StreamParser
-                    last_finish_reason_ = chunk.finish_reason;
+                    // When stream ends, StreamParser provides complete tool calls
+                    if (chunk.is_stream_end) {
+                        ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] finish_reason={} tool_call_count={}",
+                            chunk.finish_reason, chunk.tool_calls.size());
+                        stream_complete = true;
+                        final_tool_calls = chunk.tool_calls;  // Already accumulated by StreamParser
+                        last_finish_reason_ = chunk.finish_reason;
 
-                    ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] action=emit_message_end");
-                    AgentEvent event;
-                    event.type = "message_end";
-                    event.data["finish_reason"] = chunk.finish_reason;
-                    callback(event);
-                }
-            });
+                        ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] action=emit_message_end");
+                        AgentEvent event;
+                        event.type = "message_end";
+                        event.data["finish_reason"] = chunk.finish_reason;
+                        callback(event);
+                    }
+                });
+        } catch (const std::exception& error) {
+            if (emit_readout_stream_error_fallback(
+                        request, new_messages, execution_state, callback, error.what())) {
+                loop_exit_reason = "readout_stream_error_local_fallback";
+                break;
+            }
+            throw;
+        }
 
         if (stop_requested_ && !stream_complete) {
             loop_exit_reason = "cancel";
