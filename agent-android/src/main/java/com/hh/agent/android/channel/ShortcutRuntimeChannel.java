@@ -1,5 +1,7 @@
 package com.hh.agent.android.channel;
 
+import com.hh.agent.android.AgentRuntimeProfiles;
+import com.hh.agent.android.ToolProfilePolicy;
 import com.hh.agent.android.selection.CandidateSelectionStateStore;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.android.ui.ToolUiDecision;
@@ -19,18 +21,28 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
 
     private final ShortcutRuntime shortcutRuntime;
     private final CandidateSelectionStateStore selectionStateStore;
+    private final ToolProfilePolicy toolProfilePolicy;
 
     public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime) {
-        this(shortcutRuntime, null);
+        this(shortcutRuntime, null, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
     }
 
     public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime,
                                   CandidateSelectionStateStore selectionStateStore) {
+        this(shortcutRuntime, selectionStateStore, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
+    }
+
+    public ShortcutRuntimeChannel(ShortcutRuntime shortcutRuntime,
+                                  CandidateSelectionStateStore selectionStateStore,
+                                  ToolProfilePolicy toolProfilePolicy) {
         if (shortcutRuntime == null) {
             throw new IllegalArgumentException("ShortcutRuntime cannot be null");
         }
         this.shortcutRuntime = shortcutRuntime;
         this.selectionStateStore = selectionStateStore;
+        this.toolProfilePolicy = toolProfilePolicy != null
+                ? toolProfilePolicy
+                : new ToolProfilePolicy(AgentRuntimeProfiles.FULL);
     }
 
     @Override
@@ -43,7 +55,8 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
                         "运行已注册的 shortcut 原子动作。"
-                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。")
+                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。"
+                                + toolProfilePolicy.buildRunShortcutDescriptionSuffix())
                 .property("shortcut", ToolSchemaBuilder.string()
                         .description(buildShortcutChoicesDescription()), true)
                 .property("args", ToolSchemaBuilder.object()
@@ -75,6 +88,14 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                         .with("channel", CHANNEL_NAME)
                         .with("shortcut", shortcutName);
             }
+        }
+        if (!toolProfilePolicy.isShortcutAllowed(shortcutName)) {
+            return ToolResult.error("shortcut_not_allowed_in_profile",
+                            "Shortcut '" + shortcutName + "' is disabled by profile")
+                    .with("channel", CHANNEL_NAME)
+                    .with("shortcut", shortcutName)
+                    .with("profile", toolProfilePolicy.getProfile())
+                    .with("reason", "disabled_by_profile");
         }
 
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
@@ -122,6 +143,9 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     public ToolUiDecision resolveInnerToolUiDecision(String argumentsJson) {
         String shortcutName = extractShortcutName(argumentsJson);
         if (shortcutName == null || shortcutName.isEmpty()) {
+            return ToolUiDecision.hidden();
+        }
+        if (!toolProfilePolicy.isShortcutAllowed(shortcutName)) {
             return ToolUiDecision.hidden();
         }
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);

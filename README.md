@@ -198,11 +198,39 @@ dependencies {
 }
 ```
 
+如需切换 Agent 运行模式，可在同一个 `config.json` 里增加 `agentProfile`：
+
+```json
+{
+  "provider": {
+    "apiKey": "your-api-key",
+    "baseUrl": "https://api.openai.com/v1"
+  },
+  "agent": {
+    "model": "gpt-4.1"
+  },
+  "agentProfile": "visual_only"
+}
+```
+
+当前支持两个值：
+
+- `full`
+  默认模式。保留完整 tool / shortcut 能力，并使用默认 prompt / skill 资源。
+- `visual_only`
+  纯视觉模式。只保留 `android_view_context_tool`、`android_gesture_tool`、`android_web_action_tool`，同时切换到 `visual_only` 版本的 prompt / skill 资源。
+
+切换方式：
+
+- 不配置 `agentProfile`，或填空值时，默认回退到 `full`
+- 配置 `"agentProfile": "visual_only"` 时，运行时能力限制和 prompt / skill 资源会一起切到纯视觉模式
+
 当前初始化阶段实际会读取这些字段：
 
 - `provider.apiKey`
 - `provider.baseUrl`
 - `agent.model`
+- `agentProfile`
 
 说明：
 

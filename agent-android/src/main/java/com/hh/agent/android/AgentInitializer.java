@@ -72,21 +72,26 @@ public class AgentInitializer {
         SessionDebugTranscriptStore.initialize(application);
         ViewContextSourcePolicyRegistry.setActivePolicy(viewContextSourcePolicy);
 
-        // 1. 创建 AndroidToolManager
-        AndroidToolManager toolManager = new AndroidToolManager(application);
+        // 1. 读取配置并解析 profile
+        loadConfigFromAssets(application);
+        AgentRuntimeProfileConfig profileConfig = AgentRuntimeProfileConfig.fromConfigJson(configJson);
 
-        // 2. 批量注册 shortcuts
+        // 2. 创建 AndroidToolManager
+        AndroidToolManager toolManager = new AndroidToolManager(
+                application,
+                new ToolProfilePolicy(profileConfig.getAgentProfile()));
+
+        // 3. 批量注册 shortcuts
         if (shortcuts != null) {
             toolManager.registerShortcuts(shortcuts);
         }
         toolManager.initialize();
 
-        // 3. 读取配置文件
-        loadConfigFromAssets(application);
-
         // 4. 初始化 workspace
         try {
-            WorkspaceManager workspaceManager = new WorkspaceManager(application);
+            WorkspaceManager workspaceManager = new WorkspaceManager(
+                    application,
+                    profileConfig.getAgentProfile());
             String workspacePath = workspaceManager.initialize();
             if (!workspacePath.isEmpty()) {
                 int lastBrace = configJson.lastIndexOf('}');
@@ -174,7 +179,10 @@ public class AgentInitializer {
             is.read(buffer);
             configJson = new String(buffer, "UTF-8");
             is.close();
-            AgentLogs.info(TAG, "config_loaded", "content_length=" + configJson.length());
+            AgentRuntimeProfileConfig profileConfig = AgentRuntimeProfileConfig.fromConfigJson(configJson);
+            AgentLogs.info(TAG, "config_loaded",
+                    "content_length=" + configJson.length()
+                            + " agent_profile=" + profileConfig.getAgentProfile());
         } catch (Exception e) {
             configJson = "";
             AgentLogs.warn(TAG, "config_load_failed", "message=" + e.getMessage());

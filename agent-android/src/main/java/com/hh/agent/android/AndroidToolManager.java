@@ -36,18 +36,33 @@ public class AndroidToolManager implements AndroidToolCallback {
     private Context context;
     private final ShortcutRuntime shortcutRuntime;
     private final CandidateSelectionStateStore candidateSelectionStateStore;
+    private final ToolProfilePolicy toolProfilePolicy;
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
     public AndroidToolManager(Context context) {
-        this(context, new ShortcutRuntime(), null);
+        this(context, new ShortcutRuntime(), null, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
+    }
+
+    public AndroidToolManager(Context context, ToolProfilePolicy toolProfilePolicy) {
+        this(context, new ShortcutRuntime(), null, toolProfilePolicy);
     }
 
     AndroidToolManager(Context context,
                        ShortcutRuntime shortcutRuntime,
                        Collection<? extends AndroidToolChannelExecutor> initialChannels) {
+        this(context, shortcutRuntime, initialChannels, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
+    }
+
+    AndroidToolManager(Context context,
+                       ShortcutRuntime shortcutRuntime,
+                       Collection<? extends AndroidToolChannelExecutor> initialChannels,
+                       ToolProfilePolicy toolProfilePolicy) {
         this.context = context;
         this.shortcutRuntime = shortcutRuntime != null ? shortcutRuntime : new ShortcutRuntime();
         this.candidateSelectionStateStore = new CandidateSelectionStateStore();
+        this.toolProfilePolicy = toolProfilePolicy != null
+                ? toolProfilePolicy
+                : new ToolProfilePolicy(AgentRuntimeProfiles.FULL);
         registerBuiltinShortcuts();
         if (initialChannels == null) {
             registerDefaultChannels();
@@ -59,8 +74,8 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     private void registerDefaultChannels() {
-        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore));
-        registerChannel(new DescribeShortcutChannel(shortcutRuntime));
+        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore, toolProfilePolicy));
+        registerChannel(new DescribeShortcutChannel(shortcutRuntime, toolProfilePolicy));
         registerChannel(new GestureToolChannel());
         registerChannel(new WebActionToolChannel());
         registerChannel(context == null
@@ -165,10 +180,18 @@ public class AndroidToolManager implements AndroidToolCallback {
             JSONArray toolsArray = new JSONArray();
 
             for (AndroidToolChannelExecutor channelExecutor : channels.values()) {
+                if (!toolProfilePolicy.isToolChannelEnabled(channelExecutor.getChannelName())) {
+                    AgentLogs.info("AndroidToolManager", "tool_schema_filtered",
+                            "profile=" + toolProfilePolicy.getProfile()
+                                    + " channel_name=" + channelExecutor.getChannelName());
+                    continue;
+                }
                 toolsArray.put(channelExecutor.buildToolDefinition());
             }
             root.put("tools", toolsArray);
-            AgentLogs.info("AndroidToolManager", "tools_json_generated", "channel_count=" + channels.size());
+            AgentLogs.info("AndroidToolManager", "tools_json_generated",
+                    "channel_count=" + channels.size()
+                            + " profile=" + toolProfilePolicy.getProfile());
             return root.toString();
         } catch (Exception e) {
             AgentLogs.error("AndroidToolManager", "generate_tools_json_failed", "message=" + e.getMessage(), e);
@@ -208,6 +231,17 @@ public class AndroidToolManager implements AndroidToolCallback {
                         "unsupported_tool_channel",
                         "Tool channel '" + toolName + "' is not supported"
                 ).toJsonString();
+            }
+            if (!toolProfilePolicy.isToolChannelEnabled(toolName)) {
+                AgentLogs.warn("AndroidToolManager", "tool_channel_blocked_by_profile",
+                        "channel=" + toolName + " profile=" + toolProfilePolicy.getProfile());
+                return ToolResult.error(
+                                "unsupported_tool_channel",
+                                "Tool channel '" + toolName + "' is disabled by profile")
+                        .with("channel", toolName)
+                        .with("profile", toolProfilePolicy.getProfile())
+                        .with("reason", "disabled_by_profile")
+                        .toJsonString();
             }
 
             JSONObject params = new JSONObject(argsJson);
