@@ -79,4 +79,51 @@ public class UnifiedViewObservationFacadeTest {
         assertEquals("发送消息", elements.getJSONObject(0).getString("text"));
         assertEquals("[820,1500][1040,1700]", elements.getJSONObject(0).getString("bounds"));
     }
+
+    @Test
+    public void build_nativeXml_emitsCanonicalFields() throws Exception {
+        String nativeXml = "<hierarchy activity=\"com.hh.agent.ChatActivity\"><node index=\"0\" class=\"android.widget.FrameLayout\" bounds=\"[0,0][1080,1920]\"><node index=\"2\" class=\"android.widget.Button\" text=\"发送消息\" bounds=\"[820,1500][1040,1700]\" clickable=\"true\"></node></node></hierarchy>";
+        
+        UnifiedViewObservation observation = UnifiedViewObservationFacade.build(
+                "native_xml",
+                "com.hh.agent.ChatActivity",
+                "native",
+                "发送消息",
+                null,
+                null,
+                nativeXml,
+                null,
+                null,
+                null,
+                null
+        );
+
+        // Verify pageSummary is present and meaningful
+        assertNotNull("pageSummary must not be null", observation.pageSummary);
+        assertTrue("pageSummary must mention native page", observation.pageSummary.contains("Native page"));
+        assertTrue("pageSummary must mention activity", observation.pageSummary.contains("com.hh.agent.ChatActivity"));
+
+        // Verify qualityJson contains adapter metadata
+        assertNotNull("qualityJson must not be null", observation.qualityJson);
+        JSONObject quality = new JSONObject(observation.qualityJson);
+        assertEquals("NativeXmlObservationAdapter", quality.getString("adapterName"));
+        assertEquals("native_only", quality.getString("mode"));
+        assertTrue("nativeNodeCount must be positive", quality.getInt("nativeNodeCount") > 0);
+
+        // Verify rawJson preserves nativeViewXml
+        assertNotNull("rawJson must not be null", observation.rawJson);
+        JSONObject raw = new JSONObject(observation.rawJson);
+        assertEquals("rawJson must preserve original nativeViewXml", nativeXml, raw.getString("nativeViewXml"));
+        assertTrue("rawJson.webDom must be null for native_xml source", raw.isNull("webDom"));
+    }
+
+    @Test
+    public void nativeAdapter_onlySupportsNativeXml() throws Exception {
+        NativeXmlObservationAdapter adapter = new NativeXmlObservationAdapter();
+        
+        assertTrue("Must support native_xml", adapter.supports("native_xml"));
+        assertTrue("Must NOT support screen_snapshot", !adapter.supports("screen_snapshot"));
+        assertTrue("Must NOT support web_dom", !adapter.supports("web_dom"));
+        assertTrue("Must NOT support hybrid", !adapter.supports("hybrid"));
+    }
 }

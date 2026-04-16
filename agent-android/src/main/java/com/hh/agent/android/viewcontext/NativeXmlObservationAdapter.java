@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 public final class NativeXmlObservationAdapter implements UnifiedObservationAdapter {
     @Override
     public boolean supports(String source) {
-        return "native_xml".equals(source) || "screen_snapshot".equals(source);
+        return "native_xml".equals(source);
     }
 
     @Override
