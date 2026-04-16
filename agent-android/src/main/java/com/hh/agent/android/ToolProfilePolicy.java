@@ -45,12 +45,4 @@ public final class ToolProfilePolicy {
         }
         return false;
     }
-
-    public String buildRunShortcutDescriptionSuffix() {
-        return "";
-    }
-
-    public String buildDescribeShortcutDescriptionSuffix() {
-        return "";
-    }
 }

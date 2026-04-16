@@ -55,8 +55,7 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
                         "运行已注册的 shortcut 原子动作。"
-                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。"
-                                + toolProfilePolicy.buildRunShortcutDescriptionSuffix())
+                                + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。")
                 .property("shortcut", ToolSchemaBuilder.string()
                         .description(buildShortcutChoicesDescription()), true)
                 .property("args", ToolSchemaBuilder.object()
