@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Workspace Manager
@@ -19,8 +21,16 @@ public class WorkspaceManager {
     private static final String WORKSPACE_DIR = ".icraw/workspace";
     private static final String BUILTIN_ASSETS_WORKSPACE = "builtin_workspace";
     private static final String ASSETS_WORKSPACE = "workspace";
-    private static final String BUILTIN_ASSETS_WORKSPACE_PROFILES = "builtin_workspace_profiles";
-    private static final String ASSETS_WORKSPACE_PROFILES = "workspace_profiles";
+    private static final String[] WORKSPACE_ROOT_FILES = {
+            "SOUL.md",
+            "USER.md",
+            "AGENTS.md",
+            "TOOLS.md"
+    };
+    private static final String[] MANAGED_PROFILES = {
+            AgentRuntimeProfiles.FULL,
+            AgentRuntimeProfiles.VISUAL_ONLY
+    };
 
 
     private final Context context;
@@ -45,13 +55,16 @@ public class WorkspaceManager {
 
         if (!workspaceDir.exists()) {
             AgentLogs.info(TAG, "workspace_prepare", "mode=create path=" + workspaceDir.getAbsolutePath());
-            if (copyAssetsToWorkspace()) {
+            try {
+                ensureWorkspaceDirectoryExists(workspaceDir);
+                syncWorkspaceFilesAndSkills(workspaceDir);
                 AgentLogs.info(TAG, "workspace_ready", "mode=created path=" + workspaceDir.getAbsolutePath());
-            } else {
+            } catch (IOException e) {
                 AgentLogs.error(TAG, "workspace_prepare_failed", "path=" + workspaceDir.getAbsolutePath());
+                AgentLogs.error(TAG, "workspace_copy_failed", "message=" + e.getMessage(), e);
             }
         } else {
-            syncBuiltinSkillsIfNeeded(workspaceDir);
+            syncWorkspaceIfNeeded(workspaceDir);
             AgentLogs.info(TAG, "workspace_ready", "mode=existing path=" + workspaceDir.getAbsolutePath());
         }
 
@@ -75,31 +88,13 @@ public class WorkspaceManager {
         return new File(filesDir, WORKSPACE_DIR);
     }
 
-    /**
-     * Copy preset workspace files from assets to user directory
-     *
-     * @return true if successful
-     */
-    private boolean copyAssetsToWorkspace() {
-        File workspaceDir = getWorkspaceDirectory();
-
-        // Create workspace directory
+    private void ensureWorkspaceDirectoryExists(File workspaceDir) throws IOException {
         if (!workspaceDir.mkdirs()) {
-            AgentLogs.error(TAG, "workspace_dir_create_failed", "path=" + workspaceDir.getAbsolutePath());
-            return false;
-        }
-
-        try {
-            syncWorkspaceFilesAndSkills(workspaceDir);
-
-            return true;
-        } catch (IOException e) {
-            AgentLogs.error(TAG, "workspace_copy_failed", "message=" + e.getMessage(), e);
-            return false;
+            throw new IOException("Failed to create workspace directory: " + workspaceDir.getAbsolutePath());
         }
     }
 
-    private void syncBuiltinSkillsIfNeeded(File workspaceDir) {
+    private void syncWorkspaceIfNeeded(File workspaceDir) {
         try {
             syncWorkspaceFilesAndSkills(workspaceDir);
         } catch (IOException e) {
@@ -108,10 +103,7 @@ public class WorkspaceManager {
     }
 
     private void syncWorkspaceFilesAndSkills(File workspaceDir) throws IOException {
-        copyWorkspaceRootFile("SOUL.md", workspaceDir);
-        copyWorkspaceRootFile("USER.md", workspaceDir);
-        copyWorkspaceRootFile("AGENTS.md", workspaceDir);
-        copyWorkspaceRootFile("TOOLS.md", workspaceDir);
+        syncWorkspaceRootFiles(workspaceDir);
 
         File skillsDir = new File(workspaceDir, "skills");
         if (!skillsDir.exists() && !skillsDir.mkdirs()) {
@@ -119,18 +111,49 @@ public class WorkspaceManager {
             return;
         }
 
-        clearDirectoryChildren(skillsDir);
-        syncSkillsFromAssetRoot(resolveBuiltinSkillRoot(), skillsDir, "builtin");
+        replaceBuiltinSkills(skillsDir);
         syncSkillsFromAssetRoot(resolveWorkspaceSkillRoot(), skillsDir, "workspace");
     }
 
+    private void syncWorkspaceRootFiles(File workspaceDir) throws IOException {
+        for (String fileName : WORKSPACE_ROOT_FILES) {
+            copyWorkspaceRootFile(fileName, workspaceDir);
+        }
+    }
+
+    private void replaceBuiltinSkills(File skillsDir) throws IOException {
+        Set<String> builtinSkillNames = listManagedBuiltinSkillNames();
+
+        for (String skillName : builtinSkillNames) {
+            File targetSkillDir = new File(skillsDir, skillName);
+            if (!targetSkillDir.exists()) {
+                continue;
+            }
+            AgentLogs.debug(TAG, "builtin_skill_replace_remove", "skill_name=" + skillName);
+            deleteRecursively(targetSkillDir);
+        }
+
+        syncSkillsFromAssetRoot(resolveBuiltinSkillRoot(), skillsDir, "builtin");
+    }
+
+    private Set<String> listManagedBuiltinSkillNames() throws IOException {
+        Set<String> builtinSkillNames = new LinkedHashSet<>();
+        for (String profile : MANAGED_PROFILES) {
+            builtinSkillNames.addAll(listSkillNames(BUILTIN_ASSETS_WORKSPACE + "/" + profile));
+        }
+        builtinSkillNames.addAll(listSkillNames(BUILTIN_ASSETS_WORKSPACE));
+        return builtinSkillNames;
+    }
+
     private void syncSkillsFromAssetRoot(String assetRoot, File skillsDir, String sourceTag) throws IOException {
-        String[] skillNames = context.getAssets().list(assetRoot + "/skills");
-        if (skillNames == null) {
-            AgentLogs.debug(TAG, "builtin_skill_sync_skipped", "source=" + sourceTag + " reason=assets_list_empty");
+        Set<String> currentSkillNames = listSkillNames(assetRoot);
+        if (currentSkillNames.isEmpty()) {
+            AgentLogs.debug(TAG, "builtin_skill_sync_skipped",
+                    "source=" + sourceTag + " reason=assets_list_empty");
             return;
         }
-        for (String skillName : skillNames) {
+
+        for (String skillName : currentSkillNames) {
             File targetSkillDir = new File(skillsDir, skillName);
             if (targetSkillDir.exists()) {
                 AgentLogs.debug(TAG, "builtin_skill_overwrite", "source=" + sourceTag + " skill_name=" + skillName);
@@ -140,6 +163,20 @@ public class WorkspaceManager {
             }
             copyAssetDirectory(assetRoot + "/skills/" + skillName, targetSkillDir);
         }
+    }
+
+    private Set<String> listSkillNames(String assetRoot) throws IOException {
+        String[] skillNames = context.getAssets().list(assetRoot + "/skills");
+        Set<String> names = new LinkedHashSet<>();
+        if (skillNames == null) {
+            return names;
+        }
+        for (String skillName : skillNames) {
+            if (skillName != null && !skillName.trim().isEmpty()) {
+                names.add(skillName.trim());
+            }
+        }
+        return names;
     }
 
     /**
@@ -161,36 +198,44 @@ public class WorkspaceManager {
     }
 
     private void copyWorkspaceRootFile(String fileName, File workspaceDir) throws IOException {
-        String assetPath = resolveWorkspaceRootAssetPath(fileName);
+        String assetPath = resolveAssetFilePath(ASSETS_WORKSPACE, fileName);
         if (assetPath == null) {
             return;
         }
         copyAssetFile(assetPath, new File(workspaceDir, fileName));
     }
 
-    private String resolveWorkspaceRootAssetPath(String fileName) {
-        String profilePath = ASSETS_WORKSPACE_PROFILES + "/" + promptProfile + "/" + fileName;
+    private String resolveAssetFilePath(String assetBasePath, String fileName) {
+        String profilePath = assetBasePath + "/" + promptProfile + "/" + fileName;
         if (assetFileExists(profilePath)) {
             return profilePath;
         }
-        String defaultPath = ASSETS_WORKSPACE + "/" + fileName;
+        String fullPath = assetBasePath + "/" + AgentRuntimeProfiles.FULL + "/" + fileName;
+        if (assetFileExists(fullPath)) {
+            return fullPath;
+        }
+        String defaultPath = assetBasePath + "/" + fileName;
         return assetFileExists(defaultPath) ? defaultPath : null;
     }
 
     private String resolveBuiltinSkillRoot() {
-        String profileRoot = BUILTIN_ASSETS_WORKSPACE_PROFILES + "/" + promptProfile + "/skills";
-        if (assetDirectoryExists(profileRoot)) {
-            return BUILTIN_ASSETS_WORKSPACE_PROFILES + "/" + promptProfile;
-        }
-        return BUILTIN_ASSETS_WORKSPACE;
+        return resolveSkillRoot(BUILTIN_ASSETS_WORKSPACE);
     }
 
     private String resolveWorkspaceSkillRoot() {
-        String profileRoot = ASSETS_WORKSPACE_PROFILES + "/" + promptProfile + "/skills";
+        return resolveSkillRoot(ASSETS_WORKSPACE);
+    }
+
+    private String resolveSkillRoot(String assetBasePath) {
+        String profileRoot = assetBasePath + "/" + promptProfile + "/skills";
         if (assetDirectoryExists(profileRoot)) {
-            return ASSETS_WORKSPACE_PROFILES + "/" + promptProfile;
+            return assetBasePath + "/" + promptProfile;
         }
-        return ASSETS_WORKSPACE;
+        String fullRoot = assetBasePath + "/" + AgentRuntimeProfiles.FULL + "/skills";
+        if (assetDirectoryExists(fullRoot)) {
+            return assetBasePath + "/" + AgentRuntimeProfiles.FULL;
+        }
+        return assetBasePath;
     }
 
     private boolean assetFileExists(String assetPath) {
@@ -249,16 +294,6 @@ public class WorkspaceManager {
 
         if (file.exists() && !file.delete()) {
             throw new IOException("Failed to delete " + file.getAbsolutePath());
-        }
-    }
-
-    private void clearDirectoryChildren(File directory) throws IOException {
-        File[] children = directory.listFiles();
-        if (children == null) {
-            return;
-        }
-        for (File child : children) {
-            deleteRecursively(child);
         }
     }
 
