@@ -151,4 +151,78 @@ public class UnifiedViewObservationFacadeTest {
         assertEquals("node-1", elements.getJSONObject(0).getString("ref"));
         assertEquals("button#submit", elements.getJSONObject(0).getString("selector"));
     }
+
+    @Test
+    public void build_visualObservation_emitsSimplifiedVisualTree() throws Exception {
+        String visualObservationJson = "{\"summary\":\"聊天输入页\",\"sections\":[{\"id\":\"section-compose\",\"type\":\"compose_bar\",\"summaryText\":\"输入区\",\"bbox\":[0,1400,1080,1800]}],\"items\":[{\"id\":\"item-send\",\"summaryText\":\"发送按钮\",\"bbox\":[800,1480,1050,1710]}],\"texts\":[{\"id\":\"text-send\",\"text\":\"发送\",\"bbox\":[820,1500,1040,1700]}],\"controls\":[{\"id\":\"control-send\",\"type\":\"button\",\"label\":\"发送\",\"bbox\":[820,1500,1040,1700],\"score\":0.97}]}";
+
+        UnifiedViewObservation observation = UnifiedViewObservationFacade.build(
+                "screen_snapshot",
+                "com.hh.agent.ChatActivity",
+                "native",
+                "发送",
+                null,
+                null,
+                null,
+                null,
+                visualObservationJson,
+                null,
+                "screenvision://capture/send"
+        );
+
+        JSONObject uiTree = new JSONObject(observation.uiTreeJson);
+        JSONArray elements = new JSONArray(observation.screenElementsJson);
+        JSONObject quality = new JSONObject(observation.qualityJson);
+        JSONObject raw = new JSONObject(observation.rawJson);
+
+        assertEquals("visual_root", uiTree.getString("className"));
+        assertEquals("聊天输入页", observation.pageSummary);
+        assertTrue(elements.length() > 0);
+        assertEquals("button", elements.getJSONObject(0).getString("role"));
+        assertEquals("VisualObservationAdapter", quality.getString("adapterName"));
+        assertEquals("screen_only", quality.getString("mode"));
+        assertTrue(raw.has("visualObservationJson"));
+        assertEquals("发送", raw.getJSONObject("visualObservationJson")
+                .getJSONArray("controls")
+                .getJSONObject(0)
+                .getString("label"));
+        assertEquals("screenvision://capture/send", raw.getString("screenSnapshot"));
+    }
+
+    @Test
+    public void build_hybridObservation_prefersActionableNodesAsCanonicalElements() throws Exception {
+        String nativeXml = "<hierarchy activity=\"com.hh.agent.ChatActivity\"><node index=\"2\" class=\"android.widget.Button\" text=\"发送\" bounds=\"[820,1500][1040,1700]\"></node></hierarchy>";
+        String visualObservationJson = "{\"summary\":\"聊天输入页\"}";
+        String hybridObservationJson = "{\"summary\":\"聊天输入页\",\"availableSignals\":{\"nativeXml\":true,\"screenVisionCompact\":true},\"quality\":{\"fusedMatchCount\":1},\"actionableNodes\":[{\"source\":\"fused\",\"nativeNodeIndex\":2,\"text\":\"发送\",\"bounds\":\"[820,1500][1040,1700]\",\"score\":0.95}],\"conflicts\":[]}";
+
+        UnifiedViewObservation observation = UnifiedViewObservationFacade.build(
+                "native_xml",
+                "com.hh.agent.ChatActivity",
+                "native",
+                "发送",
+                null,
+                null,
+                nativeXml,
+                null,
+                visualObservationJson,
+                hybridObservationJson,
+                "screenvision://capture/send"
+        );
+
+        JSONObject uiTree = new JSONObject(observation.uiTreeJson);
+        JSONArray elements = new JSONArray(observation.screenElementsJson);
+        JSONObject quality = new JSONObject(observation.qualityJson);
+        JSONObject raw = new JSONObject(observation.rawJson);
+
+        assertEquals("android.widget.Button", uiTree.getString("className"));
+        assertEquals("聊天输入页", observation.pageSummary);
+        assertEquals("发送", elements.getJSONObject(0).getString("text"));
+        assertEquals("fused", elements.getJSONObject(0).getString("source"));
+        assertEquals("HybridObservationAdapter", quality.getString("adapterName"));
+        assertEquals(1, quality.getInt("fusedMatchCount"));
+        assertEquals(nativeXml, raw.getString("nativeViewXml"));
+        assertEquals("聊天输入页", raw.getJSONObject("hybridObservationJson").getString("summary"));
+        assertEquals("聊天输入页", raw.getJSONObject("visualObservationJson").getString("summary"));
+        assertEquals("screenvision://capture/send", raw.getString("screenSnapshot"));
+    }
 }
