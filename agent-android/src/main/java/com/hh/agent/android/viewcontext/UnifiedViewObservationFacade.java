@@ -80,51 +80,6 @@ public final class UnifiedViewObservationFacade {
         }
     }
 
-    static class WebDomObservationAdapter implements UnifiedObservationAdapter {
-        @Override
-        public boolean supports(String source) {
-            return "web_dom".equals(source);
-        }
-
-        @Override
-        public UnifiedViewObservation adapt(String source, String activityClassName,
-                                           String interactionDomain, String targetHint,
-                                           String pageUrl, String pageTitle,
-                                           String nativeViewXml, String webDom,
-                                           String visualObservationJson,
-                                           String hybridObservationJson,
-                                           String screenSnapshot) throws Exception {
-            JSONObject raw = new JSONObject();
-            if (webDom != null) {
-                raw.put("webDom", new JSONObject(webDom));
-            }
-
-            JSONArray uiTree = new JSONArray();
-            JSONArray screenElements = new JSONArray();
-            
-            if (webDom != null) {
-                JSONObject domData = new JSONObject(webDom);
-                if (domData.has("tree")) {
-                    uiTree.put(domData.getJSONObject("tree"));
-                }
-            }
-
-            return new UnifiedViewObservation(
-                    source,
-                    interactionDomain,
-                    activityClassName,
-                    targetHint,
-                    pageUrl,
-                    pageTitle,
-                    null,
-                    uiTree.toString(),
-                    screenElements.toString(),
-                    null,
-                    raw.toString()
-            );
-        }
-    }
-
     static class VisualObservationAdapter implements UnifiedObservationAdapter {
         @Override
         public boolean supports(String source) {

@@ -126,4 +126,29 @@ public class UnifiedViewObservationFacadeTest {
         assertTrue("Must NOT support web_dom", !adapter.supports("web_dom"));
         assertTrue("Must NOT support hybrid", !adapter.supports("hybrid"));
     }
+
+    @Test
+    public void build_webDom_emitsCanonicalTagTreeAndElements() throws Exception {
+        UnifiedViewObservation observation = UnifiedViewObservationFacade.build(
+                "web_dom",
+                "com.hh.agent.BusinessWebActivity",
+                "web",
+                "提交",
+                "https://example.test/form",
+                "Mock Page",
+                null,
+                "{\"pageUrl\":\"https://example.test/form\",\"pageTitle\":\"Mock Page\",\"nodeCount\":2,\"maxDepthReached\":1,\"truncated\":false,\"tree\":{\"ref\":\"node-0\",\"tag\":\"body\",\"text\":\"\",\"bounds\":{\"x\":0,\"y\":0,\"width\":1080,\"height\":1920},\"children\":[{\"ref\":\"node-1\",\"tag\":\"button\",\"selector\":\"button#submit\",\"text\":\"提交\",\"ariaLabel\":\"提交按钮\",\"clickable\":true,\"inputable\":false,\"bounds\":{\"x\":12,\"y\":34,\"width\":120,\"height\":44},\"children\":[]}]}}",
+                null,
+                null,
+                null
+        );
+
+        JSONObject uiTree = new JSONObject(observation.uiTreeJson);
+        JSONArray elements = new JSONArray(observation.screenElementsJson);
+
+        assertEquals("body", uiTree.getString("tagName"));
+        assertEquals("web_dom", uiTree.getString("source"));
+        assertEquals("node-1", elements.getJSONObject(0).getString("ref"));
+        assertEquals("button#submit", elements.getJSONObject(0).getString("selector"));
+    }
 }
