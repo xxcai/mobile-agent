@@ -1,181 +1,101 @@
-# ARM64 Android SDK Directory Design
+# ARM64 Android SDK 目录已完成设计说明
 
-## Goal
+## 设计目标
 
-在 `mobile-agent` 仓库内产出一份可独立复用的 Android SDK 目录，使 Android Studio 或 Gradle 在 ARM64 Linux 上仅通过配置 `sdk.dir=<该目录>` 即可完成当前项目的 NDK 构建与 `:app:assembleDebug`。
+为 `mobile-agent` 在 ARM64 Linux 上整理一套稳定的本地构建约束，使仓库能够在不改动默认版本的前提下，通过宿主机 SDK 目录、本地 Gradle 属性覆盖和 Conan 参数完成 native 构建。
 
-## Scope
+## 当前已落地设计
 
-本轮覆盖：
+### 1. 保持仓库默认版本稳定
 
-- 产出一个接近 Android SDK Manager 安装形态的独立目录
-- 目录内包含当前项目编译所需的最小 SDK 组件
-- 目录内的 `cmake`、`ninja`、`ndk` 在 ARM64 Linux 上可运行
-- 用该目录 fresh 验证当前仓库的 `conan install`、`:agent-core:assembleDebug`、`:app:assembleDebug`
-- 将仓库配置从“依赖当前机器私有替身路径”收敛到“依赖指定 SDK 目录”
+当前仓库没有把 ARM64 Linux 的实验性版本直接写成默认值，而是保留：
 
-本轮不覆盖：
+- `agent-core/build.gradle` 默认 `cmake = 3.22.1`
+- `agent-core/build.gradle` 默认 `ndkVersion = 26.3.11579264`
 
-- 模拟器、profiler、device manager 等 IDE 扩展组件
-- 通过 SDK Manager 自动更新该目录
-- 发布为压缩包之外的安装器或自更新工具
-- 对 x86_64 Linux、macOS、Windows 的通用兼容
+同时通过以下本地 Gradle 属性提供覆盖能力：
 
-## Context
+- `agentCoreCmakeVersion`
+- `agentCoreNdkVersion`
 
-当前仓库在 ARM64 Linux 上已经通过一组本机级实验打通了 native 构建链：
+### 2. Conan 配置不再依赖仓库内硬编码路径
 
-- `agent-core:configureCMakeRelease[arm64-v8a]` 已可通过
-- `:agent-core:assembleDebug` 已可通过
-- `:app:assembleDebug` 已可通过
+`agent-core/android.profile` 当前已经移除固定 NDK 绝对路径，改为由本地 Conan 命令注入：
 
-但当前可用状态依赖的是宿主机上的临时替身方案，而不是一份可独立复用的 SDK 目录：
+```bash
+conan install . -pr android.profile -s arch=armv8 \
+  -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 \
+  --build missing
+```
 
-- 本地 ARM64 构建依赖 `cmake 3.31.6`，但这不应直接变成仓库默认值
-- `local.properties` 临时指向 `android-studio/Sdk/cmake/3.31.6`
-- `/home/tony/Android/Sdk/cmake/3.22.1/bin/ninja` 被本机 ARM64 `ninja` 替换
-- `/home/tony/Android/Sdk/ndk/26.3.11579264` 被 `termux-ndk` 软链替换
+### 3. ARM64 Linux 的当前工作方案已经明确
 
-这些修改已经证明当前真正可行的工具链组合是：
+当前已验证可用的宿主机目录是：
 
-- ARM64 CMake
-- ARM64 Ninja
-- ARM64 Android NDK host toolchain
+- `/home/tony/Android/android-sdk-aarch64`
 
-补充状态说明：截至 2026-04-02，项目实际 fresh 验证通过的配置仍然是 `/home/tony/Android/android-sdk-aarch64`，并通过项目级 `gradle.properties` 显式固定 `android.aapt2FromMavenOverride=/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。仓库默认 `agent-core/build.gradle` 应继续保持主干默认版本，本地 ARM64 所需的 CMake / NDK 版本切换应通过用户级 Gradle 属性和 Conan 命令覆盖完成。因此本设计文档中的 `dist/android-sdk-aarch64/` 仍然表示目标态，而不是当前已经交付完成的目录。
+本地 ARM64 Linux 工作方案包括：
 
-接下来的目标不是继续依赖当前机器目录，而是把这组已验证可行的组合固化成一份单独目录，例如 `dist/android-sdk-aarch64/`，让其他本地工程也能通过 `sdk.dir` 直接复用。
+- `local.properties` 指向该 SDK 目录
+- Java 使用 `/home/tony/android-studio/jbr`
+- 必要时通过本机级 `android.aapt2FromMavenOverride` 强制使用 ARM64 的 `aapt2`
 
-## Approaches Considered
+### 4. `agent-screen-vision` 的 JNI 预编译依赖沿用老版本布局
 
-### Approach A: 继续保留“宿主机现有 SDK + 本机替身修补”
+对 `/home/tony/Project/mobile-agent-old` 的构建链回查后，可以确认以下事实：
 
-优点：改动最少，当前机器已经可用。
+- 根任务 `syncDemoSdkAars` 依赖 `:agent-screen-vision:assembleDebug`
+- 根任务 `exportLocalMavenRepo` / `zipLocalMavenRepo` 依赖 `:agent-screen-vision` 的发布产物
+- `agent-screen-vision/src/main/cpp/CMakeLists.txt` 直接从 `src/main/jniLibs/${ANDROID_ABI}` 读取：
+  - `libMNN.so`
+  - `libMNN_Express.so`
 
-缺点：不可移植，强依赖 `/home/tony/...`；无法作为独立 SDK 目录复用；容易污染本机原有 SDK。
+旧仓库实际保存了两套 ABI 的预编译库：
 
-### Approach B: 产出一份最小可编译 Android SDK 目录
+- `agent-screen-vision/src/main/jniLibs/arm64-v8a/`
+- `agent-screen-vision/src/main/jniLibs/armeabi-v7a/`
 
-优点：最符合“像 SDK Manager 下载后的 SDK 目录”的目标；可以通过 `sdk.dir` 独立复用；能隔离本机实验性修改。
+当前仓库的 `agent-screen-vision/build.gradle.kts` 仍配置 `arm64-v8a` 和 `armeabi-v7a` 两个 ABI，因此完整 SDK AAR 构建必须把这 4 个 `.so` 文件视为正式构建前置，而不是“可选的本地调试残留物”。
 
-缺点：需要显式整理目录结构，并补齐当前项目最小所需的组件集合。
+### 5. ARM64 宿主机构建与完整 AAR 打包是两层验证
 
-### Approach C: 只产出一个“修补脚本”，要求用户先准备原始 SDK
+当前设计上需要区分两类验证：
 
-优点：目录体积最小。
+1. **基础 ARM64 构建链验证**
+   - `conan install`
+   - `:agent-core:assembleDebug`
+   - `:app:assembleDebug`
 
-缺点：交付物不是独立 SDK 目录，仍依赖外部基础 SDK，不满足当前目标。
+2. **完整 SDK 打包验证**
+   - `:agent-core:assembleDebug`
+   - `:agent-android:assembleDebug`
+   - `:agent-screen-vision:assembleDebug`
 
-### Decision
+第二层比第一层额外依赖 `agent-screen-vision` 的 `MNN` 预编译库是否齐全。只有这 4 个 `.so` 已就位，根任务 `syncDemoSdkAars` 和离线 Maven 导出链才具备可执行前提。
 
-采用 Approach B。
+### 6. 文档收口策略已经落地
 
-## Design
+当前 ARM64 Linux 的说明已经收口到计划文档本身，仓库不再单独维护第二份 ARM64 说明文档，避免内容漂移。
 
-### 1. Directory Layout
+## 当前已验证结果
 
-目标目录命名为：
+当前仓库中已经确认可行的部分包括：
 
-- `dist/android-sdk-aarch64/`
+- `agent-core/build.gradle` 提供本地覆盖入口
+- `agent-core/android.profile` 不再硬编码单机私有路径
+- `README.md` 已指向统一的 ARM64 说明入口
+- 宿主机目录 `/home/tony/Android/android-sdk-aarch64` 的使用方式、限制和验证命令已被文档化
+- `agent-screen-vision` 的 legacy `jniLibs` 前置已经与老版本构建链对齐并被文档化
+- 完整 3 模块 AAR 生成所需的额外前置条件已经明确
 
-目录结构尽量贴近标准 Android SDK，至少包含：
+## 未纳入本文档的内容
 
-- `build-tools/<version>/`
-- `cmake/3.31.6/`
-- `licenses/`
-- `ndk/26.3.11579264/`
-- `platform-tools/`
-- `platforms/android-34/`
+以下目标尚未完成，因此本文档不再保留其目标态描述：
 
-本轮以“当前项目可编译”的最小闭包为准，不额外引入 `emulator/`、`sources/`、`cmdline-tools/`。
+- 仓库内自包含的 `dist/android-sdk-aarch64/`
+- 基于该独立目录的 fresh 构建闭环
+- 围绕独立目录的最终交付结构说明
 
-### 2. Toolchain Composition Rules
+## 说明
 
-这份 SDK 目录中的关键组件来源如下：
-
-- `platforms`、`platform-tools`、`licenses`、`build-tools`：优先复用当前已验证可用的 Android SDK 目录内容
-- `cmake/3.31.6`：使用当前 ARM64 Linux 上可运行的 CMake 目录
-- `ndk/26.3.11579264`：直接放入当前已验证可运行的 ARM64 NDK 目录内容，而不是依赖软链
-- `ninja`：应位于最终被 Gradle/CMake 实际使用的路径中，并保证是 ARM64 可执行文件
-
-这里的关键原则是“目录内部自洽”，不能再依赖：
-
-- `/home/tony/android-studio/...`
-- `/home/tony/Android/Sdk/...`
-- `/home/tony/tmp/...`
-
-也就是说，交付出的目录本身必须包含构建所需的最终可执行文件，而不是再指向宿主机其他目录。
-
-### 3. Repository Configuration Expectations
-
-为保证仓库能真正消费这份独立 SDK 目录，仓库内配置需要满足以下约束：
-
-- `agent-core/build.gradle` 保持仓库默认版本，同时允许本地通过 Gradle 属性覆盖
-- `local.properties` 不再依赖当前机器私有目录，只需要由使用者设置 `sdk.dir=<独立 SDK 目录>`
-- `agent-core/android.profile` 不能再写死旧机器路径，至少要与 `sdk.dir/ndk/26.3.11579264` 对齐
-
-如果 `android.profile` 仍需显式 NDK 路径，则该路径必须来自当前 SDK 根目录推导或由本地命令覆盖，而不是仓库内硬编码单机私有路径。
-
-### 4. Verification Strategy
-
-验证必须用“独立 SDK 目录”重新证明，而不是沿用当前宿主机的临时替身状态。
-
-最小验证链路：
-
-1. 使用新的 `sdk.dir=dist/android-sdk-aarch64`
-2. 在 `agent-core` 目录执行：
-   - `conan install . -pr android.profile -s arch=armv8 --build missing`
-3. 在仓库根目录执行：
-   - `./gradlew :agent-core:assembleDebug`
-   - `./gradlew :app:assembleDebug`
-
-只有在上述命令 fresh 通过时，才能认为这份 SDK 目录达到了“可独立使用”的要求。
-
-### 5. Documentation And Handoff
-
-本轮还需要补充一份面向使用者的简短说明，至少覆盖：
-
-- SDK 目录位置
-- `local.properties` 示例
-- 当前支持的平台范围（仅 ARM64 Linux）
-- 已验证通过的构建命令
-- 目录中哪些组件是为了 ARM64 Linux native 构建专门替换的
-
-## Risks
-
-### Risk 1: 项目仍隐式依赖宿主机其他路径
-
-如果复制目录时遗漏了软链、脚本中的绝对路径或 Conan profile 中的旧路径，那么 `sdk.dir` 虽然指向新目录，构建实际仍可能回退到宿主机 SDK。
-
-缓解方式：
-
-- 检查新目录内软链目标
-- grep 配置文件与生成工具链中的绝对路径
-- 用 fresh 构建验证实际调用路径
-
-### Risk 2: NDK 目录版本号与内部实际来源不一致
-
-当前项目固定使用 `26.3.11579264`，但已验证可用的 ARM64 NDK 实际来自 `termux-ndk` 变体。若目录内容与版本号声明的组合被后续工具额外校验，可能引发兼容风险。
-
-缓解方式：
-
-- 保持项目对 `26.3.11579264` 的外部契约不变
-- 在说明文档中显式注明该目录是 ARM64 Linux 可用替代实现
-
-### Risk 3: strip / 其他宿主工具仍存在局部兼容问题
-
-当前 `:app:assembleDebug` 已通过，但有 unstripped native libs 提示，说明某些宿主工具未必完全理想。
-
-缓解方式：
-
-- 先以“可编译和可打 debug 包”为交付标准
-- 将 strip 警告保留为后续兼容性优化项，而不阻塞本轮独立 SDK 目录交付
-
-## Success Criteria
-
-完成后应满足：
-
-- 仓库内存在一份独立目录 `dist/android-sdk-aarch64/`
-- 该目录不依赖当前机器其他 SDK 路径中的关键可执行文件
-- 使用 `sdk.dir=<该目录>` 可以完成 `conan install`、`:agent-core:assembleDebug`、`:app:assembleDebug`
-- 项目文档中明确记录使用方式与限制范围
+本文档只保留当前仓库已实际落地的设计决策与配置收敛结果，不再保留未完成的目标态方案。
