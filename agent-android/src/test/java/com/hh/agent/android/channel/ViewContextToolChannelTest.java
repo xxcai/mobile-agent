@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.viewcontext.RuntimeViewContextSourceResolver;
+import com.hh.agent.android.viewcontext.UnifiedViewObservation;
 import com.hh.agent.android.viewcontext.ViewContextSourceSelection;
 import com.hh.agent.android.viewcontext.ViewObservationSnapshot;
 import com.hh.agent.android.viewcontext.ViewObservationSnapshotRegistry;
@@ -53,6 +54,20 @@ public class ViewContextToolChannelTest {
     }
 
     @Test
+    public void executeUsesRuntimeResolvedSource_andReturnsCanonicalFields() throws Exception {
+        ViewContextToolChannel channel = channelWithMockWebDom(fakeResolver("web_dom"));
+        JSONObject result = new JSONObject(channel.execute(new JSONObject()
+                .put("targetHint", "contact")).toJsonString());
+
+        assertTrue(result.has("uiTree"));
+        assertTrue(result.has("screenElements"));
+        assertTrue(result.has("pageSummary"));
+        assertTrue(result.has("quality"));
+        assertTrue(result.has("raw"));
+        assertTrue(result.has("webDom"));
+    }
+
+    @Test
     public void executeIgnoresIncomingSourceAndUsesRuntimeResolvedSource() throws Exception {
         ViewContextToolChannel channel = channelWithMockWebDom(fakeResolver("web_dom"));
         JSONObject result = new JSONObject(channel.execute(new JSONObject()
@@ -86,19 +101,41 @@ public class ViewContextToolChannelTest {
 
     @Test
     public void createSnapshot_preservesPageMetadata() {
+        UnifiedViewObservation observation = new UnifiedViewObservation(
+                ViewContextToolChannel.SOURCE_WEB_DOM,
+                "web",
+                "com.hh.agent.BusinessWebActivity",
+                "submit button",
+                "https://example.test/form",
+                "Mock Page",
+                "Mock page summary",
+                "{\"tagName\":\"body\"}",
+                "[{\"tagName\":\"button\",\"text\":\"Submit\"}]",
+                "{\"adapterName\":\"WebDomObservationAdapter\"}",
+                "{\"webDom\":{\"format\":\"json_tree\"}}"
+        );
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 "com.hh.agent.BusinessWebActivity",
                 ViewContextToolChannel.SOURCE_WEB_DOM,
                 "web",
                 "submit button",
+                observation,
                 null,
                 "{\"format\":\"json_tree\"}",
                 "https://example.test/form",
-                "Mock Page"
+                "Mock Page",
+                null,
+                null,
+                null
         );
 
         assertEquals("https://example.test/form", snapshot.pageUrl);
         assertEquals("Mock Page", snapshot.pageTitle);
+        assertEquals("{\"tagName\":\"body\"}", snapshot.uiTreeJson);
+        assertEquals("[{\"tagName\":\"button\",\"text\":\"Submit\"}]", snapshot.screenElementsJson);
+        assertEquals("Mock page summary", snapshot.pageSummary);
+        assertEquals("{\"adapterName\":\"WebDomObservationAdapter\"}", snapshot.qualityJson);
+        assertEquals("{\"webDom\":{\"format\":\"json_tree\"}}", snapshot.rawJson);
     }
 
     private ViewContextToolChannel channelWithMockWebDom(RuntimeViewContextSourceResolver resolver) {
@@ -120,6 +157,11 @@ public class ViewContextToolChannelTest {
                         .with("snapshotCurrentTurnOnly", true)
                         .with("pageUrl", "https://example.test/form")
                         .with("pageTitle", "Mock Page")
+                        .withJson("uiTree", "{\"source\":\"web_dom\",\"tagName\":\"body\"}")
+                        .withJson("screenElements", "[{\"source\":\"web_dom\",\"tagName\":\"button\",\"text\":\"mock\"}]")
+                        .with("pageSummary", "Mock Page")
+                        .withJson("quality", "{\"adapterName\":\"WebDomObservationAdapter\"}")
+                        .withJson("raw", "{\"webDom\":{\"format\":\"json_tree\",\"tree\":{\"tag\":\"body\"}}}")
                         .with("nativeViewXml", (String) null)
                         .with("webDom", "{\"format\":\"json_tree\",\"tree\":{\"tag\":\"body\"}}")
                         .with("webDomFormat", "json")

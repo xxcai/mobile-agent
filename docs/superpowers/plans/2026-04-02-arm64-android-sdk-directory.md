@@ -1,232 +1,116 @@
-# ARM64 Android SDK Directory Implementation Plan
+# ARM64 Android SDK 当前已完成项
 
-> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+## 背景
 
-**Goal:** 在仓库内生成一份可独立复用的 ARM64 Linux Android SDK 目录，并用该目录 fresh 跑通 `conan install`、`:agent-core:assembleDebug`、`:app:assembleDebug`。
+当前仓库还没有交付仓库内自包含的 `dist/android-sdk-aarch64/`，但已经完成一批与 ARM64 Linux 构建直接相关的收敛工作，并明确了当前真正可用的宿主机方案。
 
-**Architecture:** 先把当前已验证可用的 ARM64 CMake、ARM64 Ninja、ARM64 NDK host toolchain 组合沉淀到 `dist/android-sdk-aarch64/`，再把仓库配置收敛到消费这份目录，而不是依赖当前机器 `/home/tony/...` 下的临时替身。验证阶段通过独立 `sdk.dir` 重新证明构建链闭环。
+本文档只保留这些已完成内容。
 
-**Status Note (2026-04-02):** 当前实际 fresh 验证通过的配置仍然使用 `/home/tony/Android/android-sdk-aarch64`，并由项目级 `gradle.properties` 显式指定 `/home/tony/Android/android-sdk-aarch64/build-tools/34.0.0/aapt2`。仓库默认 `cmake` / `ndkVersion` 不应直接切到 ARM64 本地实验值；本地 ARM64 版本覆盖应通过 `~/.gradle/gradle.properties` 和 Conan 命令参数完成。`dist/android-sdk-aarch64/` 仍是目标态，不应误读为已经落地。
+## 已完成项
 
-**Tech Stack:** Gradle, Android SDK directory layout, Conan 2, CMake, Android NDK, Bash, Markdown docs.
+### 1. `agent-core/build.gradle` 已支持本地覆盖
 
----
+当前仓库已完成：
 
-## File Structure
+- 保留默认 `cmake = 3.22.1`
+- 保留默认 `ndkVersion = 26.3.11579264`
+- 提供 `agentCoreCmakeVersion`
+- 提供 `agentCoreNdkVersion`
 
-### Existing files to modify
+这意味着本地 ARM64 Linux 可通过用户级 Gradle 属性覆盖版本，而无需直接修改仓库默认值。
 
-- `agent-core/build.gradle`
-  - 保持仓库默认版本，并提供本地 Gradle 属性覆盖入口。
-- `agent-core/android.profile`
-  - 移除单机私有路径依赖，改由本地 Conan 命令或 profile include 注入 NDK 路径。
-- `local.properties`
-  - 切换为指向独立 SDK 目录，作为 fresh 验证入口。
-- `README.md`
-  - 补充独立 SDK 目录的使用方式与验证命令。
+### 2. `agent-core/android.profile` 已移除单机硬编码路径
 
-### New files and directories to create
+当前 profile 已不再写死 NDK 路径，而是改为由本地 Conan 命令参数注入。
 
-- `dist/android-sdk-aarch64/`
-  - 独立 Android SDK 根目录。
-- `dist/android-sdk-aarch64/build-tools/<version>/`
-  - 当前项目构建所需 build-tools。
-- `dist/android-sdk-aarch64/platform-tools/`
-  - 当前项目调试与构建所需 platform-tools。
-- `dist/android-sdk-aarch64/platforms/android-34/`
-  - 当前项目 compileSdk 所需 platform。
-- `dist/android-sdk-aarch64/licenses/`
-  - Android SDK 许可文件。
-- `dist/android-sdk-aarch64/cmake/3.31.6/`
-  - ARM64 可运行的 CMake 目录。
-- `dist/android-sdk-aarch64/ndk/26.3.11579264/`
-  - ARM64 可运行的 NDK 目录。
-- `docs/android-sdk-aarch64.md`
-  - 说明目录用途、使用方法和验证结果。
+### 3. 当前可用的宿主机 SDK 方案已明确
 
-## Chunk 1: Build A Self-Contained SDK Directory
+当前实际验证通过的 SDK 目录是：
 
-### Task 1: Inventory the exact SDK components needed
+- `/home/tony/Android/android-sdk-aarch64`
 
-**Files:**
-- Inspect: `/home/tony/android-studio/Sdk`
-- Inspect: `/home/tony/Android/Sdk`
-- Inspect: `/home/tony/tmp/termux-ndk-r29-aarch64/full/android-ndk-r29`
-- Output target: `dist/android-sdk-aarch64/`
+对应使用方式已经明确：
 
-- [ ] **Step 1: Verify the exact component versions currently used**
+- `local.properties` 指向该 SDK 目录
+- 本地 JDK 使用 `/home/tony/android-studio/jbr`
+- Conan 通过 `tools.android:ndk_path` 指向该目录下的 NDK
+- 必要时通过本机级 `android.aapt2FromMavenOverride` 指向 ARM64 的 `aapt2`
 
-Run commands to confirm:
+### 4. 当前已验证命令已固定
 
-- compile platform version
-- build-tools version
-- platform-tools presence
-- CMake version actually used by Gradle
-- NDK version expected by project
-
-- [ ] **Step 2: Verify ARM64 host architectures for candidate binaries**
-
-Run `file` on:
-
-- `cmake`
-- `ninja`
-- `clang`
-- `clang++`
-
-Expected: final selected binaries are ARM64.
-
-- [ ] **Step 3: Create the target SDK root directory**
-
-Create:
-
-- `dist/android-sdk-aarch64/`
-
-- [ ] **Step 4: Copy the required standard SDK subdirectories**
-
-Copy into target root:
-
-- `platforms/android-34`
-- `platform-tools`
-- `build-tools/<verified-version>`
-- `licenses`
-
-- [ ] **Step 5: Copy the ARM64 CMake directory into target SDK**
-
-Copy:
-
-- `<verified-arm64-cmake>/` -> `dist/android-sdk-aarch64/cmake/3.31.6/`
-
-- [ ] **Step 6: Copy the ARM64 NDK directory into target SDK**
-
-Copy the actual NDK contents, not a symlink:
-
-- `<verified-arm64-ndk>/` -> `dist/android-sdk-aarch64/ndk/26.3.11579264/`
-
-- [ ] **Step 7: Verify the copied directory is self-contained**
-
-Run `file` and `ls -l` against copied binaries.
-Expected:
-
-- key executables are ARM64
-- no critical paths are symlinks back to `/home/tony/Android/Sdk` or `/home/tony/tmp`
-
-## Chunk 2: Point The Repository At The New SDK Directory
-
-### Task 2: Update project configuration to consume the new SDK
-
-**Files:**
-- Modify: `agent-core/build.gradle`
-- Modify: `agent-core/android.profile`
-- Modify: `local.properties`
-
-- [ ] **Step 1: Write a small failing verification assumption list**
-
-Document the assumptions being tested:
-
-- project uses `cmake 3.31.6`
-- Conan reads NDK from the target SDK root
-- no configuration path still points at old `/home/tony/...` SDK paths
-
-- [ ] **Step 2: Update `agent-core/build.gradle` to keep repository defaults but allow local override**
-
-Keep the repository default aligned with `origin/main`, and expose local Gradle properties for ARM64-specific overrides.
-
-- [ ] **Step 3: Update `agent-core/android.profile` to stop depending on old single-machine paths**
-
-Do not hardcode a Linux-host local path in the repository; pass the NDK path from the local Conan command or a machine-local profile include.
-
-- [ ] **Step 4: Update `local.properties` to point `sdk.dir` at `dist/android-sdk-aarch64`**
-
-Remove obsolete temporary path settings that were only needed during host-machine experiments.
-
-- [ ] **Step 5: Grep the repo for stale SDK/NDK absolute paths**
-
-Run search for:
-
-- `/home/tony/Android/Sdk`
-- `/home/tony/android-studio/Sdk`
-- `/home/tony/tmp/termux-ndk`
-- `/Users/caixiao`
-
-Expected: no stale runtime-critical path remains in project config.
-
-## Chunk 3: Fresh Verification With The Independent SDK Directory
-
-### Task 3: Rebuild from the new SDK root
-
-**Files:**
-- Read-only verification of generated outputs
-
-- [ ] **Step 1: Run Conan install using the updated configuration**
-
-Run:
+已确认可用的命令为：
 
 ```bash
+cd agent-core
 conan install . -pr android.profile -s arch=armv8 \
   -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 \
   --build missing
-```
+cd ..
 
-Workdir: `agent-core`
-
-Expected: `Install finished successfully`.
-
-- [ ] **Step 2: Run `:agent-core:assembleDebug`**
-
-Run:
-
-```bash
 JAVA_HOME="/home/tony/android-studio/jbr" PATH="/home/tony/android-studio/jbr/bin:$PATH" ./gradlew :agent-core:assembleDebug
-```
-
-Expected: `BUILD SUCCESSFUL`.
-
-- [ ] **Step 3: Run `:app:assembleDebug`**
-
-Run:
-
-```bash
 JAVA_HOME="/home/tony/android-studio/jbr" PATH="/home/tony/android-studio/jbr/bin:$PATH" ./gradlew :app:assembleDebug
 ```
 
-Expected: `BUILD SUCCESSFUL`.
+### 5. 老版本 `agent-screen-vision` 的构建前置已核对
 
-- [ ] **Step 4: Confirm artifact outputs exist**
+对 `/home/tony/Project/mobile-agent-old` 的回查已经确认：
 
-Verify:
+- 旧仓库根任务 `syncDemoSdkAars`、`exportLocalMavenRepo`、`zipLocalMavenRepo` 都把 `agent-screen-vision` 当作正式产物参与构建或发布
+- `agent-screen-vision/src/main/cpp/CMakeLists.txt` 直接从 `src/main/jniLibs/${ANDROID_ABI}` 加载：
+  - `libMNN.so`
+  - `libMNN_Express.so`
+- 旧仓库实际保存了两套 ABI 的预编译库：
+  - `agent-screen-vision/src/main/jniLibs/arm64-v8a/`
+  - `agent-screen-vision/src/main/jniLibs/armeabi-v7a/`
+
+当前仓库的根任务依赖关系与旧仓库保持一致，且 `agent-screen-vision/build.gradle.kts` 仍配置为同时编译：
+
+- `arm64-v8a`
+- `armeabi-v7a`
+
+因此，**完整生成 3 个 SDK AAR 的前置条件** 不是只有 Conan + ARM64 SDK/NDK，还包括：
+
+- `agent-screen-vision/src/main/jniLibs/arm64-v8a/libMNN.so`
+- `agent-screen-vision/src/main/jniLibs/arm64-v8a/libMNN_Express.so`
+- `agent-screen-vision/src/main/jniLibs/armeabi-v7a/libMNN.so`
+- `agent-screen-vision/src/main/jniLibs/armeabi-v7a/libMNN_Express.so`
+
+如果缺少其中任意一套，`:agent-screen-vision:assembleDebug` 会在对应 ABI 的 CMake/Ninja 阶段失败，进而阻塞 `syncDemoSdkAars` 和离线 Maven 导出链路。
+
+### 6. 当前已验证的完整 SDK AAR 构建命令
+
+在上述 4 个 `MNN` 预编译库存在的前提下，当前仓库已经验证通过：
+
+```bash
+cd agent-core
+conan install . -pr android.profile -s arch=armv8 \
+  -c tools.android:ndk_path=/home/tony/Android/android-sdk-aarch64/ndk/26.3.11579264 \
+  --build missing
+cd ..
+
+JAVA_HOME="/home/tony/android-studio/jbr" PATH="/home/tony/android-studio/jbr/bin:$PATH" \
+  ./gradlew :agent-core:assembleDebug :agent-android:assembleDebug :agent-screen-vision:assembleDebug
+```
+
+对应产物路径为：
 
 - `agent-core/build/outputs/aar/agent-core-debug.aar`
-- `app/build/outputs/apk/debug/app-debug.apk`
+- `agent-android/build/outputs/aar/agent-android-debug.aar`
+- `agent-screen-vision/build/outputs/aar/agent-screen-vision-debug.aar`
 
-- [ ] **Step 5: Record any residual warnings without treating them as blockers**
+### 7. 文档入口已统一
 
-If strip warnings remain, note them in docs as known non-blocking caveats.
+当前 ARM64 Linux 的用法说明已经统一收口在 `docs/superpowers/plans/2026-04-02-arm64-android-sdk-directory.md`，不再额外维护第二份独立说明文档。
 
-## Chunk 4: Document And Hand Off The SDK Directory
+## 当前结论
 
-### Task 4: Write usage documentation
+当前仓库中，与 ARM64 Linux 构建直接相关且已经落地的部分，主要是：
 
-**Files:**
-- Create: `docs/android-sdk-aarch64.md`
-- Modify: `README.md`
+- 本地 Gradle 属性覆盖入口
+- Conan 配置去硬编码
+- 宿主机 SDK 方案固化
+- `agent-screen-vision` 的 legacy JNI 预编译库前置已经明确
+- 完整 3 模块 SDK AAR 构建命令已经验证
+- 文档入口统一
 
-- [ ] **Step 1: Write the standalone SDK directory usage doc**
-
-Document:
-
-- directory location
-- supported platform: ARM64 Linux
-- required `local.properties` example
-- required Java path assumption
-- verified build commands
-- known caveats
-
-- [ ] **Step 2: Add a short entry to `README.md`**
-
-Link to the new doc and mention where the SDK directory lives.
-
-- [ ] **Step 3: Verify docs match the actual built directory**
-
-Check that documented paths and versions match files on disk.
-
-Plan complete and saved to `docs/superpowers/plans/2026-04-02-arm64-android-sdk-directory.md`. Ready to execute?
+本文档不再保留未完成的独立 SDK 目录目标、目录结构设计或对应的分阶段待办。

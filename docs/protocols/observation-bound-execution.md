@@ -55,7 +55,15 @@
 
 ### 第 1 层：`android_view_context_tool`
 
-这个通道负责“看页面”，当前主要返回：
+这个通道负责“看页面”，当前优先返回规范化 observation：
+
+- `pageSummary`
+- `screenElements`
+- `uiTree`
+- `quality`
+- `raw`
+
+同时继续保留 legacy/source-specific 字段：
 
 - `nativeViewXml`
 - `snapshotId`
@@ -183,10 +191,12 @@
 
 ### 第二步：从 observation 里锁定目标节点
 
-当前 mock 聊天 probe 会从 `nativeViewXml` 中匹配文本为 `张三` 的节点，并提取：
+当前推荐先从 canonical `screenElements` 中匹配文本为 `张三` 的候选，并提取：
 
 - `targetNodeIndex`
 - `referencedBounds`
+
+如果 canonical 字段缺失或不足，再回退读取 legacy `hybridObservation` / `nativeViewXml`。
 
 例如：
 

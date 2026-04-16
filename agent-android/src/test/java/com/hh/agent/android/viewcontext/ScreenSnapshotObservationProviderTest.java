@@ -89,6 +89,10 @@ public class ScreenSnapshotObservationProviderTest {
         assertEquals("Inbox", result.getJSONObject("screenVisionCompact").getString("summary"));
         assertEquals("screen_only", result.getJSONObject("hybridObservation").getString("mode"));
         assertTrue(result.isNull("screenVisionRaw"));
+        assertEquals("screen_snapshot", result.getJSONObject("uiTree").getString("source"));
+        assertEquals("Inbox", result.getString("pageSummary"));
+        assertEquals("VisualObservationAdapter", result.getJSONObject("quality").getString("adapterName"));
+        assertTrue(result.getJSONObject("raw").has("visualObservationJson"));
 
         ViewObservationSnapshot latest = ViewObservationSnapshotRegistry.getLatestSnapshot();
         assertNotNull(latest);
@@ -97,6 +101,10 @@ public class ScreenSnapshotObservationProviderTest {
         assertEquals("screenvision://capture/test", latest.screenSnapshot);
         assertNotNull(latest.hybridObservationJson);
         assertEquals("screen_only", new JSONObject(latest.hybridObservationJson).getString("mode"));
+        assertEquals("screen_snapshot", new JSONObject(latest.uiTreeJson).getString("source"));
+        assertEquals("Inbox", latest.pageSummary);
+        assertEquals("VisualObservationAdapter", new JSONObject(latest.qualityJson).getString("adapterName"));
+        assertTrue(new JSONObject(latest.rawJson).has("visualObservationJson"));
     }
 
     public static class TestActivity extends Activity {

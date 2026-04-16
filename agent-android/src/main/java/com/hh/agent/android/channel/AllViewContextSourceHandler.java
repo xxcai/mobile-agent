@@ -63,6 +63,16 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
                         nativeSuccess ? nativeSnapshotJson.optString("snapshotScope", null) : null)
                 .with("snapshotCurrentTurnOnly",
                         nativeSuccess ? nativeSnapshotJson.optBoolean("snapshotCurrentTurnOnly", false) : null)
+                .withJson("uiTree",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "uiTree") : null)
+                .withJson("screenElements",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "screenElements") : null)
+                .with("pageSummary",
+                        nativeSuccess ? nativeSnapshotJson.optString("pageSummary", null) : null)
+                .withJson("quality",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "quality") : null)
+                .withJson("raw",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "raw") : null)
                 .with("nativeViewXml",
                         nativeSuccess ? nativeSnapshotJson.optString("nativeViewXml", null) : null)
                 .withJson("screenVisionCompact",
@@ -92,5 +102,13 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
                 .with("nativeViewUnavailableReason",
                         nativeSuccess ? null : nativeSnapshotJson.optString("message", "unknown"))
                 .with("webDom", includeMockWebDom ? ViewContextToolChannel.MOCK_WEB_DOM : null);
+    }
+
+    private String jsonValueToString(JSONObject jsonObject, String key) {
+        if (jsonObject == null || !jsonObject.has(key) || jsonObject.isNull(key)) {
+            return null;
+        }
+        Object value = jsonObject.opt(key);
+        return value != null ? value.toString() : null;
     }
 }
