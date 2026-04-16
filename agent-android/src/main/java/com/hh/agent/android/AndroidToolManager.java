@@ -182,12 +182,6 @@ public class AndroidToolManager implements AndroidToolCallback {
             JSONArray toolsArray = new JSONArray();
 
             for (AndroidToolChannelExecutor channelExecutor : channels.values()) {
-                if (!toolProfilePolicy.isToolChannelEnabled(channelExecutor.getChannelName())) {
-                    AgentLogs.info("AndroidToolManager", "tool_schema_filtered",
-                            "profile=" + toolProfilePolicy.getProfile()
-                                    + " channel_name=" + channelExecutor.getChannelName());
-                    continue;
-                }
                 toolsArray.put(channelExecutor.buildToolDefinition());
             }
             root.put("tools", toolsArray);
@@ -233,17 +227,6 @@ public class AndroidToolManager implements AndroidToolCallback {
                         "unsupported_tool_channel",
                         "Tool channel '" + toolName + "' is not supported"
                 ).toJsonString();
-            }
-            if (!toolProfilePolicy.isToolChannelEnabled(toolName)) {
-                AgentLogs.warn("AndroidToolManager", "tool_channel_blocked_by_profile",
-                        "channel=" + toolName + " profile=" + toolProfilePolicy.getProfile());
-                return ToolResult.error(
-                                "unsupported_tool_channel",
-                                "Tool channel '" + toolName + "' is disabled by profile")
-                        .with("channel", toolName)
-                        .with("profile", toolProfilePolicy.getProfile())
-                        .with("reason", "disabled_by_profile")
-                        .toJsonString();
             }
 
             JSONObject params = new JSONObject(argsJson);
