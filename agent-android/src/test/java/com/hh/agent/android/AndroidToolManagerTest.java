@@ -106,8 +106,7 @@ public class AndroidToolManagerTest {
 
         assertFalse(blocked.getBoolean("success"));
         assertEquals("unsupported_tool_channel", blocked.getString("error"));
-        assertEquals("run_shortcut", blocked.getString("channel"));
-        assertEquals(AgentRuntimeProfiles.VISUAL_ONLY, blocked.getString("profile"));
+        assertTrue(blocked.getString("message").contains("run_shortcut"));
     }
 
     @Test
@@ -125,6 +124,21 @@ public class AndroidToolManagerTest {
             assertFalse(ShortcutRuntimeChannel.CHANNEL_NAME.equals(toolName));
             assertFalse(DescribeShortcutChannel.CHANNEL_NAME.equals(toolName));
         }
+    }
+
+    @Test
+    public void visualOnlyProfileDoesNotRegisterShortcutChannels() {
+        AndroidToolManager manager = new AndroidToolManager(
+                null,
+                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
+
+        Map<String, ?> channels = manager.getRegisteredChannels();
+
+        assertFalse(channels.containsKey(ShortcutRuntimeChannel.CHANNEL_NAME));
+        assertFalse(channels.containsKey(DescribeShortcutChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(GestureToolChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(WebActionToolChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(ViewContextToolChannel.CHANNEL_NAME));
     }
 
     @Test
