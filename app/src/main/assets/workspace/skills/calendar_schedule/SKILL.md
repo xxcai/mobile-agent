@@ -2,7 +2,7 @@
 name: calendar_schedule
 description: 查看日程助手。帮助 Agent 从宿主 App 首页点击底部 Tab「业务」，在业务页面找到「日历」卡片，点击卡片左上角「日历」两个字进入「我的日程」页面，并总结当天日程。当用户询问后续日程安排、今天日程、空闲时间，或要求根据日程安排会议/研讨会时使用此技能；需要根据当前日程中的空闲区间和用户指定的会议时长给出建议。
 always: false
-execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","target":"业务","aliases":["业务","业务Tab","工作台","应用","服务","business","workbench"],"region":"bottom","anchor_type":"bottom_tab","container_role":"tab_bar","action":"tap"},{"page":"业务","target":"日历","aliases":["日历","我的日程","日程","日程安排","calendar","schedule"],"anchor_type":"card_title","container_role":"business_grid","action":"tap"},{"page":"我的日程","target":"今日日程","aliases":["我的日程","今日日程","今天","日程","日历"],"action":"readout","goalReached":true}],"stop_condition":{"page_predicates":["我的日程","日程","日历"],"content_predicates":["今天","今日日程","日程"],"success_signals":["我的日程","今日日程","今天"],"failure_signals":["无权限","加载失败","网络异常","未登录"],"requires_readout":true}}
+execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","target":"业务","aliases":["业务","业务Tab","工作台","应用","服务","business","workbench"],"region":"bottom","anchor_type":"bottom_tab","container_role":"tab_bar","action":"tap"},{"page":"业务","target":"日历","aliases":["日历","日历卡片","日历标题","calendar"],"anchor_type":"card_title","container_role":"business_grid","action":"tap"},{"page":"我的日程","target":"今日日程","aliases":["我的日程","今日日程","今天","日程","日历"],"action":"readout","goalReached":true}],"stop_condition":{"page_predicates":["我的日程","日程","日历"],"content_predicates":["今天","今日日程","日程"],"success_signals":["我的日程","今日日程","今天"],"failure_signals":["无权限","加载失败","网络异常","未登录"],"requires_readout":true},"readout_contract":{"kind":"visible_schedule_list","fields":["start_time","end_time","title"],"pairing_rules":["只使用当前页面可见的日程文本","将同一行或同一卡片中最近的时间段与标题配对","时间段必须包含开始时间和结束时间，统一输出为 HH:MM-HH:MM","不要把日期、页签、按钮或非日程说明当作日程条目"],"sort":"按 start_time 从早到晚升序排列","output_format":"每条日程使用：HH:MM-HH:MM 标题","uncertainty_policy":"如果时间与标题无法可靠配对，必须说明不确定，不要猜测或编造"}}
 ---
 
 # 查看日程助手
@@ -141,6 +141,8 @@ execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","ta
 - 组织者或参与人
 - 状态提示，例如已结束、进行中、待开始、全天
 
+日程条目必须按开始时间从早到晚排序。输出前先把页面上可见的时间段和同一行/同一卡片中的标题成对，例如 `15:00-16:00 测试`。不要按 OCR 置信度、控件重要性或页面文本出现的零散顺序排序；如果无法确认某个标题和时间段的对应关系，必须说明不确定，不要猜测。
+
 如果页面上有“今天”“今日”或高亮日期，优先以该日期为当天视图。
 
 如果当前页面不是当天日程：
@@ -161,6 +163,8 @@ execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","ta
 1. 按时间顺序列出当天日程
 2. 简要说明空闲时间段
 3. 明确说明信息范围来自当前页面可见日程
+
+输出日程列表时必须使用 `HH:MM-HH:MM 标题` 格式，并按开始时间升序排列。
 
 示例：
 

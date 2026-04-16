@@ -95,6 +95,7 @@ struct ReadoutRequestContext {
     std::string readout_goal;
     std::string current_page;
     std::string selected_skill;
+    std::string readout_contract;
 };
 
 struct SkillStepHint {

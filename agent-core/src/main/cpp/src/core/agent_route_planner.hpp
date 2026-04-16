@@ -197,6 +197,34 @@ const SkillMetadata* pick_route_skill(const std::vector<SkillMetadata>& selected
     return &selected_skills.front();
 }
 
+std::string build_skill_readout_contract(const SkillMetadata* skill) {
+    if (!skill || !skill->execution_hints.is_object()) {
+        return "";
+    }
+
+    static const std::vector<std::string> contract_keys = {
+        "readout_contract",
+        "readoutContract",
+        "readout_schema",
+        "readoutSchema",
+        "readout_rules",
+        "readoutRules"
+    };
+    for (const auto& key : contract_keys) {
+        if (!skill->execution_hints.contains(key)) {
+            continue;
+        }
+        const auto& contract = skill->execution_hints[key];
+        if (contract.is_string()) {
+            return truncate_runtime_text(contract.get<std::string>(), 1200);
+        }
+        if (contract.is_object() || contract.is_array()) {
+            return truncate_runtime_text(contract.dump(), 1200);
+        }
+    }
+    return "";
+}
+
 StopConditionSpec build_stop_condition_spec(const std::string& objective,
                                             const SkillMetadata* route_skill,
                                             const std::optional<ParsedExecutionHints>& hints) {
@@ -342,11 +370,13 @@ ExecutionState initialize_execution_state(const std::string& objective,
     }
     state.active_hints = parse_execution_hints(selected_skills);
     state.navigation_plan = build_navigation_plan(state.active_hints);
+    const SkillMetadata* route_skill = pick_route_skill(selected_skills);
     state.intent_route = build_intent_route(objective, selected_skills, state.active_hints);
     state.route_ready = true;
     state.readout_context.objective = truncate_runtime_text(objective, 220);
     state.readout_context.readout_goal = state.intent_route.readout_goal;
     state.readout_context.selected_skill = state.intent_route.selected_skill;
+    state.readout_context.readout_contract = build_skill_readout_contract(route_skill);
 
     if (state.active_hints && !state.active_hints->empty()) {
         state.mode = "planned_fast_execute";

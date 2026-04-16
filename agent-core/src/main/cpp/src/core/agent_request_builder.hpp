@@ -40,6 +40,11 @@ std::string build_readout_user_objective(const ExecutionState& state) {
         objective << "\ncurrent_page: "
                   << truncate_runtime_text(state.readout_context.current_page, 120);
     }
+    if (!state.readout_context.readout_contract.empty()) {
+        objective << "\nSkill readout contract:\n"
+                  << truncate_runtime_text(state.readout_context.readout_contract, 1200);
+        objective << "\nFollow this contract when extracting and presenting the final result.";
+    }
     const auto& stop_condition = state.intent_route.stop_condition;
     if (!stop_condition.success_signals.empty()) {
         objective << "\nsuccess_signals: "

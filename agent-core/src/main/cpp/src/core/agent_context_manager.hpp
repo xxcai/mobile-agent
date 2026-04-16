@@ -548,6 +548,137 @@ std::vector<std::string> collect_unique_readout_labels(const nlohmann::json& act
     return labels;
 }
 
+struct ReadoutTextEntry {
+    std::string text;
+    std::string source;
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+    bool has_bbox = false;
+};
+
+bool parse_json_bbox(const nlohmann::json& bbox,
+                     int& left,
+                     int& top,
+                     int& right,
+                     int& bottom) {
+    if (bbox.is_array() && bbox.size() >= 4) {
+        left = bbox[0].get<int>();
+        top = bbox[1].get<int>();
+        right = bbox[2].get<int>();
+        bottom = bbox[3].get<int>();
+        return true;
+    }
+    if (bbox.is_string()) {
+        return std::sscanf(bbox.get<std::string>().c_str(),
+                "[%d,%d][%d,%d]",
+                &left,
+                &top,
+                &right,
+                &bottom) == 4;
+    }
+    return false;
+}
+
+std::string readout_text_from_object(const nlohmann::json& item) {
+    if (item.is_string()) {
+        return item.get<std::string>();
+    }
+    if (!item.is_object()) {
+        return "";
+    }
+    return first_string_value(item, {
+            "summaryText",
+            "text",
+            "label",
+            "title",
+            "name",
+            "contentDescription",
+            "content_description"
+    });
+}
+
+bool is_low_value_readout_text(const std::string& text) {
+    const std::string normalized = normalize_for_runtime_match(text);
+    return normalized.empty()
+            || normalized == "iconbutton"
+            || normalized == "button"
+            || normalized == "imageview"
+            || normalized == "textview";
+}
+
+nlohmann::json collect_ordered_readout_entries(const nlohmann::json& array,
+                                               const std::string& source,
+                                               size_t max_count) {
+    nlohmann::json result = nlohmann::json::array();
+    if (!array.is_array()) {
+        return result;
+    }
+
+    std::vector<ReadoutTextEntry> entries;
+    std::set<std::string> seen;
+    for (const auto& item : array) {
+        const std::string text = trim_whitespace(readout_text_from_object(item));
+        if (is_low_value_readout_text(text)) {
+            continue;
+        }
+        const std::string normalized = normalize_for_runtime_match(text);
+        if (seen.count(normalized) > 0) {
+            continue;
+        }
+        seen.insert(normalized);
+
+        ReadoutTextEntry entry;
+        entry.text = truncate_runtime_text(text, 96);
+        entry.source = source;
+        if (item.is_object()) {
+            if (item.contains("bbox")) {
+                entry.has_bbox = parse_json_bbox(item["bbox"],
+                        entry.left,
+                        entry.top,
+                        entry.right,
+                        entry.bottom);
+            } else if (item.contains("bounds")) {
+                entry.has_bbox = parse_json_bbox(item["bounds"],
+                        entry.left,
+                        entry.top,
+                        entry.right,
+                        entry.bottom);
+            }
+        }
+        entries.push_back(std::move(entry));
+    }
+
+    std::sort(entries.begin(), entries.end(), [](const ReadoutTextEntry& left,
+                                                 const ReadoutTextEntry& right) {
+        if (left.has_bbox != right.has_bbox) {
+            return left.has_bbox;
+        }
+        if (left.has_bbox && right.has_bbox) {
+            if (left.top != right.top) {
+                return left.top < right.top;
+            }
+            return left.left < right.left;
+        }
+        return left.text < right.text;
+    });
+
+    for (const auto& entry : entries) {
+        if (result.size() >= max_count) {
+            break;
+        }
+        nlohmann::json object = nlohmann::json::object();
+        object["text"] = entry.text;
+        object["source"] = entry.source;
+        if (entry.has_bbox) {
+            object["bbox"] = {entry.left, entry.top, entry.right, entry.bottom};
+        }
+        result.push_back(std::move(object));
+    }
+    return result;
+}
+
 std::string build_navigation_observation_summary(const std::string& content,
                                                  const std::string& canonical_candidate_summary) {
     try {
@@ -675,6 +806,13 @@ std::string build_readout_observation_summary(const std::string& content) {
                     hybrid_summary["page"] = std::move(page_summary);
                 }
             }
+            if (hybrid.contains("visibleItems") && hybrid["visibleItems"].is_array()) {
+                auto visible_items = collect_ordered_readout_entries(
+                        hybrid["visibleItems"], "hybrid.visibleItems", 16);
+                if (!visible_items.empty()) {
+                    hybrid_summary["orderedVisibleItems"] = std::move(visible_items);
+                }
+            }
             if (hybrid.contains("actionableNodes") && hybrid["actionableNodes"].is_array()) {
                 const auto labels = collect_unique_readout_labels(hybrid["actionableNodes"], 10);
                 if (!labels.empty()) {
@@ -732,6 +870,24 @@ std::string build_readout_observation_summary(const std::string& content) {
             for (const auto& key : {"summary", "page"}) {
                 if (compact.contains(key)) {
                     compact_summary[key] = compact[key];
+                }
+            }
+            if (compact.contains("items") && compact["items"].is_array()) {
+                auto items = collect_ordered_readout_entries(compact["items"], "screenVision.items", 16);
+                if (!items.empty()) {
+                    compact_summary["orderedItems"] = std::move(items);
+                }
+            }
+            if (compact.contains("texts" ) && compact["texts"].is_array()) {
+                auto texts = collect_ordered_readout_entries(compact["texts"], "screenVision.texts", 24);
+                if (!texts.empty()) {
+                    compact_summary["orderedTexts"] = std::move(texts);
+                }
+            }
+            if (compact.contains("sections") && compact["sections"].is_array()) {
+                auto sections = collect_ordered_readout_entries(compact["sections"], "screenVision.sections", 8);
+                if (!sections.empty()) {
+                    compact_summary["orderedSections"] = std::move(sections);
                 }
             }
             if (!compact_summary.empty()) {

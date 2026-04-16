@@ -299,6 +299,13 @@ std::string normalize_region_label(const std::string& region) {
     return normalized;
 }
 
+bool step_prefers_card_title_anchor(const SkillStepHint& step) {
+    const std::string normalized_anchor = normalize_region_label(step.anchor_type);
+    return normalized_anchor == "card_title"
+            || normalized_anchor == "card_header"
+            || normalized_anchor == "tile_title";
+}
+
 std::string preferred_region_for_step(const SkillStepHint& step) {
     const std::string explicit_region = normalize_region_label(step.region);
     if (!explicit_region.empty()) {
@@ -452,6 +459,36 @@ bool candidate_anchor_type_is(const ObservationCandidate& candidate, const std::
 bool candidate_container_role_is(const ObservationCandidate& candidate, const std::string& expected) {
     return !candidate.container_role.empty()
             && normalize_region_label(candidate.container_role) == normalize_region_label(expected);
+}
+
+bool candidate_label_matches_step_primary_target_exactly(const ObservationCandidate& candidate,
+                                                         const SkillStepHint& step) {
+    const std::string candidate_label = normalize_runtime_key(candidate.label);
+    const std::string primary_target = normalize_runtime_key(step.target);
+    return !candidate_label.empty() && !primary_target.empty() && candidate_label == primary_target;
+}
+
+bool candidate_has_card_title_semantics(const ObservationCandidate& candidate,
+                                        const SkillStepHint& step) {
+    if (!step_prefers_card_title_anchor(step)) {
+        return false;
+    }
+    if (candidate_label_matches_step_primary_target_exactly(candidate, step)) {
+        return true;
+    }
+    return candidate_anchor_type_is(candidate, "card_title")
+            || candidate_anchor_type_is(candidate, "card_header")
+            || candidate_anchor_type_is(candidate, "tile_title");
+}
+
+bool candidate_is_card_title_noise(const ObservationCandidate& candidate) {
+    return candidate.numeric_like
+            || candidate.repeat_group
+            || candidate_anchor_type_is(candidate, "primary_action")
+            || candidate_anchor_type_is(candidate, "list_item")
+            || candidate_anchor_type_is(candidate, "schedule_item")
+            || candidate_container_role_is(candidate, "list")
+            || candidate_container_role_is(candidate, "schedule_list");
 }
 
 bool candidate_has_corner_entry_semantics(const ObservationCandidate& candidate) {
@@ -888,6 +925,47 @@ double candidate_entry_mismatch_penalty(const ObservationCandidate& candidate,
     return penalty;
 }
 
+double candidate_card_title_semantic_bonus(const ObservationCandidate& candidate,
+                                           const SkillStepHint& step) {
+    if (!step_prefers_card_title_anchor(step)) {
+        return 0.0;
+    }
+
+    double bonus = 0.0;
+    if (candidate_label_matches_step_primary_target_exactly(candidate, step)) {
+        bonus += 52.0;
+    }
+    if (candidate_anchor_type_is(candidate, "card_title")
+            || candidate_anchor_type_is(candidate, "card_header")
+            || candidate_anchor_type_is(candidate, "tile_title")) {
+        bonus += 36.0;
+    }
+    if (candidate_container_role_is(candidate, "business_grid")
+            || candidate_container_role_is(candidate, "grid")
+            || candidate_container_role_is(candidate, "card")) {
+        bonus += 8.0;
+    }
+    return bonus;
+}
+
+double candidate_card_title_mismatch_penalty(const ObservationCandidate& candidate,
+                                             const SkillStepHint& step) {
+    if (!step_prefers_card_title_anchor(step)) {
+        return 0.0;
+    }
+
+    double penalty = 0.0;
+    if (candidate_is_card_title_noise(candidate)
+            && !candidate_label_matches_step_primary_target_exactly(candidate, step)) {
+        penalty += 58.0;
+    }
+    if (!candidate_has_card_title_semantics(candidate, step)
+            && !candidate_label_matches_step_primary_target_exactly(candidate, step)) {
+        penalty += 20.0;
+    }
+    return penalty;
+}
+
 double candidate_risk_penalty(const ObservationCandidate& candidate) {
     double penalty = 0.0;
     if (candidate.badge_like) {
@@ -997,11 +1075,13 @@ double candidate_disambiguation_score(const ObservationCandidate& candidate,
             + candidate_anchor_type_bonus(candidate, step)
             + candidate_container_role_bonus(candidate, step)
             + candidate_entry_semantic_bonus(candidate, step, snapshot)
+            + candidate_card_title_semantic_bonus(candidate, step)
             + (candidate.clickable ? 8.0 : 0.0)
             + (candidate.container_clickable ? 6.0 : 0.0)
             + (candidate.score * 10.0)
             - candidate_risk_penalty(candidate)
-            - candidate_entry_mismatch_penalty(candidate, step);
+            - candidate_entry_mismatch_penalty(candidate, step)
+            - candidate_card_title_mismatch_penalty(candidate, step);
 }
 
 bool region_allows_top_left_coordinate_recovery(const std::string& region) {
@@ -1195,6 +1275,25 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
     std::vector<ObservationCandidate> matched_candidates =
             !primary_matched_candidates.empty() ? primary_matched_candidates : alias_matched_candidates;
 
+    if (step_prefers_card_title_anchor(step) && !matched_candidates.empty()) {
+        std::vector<ObservationCandidate> title_semantic_candidates;
+        for (const auto& candidate : matched_candidates) {
+            if (candidate_has_card_title_semantics(candidate, step)
+                    && !candidate_is_card_title_noise(candidate)) {
+                title_semantic_candidates.push_back(candidate);
+            }
+        }
+        if (!title_semantic_candidates.empty()
+                && title_semantic_candidates.size() < matched_candidates.size()) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_card_title_filtered] target={} original_count={} filtered_count={}",
+                    step.target,
+                    matched_candidates.size(),
+                    title_semantic_candidates.size());
+            matched_candidates = std::move(title_semantic_candidates);
+        }
+    }
+
     if (step_prefers_corner_entry(step)) {
         const size_t filtered_high_confidence =
                 filter_corner_entry_midpage_candidates(high_confidence_candidates, snapshot);
@@ -1347,7 +1446,9 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
         }
     }
 
-    if (matched_candidates.empty() && high_confidence_candidates.size() == 1) {
+    if (matched_candidates.empty()
+            && high_confidence_candidates.size() == 1
+            && !step_prefers_card_title_anchor(step)) {
         const auto& only_candidate = high_confidence_candidates.front();
         ICRAW_LOG_INFO(
                 "[AgentLoop][fast_execute_alias_fallback] reason=single_high_confidence_candidate target={} aliases={} candidate={} source={} score={}",
@@ -1357,6 +1458,31 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                 only_candidate.source,
                 only_candidate.score);
         matched_candidates.push_back(only_candidate);
+    }
+
+    if (matched_candidates.size() > 1 && step_prefers_card_title_anchor(step)) {
+        std::vector<ObservationCandidate> exact_title_candidates;
+        for (const auto& candidate : matched_candidates) {
+            if (candidate_label_matches_step_primary_target_exactly(candidate, step)) {
+                exact_title_candidates.push_back(candidate);
+            }
+        }
+        if (exact_title_candidates.size() == 1) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_card_title_exact_disambiguated] target={} winner={} original_count={}",
+                    step.target,
+                    exact_title_candidates.front().label,
+                    matched_candidates.size());
+            matched_candidates = std::move(exact_title_candidates);
+        } else if (!exact_title_candidates.empty()
+                && exact_title_candidates.size() < matched_candidates.size()) {
+            ICRAW_LOG_INFO(
+                    "[AgentLoop][fast_execute_card_title_exact_filtered] target={} original_count={} filtered_count={}",
+                    step.target,
+                    matched_candidates.size(),
+                    exact_title_candidates.size());
+            matched_candidates = std::move(exact_title_candidates);
+        }
     }
 
     if (matched_candidates.size() > 1) {
