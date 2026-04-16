@@ -24,6 +24,7 @@ public final class ViewObservationSnapshotRegistry {
                 source,
                 DOMAIN_NATIVE,
                 targetHint,
+                null,
                 nativeViewXml,
                 null,
                 null,
@@ -45,6 +46,7 @@ public final class ViewObservationSnapshotRegistry {
                 source,
                 DOMAIN_NATIVE,
                 targetHint,
+                null,
                 nativeViewXml,
                 null,
                 null,
@@ -67,6 +69,7 @@ public final class ViewObservationSnapshotRegistry {
                 source,
                 DOMAIN_NATIVE,
                 targetHint,
+                null,
                 nativeViewXml,
                 null,
                 null,
@@ -91,6 +94,7 @@ public final class ViewObservationSnapshotRegistry {
                 source,
                 interactionDomain,
                 targetHint,
+                null,
                 nativeViewXml,
                 webDom,
                 pageUrl,
@@ -105,6 +109,7 @@ public final class ViewObservationSnapshotRegistry {
                                                          String source,
                                                          String interactionDomain,
                                                          String targetHint,
+                                                         UnifiedViewObservation unifiedObservation,
                                                          String nativeViewXml,
                                                          String webDom,
                                                          String pageUrl,
@@ -120,6 +125,11 @@ public final class ViewObservationSnapshotRegistry {
                 targetHint,
                 System.currentTimeMillis(),
                 true,
+                unifiedObservation != null ? unifiedObservation.uiTreeJson : null,
+                unifiedObservation != null ? unifiedObservation.screenElementsJson : null,
+                unifiedObservation != null ? unifiedObservation.pageSummary : null,
+                unifiedObservation != null ? unifiedObservation.qualityJson : null,
+                unifiedObservation != null ? unifiedObservation.rawJson : null,
                 nativeViewXml,
                 webDom,
                 pageUrl,
@@ -130,6 +140,33 @@ public final class ViewObservationSnapshotRegistry {
         );
         LATEST_SNAPSHOT.set(snapshot);
         return snapshot;
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String interactionDomain,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String webDom,
+                                                         String pageUrl,
+                                                         String pageTitle,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot,
+                                                         String hybridObservationJson) {
+        return createSnapshot(
+                activityClassName,
+                source,
+                interactionDomain,
+                targetHint,
+                null,
+                nativeViewXml,
+                webDom,
+                pageUrl,
+                pageTitle,
+                visualObservationJson,
+                screenSnapshot,
+                hybridObservationJson
+        );
     }
 
     public static ViewObservationSnapshot getLatestSnapshot() {

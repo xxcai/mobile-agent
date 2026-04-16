@@ -172,12 +172,26 @@ public final class ViewContextSnapshotProvider {
         String reducedNativeViewXml = reduceNativeViewXml(nativeViewXml, targetHint, safeDetailMode, includeRawFallback);
         String hybridObservationJson = reduceHybridObservation(fullHybridObservationJson, safeDetailMode, includeRawFallback);
         String compactObservationJson = reduceCompactObservation(visualObservationJson, safeDetailMode, includeRawFallback);
+        UnifiedViewObservation unifiedObservation = tryBuildUnifiedObservation(
+                source,
+                activityClassName,
+                INTERACTION_DOMAIN_NATIVE,
+                targetHint,
+                null,
+                null,
+                nativeViewXml,
+                null,
+                visualObservationJson,
+                fullHybridObservationJson,
+                screenSnapshotRef
+        );
 
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 activityClassName,
                 source,
                 INTERACTION_DOMAIN_NATIVE,
                 targetHint,
+                unifiedObservation,
                 nativeViewXml,
                 null,
                 null,
@@ -213,6 +227,11 @@ public final class ViewContextSnapshotProvider {
                 .with("snapshotScope", OBSERVATION_SCOPE_CURRENT_TURN)
                 .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                 .with("rawFallbackIncluded", includeRawFallback)
+                .withJson("uiTree", snapshot.uiTreeJson)
+                .withJson("screenElements", snapshot.screenElementsJson)
+                .with("pageSummary", snapshot.pageSummary)
+                .withJson("quality", snapshot.qualityJson)
+                .withJson("raw", snapshot.rawJson)
                 .with("nativeViewXml", reducedNativeViewXml)
                 .with("webDom", (String) null)
                 .with("screenSnapshot", screenSnapshotRef)
@@ -221,6 +240,41 @@ public final class ViewContextSnapshotProvider {
                 .withJson("screenVisionCompact", compactObservationJson)
                 .withJson("screenVisionRaw", includeRawFallback && analysis != null ? analysis.rawObservationJson : null)
                 .withJson("hybridObservation", hybridObservationJson);
+    }
+
+    @Nullable
+    private static UnifiedViewObservation tryBuildUnifiedObservation(String source,
+                                                                     String activityClassName,
+                                                                     String interactionDomain,
+                                                                     @Nullable String targetHint,
+                                                                     @Nullable String pageUrl,
+                                                                     @Nullable String pageTitle,
+                                                                     @Nullable String nativeViewXml,
+                                                                     @Nullable String webDom,
+                                                                     @Nullable String visualObservationJson,
+                                                                     @Nullable String hybridObservationJson,
+                                                                     @Nullable String screenSnapshot) {
+        try {
+            return UnifiedViewObservationFacade.build(
+                    source,
+                    activityClassName,
+                    interactionDomain,
+                    targetHint,
+                    pageUrl,
+                    pageTitle,
+                    nativeViewXml,
+                    webDom,
+                    visualObservationJson,
+                    hybridObservationJson,
+                    screenSnapshot
+            );
+        } catch (Exception exception) {
+            AgentLogs.warn("ViewContextSnapshotProvider", "canonical_observation_failed",
+                    "source=" + source
+                            + " activity=" + activityClassName
+                            + " message=" + exception.getMessage());
+            return null;
+        }
     }
 
     @Nullable

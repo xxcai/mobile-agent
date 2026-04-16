@@ -42,6 +42,17 @@ public class RealWebDomSnapshotProviderTest {
         assertEquals("https://example.test/form", json.getString("pageUrl"));
         assertEquals("Form Local Page", json.getString("pageTitle"));
         assertTrue(json.getString("snapshotId").startsWith("obs_"));
+        assertEquals("web_dom", json.getJSONObject("uiTree").getString("source"));
+        assertTrue(json.getString("pageSummary").contains("Web page"));
+        assertEquals("WebDomObservationAdapter", json.getJSONObject("quality").getString("adapterName"));
+        assertTrue(json.getJSONObject("raw").has("webDom"));
+
+        ViewObservationSnapshot latestSnapshot = ViewObservationSnapshotRegistry.getLatestSnapshot();
+        assertNotNull(latestSnapshot);
+        assertEquals("web_dom", new JSONObject(latestSnapshot.uiTreeJson).getString("source"));
+        assertTrue(latestSnapshot.pageSummary.contains("Web page"));
+        assertEquals("WebDomObservationAdapter", new JSONObject(latestSnapshot.qualityJson).getString("adapterName"));
+        assertTrue(new JSONObject(latestSnapshot.rawJson).has("webDom"));
     }
 
     @Test
