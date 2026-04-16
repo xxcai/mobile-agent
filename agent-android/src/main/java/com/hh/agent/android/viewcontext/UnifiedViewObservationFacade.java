@@ -80,58 +80,6 @@ public final class UnifiedViewObservationFacade {
         }
     }
 
-    static class NativeXmlObservationAdapter implements UnifiedObservationAdapter {
-        @Override
-        public boolean supports(String source) {
-            return "native_xml".equals(source);
-        }
-
-        @Override
-        public UnifiedViewObservation adapt(String source, String activityClassName,
-                                           String interactionDomain, String targetHint,
-                                           String pageUrl, String pageTitle,
-                                           String nativeViewXml, String webDom,
-                                           String visualObservationJson,
-                                           String hybridObservationJson,
-                                           String screenSnapshot) throws Exception {
-            JSONObject raw = new JSONObject();
-            if (nativeViewXml != null) {
-                raw.put("nativeViewXml", nativeViewXml);
-            }
-
-            JSONArray uiTree = new JSONArray();
-            JSONArray screenElements = new JSONArray();
-            
-            if (nativeViewXml != null) {
-                JSONObject node = new JSONObject();
-                node.put("tag", "Button");
-                node.put("text", "发送消息");
-                node.put("index", 0);
-                uiTree.put(node);
-
-                JSONObject element = new JSONObject();
-                element.put("label", "发送消息");
-                element.put("action", "click");
-                element.put("bounds", "[820,1500][1040,1700]");
-                screenElements.put(element);
-            }
-
-            return new UnifiedViewObservation(
-                    source,
-                    interactionDomain,
-                    activityClassName,
-                    targetHint,
-                    pageUrl,
-                    pageTitle,
-                    null,
-                    uiTree.toString(),
-                    screenElements.toString(),
-                    null,
-                    raw.toString()
-            );
-        }
-    }
-
     static class WebDomObservationAdapter implements UnifiedObservationAdapter {
         @Override
         public boolean supports(String source) {

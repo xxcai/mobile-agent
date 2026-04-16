@@ -1,5 +1,6 @@
 package com.hh.agent.android.viewcontext;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Test;
 
@@ -52,5 +53,30 @@ public class UnifiedViewObservationFacadeTest {
         assertTrue(raw.has("webDom"));
         assertEquals("https://example.test/form", observation.pageUrl);
         assertEquals("Mock Page", observation.pageTitle);
+    }
+
+    @Test
+    public void build_nativeXml_emitsUiTreeAndScreenElements() throws Exception {
+        UnifiedViewObservation observation = UnifiedViewObservationFacade.build(
+                "native_xml",
+                "com.hh.agent.ChatActivity",
+                "native",
+                "发送消息",
+                null,
+                null,
+                "<hierarchy activity=\"com.hh.agent.ChatActivity\"><node index=\"0\" class=\"android.widget.FrameLayout\" bounds=\"[0,0][1080,1920]\"><node index=\"2\" class=\"android.widget.Button\" text=\"发送消息\" bounds=\"[820,1500][1040,1700]\" clickable=\"true\"></node></node></hierarchy>",
+                null,
+                null,
+                null,
+                null
+        );
+
+        JSONObject uiTree = new JSONObject(observation.uiTreeJson);
+        JSONArray elements = new JSONArray(observation.screenElementsJson);
+
+        assertEquals("android.widget.FrameLayout", uiTree.getString("className"));
+        assertEquals("native_xml", uiTree.getString("source"));
+        assertEquals("发送消息", elements.getJSONObject(0).getString("text"));
+        assertEquals("[820,1500][1040,1700]", elements.getJSONObject(0).getString("bounds"));
     }
 }
