@@ -47,7 +47,6 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
             return ToolResult.error("invalid_args", "describe_shortcut requires a non-empty 'shortcut' field")
                     .with("channel", CHANNEL_NAME);
         }
-
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",

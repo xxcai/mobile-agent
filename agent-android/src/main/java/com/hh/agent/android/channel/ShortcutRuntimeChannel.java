@@ -76,7 +76,6 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
                         .with("shortcut", shortcutName);
             }
         }
-
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",

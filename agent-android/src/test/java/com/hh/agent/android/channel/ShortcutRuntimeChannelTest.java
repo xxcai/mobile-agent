@@ -1,5 +1,4 @@
 package com.hh.agent.android.channel;
-
 import com.hh.agent.android.selection.CandidateSelectionStateStore;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;

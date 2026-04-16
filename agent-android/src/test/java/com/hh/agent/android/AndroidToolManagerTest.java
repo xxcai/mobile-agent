@@ -81,6 +81,67 @@ public class AndroidToolManagerTest {
     }
 
     @Test
+    public void visualOnlyProfileFiltersShortcutAccess() throws Exception {
+        AndroidToolManager manager = new AndroidToolManager(
+                null,
+                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
+        manager.registerShortcut(new ShortcutExecutor() {
+            @Override
+            public ShortcutDefinition getDefinition() {
+                return ShortcutDefinition.builder("send_im_message", "发送消息", "向指定联系人发送文本消息")
+                        .stringParam("message", "消息内容", true, "test")
+                        .build();
+            }
+
+            @Override
+            public ToolResult execute(JSONObject args) {
+                return ToolResult.success();
+            }
+        });
+
+        JSONObject blocked = new JSONObject(manager.callTool("run_shortcut", new JSONObject()
+                .put("shortcut", "send_im_message")
+                .put("args", new JSONObject().put("message", "hi"))
+                .toString()));
+
+        assertFalse(blocked.getBoolean("success"));
+        assertEquals("unsupported_tool_channel", blocked.getString("error"));
+        assertTrue(blocked.getString("message").contains("run_shortcut"));
+    }
+
+    @Test
+    public void visualOnlyProfileRemovesShortcutToolsFromSchema() throws Exception {
+        AndroidToolManager manager = new AndroidToolManager(
+                null,
+                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
+
+        JSONObject toolsJson = new JSONObject(manager.generateToolsJsonString());
+        org.json.JSONArray tools = toolsJson.getJSONArray("tools");
+
+        assertEquals(3, tools.length());
+        for (int index = 0; index < tools.length(); index++) {
+            String toolName = tools.getJSONObject(index).getJSONObject("function").getString("name");
+            assertFalse(ShortcutRuntimeChannel.CHANNEL_NAME.equals(toolName));
+            assertFalse(DescribeShortcutChannel.CHANNEL_NAME.equals(toolName));
+        }
+    }
+
+    @Test
+    public void visualOnlyProfileDoesNotRegisterShortcutChannels() {
+        AndroidToolManager manager = new AndroidToolManager(
+                null,
+                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
+
+        Map<String, ?> channels = manager.getRegisteredChannels();
+
+        assertFalse(channels.containsKey(ShortcutRuntimeChannel.CHANNEL_NAME));
+        assertFalse(channels.containsKey(DescribeShortcutChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(GestureToolChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(WebActionToolChannel.CHANNEL_NAME));
+        assertTrue(channels.containsKey(ViewContextToolChannel.CHANNEL_NAME));
+    }
+
+    @Test
     public void resolveCandidateSelectionUsesSessionScopedLatestCandidates() throws Exception {
         AndroidToolManager manager = new AndroidToolManager(null);
         manager.registerShortcut(new ShortcutExecutor() {

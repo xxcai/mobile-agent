@@ -37,18 +37,33 @@ public class AndroidToolManager implements AndroidToolCallback {
     private Context context;
     private final ShortcutRuntime shortcutRuntime;
     private final CandidateSelectionStateStore candidateSelectionStateStore;
+    private final ToolProfilePolicy toolProfilePolicy;
     private final Map<String, AndroidToolChannelExecutor> channels = new HashMap<>();
 
     public AndroidToolManager(Context context) {
-        this(context, new ShortcutRuntime(), null);
+        this(context, new ShortcutRuntime(), null, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
+    }
+
+    public AndroidToolManager(Context context, ToolProfilePolicy toolProfilePolicy) {
+        this(context, new ShortcutRuntime(), null, toolProfilePolicy);
     }
 
     AndroidToolManager(Context context,
                        ShortcutRuntime shortcutRuntime,
                        Collection<? extends AndroidToolChannelExecutor> initialChannels) {
+        this(context, shortcutRuntime, initialChannels, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
+    }
+
+    AndroidToolManager(Context context,
+                       ShortcutRuntime shortcutRuntime,
+                       Collection<? extends AndroidToolChannelExecutor> initialChannels,
+                       ToolProfilePolicy toolProfilePolicy) {
         this.context = context;
         this.shortcutRuntime = shortcutRuntime != null ? shortcutRuntime : new ShortcutRuntime();
         this.candidateSelectionStateStore = new CandidateSelectionStateStore();
+        this.toolProfilePolicy = toolProfilePolicy != null
+                ? toolProfilePolicy
+                : new ToolProfilePolicy(AgentRuntimeProfiles.FULL);
         registerBuiltinShortcuts();
         if (initialChannels == null) {
             registerDefaultChannels();
@@ -60,8 +75,10 @@ public class AndroidToolManager implements AndroidToolCallback {
     }
 
     private void registerDefaultChannels() {
-        registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore));
-        registerChannel(new DescribeShortcutChannel(shortcutRuntime));
+        if (AgentRuntimeProfiles.FULL.equals(toolProfilePolicy.getProfile())) {
+            registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore));
+            registerChannel(new DescribeShortcutChannel(shortcutRuntime));
+        }
         registerChannel(new GestureToolChannel());
         registerChannel(new WebActionToolChannel());
         registerChannel(context == null
@@ -169,7 +186,9 @@ public class AndroidToolManager implements AndroidToolCallback {
                 toolsArray.put(channelExecutor.buildToolDefinition());
             }
             root.put("tools", toolsArray);
-            AgentLogs.info("AndroidToolManager", "tools_json_generated", "channel_count=" + channels.size());
+            AgentLogs.info("AndroidToolManager", "tools_json_generated",
+                    "channel_count=" + channels.size()
+                            + " profile=" + toolProfilePolicy.getProfile());
             return root.toString();
         } catch (Exception e) {
             AgentLogs.error("AndroidToolManager", "generate_tools_json_failed", "message=" + e.getMessage(), e);
