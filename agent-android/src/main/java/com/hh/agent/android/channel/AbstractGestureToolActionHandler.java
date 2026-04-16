@@ -2,6 +2,8 @@ package com.hh.agent.android.channel;
 
 import com.hh.agent.android.gesture.AndroidGestureExecutor;
 import com.hh.agent.android.gesture.GestureExecutionResult;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshot;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshotRegistry;
 import com.hh.agent.core.tool.ToolResult;
 
 import org.json.JSONObject;
@@ -51,6 +53,17 @@ abstract class AbstractGestureToolActionHandler implements GestureToolActionHand
                     missingSnapshotMessage,
                     missingSnapshotPrompt);
         }
+        return validateSnapshotExists(snapshotId, missingSnapshotPrompt);
+    }
+
+    protected final ToolResult validateSnapshotExists(String snapshotId, String promptForModel) {
+        ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.findSnapshotById(snapshotId);
+        if (snapshot == null) {
+            return buildObservationError(
+                    "invalid_snapshot_id",
+                    "snapshotId '" + snapshotId + "' not found in registry",
+                    "The snapshotId is expired or invalid. Call android_view_context_tool to get a fresh observation, then retry with the new snapshotId.");
+        }
         return null;
     }
 
@@ -79,3 +92,4 @@ abstract class AbstractGestureToolActionHandler implements GestureToolActionHand
         }
     }
 }
+

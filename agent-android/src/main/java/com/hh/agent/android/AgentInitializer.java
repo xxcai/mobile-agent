@@ -7,6 +7,8 @@ import com.hh.agent.android.debug.SessionDebugTranscriptStore;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.android.floating.FloatingBallManager;
+import com.hh.agent.android.harness.OrchestratorHarness;
+import com.hh.agent.android.harness.Resolver;
 import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.viewcontext.ActivityViewContextSourcePolicy;
@@ -34,6 +36,7 @@ public class AgentInitializer {
     private static final String TAG = "AgentInitializer";
     private static final String DEFAULT_NATIVE_LOG_LEVEL = "debug";
     private static String configJson = "{}";
+    private static OrchestratorHarness harness;
 
     private AgentInitializer() {
     }
@@ -122,7 +125,26 @@ public class AgentInitializer {
         if (callback != null) {
             callback.run();
         }
+
+        initHarness(application, toolManager);
+
         AgentLogs.info(TAG, "initialize_complete", null);
+    }
+
+    private static void initHarness(Context application, AndroidToolManager toolManager) {
+        Resolver resolver = new Resolver().setContext(application);
+        resolver.preloadSkills("route_navigator", "agent_shared", "agent_orchestrator", "bus_rating_flow");
+
+        harness = OrchestratorHarness.create()
+                .setToolManager(toolManager)
+                .loadShortcuts(toolManager.getRegisteredShortcuts());
+
+        AgentLogs.info(TAG, "harness_initialized",
+            "resolver_preloaded=bus_rating_flow mode=validate_and_delegate executor=native");
+    }
+
+    public static OrchestratorHarness getHarness() {
+        return harness;
     }
 
     private static void ensureScreenSnapshotAnalyzerInstalled(Context application) {

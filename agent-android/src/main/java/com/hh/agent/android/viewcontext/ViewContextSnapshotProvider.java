@@ -148,13 +148,13 @@ public final class ViewContextSnapshotProvider {
     }
 
     static ToolResult buildObservationToolResult(String source,
-                                                 @Nullable String targetHint,
-                                                 String activityClassName,
-                                                 String observationMode,
-                                                 @Nullable String nativeViewXml,
-                                                 @Nullable ScreenSnapshotAnalysis analysis,
-                                                 boolean includeRawFallback,
-                                                 @Nullable ObservationDetailMode detailMode) {
+                                                  @Nullable String targetHint,
+                                                  String activityClassName,
+                                                  String observationMode,
+                                                  @Nullable String nativeViewXml,
+                                                  @Nullable ScreenSnapshotAnalysis analysis,
+                                                  boolean includeRawFallback,
+                                                  @Nullable ObservationDetailMode detailMode) {
         ObservationDetailMode safeDetailMode = detailMode != null ? detailMode : ObservationDetailMode.DISCOVERY;
         String visualObservationJson = analysis != null ? analysis.compactObservationJson : null;
         String screenSnapshotRef = analysis != null ? analysis.screenSnapshotRef : null;
@@ -173,7 +173,11 @@ public final class ViewContextSnapshotProvider {
         String hybridObservationJson = reduceHybridObservation(fullHybridObservationJson, safeDetailMode, includeRawFallback);
         String compactObservationJson = reduceCompactObservation(visualObservationJson, safeDetailMode, includeRawFallback);
 
-        ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
+        String tree = nativeViewXml;
+        String nodes = extractNodesFromHybridObservation(hybridObservationJson);
+        String nodesFormat = determineNodesFormat(source);
+
+        ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshotWithProjection(
                 activityClassName,
                 source,
                 INTERACTION_DOMAIN_NATIVE,
@@ -184,7 +188,10 @@ public final class ViewContextSnapshotProvider {
                 null,
                 visualObservationJson,
                 screenSnapshotRef,
-                fullHybridObservationJson
+                fullHybridObservationJson,
+                tree,
+                nodes,
+                nodesFormat
         );
 
         AgentLogs.info("ViewContextSnapshotProvider", "observation_built",
@@ -196,6 +203,8 @@ public final class ViewContextSnapshotProvider {
                         + " native_xml_length=" + lengthOf(reducedNativeViewXml)
                         + " compact_length=" + lengthOf(compactObservationJson)
                         + " hybrid_length=" + lengthOf(hybridObservationJson)
+                        + " nodes_length=" + lengthOf(nodes)
+                        + " nodes_format=" + nodesFormat
                         + " raw_included=" + includeRawFallback
                         + " snapshot_id=" + snapshot.snapshotId);
 
@@ -213,6 +222,9 @@ public final class ViewContextSnapshotProvider {
                 .with("snapshotScope", OBSERVATION_SCOPE_CURRENT_TURN)
                 .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                 .with("rawFallbackIncluded", includeRawFallback)
+                .with("tree", tree)
+                .with("nodes", nodes)
+                .with("nodesFormat", nodesFormat)
                 .with("nativeViewXml", reducedNativeViewXml)
                 .with("webDom", (String) null)
                 .with("screenSnapshot", screenSnapshotRef)
@@ -221,6 +233,46 @@ public final class ViewContextSnapshotProvider {
                 .withJson("screenVisionCompact", compactObservationJson)
                 .withJson("screenVisionRaw", includeRawFallback && analysis != null ? analysis.rawObservationJson : null)
                 .withJson("hybridObservation", hybridObservationJson);
+    }
+
+    private static String extractNodesFromHybridObservation(@Nullable String hybridObservationJson) {
+        if (!hasText(hybridObservationJson)) {
+            return null;
+        }
+        try {
+            JSONObject hybrid = new JSONObject(hybridObservationJson);
+            JSONArray actionableNodes = hybrid.optJSONArray("actionableNodes");
+            if (actionableNodes == null || actionableNodes.length() == 0) {
+                return null;
+            }
+            JSONArray nodesArray = new JSONArray();
+            for (int i = 0; i < actionableNodes.length(); i++) {
+                JSONObject node = actionableNodes.optJSONObject(i);
+                if (node == null) {
+                    continue;
+                }
+                JSONObject compactNode = new JSONObject();
+                compactNode.put("index", i);
+                copy(node, compactNode, "text");
+                copy(node, compactNode, "contentDescription");
+                copy(node, compactNode, "resourceId");
+                copy(node, compactNode, "className");
+                copy(node, compactNode, "bounds");
+                copy(node, compactNode, "clickable");
+                copy(node, compactNode, "enabled");
+                nodesArray.put(compactNode);
+            }
+            return nodesArray.toString();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String determineNodesFormat(String source) {
+        if (SOURCE_NATIVE_XML.equals(source)) {
+            return NativeViewXmlProjectionStrategy.IMPLEMENTATION_KEY;
+        }
+        return "unknown";
     }
 
     @Nullable
@@ -837,3 +889,4 @@ public final class ViewContextSnapshotProvider {
         }
     }
 }
+

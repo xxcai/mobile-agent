@@ -1,6 +1,8 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshot;
+import com.hh.agent.android.viewcontext.ViewObservationSnapshotRegistry;
 import com.hh.agent.android.webaction.RealWebActionExecutor;
 import com.hh.agent.android.webaction.WebActionExecutor;
 import com.hh.agent.android.webaction.WebActionRequest;
@@ -51,7 +53,7 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
                         .property("snapshotId", ToolSchemaBuilder.string()
                                 .description("当前回合 web_dom observation 的 snapshot 标识。"), false)
                         .property("targetDescriptor", ToolSchemaBuilder.string()
-                                .description("目标元素的人类可读描述，例如“提交按钮”。"), false), false)
+                                .description("目标元素的人类可读描述，例如提交按钮。"), false), false)
                 .build();
     }
 
@@ -104,6 +106,10 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
                     .with("messageForModel",
                             "Call android_view_context_tool first, then retry the web action with observation.snapshotId.");
         }
+        ToolResult snapshotValidation = validateSnapshotExists(snapshotId);
+        if (snapshotValidation != null) {
+            return snapshotValidation;
+        }
         if (("click".equals(request.action) || "input".equals(request.action))
                 && isEmpty(request.ref)
                 && isEmpty(request.selector)) {
@@ -121,6 +127,20 @@ public class WebActionToolChannel implements AndroidToolChannelExecutor {
             return ToolResult.error("invalid_args", "eval_js requires a non-empty 'script'")
                     .with("channel", CHANNEL_NAME)
                     .with("domain", "web");
+        }
+        return null;
+    }
+
+    private ToolResult validateSnapshotExists(String snapshotId) {
+        ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.findSnapshotById(snapshotId);
+        if (snapshot == null) {
+            return ToolResult.error("invalid_web_snapshot_id",
+                            "snapshotId '" + snapshotId + "' not found in registry")
+                    .with("channel", CHANNEL_NAME)
+                    .with("domain", "web")
+                    .with("suggestedNextTool", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("messageForModel",
+                            "The snapshotId is expired or invalid. Call android_view_context_tool to get a fresh observation, then retry with the new snapshotId.");
         }
         return null;
     }
