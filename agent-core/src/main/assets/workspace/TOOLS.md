@@ -51,15 +51,16 @@ Do not jump directly to gesture execution when the task still depends on underst
 
 After calling `android_view_context_tool`, interpret the result in this order:
 
-1. Use `hybridObservation.summary` for page-level understanding.
-2. Use `hybridObservation.actionableNodes` to choose visible targets and derive `observation.referencedBounds`.
-3. Check `hybridObservation.conflicts` before trusting weak or ambiguous candidates.
-4. Fall back to raw `nativeViewXml`, `screenVisionCompact`, or `webDom` only when `hybridObservation` is missing or insufficient for the current target.
+1. Use `pageSummary` for page-level understanding.
+2. Use `screenElements` to choose visible targets and derive `observation.referencedBounds`.
+3. Use `uiTree` when structure or hierarchy matters, and `quality` to gauge observation confidence.
+4. Use `raw` to inspect source-specific payloads when canonical fields are insufficient.
+5. Fall back to legacy `hybridObservation`, `nativeViewXml`, `screenVisionCompact`, or `webDom` only when canonical fields are missing or still insufficient for the current target.
 
-When `hybridObservation.actionableNodes` is present:
+When `screenElements` is present:
 
 - Prefer nodes with `source=fused` first.
-- Then prefer nodes with `source=native`.
+- Then prefer nodes with `source=native` or `source=native_xml`.
 - Treat nodes with `source=vision_only` as weaker evidence and avoid using them for taps unless there is no better current-turn target evidence.
 
 ## Gesture Tool Rules

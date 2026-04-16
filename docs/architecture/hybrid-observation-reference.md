@@ -1,6 +1,6 @@
-﻿# HybridObservation 字段详解
+# HybridObservation 字段详解
 
-本文档是《[当前项目业务流程与方案说明](./current-agent-business-flow.md)》的配套文档，专门解释当前系统返回的 `hybridObservation` 结构、生成规则和下游消费方式。
+本文档是《[当前项目业务流程与方案说明](./current-agent-business-flow.md)》的配套文档，专门解释当前系统返回的 `hybridObservation` 结构、生成规则，以及它在 canonical observation 链路中的位置。
 
 如果你想先建立整体认知，建议先读：
 
@@ -9,7 +9,7 @@
 
 ## 1. `hybridObservation` 是什么
 
-`hybridObservation` 是当前系统给模型消费的主页面观察结果。
+`hybridObservation` 现在更适合理解为 canonical observation 的一个输入源与 legacy 兼容字段，而不是唯一的 LLM-facing 主页面观察结果。
 
 它不是：
 
@@ -41,12 +41,12 @@ flowchart TD
     D --> G["ObservationTargetResolver"]
 ```
 
-它既是：
+它当前仍然是：
 
-- 模型的主输入
-- 快照注册的一部分
-- 目标选择器的主要数据源
-- 调试面板的主要解释对象
+- 快照注册中的原始附件之一
+- canonical `screenElements` 的重要上游来源之一
+- legacy resolver / 调试面板仍可读取的兼容字段
+- 调试融合质量时的重要解释对象
 
 ## 3. 顶层字段总览
 
@@ -616,10 +616,10 @@ gesture 本身并不直接读取 `hybridObservation` 全量结构，但它依赖
 
 如果你在写上层逻辑，当前推荐顺序是：
 
-1. 先读 `mode` 和 `quality`
-2. 再读 `summary`
-3. 再读 `actionableNodes`
-4. 如果结果可疑，再看 `conflicts`
+1. 先读 canonical `pageSummary` 和 `quality`
+2. 再读 canonical `screenElements`
+3. 需要结构信息时读 canonical `uiTree`
+4. 如果 canonical 信息不足，再回看 `hybridObservation.summary`、`actionableNodes`、`conflicts`
 5. 如果要排查为什么融合异常，再看 `debug`
 6. 只有在这些都不足够时，再去看原始 `nativeViewXml` 和 `screenVisionCompact`
 
@@ -691,8 +691,8 @@ gesture 本身并不直接读取 `hybridObservation` 全量结构，但它依赖
 
 如果只记 4 件事，可以记住：
 
-1. `hybridObservation` 是当前系统真正给模型消费的主 observation
-2. `actionableNodes` 是最重要的动作候选池
+1. canonical `pageSummary + screenElements + uiTree + quality + raw` 是当前模型优先读取的 observation 视图
+2. `hybridObservation.actionableNodes` 仍然是 canonical `screenElements` 的重要来源之一
 3. `conflicts` 和 `debug` 是判断不确定性和排查融合问题的关键辅助信息
 4. 当前系统的默认偏好始终是 `fused > native > vision_only`
 

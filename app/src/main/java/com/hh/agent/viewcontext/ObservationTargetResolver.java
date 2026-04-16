@@ -26,6 +26,14 @@ public final class ObservationTargetResolver {
             return null;
         }
 
+        TargetReference canonicalMatch = resolveFromScreenElements(
+                viewContextJson.optJSONArray("screenElements"),
+                targetHint
+        );
+        if (canonicalMatch != null) {
+            return canonicalMatch;
+        }
+
         TargetReference hybridMatch = resolveFromHybrid(
                 viewContextJson.optJSONObject("hybridObservation"),
                 targetHint
@@ -38,22 +46,38 @@ public final class ObservationTargetResolver {
     }
 
     @Nullable
+    private static TargetReference resolveFromScreenElements(@Nullable JSONArray screenElements,
+                                                             @Nullable String targetHint) {
+        return resolveFromCandidates(screenElements, targetHint, "screen_element");
+    }
+
+    @Nullable
     private static TargetReference resolveFromHybrid(@Nullable JSONObject hybridObservation,
                                                      @Nullable String targetHint) {
         if (hybridObservation == null) {
             return null;
         }
 
-        JSONArray actionableNodes = hybridObservation.optJSONArray("actionableNodes");
-        if (actionableNodes == null || actionableNodes.length() == 0) {
+        return resolveFromCandidates(
+                hybridObservation.optJSONArray("actionableNodes"),
+                targetHint,
+                "hybrid_actionable"
+        );
+    }
+
+    @Nullable
+    private static TargetReference resolveFromCandidates(@Nullable JSONArray candidates,
+                                                         @Nullable String targetHint,
+                                                         String defaultSource) {
+        if (candidates == null || candidates.length() == 0) {
             return null;
         }
 
         String normalizedHint = normalize(targetHint);
         TargetReference best = null;
         double bestScore = Double.NEGATIVE_INFINITY;
-        for (int i = 0; i < actionableNodes.length(); i++) {
-            JSONObject node = actionableNodes.optJSONObject(i);
+        for (int i = 0; i < candidates.length(); i++) {
+            JSONObject node = candidates.optJSONObject(i);
             if (node == null) {
                 continue;
             }
@@ -67,12 +91,14 @@ public final class ObservationTargetResolver {
             String source = trimToNull(node.optString("source", null));
             if ("fused".equals(source)) {
                 score += 0.25d;
-            } else if ("native".equals(source)) {
+            } else if ("native".equals(source) || "native_xml".equals(source)) {
                 score += 0.15d;
             } else if ("vision_only".equals(source)) {
                 score -= 0.10d;
             }
             if (node.has("nativeNodeIndex") && !node.isNull("nativeNodeIndex")) {
+                score += 0.08d;
+            } else if (node.has("index") && !node.isNull("index")) {
                 score += 0.08d;
             }
 
@@ -81,8 +107,13 @@ public final class ObservationTargetResolver {
             String resourceId = trimToNull(node.optString("resourceId", null));
             String className = trimToNull(node.optString("className", null));
             String visionType = trimToNull(node.optString("visionType", null));
+            String ariaLabel = trimToNull(node.optString("ariaLabel", null));
+            String selector = trimToNull(node.optString("selector", null));
+            String tagName = trimToNull(node.optString("tagName", null));
+            String role = trimToNull(node.optString("role", null));
 
-            double hintScore = hintScore(normalizedHint, text, visionLabel, resourceId, className, visionType);
+            double hintScore = hintScore(normalizedHint, text, visionLabel, resourceId, className, visionType,
+                    ariaLabel, selector, tagName, role);
             if (!normalizedHint.isEmpty()) {
                 if (hintScore < 0.42d) {
                     continue;
@@ -90,15 +121,16 @@ public final class ObservationTargetResolver {
                 score += hintScore;
             }
 
-            Integer nativeNodeIndex = node.has("nativeNodeIndex") && !node.isNull("nativeNodeIndex")
-                    ? Integer.valueOf(node.optInt("nativeNodeIndex"))
-                    : null;
+            Integer nativeNodeIndex = integerValue(node, "nativeNodeIndex");
+            if (nativeNodeIndex == null) {
+                nativeNodeIndex = integerValue(node, "index");
+            }
             TargetReference candidate = new TargetReference(
                     nativeNodeIndex,
                     bounds,
-                    source != null ? source : "hybrid_actionable",
-                    firstNonEmpty(text, visionLabel, resourceHint(resourceId), visionType),
-                    visionType
+                    source != null ? source : defaultSource,
+                    firstNonEmpty(text, visionLabel, ariaLabel, resourceHint(resourceId), selector, role, tagName, visionType, className),
+                    firstNonEmpty(visionType, role, tagName)
             );
             if (score > bestScore) {
                 best = candidate;
@@ -143,12 +175,28 @@ public final class ObservationTargetResolver {
         if (bounds != null) {
             return bounds;
         }
+        JSONObject rect = object.optJSONObject("bounds");
+        if (rect != null && rect.has("x") && rect.has("y") && rect.has("width") && rect.has("height")) {
+            int x = rect.optInt("x");
+            int y = rect.optInt("y");
+            int width = rect.optInt("width");
+            int height = rect.optInt("height");
+            return "[" + x + "," + y + "][" + (x + width) + "," + (y + height) + "]";
+        }
         JSONArray bbox = object.optJSONArray("bbox");
         if (bbox == null || bbox.length() < 4) {
             return null;
         }
         return "[" + bbox.optInt(0) + "," + bbox.optInt(1) + "]["
                 + bbox.optInt(2) + "," + bbox.optInt(3) + "]";
+    }
+
+    @Nullable
+    private static Integer integerValue(JSONObject object, String key) {
+        if (!object.has(key) || object.isNull(key)) {
+            return null;
+        }
+        return Integer.valueOf(object.optInt(key));
     }
 
     private static double hintScore(String normalizedHint, @Nullable String... values) {
