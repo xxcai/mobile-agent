@@ -30,8 +30,9 @@ public final class NativeXmlObservationAdapter implements UnifiedObservationAdap
                                         String visualObservationJson,
                                         String hybridObservationJson,
                                         String screenSnapshot) throws Exception {
-        JSONObject uiTree = NativeXmlTreeParser.parseRoot(nativeViewXml, source);
-        JSONArray screenElements = NativeXmlTreeParser.collectElements(nativeViewXml, source);
+        Document parsedDoc = NativeXmlTreeParser.parseXmlOnce(nativeViewXml);
+        JSONObject uiTree = NativeXmlTreeParser.buildUiTreeFromDocument(parsedDoc, source);
+        JSONArray screenElements = NativeXmlTreeParser.collectElementsFromDocument(parsedDoc, source);
         JSONObject quality = new JSONObject()
                 .put("adapterName", "NativeXmlObservationAdapter")
                 .put("mode", "native_only")
@@ -80,13 +81,25 @@ public final class NativeXmlObservationAdapter implements UnifiedObservationAdap
     }
 
     static class NativeXmlTreeParser {
-        static JSONObject parseRoot(String nativeViewXml, String source) throws Exception {
+        static Document parseXmlOnce(String nativeViewXml) throws Exception {
             if (nativeViewXml == null || nativeViewXml.isEmpty()) {
-                return new JSONObject().put("source", source);
+                return null;
             }
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            // XXE protection: disable DOCTYPE and external entities
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setExpandEntityReferences(false);
+            
             DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new ByteArrayInputStream(nativeViewXml.getBytes(StandardCharsets.UTF_8)));
+            return builder.parse(new ByteArrayInputStream(nativeViewXml.getBytes(StandardCharsets.UTF_8)));
+        }
+
+        static JSONObject buildUiTreeFromDocument(Document doc, String source) throws Exception {
+            if (doc == null) {
+                return new JSONObject().put("source", source);
+            }
             Element hierarchy = doc.getDocumentElement();
             NodeList children = hierarchy.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
@@ -98,14 +111,11 @@ public final class NativeXmlObservationAdapter implements UnifiedObservationAdap
             return new JSONObject().put("source", source);
         }
 
-        static JSONArray collectElements(String nativeViewXml, String source) throws Exception {
+        static JSONArray collectElementsFromDocument(Document doc, String source) throws Exception {
             JSONArray elements = new JSONArray();
-            if (nativeViewXml == null || nativeViewXml.isEmpty()) {
+            if (doc == null) {
                 return elements;
             }
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new ByteArrayInputStream(nativeViewXml.getBytes(StandardCharsets.UTF_8)));
             Element hierarchy = doc.getDocumentElement();
             collectElementsRecursive(hierarchy, elements, source);
             return elements;
@@ -124,7 +134,14 @@ public final class NativeXmlObservationAdapter implements UnifiedObservationAdap
                 node.put("bounds", element.getAttribute("bounds"));
             }
             if (element.hasAttribute("index")) {
-                node.put("index", Integer.parseInt(element.getAttribute("index")));
+                String indexStr = element.getAttribute("index");
+                if (indexStr != null && !indexStr.isEmpty()) {
+                    try {
+                        node.put("index", Integer.parseInt(indexStr));
+                    } catch (NumberFormatException e) {
+                        // Malformed index: omit field instead of crashing
+                    }
+                }
             }
             if (element.hasAttribute("clickable")) {
                 node.put("clickable", Boolean.parseBoolean(element.getAttribute("clickable")));
