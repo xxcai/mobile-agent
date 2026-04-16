@@ -171,10 +171,6 @@ public final class ObservationTargetResolver {
 
     @Nullable
     private static String boundsFrom(JSONObject object) {
-        String bounds = trimToNull(object.optString("bounds", null));
-        if (bounds != null) {
-            return bounds;
-        }
         JSONObject rect = object.optJSONObject("bounds");
         if (rect != null && rect.has("x") && rect.has("y") && rect.has("width") && rect.has("height")) {
             int x = rect.optInt("x");
@@ -182,6 +178,15 @@ public final class ObservationTargetResolver {
             int width = rect.optInt("width");
             int height = rect.optInt("height");
             return "[" + x + "," + y + "][" + (x + width) + "," + (y + height) + "]";
+        }
+        JSONArray boundsArray = object.optJSONArray("bounds");
+        if (boundsArray != null && boundsArray.length() >= 4) {
+            return "[" + boundsArray.optInt(0) + "," + boundsArray.optInt(1) + "]["
+                    + boundsArray.optInt(2) + "," + boundsArray.optInt(3) + "]";
+        }
+        String bounds = trimToNull(object.optString("bounds", null));
+        if (bounds != null) {
+            return bounds;
         }
         JSONArray bbox = object.optJSONArray("bbox");
         if (bbox == null || bbox.length() < 4) {

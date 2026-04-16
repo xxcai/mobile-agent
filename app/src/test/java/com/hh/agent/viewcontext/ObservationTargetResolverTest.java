@@ -36,6 +36,49 @@ public class ObservationTargetResolverTest {
     }
 
     @Test
+    public void resolveCanonicalScreenElements_convertsWebObjectBounds() throws Exception {
+        JSONObject viewContext = new JSONObject()
+                .put("screenElements", new JSONArray()
+                        .put(new JSONObject()
+                                .put("text", "提交")
+                                .put("source", "web_dom")
+                                .put("selector", "button#submit")
+                                .put("bounds", new JSONObject()
+                                        .put("x", 12)
+                                        .put("y", 34)
+                                        .put("width", 120)
+                                        .put("height", 44))));
+
+        ObservationTargetResolver.TargetReference target =
+                ObservationTargetResolver.resolve(viewContext, "提交");
+
+        assertNotNull(target);
+        assertEquals("[12,34][132,78]", target.bounds);
+        assertEquals("web_dom", target.source);
+    }
+
+    @Test
+    public void resolveCanonicalScreenElements_convertsVisualArrayBounds() throws Exception {
+        JSONObject viewContext = new JSONObject()
+                .put("screenElements", new JSONArray()
+                        .put(new JSONObject()
+                                .put("text", "发送")
+                                .put("source", "screen_snapshot")
+                                .put("bbox", new JSONArray()
+                                        .put(820)
+                                        .put(1500)
+                                        .put(1040)
+                                        .put(1700))));
+
+        ObservationTargetResolver.TargetReference target =
+                ObservationTargetResolver.resolve(viewContext, "发送");
+
+        assertNotNull(target);
+        assertEquals("[820,1500][1040,1700]", target.bounds);
+        assertEquals("screen_snapshot", target.source);
+    }
+
+    @Test
     public void resolvePrefersHybridActionableNodes() throws Exception {
         JSONObject viewContext = new JSONObject()
                 .put("hybridObservation", new JSONObject()
