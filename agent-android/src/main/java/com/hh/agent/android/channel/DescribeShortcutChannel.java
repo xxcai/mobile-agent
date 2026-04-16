@@ -1,7 +1,5 @@
 package com.hh.agent.android.channel;
 
-import com.hh.agent.android.AgentRuntimeProfiles;
-import com.hh.agent.android.ToolProfilePolicy;
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
@@ -19,21 +17,12 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
     public static final String CHANNEL_NAME = "describe_shortcut";
 
     private final ShortcutRuntime shortcutRuntime;
-    private final ToolProfilePolicy toolProfilePolicy;
 
     public DescribeShortcutChannel(ShortcutRuntime shortcutRuntime) {
-        this(shortcutRuntime, new ToolProfilePolicy(AgentRuntimeProfiles.FULL));
-    }
-
-    public DescribeShortcutChannel(ShortcutRuntime shortcutRuntime,
-                                   ToolProfilePolicy toolProfilePolicy) {
         if (shortcutRuntime == null) {
             throw new IllegalArgumentException("ShortcutRuntime cannot be null");
         }
         this.shortcutRuntime = shortcutRuntime;
-        this.toolProfilePolicy = toolProfilePolicy != null
-                ? toolProfilePolicy
-                : new ToolProfilePolicy(AgentRuntimeProfiles.FULL);
     }
 
     @Override
@@ -58,15 +47,6 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
             return ToolResult.error("invalid_args", "describe_shortcut requires a non-empty 'shortcut' field")
                     .with("channel", CHANNEL_NAME);
         }
-        if (!toolProfilePolicy.isShortcutAllowed(shortcutName)) {
-            return ToolResult.error("shortcut_not_allowed_in_profile",
-                            "Shortcut '" + shortcutName + "' is disabled by profile")
-                    .with("channel", CHANNEL_NAME)
-                    .with("shortcut", shortcutName)
-                    .with("profile", toolProfilePolicy.getProfile())
-                    .with("reason", "disabled_by_profile");
-        }
-
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",

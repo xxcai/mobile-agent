@@ -1,7 +1,4 @@
 package com.hh.agent.android.channel;
-
-import com.hh.agent.android.AgentRuntimeProfiles;
-import com.hh.agent.android.ToolProfilePolicy;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
@@ -66,22 +63,6 @@ public class DescribeShortcutChannelTest {
         assertEquals("unknown_shortcut", result.getString("shortcut"));
         assertTrue(result.getString("message").contains("read skills/<skill_name>/SKILL.md"));
         assertTrue(result.getString("message").contains("instead of calling describe_shortcut"));
-    }
-
-    @Test
-    public void executeBlocksShortcutOutsideProfileAllowList() throws Exception {
-        ShortcutRuntime runtime = new ShortcutRuntime();
-        runtime.register(new RecordingShortcutExecutor());
-        DescribeShortcutChannel channel = new DescribeShortcutChannel(
-                runtime,
-                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
-
-        JSONObject result = new JSONObject(channel.execute(new JSONObject()
-                .put("shortcut", "resolve_route")).toJsonString());
-
-        assertEquals(false, result.getBoolean("success"));
-        assertEquals("shortcut_not_allowed_in_profile", result.getString("error"));
-        assertEquals(AgentRuntimeProfiles.VISUAL_ONLY, result.getString("profile"));
     }
 
     private static final class RecordingShortcutExecutor implements ShortcutExecutor {

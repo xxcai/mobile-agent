@@ -1,7 +1,4 @@
 package com.hh.agent.android.channel;
-
-import com.hh.agent.android.AgentRuntimeProfiles;
-import com.hh.agent.android.ToolProfilePolicy;
 import com.hh.agent.android.selection.CandidateSelectionStateStore;
 import com.hh.agent.android.ui.ToolUiDecision;
 import com.hh.agent.core.shortcut.ShortcutDefinition;
@@ -102,24 +99,6 @@ public class ShortcutRuntimeChannelTest {
     }
 
     @Test
-    public void executeBlocksShortcutOutsideProfileAllowList() throws Exception {
-        ShortcutRuntime runtime = new ShortcutRuntime();
-        runtime.register(new RecordingShortcutExecutor());
-        ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(
-                runtime,
-                null,
-                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
-
-        JSONObject result = new JSONObject(channel.execute(new JSONObject()
-                .put("shortcut", "resolve_route")
-                .put("args", new JSONObject())).toJsonString());
-
-        assertFalse(result.getBoolean("success"));
-        assertEquals("shortcut_not_allowed_in_profile", result.getString("error"));
-        assertEquals(AgentRuntimeProfiles.VISUAL_ONLY, result.getString("profile"));
-    }
-
-    @Test
     public void resolveInnerToolUiDecisionUsesShortcutDefinition() {
         ShortcutRuntime runtime = new ShortcutRuntime();
         runtime.register(new RecordingShortcutExecutor());
@@ -142,21 +121,6 @@ public class ShortcutRuntimeChannelTest {
 
         ToolUiDecision decision = channel.resolveInnerToolUiDecision(
                 "{\"shortcut\":\"unknown_shortcut\",\"args\":{}}");
-
-        assertFalse(decision.isVisible());
-    }
-
-    @Test
-    public void resolveInnerToolUiDecisionHidesShortcutInVisualOnlyProfile() {
-        ShortcutRuntime runtime = new ShortcutRuntime();
-        runtime.register(new RecordingShortcutExecutor());
-        ShortcutRuntimeChannel channel = new ShortcutRuntimeChannel(
-                runtime,
-                null,
-                new ToolProfilePolicy(AgentRuntimeProfiles.VISUAL_ONLY));
-
-        ToolUiDecision decision = channel.resolveInnerToolUiDecision(
-                "{\"shortcut\":\"send_im_message\",\"args\":{\"contact_id\":\"003\",\"message\":\"test\"}}");
 
         assertFalse(decision.isVisible());
     }

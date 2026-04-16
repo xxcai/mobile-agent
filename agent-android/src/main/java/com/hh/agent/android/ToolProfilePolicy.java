@@ -35,14 +35,4 @@ public final class ToolProfilePolicy {
         }
         return true;
     }
-
-    public boolean isShortcutAllowed(String shortcutName) {
-        if (AgentRuntimeProfiles.FULL.equals(profile)) {
-            return true;
-        }
-        if (shortcutName == null || shortcutName.trim().isEmpty()) {
-            return false;
-        }
-        return false;
-    }
 }

@@ -75,8 +75,8 @@ public class AndroidToolManager implements AndroidToolCallback {
 
     private void registerDefaultChannels() {
         if (AgentRuntimeProfiles.FULL.equals(toolProfilePolicy.getProfile())) {
-            registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore, toolProfilePolicy));
-            registerChannel(new DescribeShortcutChannel(shortcutRuntime, toolProfilePolicy));
+            registerChannel(new ShortcutRuntimeChannel(shortcutRuntime, candidateSelectionStateStore));
+            registerChannel(new DescribeShortcutChannel(shortcutRuntime));
         }
         registerChannel(new GestureToolChannel());
         registerChannel(new WebActionToolChannel());

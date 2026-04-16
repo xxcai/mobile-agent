@@ -16,24 +16,8 @@ public final class AgentRuntimeProfileConfig {
         }
         try {
             JSONObject root = new JSONObject(configJson);
-            String agentProfile = AgentRuntimeProfiles.normalize(root.optString("agentProfile", null));
-            if (!AgentRuntimeProfiles.FULL.equals(agentProfile) || root.has("agentProfile")) {
-                return new AgentRuntimeProfileConfig(agentProfile);
-            }
-
-            // Backward compatibility for older configs during migration.
-            JSONObject tools = root.optJSONObject("tools");
-            String legacyToolsProfile = AgentRuntimeProfiles.normalize(
-                    tools != null ? tools.optString("profile", null) : null);
-
-            JSONObject prompt = root.optJSONObject("prompt");
-            String legacyPromptProfile = AgentRuntimeProfiles.normalize(
-                    prompt != null ? prompt.optString("profile", legacyToolsProfile) : legacyToolsProfile);
-
-            String fallbackProfile = AgentRuntimeProfiles.FULL.equals(legacyToolsProfile)
-                    ? legacyPromptProfile
-                    : legacyToolsProfile;
-            return new AgentRuntimeProfileConfig(fallbackProfile);
+            return new AgentRuntimeProfileConfig(
+                    AgentRuntimeProfiles.normalize(root.optString("agentProfile", null)));
         } catch (Exception ignored) {
             return new AgentRuntimeProfileConfig(AgentRuntimeProfiles.FULL);
         }
