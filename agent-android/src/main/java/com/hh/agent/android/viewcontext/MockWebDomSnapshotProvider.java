@@ -10,6 +10,9 @@ import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.thread.MainThreadRunner;
 import com.hh.agent.core.tool.ToolResult;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 /**
  * Mock implementation used to keep the web-domain observation contract stable before real DOM capture lands.
  */
@@ -76,16 +79,41 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
                 "activity=" + activityClassName
                         + " candidates=" + (findResult != null ? findResult.candidateCount : 0)
                         + " target_hint=" + targetHint);
+        UnifiedViewObservation unifiedObservation;
+        try {
+            unifiedObservation = buildMockUnifiedObservation(
+                    activityClassName,
+                    targetHint,
+                    pageUrl,
+                    pageTitle
+            );
+        } catch (Exception exception) {
+            AgentLogs.warn("MockWebDomSnapshotProvider", "canonical_observation_failed",
+                    "activity=" + activityClassName
+                            + " target_hint=" + targetHint
+                            + " message=" + exception.getMessage());
+            return ToolResult.error("dom_capture_failed", exception.getMessage())
+                    .with("channel", ViewContextToolChannel.CHANNEL_NAME)
+                    .with("source", SOURCE_WEB_DOM)
+                    .with("interactionDomain", INTERACTION_DOMAIN_WEB)
+                    .with("mock", true)
+                    .with("targetHint", targetHint)
+                    .with("activityClassName", activityClassName);
+        }
 
         ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
                 activityClassName,
                 SOURCE_WEB_DOM,
                 INTERACTION_DOMAIN_WEB,
                 targetHint,
+                unifiedObservation,
                 null,
                 MOCK_WEB_DOM,
                 pageUrl,
-                pageTitle
+                pageTitle,
+                null,
+                null,
+                null
         );
         AgentLogs.info("MockWebDomSnapshotProvider", "collect_complete",
                 "snapshot_id=" + snapshot.snapshotId
@@ -107,6 +135,11 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
                 .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                 .with("pageUrl", pageUrl)
                 .with("pageTitle", pageTitle)
+                .withJson("uiTree", snapshot.uiTreeJson)
+                .withJson("screenElements", snapshot.screenElementsJson)
+                .with("pageSummary", snapshot.pageSummary)
+                .withJson("quality", snapshot.qualityJson)
+                .withJson("raw", snapshot.rawJson)
                 .with("nativeViewXml", (String) null)
                 .with("webDom", MOCK_WEB_DOM)
                 .with("webDomFormat", "html")
@@ -135,5 +168,60 @@ public final class MockWebDomSnapshotProvider implements WebDomSnapshotProvider 
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private UnifiedViewObservation buildMockUnifiedObservation(@Nullable String activityClassName,
+                                                               @Nullable String targetHint,
+                                                               @Nullable String pageUrl,
+                                                               @Nullable String pageTitle) throws Exception {
+        JSONObject uiTree = new JSONObject()
+                .put("source", SOURCE_WEB_DOM)
+                .put("tagName", "html")
+                .put("children", new JSONArray()
+                        .put(new JSONObject()
+                                .put("source", SOURCE_WEB_DOM)
+                                .put("tagName", "body")
+                                .put("children", new JSONArray()
+                                        .put(new JSONObject()
+                                                .put("source", SOURCE_WEB_DOM)
+                                                .put("tagName", "button")
+                                                .put("text", "张三")
+                                                .put("selector", "button[data-action=open-contact]")
+                                                .put("clickable", true)))));
+        JSONArray screenElements = new JSONArray()
+                .put(new JSONObject()
+                        .put("source", SOURCE_WEB_DOM)
+                        .put("tagName", "button")
+                        .put("text", "张三")
+                        .put("selector", "button[data-action=open-contact]")
+                        .put("clickable", true));
+        JSONObject quality = new JSONObject()
+                .put("adapterName", "MockWebDomSnapshotProvider")
+                .put("mode", "mock_web_only")
+                .put("webNodeCount", 3)
+                .put("webTruncated", false);
+        JSONObject raw = new JSONObject()
+                .put("nativeViewXml", JSONObject.NULL)
+                .put("webDom", MOCK_WEB_DOM)
+                .put("webDomFormat", "html")
+                .put("visualObservationJson", JSONObject.NULL)
+                .put("hybridObservationJson", JSONObject.NULL)
+                .put("screenSnapshot", JSONObject.NULL);
+        String summary = pageTitle != null && !pageTitle.isEmpty()
+                ? "Mock web page \"" + pageTitle + "\" with 1 element(s)"
+                : "Mock web page with 1 element(s)";
+        return new UnifiedViewObservation(
+                SOURCE_WEB_DOM,
+                INTERACTION_DOMAIN_WEB,
+                activityClassName,
+                targetHint,
+                pageUrl,
+                pageTitle,
+                summary,
+                uiTree.toString(),
+                screenElements.toString(),
+                quality.toString(),
+                raw.toString()
+        );
     }
 }

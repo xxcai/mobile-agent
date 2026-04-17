@@ -54,16 +54,28 @@ public final class RealWebDomSnapshotProvider implements WebDomSnapshotProvider 
             String fallbackPageTitle = jsBridge.getCurrentPageTitle(handle);
             String pageUrl = safeString(payload.optString("pageUrl", fallbackPageUrl));
             String pageTitle = safeString(payload.optString("pageTitle", fallbackPageTitle));
+            String activityClassName = activity != null ? activity.getClass().getName() : null;
+            UnifiedViewObservation unifiedObservation = tryBuildUnifiedObservation(
+                    activityClassName,
+                    targetHint,
+                    pageUrl,
+                    pageTitle,
+                    payload.toString()
+            );
 
             ViewObservationSnapshot snapshot = ViewObservationSnapshotRegistry.createSnapshot(
-                    activity != null ? activity.getClass().getName() : null,
+                    activityClassName,
                     SOURCE_WEB_DOM,
                     INTERACTION_DOMAIN_WEB,
                     targetHint,
+                    unifiedObservation,
                     null,
                     payload.toString(),
                     pageUrl,
-                    pageTitle
+                    pageTitle,
+                    null,
+                    null,
+                    null
             );
 
             return ToolResult.success()
@@ -80,12 +92,17 @@ public final class RealWebDomSnapshotProvider implements WebDomSnapshotProvider 
                     .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                     .with("pageUrl", pageUrl)
                     .with("pageTitle", pageTitle)
-                     .with("nativeViewXml", (String) null)
-                     .with("webDom", payload.toString())
-                     .with("webDomFormat", "json")
-                     .with("screenSnapshot", (String) null)
-                     .with("webViewCandidateCount", handle.candidateCount)
-                     .with("webViewSelectionReason", handle.selectionReason);
+                    .withJson("uiTree", snapshot.uiTreeJson)
+                    .withJson("screenElements", snapshot.screenElementsJson)
+                    .with("pageSummary", snapshot.pageSummary)
+                    .withJson("quality", snapshot.qualityJson)
+                    .withJson("raw", snapshot.rawJson)
+                    .with("nativeViewXml", (String) null)
+                    .with("webDom", payload.toString())
+                    .with("webDomFormat", "json")
+                    .with("screenSnapshot", (String) null)
+                    .with("webViewCandidateCount", handle.candidateCount)
+                    .with("webViewSelectionReason", handle.selectionReason);
         } catch (Exception exception) {
             String failureStage = determineFailureStage(handle, raw, decoded);
             AgentLogs.warn("RealWebDomSnapshotProvider", "collect_failed",
@@ -143,5 +160,33 @@ public final class RealWebDomSnapshotProvider implements WebDomSnapshotProvider 
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private UnifiedViewObservation tryBuildUnifiedObservation(String activityClassName,
+                                                              String targetHint,
+                                                              String pageUrl,
+                                                              String pageTitle,
+                                                              String webDom) {
+        try {
+            return UnifiedViewObservationFacade.build(
+                    SOURCE_WEB_DOM,
+                    activityClassName,
+                    INTERACTION_DOMAIN_WEB,
+                    targetHint,
+                    pageUrl,
+                    pageTitle,
+                    null,
+                    webDom,
+                    null,
+                    null,
+                    null
+            );
+        } catch (Exception exception) {
+            AgentLogs.warn("RealWebDomSnapshotProvider", "canonical_observation_failed",
+                    "activity=" + activityClassName
+                            + " target_hint=" + targetHint
+                            + " message=" + exception.getMessage());
+            return null;
+        }
     }
 }

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://screenvision.local/schemas/page-analysis-result.schema.json",
+  "title": "PageAnalysisResult",
+  "type": "object",
+  "required": ["page", "elapsedMs", "texts", "controls"],
+  "properties": {
+    "page": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "elapsedMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "texts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "bbox", "confidence"],
+        "properties": {
+          "text": { "type": "string" },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "label", "bbox", "confidence"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["button", "input", "image", "card", "icon_button", "tab", "checkbox", "radio", "switch", "avatar", "text_link", "unknown"]
+          },
+          "label": { "type": "string" },
+          "bbox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer" }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  }
+}

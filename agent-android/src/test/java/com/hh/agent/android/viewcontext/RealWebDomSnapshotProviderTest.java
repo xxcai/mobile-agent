@@ -6,6 +6,7 @@ import com.hh.agent.android.log.AgentLogger;
 import com.hh.agent.android.log.AgentLogs;
 import com.hh.agent.android.web.WebViewJsBridge;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -13,6 +14,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class RealWebDomSnapshotProviderTest {
@@ -40,6 +42,17 @@ public class RealWebDomSnapshotProviderTest {
         assertEquals("https://example.test/form", json.getString("pageUrl"));
         assertEquals("Form Local Page", json.getString("pageTitle"));
         assertTrue(json.getString("snapshotId").startsWith("obs_"));
+        assertEquals("web_dom", json.getJSONObject("uiTree").getString("source"));
+        assertTrue(json.getString("pageSummary").contains("Web page"));
+        assertEquals("WebDomObservationAdapter", json.getJSONObject("quality").getString("adapterName"));
+        assertTrue(json.getJSONObject("raw").has("webDom"));
+
+        ViewObservationSnapshot latestSnapshot = ViewObservationSnapshotRegistry.getLatestSnapshot();
+        assertNotNull(latestSnapshot);
+        assertEquals("web_dom", new JSONObject(latestSnapshot.uiTreeJson).getString("source"));
+        assertTrue(latestSnapshot.pageSummary.contains("Web page"));
+        assertEquals("WebDomObservationAdapter", new JSONObject(latestSnapshot.qualityJson).getString("adapterName"));
+        assertTrue(new JSONObject(latestSnapshot.rawJson).has("webDom"));
     }
 
     @Test
@@ -99,6 +112,77 @@ public class RealWebDomSnapshotProviderTest {
         assertTrue(bridge.pageTitleRequested);
         assertEquals("file:///android_asset/", json.getString("pageUrl"));
         assertEquals("Form Local Page", json.getString("pageTitle"));
+    }
+
+    @Test
+    public void getCurrentWebDomSnapshot_outputMatchesWebDomAdapterExpectations() throws Exception {
+        // RED phase: validate provider output structure matches what WebDomObservationAdapter expects
+        FakeBridge bridge = new FakeBridge();
+        bridge.rawEvalResult = "{\"pageUrl\":\"https://example.test/form\",\"pageTitle\":\"Test Form\",\"nodeCount\":3,\"maxDepthReached\":2,\"truncated\":false,\"tree\":{\"ref\":\"node-0\",\"tag\":\"body\",\"text\":\"\",\"bounds\":{\"x\":0,\"y\":0,\"width\":1080,\"height\":1920},\"children\":[{\"ref\":\"node-1\",\"tag\":\"button\",\"selector\":\"button#submit\",\"text\":\"Submit\",\"ariaLabel\":\"Submit button\",\"clickable\":true,\"inputable\":false,\"bounds\":{\"x\":12,\"y\":34,\"width\":120,\"height\":44},\"children\":[]}]}}";
+
+        RealWebDomSnapshotProvider provider = new RealWebDomSnapshotProvider(bridge);
+        JSONObject result = new JSONObject(provider.getCurrentWebDomSnapshot("Submit").toJsonString());
+
+        assertTrue("Provider must succeed", result.getBoolean("success"));
+        
+        // Validate webDom field exists and contains valid JSON
+        assertNotNull("webDom field must exist", result.optString("webDom", null));
+        JSONObject webDom = new JSONObject(result.getString("webDom"));
+        
+        // WebDomObservationAdapter expects these fields in the payload
+        assertNotNull("tree must exist for adapter mapping", webDom.optJSONObject("tree"));
+        
+        JSONObject tree = webDom.getJSONObject("tree");
+        assertTrue("tree must have 'tag' field for canonical tagName mapping", tree.has("tag"));
+        assertEquals("body", tree.getString("tag"));
+        
+        // Adapter expects children array for traversal
+        assertTrue("tree must have children array", tree.has("children"));
+        JSONArray children = tree.getJSONArray("children");
+        assertTrue("tree must have at least one child", children.length() > 0);
+        
+        // Validate actionable node structure that adapter will collect
+        JSONObject actionableNode = children.getJSONObject(0);
+        assertTrue("actionable node must have 'ref' for canonical mapping", actionableNode.has("ref"));
+        assertTrue("actionable node must have 'tag' for canonical tagName", actionableNode.has("tag"));
+        assertTrue("actionable node must have 'selector' for canonical mapping", actionableNode.has("selector"));
+        assertTrue("actionable node must have 'clickable' for actionability check", actionableNode.has("clickable"));
+        assertTrue("actionable node must have 'bounds' for coordinate extraction", actionableNode.has("bounds"));
+        
+        // Validate quality metrics that adapter uses
+        assertTrue("nodeCount must exist for quality metrics", webDom.has("nodeCount"));
+        assertTrue("maxDepthReached must exist for quality metrics", webDom.has("maxDepthReached"));
+        assertTrue("truncated must exist for quality metrics", webDom.has("truncated"));
+        
+        // Validate metadata that adapter prefers over fallbacks
+        assertTrue("pageUrl must exist in payload for adapter preference", webDom.has("pageUrl"));
+        assertTrue("pageTitle must exist in payload for adapter preference", webDom.has("pageTitle"));
+        assertEquals("https://example.test/form", webDom.getString("pageUrl"));
+        assertEquals("Test Form", webDom.getString("pageTitle"));
+    }
+
+    @Test
+    public void getCurrentWebDomSnapshot_emptyTreeStillValidForAdapter() throws Exception {
+        // Validate that even with empty tree, provider output can be safely consumed by adapter
+        FakeBridge bridge = new FakeBridge();
+        bridge.rawEvalResult = "{\"pageUrl\":\"https://example.test/empty\",\"pageTitle\":\"Empty Page\",\"nodeCount\":1,\"maxDepthReached\":0,\"truncated\":false,\"tree\":{\"ref\":\"node-0\",\"tag\":\"body\",\"text\":\"\",\"bounds\":{\"x\":0,\"y\":0,\"width\":1080,\"height\":1920},\"children\":[]}}";
+
+        RealWebDomSnapshotProvider provider = new RealWebDomSnapshotProvider(bridge);
+        JSONObject result = new JSONObject(provider.getCurrentWebDomSnapshot("nothing").toJsonString());
+
+        assertTrue("Provider must succeed even with empty tree", result.getBoolean("success"));
+        JSONObject webDom = new JSONObject(result.getString("webDom"));
+        
+        // Adapter must handle empty children gracefully
+        JSONObject tree = webDom.getJSONObject("tree");
+        assertTrue("tree must still have children field", tree.has("children"));
+        JSONArray children = tree.getJSONArray("children");
+        assertEquals("empty tree should have zero children", 0, children.length());
+        
+        // Quality metrics should still be present for adapter
+        assertEquals(1, webDom.getInt("nodeCount"));
+        assertEquals(0, webDom.getInt("maxDepthReached"));
+        assertFalse(webDom.getBoolean("truncated"));
     }
 
     private static final class FakeBridge extends WebViewJsBridge {

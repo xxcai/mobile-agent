@@ -22,6 +22,7 @@ import androidx.fragment.app.Fragment;
 import com.hh.agent.ChatDetailActivity;
 import com.hh.agent.R;
 import com.hh.agent.android.AndroidToolManager;
+import com.hh.agent.viewcontext.ObservationTargetResolver;
 import com.hh.agent.mockim.adapter.ChatConversationAdapter;
 import com.hh.agent.mockim.model.ChatConversation;
 
@@ -73,9 +74,10 @@ public class ChatListFragment extends Fragment {
     private void runTapConversationCase() {
         AppCompatActivity activity = (AppCompatActivity) requireActivity();
         Handler mainHandler = new Handler(Looper.getMainLooper());
+        final String targetHint = "\u5f20\u4e09";
         showResultDialog(activity,
-                "点张三",
-                "# 点张三\nstep_1=view_context\nstep_2=gesture_tap\nnote=waiting...");
+                "Tap Conversation",
+                "# Tap Conversation\nstep_1=view_context\nstep_2=gesture_tap\nnote=waiting...");
 
         Thread worker = new Thread(() -> {
             String report;
@@ -83,27 +85,27 @@ public class ChatListFragment extends Fragment {
                 AndroidToolManager manager = buildToolManager(activity);
                 String viewContextResult = manager.callTool(
                         "android_view_context_tool",
-                        "{\"targetHint\":\"张三\"}");
+                        "{\"targetHint\":\"" + targetHint + "\"}");
                 JSONObject viewContextJson = new JSONObject(viewContextResult);
                 if (!viewContextJson.optBoolean("success", false)) {
-                    report = "# 点张三\nview_context_result=" + viewContextResult;
+                    report = "# Tap Conversation\nview_context_result=" + viewContextResult;
                 } else {
                     String snapshotId = viewContextJson.optString("snapshotId", "");
-                    NodeReference nodeReference = findNodeReference(
-                            viewContextJson.optString("nativeViewXml", ""),
-                            "张三");
-                    String gestureArgs = buildTapGestureArgs(snapshotId, "张三", 200, 420, nodeReference);
+                    ObservationTargetResolver.TargetReference nodeReference = ObservationTargetResolver.resolve(
+                            viewContextJson,
+                            viewContextJson.optString("targetHint", null));
+                    String gestureArgs = buildTapGestureArgs(snapshotId, targetHint, 200, 420, nodeReference);
                     String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
-                    report = "# 点张三\n"
+                    report = "# Tap Conversation\n"
                             + "view_context_result=" + viewContextResult + "\n\n"
                             + "gesture_input=" + gestureArgs + "\n"
                             + "gesture_result=" + gestureResult;
                 }
             } catch (Exception e) {
-                report = "# 点张三\nerror=" + e.getMessage();
+                report = "# Tap Conversation\nerror=" + e.getMessage();
             }
             String finalReport = report;
-            mainHandler.post(() -> showResultDialog(activity, "点张三", finalReport));
+            mainHandler.post(() -> showResultDialog(activity, "Tap Conversation", finalReport));
         });
         worker.start();
     }
@@ -112,8 +114,8 @@ public class ChatListFragment extends Fragment {
         AppCompatActivity activity = (AppCompatActivity) requireActivity();
         Handler mainHandler = new Handler(Looper.getMainLooper());
         showResultDialog(activity,
-                "列表下滚",
-                "# 列表下滚\nstep_1=gesture_swipe_as_scroll\nnote=waiting...");
+                "Scroll List",
+                "# Scroll List\nstep_1=gesture_swipe_as_scroll\nnote=waiting...");
 
         Thread worker = new Thread(() -> {
             String report;
@@ -122,14 +124,14 @@ public class ChatListFragment extends Fragment {
                 String gestureArgs = "{\"action\":\"swipe\",\"direction\":\"down\","
                         + "\"scope\":\"feed\",\"amount\":\"medium\",\"duration\":400}";
                 String gestureResult = manager.callTool("android_gesture_tool", gestureArgs);
-                report = "# 列表下滚\n"
+                report = "# Scroll List\n"
                         + "gesture_input=" + gestureArgs + "\n"
                         + "gesture_result=" + gestureResult;
             } catch (Exception e) {
-                report = "# 列表下滚\nerror=" + e.getMessage();
+                report = "# Scroll List\nerror=" + e.getMessage();
             }
             String finalReport = report;
-            mainHandler.post(() -> showResultDialog(activity, "列表下滚", finalReport));
+            mainHandler.post(() -> showResultDialog(activity, "Scroll List", finalReport));
         });
         worker.start();
     }
@@ -138,13 +140,13 @@ public class ChatListFragment extends Fragment {
         AppCompatActivity activity = (AppCompatActivity) requireActivity();
         activity.runOnUiThread(() -> {
             searchInput.requestFocus();
-            searchInput.setText("张三");
+            searchInput.setText("\u5f20\u4e09");
             searchInput.setSelection(searchInput.getText().length());
             showResultDialog(activity,
-                    "填搜索框",
-                    "# 填搜索框\n"
+                    "Fill Search",
+                    "# Fill Search\n"
                             + "input_view=chatSearchInput\n"
-                            + "expected_text=张三\n"
+                            + "expected_text=\u5f20\u4e09\n"
                             + "actual_text=" + searchInput.getText());
         });
     }
@@ -159,15 +161,19 @@ public class ChatListFragment extends Fragment {
                                        String targetHint,
                                        int fallbackX,
                                        int fallbackY,
-                                       NodeReference nodeReference) {
+                                       ObservationTargetResolver.TargetReference nodeReference) {
         StringBuilder gestureArgs = new StringBuilder();
         gestureArgs.append("{\"action\":\"tap\",\"x\":").append(fallbackX)
                 .append(",\"y\":").append(fallbackY)
                 .append(",\"observation\":{\"snapshotId\":\"").append(escape(snapshotId)).append("\"")
                 .append(",\"targetDescriptor\":\"").append(escape(targetHint)).append("\"");
         if (nodeReference != null) {
-            gestureArgs.append(",\"targetNodeIndex\":").append(nodeReference.nodeIndex);
-            gestureArgs.append(",\"referencedBounds\":\"").append(escape(nodeReference.bounds)).append("\"");
+            if (nodeReference.nodeIndex != null) {
+                gestureArgs.append(",\"targetNodeIndex\":").append(nodeReference.nodeIndex);
+            }
+            if (nodeReference.bounds != null && !nodeReference.bounds.isEmpty()) {
+                gestureArgs.append(",\"referencedBounds\":\"").append(escape(nodeReference.bounds)).append("\"");
+            }
         }
         gestureArgs.append("}}");
         return gestureArgs.toString();
@@ -206,7 +212,7 @@ public class ChatListFragment extends Fragment {
         new AlertDialog.Builder(activity)
                 .setTitle(title)
                 .setView(scrollView)
-                .setPositiveButton("关闭", null)
+                .setPositiveButton("Close", null)
                 .show();
     }
 

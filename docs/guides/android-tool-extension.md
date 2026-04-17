@@ -296,9 +296,9 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 主入口：
 
-- [WebActionExecutor.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/WebActionExecutor.java)
-- [MockWebActionExecutor.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/MockWebActionExecutor.java)
-- [WebActionRequest.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/webaction/WebActionRequest.java)
+- [WebActionExecutor.java](../../agent-android/src/main/java/com/hh/agent/android/webaction/WebActionExecutor.java)
+- [MockWebActionExecutor.java](../../agent-android/src/main/java/com/hh/agent/android/webaction/MockWebActionExecutor.java)
+- [WebActionRequest.java](../../agent-android/src/main/java/com/hh/agent/android/webaction/WebActionRequest.java)
 
 优先关注的方法：
 
@@ -315,8 +315,8 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 主入口：
 
-- [WebDomViewContextSourceHandler.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
-- [WebActionToolChannel.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
+- [WebDomViewContextSourceHandler.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebDomViewContextSourceHandler.java)
+- [WebActionToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/WebActionToolChannel.java)
 
 优先关注的方法：
 
@@ -334,7 +334,7 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 除非明确评审通过，否则不要顺手改这些稳定边界：
 
-- [ViewContextToolChannel.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java)
+- [ViewContextToolChannel.java](../../agent-android/src/main/java/com/hh/agent/android/channel/ViewContextToolChannel.java)
 - 现有 `android_gesture_tool` 的 native touch 路径
 - 已冻结字段：
   - `source=web_dom`
@@ -345,17 +345,19 @@ return ToolResult.error("execution_failed", e.getMessage());
 
 优先使用：
 
-- [ToolChannelTestActivity.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/app/src/main/java/com/hh/agent/ToolChannelTestActivity.java)
-- [BusinessWebActivity.java](/Users/caixiao/Workspace/projects/mobile-agent-disable-thinking/app/src/main/java/com/hh/agent/BusinessWebActivity.java)
+- [BusinessHomeFragment.java](../../app/src/main/java/com/hh/agent/mockbusiness/BusinessHomeFragment.java)
+- [BusinessWebActivity.java](../../app/src/main/java/com/hh/agent/BusinessWebActivity.java)
+- [BusinessHomeFragmentTest.java](../../app/src/test/java/com/hh/agent/mockbusiness/BusinessHomeFragmentTest.java)
 
 当前仓库已经准备了：
 
+- 业务首页 debug-only 入口 `businessDebugEntry`
 - debug panel
 - `Static / Delayed / Form` 本地模板页
 - `Run View Context`
 - `Run Web Action`
 
-推荐先在这些入口完成基线联调，再接真实业务 WebView 页面。
+推荐先从 `MainActivity` 的“业务”tab进入 `BusinessHomeFragment`，点击“打开业务调试页”完成基线联调，再接真实业务 WebView 页面。
 
 ## 当前示例工具
 

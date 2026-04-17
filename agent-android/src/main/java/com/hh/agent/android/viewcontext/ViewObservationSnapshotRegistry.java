@@ -4,7 +4,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Holds the latest host-process observation snapshot for Step 03A.
+ * Holds the latest host-process observation snapshot for observation-bound execution.
  */
 public final class ViewObservationSnapshotRegistry {
 
@@ -24,7 +24,11 @@ public final class ViewObservationSnapshotRegistry {
                 source,
                 DOMAIN_NATIVE,
                 targetHint,
+                null,
                 nativeViewXml,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null
@@ -33,21 +37,49 @@ public final class ViewObservationSnapshotRegistry {
 
     public static ViewObservationSnapshot createSnapshot(String activityClassName,
                                                          String source,
-                                                         String interactionDomain,
                                                          String targetHint,
                                                          String nativeViewXml,
-                                                         String webDom) {
+                                                         String visualObservationJson,
+                                                         String screenSnapshot) {
         return createSnapshot(
                 activityClassName,
                 source,
-                interactionDomain,
+                DOMAIN_NATIVE,
                 targetHint,
-                nativeViewXml,
-                webDom,
                 null,
+                nativeViewXml,
+                null,
+                null,
+                null,
+                visualObservationJson,
+                screenSnapshot,
                 null
         );
     }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot,
+                                                         String hybridObservationJson) {
+        return createSnapshot(
+                activityClassName,
+                source,
+                DOMAIN_NATIVE,
+                targetHint,
+                null,
+                nativeViewXml,
+                null,
+                null,
+                null,
+                visualObservationJson,
+                screenSnapshot,
+                hybridObservationJson
+        );
+    }
+
 
     public static ViewObservationSnapshot createSnapshot(String activityClassName,
                                                          String source,
@@ -57,21 +89,84 @@ public final class ViewObservationSnapshotRegistry {
                                                          String webDom,
                                                          String pageUrl,
                                                          String pageTitle) {
-        ViewObservationSnapshot snapshot = new ViewObservationSnapshot(
-                "obs_" + UUID.randomUUID().toString().replace("-", ""),
+        return createSnapshot(
                 activityClassName,
                 source,
                 interactionDomain,
                 targetHint,
-                System.currentTimeMillis(),
-                true,
+                null,
                 nativeViewXml,
                 webDom,
                 pageUrl,
-                pageTitle
+                pageTitle,
+                null,
+                null,
+                null
+        );
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String interactionDomain,
+                                                         String targetHint,
+                                                         UnifiedViewObservation unifiedObservation,
+                                                         String nativeViewXml,
+                                                         String webDom,
+                                                         String pageUrl,
+                                                         String pageTitle,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot,
+                                                         String hybridObservationJson) {
+        ViewObservationSnapshot snapshot = new ViewObservationSnapshot(
+                "obs_" + UUID.randomUUID().toString().replace("-", ""),
+                activityClassName,
+                source,
+                interactionDomain != null ? interactionDomain : DOMAIN_NATIVE,
+                targetHint,
+                System.currentTimeMillis(),
+                true,
+                unifiedObservation != null ? unifiedObservation.uiTreeJson : null,
+                unifiedObservation != null ? unifiedObservation.screenElementsJson : null,
+                unifiedObservation != null ? unifiedObservation.pageSummary : null,
+                unifiedObservation != null ? unifiedObservation.qualityJson : null,
+                unifiedObservation != null ? unifiedObservation.rawJson : null,
+                nativeViewXml,
+                webDom,
+                pageUrl,
+                pageTitle,
+                visualObservationJson,
+                screenSnapshot,
+                hybridObservationJson
         );
         LATEST_SNAPSHOT.set(snapshot);
         return snapshot;
+    }
+
+    public static ViewObservationSnapshot createSnapshot(String activityClassName,
+                                                         String source,
+                                                         String interactionDomain,
+                                                         String targetHint,
+                                                         String nativeViewXml,
+                                                         String webDom,
+                                                         String pageUrl,
+                                                         String pageTitle,
+                                                         String visualObservationJson,
+                                                         String screenSnapshot,
+                                                         String hybridObservationJson) {
+        return createSnapshot(
+                activityClassName,
+                source,
+                interactionDomain,
+                targetHint,
+                null,
+                nativeViewXml,
+                webDom,
+                pageUrl,
+                pageTitle,
+                visualObservationJson,
+                screenSnapshot,
+                hybridObservationJson
+        );
     }
 
     public static ViewObservationSnapshot getLatestSnapshot() {

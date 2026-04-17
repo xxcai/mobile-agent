@@ -129,7 +129,7 @@ ARM64 Linux 下如果需要直接完成 NDK 构建，当前已验证可用的 SD
 
 本地 ARM64 Linux 如需使用不同于仓库默认值的 CMake / NDK 版本，请通过本地 `~/.gradle/gradle.properties` 覆盖，而不是直接修改仓库默认配置。
 
-具体用法见：`docs/android-sdk-aarch64.md`
+具体用法见：`docs/superpowers/plans/2026-04-02-arm64-android-sdk-directory.md`
 
 ### 构建项目
 

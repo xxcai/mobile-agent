@@ -16,6 +16,13 @@ PromptBuilder::PromptBuilder(std::shared_ptr<MemoryManager> memory_manager,
     , tool_registry_(std::move(tool_registry)) {
 }
 
+std::string PromptBuilder::build_full() const {
+    return build_full(SkillsConfig{}, "default");
+}
+
+std::string PromptBuilder::build_full(const SkillsConfig& skills_config) const {
+    return build_full(skills_config, "default");
+}
 std::string PromptBuilder::build_full(const SkillsConfig& skills_config,
                                       const std::string& session_id) const {
     std::ostringstream ss;
