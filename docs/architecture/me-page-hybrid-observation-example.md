@@ -279,6 +279,72 @@ return clamp(Math.max(iou, coverage * 0.92d));
 
 `resourceHint(node.resourceId)` 会把 `com.huawei.works.uat:id/service_cloud_space_title` 这类 resource-id 简化成类似 `service cloud space title` 的文本，再和 vision label 比较。这样即使 native 节点没有直接文本，也有机会通过 resource-id 参与匹配。
 
+#### bestSignal / bestNode 如何产生
+
+`match(...)` 不是只找一个全局最高分，而是会站在 native 和 vision 两个视角分别记录“最像自己的对方”。遍历过程中，每一个 native node 都会和每一个 vision signal 计算一次 `matchScore(node, signal)`：
+
+```text
+native node A x vision signal 1 -> score
+native node A x vision signal 2 -> score
+native node A x vision signal 3 -> score
+
+native node B x vision signal 1 -> score
+native node B x vision signal 2 -> score
+native node B x vision signal 3 -> score
+```
+
+然后分别更新两边的最佳候选：
+
+```java
+if (score > node.bestScore
+        || (almostEqual(score, node.bestScore)
+            && preferSignalForNode(node, signal, node.bestSignal))) {
+    node.bestScore = score;
+    node.bestSignal = signal;
+}
+
+if (score > signal.bestScore
+        || (almostEqual(score, signal.bestScore)
+            && preferNodeForSignal(signal, node, signal.bestNode))) {
+    signal.bestScore = score;
+    signal.bestNode = node;
+}
+```
+
+含义是：
+
+- `node.bestSignal`：对这个 native node 来说，当前所有 vision signals 中分数最高、最像自己的视觉信号。
+- `signal.bestNode`：对这个 vision signal 来说，当前所有 native nodes 中分数最高、最像自己的原生节点。
+
+当两个候选分数几乎一样时，会进入 tie-break，而不是随机选一个：
+
+- `preferSignalForNode(...)`：如果 native node 是交互控件，优先选择 vision control；然后比较文本匹配度；再比较 vision 的 `importance`；最后比较 `confidence`。
+- `preferNodeForSignal(...)`：如果 vision signal 是 control/card/button，优先选择 native 里的交互控件；然后比较文本匹配度；最后选择 XML 中 index 更靠前的节点，保证结果稳定。
+
+这样做可以让“文本子节点”和“可点击父容器”分别找到更合理的视觉对象。例如：
+
+```text
+N1 = TextView(text="云空间", bounds 小)
+N2 = LinearLayout(resourceId="service_cloud_space", clickable=true, bounds 大)
+
+V1 = text(label="云空间", bounds 小)
+V2 = control(label="云空间", type="card", bounds 大)
+```
+
+理想情况下会形成：
+
+```text
+N1.bestSignal = V1
+V1.bestNode = N1
+
+N2.bestSignal = V2
+V2.bestNode = N2
+```
+
+也就是说，小文本更容易和 OCR 文本配对，可点击父容器更容易和视觉卡片配对。
+
+#### 互为最佳匹配如何生效
+
 计算出所有 pair 的分数后，代码不会只看“分数是否过线”，还要求 native node 和 vision signal **互为最佳匹配**：
 
 ```java
@@ -292,6 +358,15 @@ if (node.bestSignal != null
 ```
 
 其中 `MATCH_THRESHOLD=0.40`。这个互为最佳的约束很重要：如果一个 vision 卡片同时覆盖多个 native 子节点，或者一个 native 父容器附近有多个视觉信号，只有双方最认可的一组才会变成 `source=fused`，其他候选会继续以 `native` 或 `vision_only` 形式保留。
+
+可以把它理解成“不是我喜欢你就行，而是我最喜欢你，并且你也最喜欢我”。例如：
+
+```text
+N1.bestSignal = V2
+V2.bestNode = N2
+```
+
+这种情况下，即使 `N1 x V2` 的分数超过 `0.40`，`N1` 也不会和 `V2` fused，因为从 `V2` 的视角看，`N2` 才是更像自己的 native 节点。这个机制主要用于避免一个大视觉卡片同时融合多个 native 子节点，降低重复候选和误融合。
 
 以 Me 页“云空间”为例：
 
