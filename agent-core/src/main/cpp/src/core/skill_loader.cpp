@@ -378,8 +378,37 @@ nlohmann::json SkillLoader::parse_yaml_frontmatter(const std::string& yaml_str) 
         size_t colon_pos = line.find(':');
         size_t dash_pos = line.find('-');
 
-        // Check for array item
-        if (dash_pos != std::string::npos && (colon_pos == std::string::npos || dash_pos < colon_pos)) {
+        // Check for array item with inline key-value (e.g., "- page: value")
+        bool is_array_item_with_key = dash_pos != std::string::npos && colon_pos != std::string::npos && dash_pos < colon_pos;
+        bool is_array_item_only = dash_pos != std::string::npos && colon_pos == std::string::npos;
+
+        if (is_array_item_with_key) {
+            // "- key: value" format - create object as array item
+            size_t actual_dash = line.find('-', dash_pos);
+            std::string after_dash = line.substr(actual_dash + 1);
+            std::string item_key = trim(after_dash.substr(0, after_dash.find(':')));
+            std::string item_value = after_dash.substr(after_dash.find(':') + 1);
+            nlohmann::json value = parse_value(item_value);
+
+            nlohmann::json obj = nlohmann::json::object();
+            obj[item_key] = value;
+
+            if (parent->is_array()) {
+                parent->push_back(obj);
+            } else {
+                nlohmann::json arr = nlohmann::json::array();
+                arr.push_back(obj);
+                *parent = arr;
+            }
+
+            // Push the new object to stack for nested properties
+            if (parent->is_array()) {
+                stack.push_back({indent, &parent->back()});
+            } else {
+                stack.push_back({indent, &(*parent)[parent->size() - 1]});
+            }
+        } else if (is_array_item_only) {
+            // "- value" format - simple array item
             size_t actual_dash = line.find('-', dash_pos);
             std::string item = line.substr(actual_dash + 1);
             nlohmann::json value = parse_value(item);
@@ -387,7 +416,6 @@ nlohmann::json SkillLoader::parse_yaml_frontmatter(const std::string& yaml_str) 
             if (parent->is_array()) {
                 parent->push_back(value);
             } else {
-                // Convert current parent to array
                 nlohmann::json arr = nlohmann::json::array();
                 arr.push_back(value);
                 *parent = arr;
@@ -538,3 +566,4 @@ std::string SkillLoader::normalize_name(const std::string& name) const {
 }
 
 } // namespace icraw
+

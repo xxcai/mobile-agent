@@ -92,7 +92,7 @@ public class ScreenSnapshotObservationProviderTest {
         assertEquals("screen_snapshot", result.getJSONObject("uiTree").getString("source"));
         assertEquals("Inbox", result.getString("pageSummary"));
         assertEquals("VisualObservationAdapter", result.getJSONObject("quality").getString("adapterName"));
-        assertTrue(result.isNull("raw"));
+        assertTrue(result.getJSONObject("raw").has("visualObservationJson"));
 
         ViewObservationSnapshot latest = ViewObservationSnapshotRegistry.getLatestSnapshot();
         assertNotNull(latest);
