@@ -86,14 +86,25 @@ public final class NativeXmlObservationAdapter implements UnifiedObservationAdap
                 return null;
             }
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            // XXE protection: disable DOCTYPE and external entities
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            // Some Android XML parsers do not expose every hardening feature. Apply the
+            // protections best-effort so canonical observation does not fail entirely.
+            setFeatureIfSupported(factory, "http://apache.org/xml/features/disallow-doctype-decl", true);
+            setFeatureIfSupported(factory, "http://xml.org/sax/features/external-general-entities", false);
+            setFeatureIfSupported(factory, "http://xml.org/sax/features/external-parameter-entities", false);
             factory.setExpandEntityReferences(false);
             
             DocumentBuilder builder = factory.newDocumentBuilder();
             return builder.parse(new ByteArrayInputStream(nativeViewXml.getBytes(StandardCharsets.UTF_8)));
+        }
+
+        private static void setFeatureIfSupported(DocumentBuilderFactory factory,
+                                                  String feature,
+                                                  boolean enabled) {
+            try {
+                factory.setFeature(feature, enabled);
+            } catch (Exception ignored) {
+                // Keep parsing available on Android parsers that reject optional features.
+            }
         }
 
         static JSONObject buildUiTreeFromDocument(Document doc, String source) throws Exception {
