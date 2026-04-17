@@ -191,7 +191,7 @@ public final class ViewContextSnapshotProvider {
                 source,
                 INTERACTION_DOMAIN_NATIVE,
                 targetHint,
-                unifiedObservation,
+                snapshotObservation(unifiedObservation, includeRawFallback),
                 nativeViewXml,
                 null,
                 null,
@@ -240,6 +240,27 @@ public final class ViewContextSnapshotProvider {
                 .withJson("screenVisionCompact", compactObservationJson)
                 .withJson("screenVisionRaw", includeRawFallback && analysis != null ? analysis.rawObservationJson : null)
                 .withJson("hybridObservation", hybridObservationJson);
+    }
+
+    @Nullable
+    private static UnifiedViewObservation snapshotObservation(@Nullable UnifiedViewObservation observation,
+                                                             boolean includeRawFallback) {
+        if (observation == null || includeRawFallback) {
+            return observation;
+        }
+        return new UnifiedViewObservation(
+                observation.source,
+                observation.interactionDomain,
+                observation.activityClassName,
+                observation.targetHint,
+                observation.pageUrl,
+                observation.pageTitle,
+                observation.pageSummary,
+                observation.uiTreeJson,
+                observation.screenElementsJson,
+                observation.qualityJson,
+                null
+        );
     }
 
     @Nullable
@@ -891,4 +912,3 @@ public final class ViewContextSnapshotProvider {
         }
     }
 }
-
