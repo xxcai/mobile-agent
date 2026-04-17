@@ -1,6 +1,10 @@
 package com.hh.agent.android.web;
 
 import android.app.Activity;
+import android.os.SystemClock;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 
@@ -100,6 +104,88 @@ public class WebViewJsBridge {
             throw errorRef.get();
         }
         return resultRef.get();
+    }
+
+    public NativeTapResult performNormalizedTap(WebViewHandle handle,
+                                                double normalizedX,
+                                                double normalizedY) throws Exception {
+        if (handle == null || handle.webView == null) {
+            return NativeTapResult.error("webview_not_found", "webview_not_found");
+        }
+        return mainThreadRunner.call(new MainThreadRunner.MainThreadCallable<NativeTapResult>() {
+            @Override
+            public NativeTapResult call() {
+                WebView webView = handle.webView;
+                int webViewWidth = webView.getWidth();
+                int webViewHeight = webView.getHeight();
+                if (webViewWidth <= 0 || webViewHeight <= 0) {
+                    return NativeTapResult.error("webview_not_visible", "webview_not_visible");
+                }
+
+                float clampedNormalizedX = clampNormalized(normalizedX);
+                float clampedNormalizedY = clampNormalized(normalizedY);
+                float localTapX = clampLocalCoordinate(clampedNormalizedX * webViewWidth, webViewWidth);
+                float localTapY = clampLocalCoordinate(clampedNormalizedY * webViewHeight, webViewHeight);
+
+                int[] webViewOnScreen = new int[2];
+                webView.getLocationOnScreen(webViewOnScreen);
+                int screenTapX = webViewOnScreen[0] + Math.round(localTapX);
+                int screenTapY = webViewOnScreen[1] + Math.round(localTapY);
+
+                if (handle.activity == null || handle.activity.getWindow() == null) {
+                    return NativeTapResult.error("activity_not_available", "activity_not_available");
+                }
+                View decorView = handle.activity.getWindow().getDecorView();
+                if (decorView == null) {
+                    return NativeTapResult.error("decor_view_not_available", "decor_view_not_available");
+                }
+                int[] decorOnScreen = new int[2];
+                decorView.getLocationOnScreen(decorOnScreen);
+                float windowTapX = screenTapX - decorOnScreen[0];
+                float windowTapY = screenTapY - decorOnScreen[1];
+
+                long downTime = SystemClock.uptimeMillis();
+                MotionEvent down = MotionEvent.obtain(
+                        downTime,
+                        downTime,
+                        MotionEvent.ACTION_DOWN,
+                        windowTapX,
+                        windowTapY,
+                        0);
+                MotionEvent up = MotionEvent.obtain(
+                        downTime,
+                        downTime + 24L,
+                        MotionEvent.ACTION_UP,
+                        windowTapX,
+                        windowTapY,
+                        0);
+                down.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+                up.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+
+                boolean downHandled;
+                boolean upHandled;
+                try {
+                    downHandled = handle.activity.dispatchTouchEvent(down);
+                    upHandled = handle.activity.dispatchTouchEvent(up);
+                } finally {
+                    down.recycle();
+                    up.recycle();
+                }
+
+                return NativeTapResult.success(
+                        downHandled || upHandled,
+                        webViewWidth,
+                        webViewHeight,
+                        clampedNormalizedX,
+                        clampedNormalizedY,
+                        Math.round(localTapX),
+                        Math.round(localTapY),
+                        screenTapX,
+                        screenTapY,
+                        downHandled,
+                        upHandled);
+            }
+        }, DEFAULT_TIMEOUT_MS);
     }
 
     @Nullable
@@ -204,4 +290,95 @@ public class WebViewJsBridge {
             this.value = value;
         }
     }
+
+    public static final class NativeTapResult {
+        public final boolean success;
+        public final String error;
+        public final String message;
+        public final int webViewWidth;
+        public final int webViewHeight;
+        public final float normalizedX;
+        public final float normalizedY;
+        public final int localTapX;
+        public final int localTapY;
+        public final int screenTapX;
+        public final int screenTapY;
+        public final boolean downHandled;
+        public final boolean upHandled;
+
+        public NativeTapResult(boolean success,
+                               String error,
+                               String message,
+                               int webViewWidth,
+                               int webViewHeight,
+                               float normalizedX,
+                               float normalizedY,
+                               int localTapX,
+                               int localTapY,
+                               int screenTapX,
+                               int screenTapY,
+                               boolean downHandled,
+                               boolean upHandled) {
+            this.success = success;
+            this.error = error;
+            this.message = message;
+            this.webViewWidth = webViewWidth;
+            this.webViewHeight = webViewHeight;
+            this.normalizedX = normalizedX;
+            this.normalizedY = normalizedY;
+            this.localTapX = localTapX;
+            this.localTapY = localTapY;
+            this.screenTapX = screenTapX;
+            this.screenTapY = screenTapY;
+            this.downHandled = downHandled;
+            this.upHandled = upHandled;
+        }
+
+        public static NativeTapResult success(boolean handled,
+                                              int webViewWidth,
+                                              int webViewHeight,
+                                              float normalizedX,
+                                              float normalizedY,
+                                              int localTapX,
+                                              int localTapY,
+                                              int screenTapX,
+                                              int screenTapY,
+                                              boolean downHandled,
+                                              boolean upHandled) {
+            return new NativeTapResult(
+                    handled,
+                    handled ? null : "native_tap_not_handled",
+                    handled ? null : "native_tap_not_handled",
+                    webViewWidth,
+                    webViewHeight,
+                    normalizedX,
+                    normalizedY,
+                    localTapX,
+                    localTapY,
+                    screenTapX,
+                    screenTapY,
+                    downHandled,
+                    upHandled);
+        }
+
+        public static NativeTapResult error(String error, String message) {
+            return new NativeTapResult(false, error, message,
+                    0, 0, 0f, 0f, 0, 0, 0, 0, false, false);
+        }
+    }
+
+    private static float clampNormalized(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 0.5f;
+        }
+        return (float) Math.max(0d, Math.min(1d, value));
+    }
+
+    private static float clampLocalCoordinate(float value, int size) {
+        if (size <= 1) {
+            return 0f;
+        }
+        return Math.max(1f, Math.min(size - 1f, value));
+    }
 }
+

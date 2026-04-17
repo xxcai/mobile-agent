@@ -37,14 +37,26 @@ public final class WebDomScriptFactory {
                 + "})()";
     }
 
-    public static String buildClickScript(String ref, String selector) {
+    public static String buildResolveClickTargetScript(String ref, String selector) {
         return "(function(){"
+                + "function limit(v,max){v=(v||'').trim();return v.length>max?v.substring(0,max):v;}"
                 + "var el=null;"
                 + selectorLookup(ref, selector)
                 + "if(!el){return JSON.stringify({ok:false,error:'element_not_found'});}"
-                + "el.click();"
-                + "return JSON.stringify({ok:true,ref:el.getAttribute('data-agent-ref'),tag:el.tagName});"
+                + "var rect=el.getBoundingClientRect?el.getBoundingClientRect():null;"
+                + "if(!rect||rect.width<=0||rect.height<=0){return JSON.stringify({ok:false,error:'element_has_no_bounds'});}"
+                + "var viewportWidth=Math.max(window.innerWidth||0,document.documentElement.clientWidth||0,1);"
+                + "var viewportHeight=Math.max(window.innerHeight||0,document.documentElement.clientHeight||0,1);"
+                + "var centerX=rect.left+(rect.width/2);"
+                + "var centerY=rect.top+(rect.height/2);"
+                + "var normalizedX=Math.max(0,Math.min(1,centerX/viewportWidth));"
+                + "var normalizedY=Math.max(0,Math.min(1,centerY/viewportHeight));"
+                + "return JSON.stringify({ok:true,ref:el.getAttribute('data-agent-ref'),tag:el.tagName,text:limit(el.textContent,80),viewportWidth:viewportWidth,viewportHeight:viewportHeight,bounds:{left:Math.round(rect.left),top:Math.round(rect.top),width:Math.round(rect.width),height:Math.round(rect.height)},normalizedX:normalizedX,normalizedY:normalizedY});"
                 + "})()";
+    }
+
+    public static String buildClickScript(String ref, String selector) {
+        return buildResolveClickTargetScript(ref, selector);
     }
 
     public static String buildInputScript(String ref, String selector, String text) {
@@ -99,3 +111,4 @@ public final class WebDomScriptFactory {
                 .replace("\r", "\\r");
     }
 }
+

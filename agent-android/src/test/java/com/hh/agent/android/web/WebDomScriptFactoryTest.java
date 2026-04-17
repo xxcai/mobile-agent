@@ -28,7 +28,8 @@ public class WebDomScriptFactoryTest {
         assertTrue(script.contains("querySelector"));
         assertTrue(script.contains("node-1"));
         assertTrue(script.contains("#submit"));
-        assertTrue(script.contains("click()"));
+        assertTrue(script.contains("normalizedX"));
+        assertTrue(script.contains("bounds"));
     }
 
     @Test

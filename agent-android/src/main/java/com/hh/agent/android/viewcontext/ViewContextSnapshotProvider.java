@@ -212,16 +212,6 @@ public final class ViewContextSnapshotProvider {
                         + " hybrid_length=" + lengthOf(hybridObservationJson)
                         + " raw_included=" + includeRawFallback
                         + " snapshot_id=" + snapshot.snapshotId);
-        logCanonicalObservationDiagnostics(
-                source,
-                activityClassName,
-                safeDetailMode,
-                includeRawFallback,
-                nativeViewXml,
-                visualObservationJson,
-                fullHybridObservationJson,
-                snapshot
-        );
 
         return ToolResult.success()
                 .with("source", source)
@@ -241,7 +231,7 @@ public final class ViewContextSnapshotProvider {
                 .withJson("screenElements", snapshot.screenElementsJson)
                 .with("pageSummary", snapshot.pageSummary)
                 .withJson("quality", snapshot.qualityJson)
-                .withJson("raw", includeRawFallback ? snapshot.rawJson : null)
+                .withJson("raw", snapshot.rawJson)
                 .with("nativeViewXml", reducedNativeViewXml)
                 .with("webDom", (String) null)
                 .with("screenSnapshot", screenSnapshotRef)
@@ -874,129 +864,6 @@ public final class ViewContextSnapshotProvider {
         return value == null ? 0 : value.length();
     }
 
-    private static void logCanonicalObservationDiagnostics(String source,
-                                                          String activityClassName,
-                                                          ObservationDetailMode detailMode,
-                                                          boolean includeRawFallback,
-                                                          @Nullable String nativeViewXml,
-                                                          @Nullable String visualObservationJson,
-                                                          @Nullable String fullHybridObservationJson,
-                                                          ViewObservationSnapshot snapshot) {
-        CanonicalObservationDiagnostics diagnostics =
-                inspectCanonicalObservation(snapshot.screenElementsJson);
-        int snapshotRawLength = lengthOf(snapshot.rawJson);
-        int rawLength = includeRawFallback ? snapshotRawLength : 0;
-        AgentLogs.info("ViewContextSnapshotProvider", "canonical_observation_summary",
-                "source=" + source
-                        + " activity=" + activityClassName
-                        + " detail_mode=" + detailMode.wireValue()
-                        + " ui_tree_length=" + lengthOf(snapshot.uiTreeJson)
-                        + " screen_elements_length=" + lengthOf(snapshot.screenElementsJson)
-                        + " page_summary_length=" + lengthOf(snapshot.pageSummary)
-                        + " quality_length=" + lengthOf(snapshot.qualityJson)
-                        + " raw_length=" + rawLength
-                        + " raw_snapshot_length=" + snapshotRawLength
-                        + " raw_returned_without_raw_fallback=" + (!includeRawFallback && rawLength > 0)
-                        + " screen_element_count=" + diagnostics.totalCount
-                        + " actionable_count=" + diagnostics.actionableCount
-                        + " non_actionable_count=" + diagnostics.nonActionableCount
-                        + " text_only_count=" + diagnostics.textOnlyCount
-                        + " bounds_count=" + diagnostics.boundsCount
-                        + " fused_count=" + diagnostics.fusedCount
-                        + " native_count=" + diagnostics.nativeCount
-                        + " native_xml_count=" + diagnostics.nativeXmlCount
-                        + " vision_only_count=" + diagnostics.visionOnlyCount
-                        + " web_dom_count=" + diagnostics.webDomCount
-                        + " unknown_source_count=" + diagnostics.unknownSourceCount);
-        if (!includeRawFallback && rawLength > 0) {
-            AgentLogs.warn("ViewContextSnapshotProvider", "canonical_raw_payload_returned_without_fallback",
-                    "source=" + source
-                            + " activity=" + activityClassName
-                            + " detail_mode=" + detailMode.wireValue()
-                            + " raw_length=" + rawLength
-                            + " raw_snapshot_length=" + snapshotRawLength
-                            + " native_xml_length=" + lengthOf(nativeViewXml)
-                            + " visual_length=" + lengthOf(visualObservationJson)
-                            + " full_hybrid_length=" + lengthOf(fullHybridObservationJson));
-        }
-        if (diagnostics.totalCount > 0 && diagnostics.textOnlyCount > diagnostics.actionableCount) {
-            AgentLogs.warn("ViewContextSnapshotProvider", "canonical_screen_elements_text_only_dominant",
-                    "source=" + source
-                            + " activity=" + activityClassName
-                            + " detail_mode=" + detailMode.wireValue()
-                            + " screen_element_count=" + diagnostics.totalCount
-                            + " actionable_count=" + diagnostics.actionableCount
-                            + " text_only_count=" + diagnostics.textOnlyCount);
-        }
-    }
-
-    private static CanonicalObservationDiagnostics inspectCanonicalObservation(@Nullable String screenElementsJson) {
-        CanonicalObservationDiagnostics diagnostics = new CanonicalObservationDiagnostics();
-        if (!hasText(screenElementsJson)) {
-            return diagnostics;
-        }
-        try {
-            JSONArray elements = new JSONArray(screenElementsJson);
-            diagnostics.totalCount = elements.length();
-            for (int i = 0; i < elements.length(); i++) {
-                JSONObject element = elements.optJSONObject(i);
-                if (element == null) {
-                    continue;
-                }
-                boolean clickable = element.optBoolean("clickable", false);
-                boolean inputable = element.optBoolean("inputable", false);
-                boolean containerClickable = element.optBoolean("containerClickable", false);
-                boolean actionable = clickable || inputable || containerClickable;
-                if (actionable) {
-                    diagnostics.actionableCount++;
-                } else {
-                    diagnostics.nonActionableCount++;
-                    if (hasText(element.optString("text", null))
-                            || hasText(element.optString("ariaLabel", null))
-                            || hasText(element.optString("visionLabel", null))) {
-                        diagnostics.textOnlyCount++;
-                    }
-                }
-                if (hasCanonicalBounds(element)) {
-                    diagnostics.boundsCount++;
-                }
-                String elementSource = element.optString("source", "");
-                if ("fused".equals(elementSource)) {
-                    diagnostics.fusedCount++;
-                } else if ("native".equals(elementSource)) {
-                    diagnostics.nativeCount++;
-                } else if ("native_xml".equals(elementSource)) {
-                    diagnostics.nativeXmlCount++;
-                } else if ("vision_only".equals(elementSource)) {
-                    diagnostics.visionOnlyCount++;
-                } else if ("web_dom".equals(elementSource)) {
-                    diagnostics.webDomCount++;
-                } else {
-                    diagnostics.unknownSourceCount++;
-                }
-            }
-        } catch (Exception exception) {
-            AgentLogs.warn("ViewContextSnapshotProvider", "canonical_observation_diagnostics_failed",
-                    "message=" + exception.getMessage()
-                            + " screen_elements_length=" + lengthOf(screenElementsJson));
-        }
-        return diagnostics;
-    }
-
-    private static boolean hasCanonicalBounds(JSONObject element) {
-        if (element == null || !element.has("bounds") || element.isNull("bounds")) {
-            return false;
-        }
-        Object bounds = element.opt("bounds");
-        if (bounds instanceof JSONObject) {
-            JSONObject rect = (JSONObject) bounds;
-            return rect.has("x") && rect.has("y") && rect.has("width") && rect.has("height");
-        }
-        if (bounds instanceof JSONArray) {
-            return ((JSONArray) bounds).length() >= 4;
-        }
-        return hasText(String.valueOf(bounds));
-    }
     private static String sanitize(@Nullable String value) {
         if (value == null) {
             return "";
@@ -1023,18 +890,5 @@ public final class ViewContextSnapshotProvider {
             this.score = score;
         }
     }
-
-    private static final class CanonicalObservationDiagnostics {
-        int totalCount;
-        int actionableCount;
-        int nonActionableCount;
-        int textOnlyCount;
-        int boundsCount;
-        int fusedCount;
-        int nativeCount;
-        int nativeXmlCount;
-        int visionOnlyCount;
-        int webDomCount;
-        int unknownSourceCount;
-    }
 }
+

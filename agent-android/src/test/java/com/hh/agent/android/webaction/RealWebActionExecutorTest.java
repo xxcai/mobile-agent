@@ -207,6 +207,7 @@ public class RealWebActionExecutorTest {
         assertEquals("node-2", json.getString("ref"));
         assertEquals(snapshotId, json.getString("observationSnapshotId"));
         assertEquals(false, json.getBoolean("mock"));
+        assertEquals("native_injection", json.getString("tapMode"));
     }
 
     @Test
@@ -236,6 +237,7 @@ public class RealWebActionExecutorTest {
         assertEquals("android_web_action_tool", json.getString("channel"));
         assertEquals("web", json.getString("domain"));
         assertEquals("click", json.getString("action"));
+        assertEquals("native_injection", json.getString("tapMode"));
     }
 
     private static final class FakeBridge extends WebViewJsBridge {
@@ -266,6 +268,23 @@ public class RealWebActionExecutorTest {
         @Override
         public String getCurrentPageUrl(WebViewHandle handle) {
             return pageUrl;
+        }
+
+        @Override
+        public NativeTapResult performNormalizedTap(WebViewHandle handle, double normalizedX, double normalizedY) {
+            return NativeTapResult.success(
+                    true,
+                    1080,
+                    1920,
+                    (float) normalizedX,
+                    (float) normalizedY,
+                    540,
+                    960,
+                    540,
+                    960,
+                    true,
+                    true
+            );
         }
     }
 }
