@@ -149,6 +149,177 @@ screen vision 的关键价值：
 
 下面是 `HybridObservationComposer.compose(...)` 融合后的结果。它会作为 `android_view_context_tool` 的主观察结果进入 `agent-core`。
 
+### 4.1 native + screen vision 输入融合说明图
+
+`hybridObservation` 的生成不是简单把两份 JSON 拼在一起，而是先把 native 和 screen vision 都转换成可比较的中间信号，再通过文本、语义、bounds 和可执行性做匹配。融合后的结果既保留 native 的稳定结构，又吸收 screen vision 的视觉语义。
+
+```mermaid
+flowchart TD
+    A["nativeViewXml\n原生 View 树"] --> A1["parseNative(nativeViewXml)\nNativeData / NativeNode"]
+    B["screenVisionCompact\nOCR / 控件 / 区域 / 条目"] --> B1["parseVision(screenVisionCompactJson)\nVisionData / Signal"]
+    A1 --> C["match(nativeNodes, signals)\n文本 + resourceId + bounds + 控件类型"]
+    B1 --> C
+    C --> D["buildActionable(...)\n生成 fused / native / vision_only 候选"]
+    C --> E["buildRegions(...)\n生成 sections / listItems"]
+    C --> F["buildConflicts(...)\n生成风险与降级提示"]
+    D --> G["fullHybridObservationJson"]
+    E --> G
+    F --> G
+    G --> H["reduceHybridObservation(...)\n按 DISCOVERY / FOLLOW_UP / READOUT 裁剪"]
+    G --> I["UnifiedViewObservationFacade.build(...)\n生成 uiTree / screenElements / quality / raw"]
+    H --> J["android_view_context_tool.hybridObservation"]
+    I --> K["ViewObservationSnapshot\n统一观测快照"]
+    J --> L["agent-core\nparse_observation_snapshot / CandidateMatcher"]
+```
+
+这张图里有两条输出路径：
+
+- `hybridObservation` 是当前 Agent 本地导航和 fast execute 的主要输入，尤其是 `actionableNodes`。
+- `UnifiedViewObservation` 是 merge 后新增的统一观测旁路，用于把 native、screen vision、web dom 等来源收敛到 `uiTree/screenElements/pageSummary/quality/raw` 结构。
+
+### 4.1.1 代码级融合流程
+
+当前代码入口在 `ViewContextSnapshotProvider.buildObservationToolResult(...)`。它会先拿到 native dump 和 screen vision 结果，然后调用 `HybridObservationComposer.compose(...)`：
+
+```java
+String visualObservationJson = analysis != null ? analysis.compactObservationJson : null;
+String fullHybridObservationJson = HybridObservationComposer.compose(
+        source,
+        activityClassName,
+        targetHint,
+        nativeViewXml,
+        visualObservationJson,
+        imageWidth != null ? imageWidth : 0,
+        imageHeight != null ? imageHeight : 0
+);
+```
+
+`HybridObservationComposer.compose(...)` 内部主流程是：
+
+```java
+NativeData nativeData = parseNative(nativeViewXml);
+VisionData visionData = parseVision(screenVisionCompactJson, imageWidth, imageHeight);
+match(nativeData.nodes, visionData.signals);
+result.put("actionableNodes", buildActionable(nativeData, visionData, targetHint));
+result.put("sections", buildRegions(visionData.sections, nativeData.nodes, MAX_SECTIONS, true));
+result.put("listItems", buildRegions(visionData.items, nativeData.nodes, MAX_ITEMS, false));
+result.put("conflicts", buildConflicts(nativeData, visionData, targetHint));
+```
+
+各步骤的职责如下：
+
+- `parseNative(nativeViewXml)`：把 XML 中的 node 转成 `NativeNode`，保留 `text/contentDescription/resourceId/className/bounds/clickable/enabled/selected/parentSemanticContext` 等字段。native 的价值是稳定结构、真实点击状态和父子层级。
+- `parseVision(screenVisionCompactJson)`：把 OCR 文本、视觉控件、页面 section 和 item 转成 `Signal`。screen vision 的价值是补充“卡片/图标/区域”的视觉语义，例如 `云空间` 是快捷入口卡片，而不只是一个 TextView。
+- `match(nativeData.nodes, visionData.signals)`：对每个 native node 和 vision signal 计算匹配分，满足 `MATCH_THRESHOLD=0.40` 且互相都是最佳匹配时，才把 native node 标记为 `matched`，后续输出为 `source=fused`。
+- `buildActionable(...)`：先输出 native/fused 候选，再补充高价值且未匹配的 `vision_only` 候选；最后按 `score` 排序并限制 `MAX_ACTIONABLE=18`。这一步决定哪些候选会进入 agent-core 的本地点击决策。
+- `buildRegions(...)`：把 screen vision 的 `sections/items` 映射成 `sections/listItems`，并统计区域内匹配到的 native 节点数量，用于页面理解和 readout。
+- `buildConflicts(...)`：记录视觉高置信但 native 无匹配的候选，例如 `vision_only_candidate`。它不会直接否定 fused/native 候选，但会提醒后续执行器谨慎处理纯视觉目标。
+- `buildDebug(...)`：输出 `nativeTopTexts/matchedNativeNodeIds/visionOnlySignalIds` 等调试信息，只用于定位问题，不应该长期作为 prompt 的核心内容。
+
+### 4.1.2 matchScore 匹配分计算方式
+
+`match(nativeData.nodes, visionData.signals)` 会遍历每一个 native node 和每一个 screen vision signal，调用 `matchScore(node, signal)` 计算它们是否像是同一个 UI 元素。这个分数完全在本地计算，不经过 LLM。
+
+当前匹配分主要由两部分组成：
+
+- `overlap`：native bounds 和 vision bounds 的空间重叠程度。
+- `text`：native 文本或 resource-id 派生文本，与 vision label 的文本相似度。
+
+核心公式如下：
+
+```java
+double overlap = overlap(node.bounds, signal.bounds);
+double text = Math.max(
+        textMatch(node.text, signal.label),
+        textMatch(resourceHint(node.resourceId), signal.label)
+);
+
+if (overlap <= 0.02d && text < 0.72d) {
+    return 0d;
+}
+
+double score = overlap * (signal.isControl() ? 0.58d : 0.68d)
+        + text * (signal.isControl() ? 0.42d : 0.32d);
+
+if (text >= 0.95d && overlap >= 0.20d) {
+    score += 0.08d;
+}
+
+return clamp(score);
+```
+
+这里有几个关键设计点：
+
+- 如果空间几乎不重叠，并且文本也不够像，直接返回 `0`。这能过滤掉页面里大量同名或弱相关元素。
+- 如果 vision signal 是 `control`，文本权重更高，公式是 `overlap * 0.58 + text * 0.42`。这是因为视觉控件、卡片、图标的 bbox 可能覆盖较大区域，不能完全依赖 IoU。
+- 如果 vision signal 是普通文本，空间权重更高，公式是 `overlap * 0.68 + text * 0.32`。这是因为 OCR 文本通常应该和 native TextView 的位置高度贴合。
+- 如果文本几乎完全一致，并且空间有一定重叠，会额外加 `0.08`，让“同文案 + 同位置”的融合更稳定。
+- 最后通过 `clamp(score)` 把分数限制在 `0~1`。
+
+`overlap(...)` 不是单纯 IoU，而是取 `IoU` 和“小区域覆盖率”的较大值：
+
+```java
+double iou = intersection / union;
+double coverage = intersection / Math.min(left.area(), right.area());
+return clamp(Math.max(iou, coverage * 0.92d));
+```
+
+这样做是为了处理常见的父子结构：一个 native 文本节点可能很小，但它完整落在 screen vision 识别出的卡片区域里。如果只用 IoU，小文本和大卡片的交并比会很低；加入 `coverage` 后，可以识别出“小节点属于大区域”的关系。
+
+`textMatch(...)` 会先做 normalize：转小写，并去掉 `_`、`-`、空格和换行。然后按下面规则给分：
+
+| 文本关系 | 分数 |
+| --- | --- |
+| 完全一致 | `1.0` |
+| 一方包含另一方 | `0.88` |
+| 字符覆盖率 `>= 75%` | `0.72` |
+| 字符覆盖率 `>= 50%` | `0.48` |
+| 字符覆盖率 `>= 30%` | `0.28` |
+| 其他情况 | `0` |
+
+`resourceHint(node.resourceId)` 会把 `com.huawei.works.uat:id/service_cloud_space_title` 这类 resource-id 简化成类似 `service cloud space title` 的文本，再和 vision label 比较。这样即使 native 节点没有直接文本，也有机会通过 resource-id 参与匹配。
+
+计算出所有 pair 的分数后，代码不会只看“分数是否过线”，还要求 native node 和 vision signal **互为最佳匹配**：
+
+```java
+if (node.bestSignal != null
+        && node.bestScore >= MATCH_THRESHOLD
+        && node.bestSignal.bestNode == node) {
+    node.matched = node.bestSignal;
+    node.matchScore = node.bestScore;
+    node.bestSignal.matchedNode = node;
+}
+```
+
+其中 `MATCH_THRESHOLD=0.40`。这个互为最佳的约束很重要：如果一个 vision 卡片同时覆盖多个 native 子节点，或者一个 native 父容器附近有多个视觉信号，只有双方最认可的一组才会变成 `source=fused`，其他候选会继续以 `native` 或 `vision_only` 形式保留。
+
+以 Me 页“云空间”为例：
+
+- `service_cloud_space_title` 文本节点和 `txt_cloud_space` OCR 文本，`textMatch` 接近 `1.0`，bounds 也重叠，因此容易成为 `fused`。
+- `service_cloud_space` 父容器和 `ctl_cloud_space_card` 视觉卡片，bounds 高度重叠，并且 resource-id 里有 `cloud space` 语义，因此也容易成为 `fused`。
+- `ctl_cloud_space_icon` 如果没有稳定 native 节点互为最佳匹配，就不会强行 fused，而是作为 `vision_only_candidate` warning 输出。
+
+当前实现的一个边界是：`matchScore(...)` 主要比较 `node.text` 和 `resourceHint(node.resourceId)`，没有直接把 `node.contentDescription` 纳入文本相似度。因此只有 `content-desc`、没有 text/resource-id 语义的控件，更多依赖 bounds 重叠完成融合。后续如果要提升无障碍描述较完整页面的融合质量，可以把 `contentDescription` 加入 `text` 相似度候选。
+
+### 4.1.3 Me 页“云空间”融合过程
+
+以 Me 页“云空间”为例，native 和 screen vision 的输入会在融合时形成下面的对应关系：
+
+| 输入来源 | 示例信号 | 提供的信息 | 融合后的作用 |
+| --- | --- | --- | --- |
+| native 父容器 | `service_cloud_space` / `android.widget.LinearLayout` | `clickable=true`、完整卡片 bounds、resourceId 稳定 | 作为最终点击候选，输出 `anchorType=card` |
+| native 文本子节点 | `service_cloud_space_title` / `TextView` / `text=云空间` | 稳定文本、父容器语义、文本 bounds | 作为语义锚点，输出 `containerClickable=true` |
+| screen vision 文本 | `txt_cloud_space` | OCR 确认“云空间”可见 | 与 native 文本融合，增强可见性置信 |
+| screen vision 卡片 | `ctl_cloud_space_card` | 视觉上它是快捷入口卡片，importance 较高 | 与 native 父容器融合，增强点击候选排序 |
+| screen vision 图标 | `ctl_cloud_space_icon` | 识别到云空间图标，但 native 匹配不稳定 | 输出为 `vision_only_candidate` warning，不优先点击 |
+
+最终会出现两个稳定候选：
+
+- `n8 source=fused anchorType=text containerClickable=true`：说明文本“云空间”可信，但它本身不是最佳点击区域。
+- `n6 source=fused anchorType=card clickable=true`：说明父卡片既有 native 可点击性，又有 screen vision 的卡片语义，更适合作为最终 tap bounds。
+
+这也是融合设计的核心：**用 native 决定能不能点、点哪里；用 screen vision 确认视觉上是什么、是否可见、属于哪个区域。**
+
 ```json
 {
   "schemaVersion": 1,
@@ -159,7 +330,7 @@ screen vision 的关键价值：
   "summary": "Me page with profile header, service shortcut grid, security/settings list, and selected bottom tab. Primary visible targets include 00612186, 云空间, 云笔记, 云名片, 用户安全中心. Native tree captured 31 nodes and fused 18 screenshot matches.",
   "executionHint": "Prefer actionableNodes with source=fused or native and use their bounds as referencedBounds. Treat vision_only nodes as weaker candidates.",
   "page": { "width": 1080, "height": 2400 },
-  "availableSignals": { "nativeViewXml": true, "screenVisionCompact": true },
+  "availableSignals": { "nativeXml": true, "screenVisionCompact": true },
   "quality": {
     "nativeNodeCount": 31,
     "nativeTextNodeCount": 13,
@@ -306,6 +477,62 @@ screen vision 的关键价值：
   }
 }
 ```
+
+### 4.2 hybridObservation 字段说明
+
+`hybridObservation` 的字段可以分成三类：页面级上下文、候选级执行信息、融合诊断信息。Agent 执行时不会等价使用所有字段，其中 `actionableNodes` 是本地导航和 fast execute 最关键的输入，`sections/listItems/summary` 更多用于页面理解和 readout，`conflicts/debug` 主要服务诊断和风险判断。
+
+页面级字段：
+
+- `schemaVersion`：结构版本号，用于后续兼容不同版本的 hybrid observation。
+- `mode`：表示当前融合模式。`hybrid_native_screen` 说明 native view tree 和 screen vision 都参与了融合；如果缺少视觉结果，可能退化为 native-only。
+- `primarySource`：主观测来源。Me 页来自原生 View 树，所以是 `native_xml`。
+- `activityClassName`：当前页面 Activity，用于判断页面是否到达目标页，也可辅助 `StopConditionSpec` 命中。
+- `targetHint`：本轮观测的目标提示，例如 `云空间`。它会影响融合排序、候选筛选和后续 `CandidateMatcher` 的目标匹配。
+- `summary`：页面摘要，给 LLM 或 readout 阶段快速理解页面内容。它不是点击依据，只是压缩后的页面语义。
+- `executionHint`：给 agent-core 的执行建议，强调优先使用 `fused/native` 候选，谨慎使用 `vision_only`。
+- `page`：屏幕尺寸，用于判断区域、角落、列表位置，也能帮助坐标归一化。
+- `availableSignals`：说明哪些输入信号可用。这里 `nativeXml=true` 且 `screenVisionCompact=true`，代表本次观测可以做 native + vision 融合。
+- `quality`：融合质量统计。`nativeNodeCount`、`visionTextCount`、`visionControlCount` 反映输入规模；`fusedMatchCount` 越高，说明 native 与 vision 匹配越充分；`visionDropped*Count` 用于判断视觉结果是否被大量过滤。
+
+`actionableNodes` 候选字段：
+
+- `id`：候选节点 ID，通常来自 native 节点或视觉信号，方便日志和冲突定位。
+- `source`：候选来源。`fused` 代表 native 和 vision 成功配对，稳定性最高；`native` 代表只有原生结构；`vision_only` 代表只有截图识别，需要更谨慎。
+- `nativeNodeIndex`：对应 native XML 节点序号，用于回溯原始 View 树。
+- `text` / `contentDescription`：候选的可见文本或无障碍描述，是目标匹配的主要语义来源。
+- `className` / `resourceId`：native 结构身份。`resourceId` 往往比 OCR 文本更稳定，适合做同类页面的规则化匹配。
+- `region`：候选所在屏幕区域，例如 `upper_left`。它用于约束角落入口、底部 Tab、卡片区等通用 UI 位置。
+- `anchorType`：候选锚点类型，例如 `text`、`card`、`icon`。文本节点常作为语义锚点，卡片/按钮更适合作为最终点击目标。
+- `containerRole`：候选所属容器角色，例如 `grid_item`、`list_item`、`bottom_tab`，帮助区分同名文本在不同 UI 区域里的含义。
+- `parentSemanticContext`：父容器语义上下文。像 `云空间 service_cloud_space ...` 可以把不可点击文本节点和可点击父容器关联起来。
+- `bounds`：候选坐标和中心点。fast execute 最终会把选中的 bounds 写入 `android_gesture_tool.observation.referencedBounds`，避免让模型猜坐标。
+- `score`：综合置信分，结合文本匹配、来源、可点击性、视觉重要性等因素。
+- `actionability`：可执行性等级。`high` 更适合直接点击，`medium/low` 更倾向于作为辅助语义。
+- `clickable`：当前节点自身是否可点击。示例中 `n6` 是可点击卡片，`n8` 文本自身不可点击。
+- `containerClickable`：当前节点自身不可点时，父容器是否可点。示例中 `n8` 的 `containerClickable=true`，说明它可作为语义锚点并向父容器找点击区域。
+- `enabled` / `selected`：控件状态。禁用态不能点击，选中态可用于判断底部 Tab 或当前页面状态。
+- `badgeLike` / `numericLike` / `decorativeLike`：噪声特征。徽标、数字、装饰图标通常不应作为主点击目标。
+- `repeatGroup`：候选是否处在重复结构里，例如网格卡片或列表。它会提示 agent-core 做父子候选归一化，避免把同一个入口拆成多个目标。
+- `matchScore`：native 节点和视觉信号的匹配分。它比 `score` 更聚焦于“这两个来源是不是同一个 UI 元素”。
+- `matchedVisionId` / `matchedVisionKind`：匹配到的 screen vision 信号 ID 和类型，用于解释 `fused` 来源。
+- `visionType` / `visionLabel` / `visionRole`：视觉侧识别出的控件类型、文本和角色，用于补强 native 语义。
+
+结构化页面字段：
+
+- `sections`：页面区域摘要，例如 profile header、shortcut grid、settings list。它适合帮助 LLM 理解页面布局，也适合 readout 阶段做内容分组。
+- `listItems`：区域内的条目摘要，例如每个快捷入口卡片。它比 `sections` 更细，但通常仍是理解辅助，不直接替代 `actionableNodes`。
+- `bbox`：视觉区域坐标，格式是 `[left, top, right, bottom]`。它用于描述一块区域，不一定是最终点击 bounds。
+- `importance`：视觉重要性分，用于排序页面内容，但不能单独决定点击。
+- `matchedNativeNodeCount`：该区域匹配到的 native 节点数量，数量越高通常说明结构更稳定。
+- `textCount` / `controlCount`：区域内文本和控件数量，帮助判断区域是内容区、入口区还是操作区。
+
+风险与诊断字段：
+
+- `conflicts`：融合中的风险项。示例里的 `vision_only_candidate` 表示视觉发现了“云空间”图标，但没有稳定 native 节点匹配，因此只能作为 warning，而不应优先点击。
+- `severity`：冲突等级。`warning` 通常不会阻断高置信 fused/native 候选；真正高风险冲突才应该触发 fallback。
+- `nearbyNativeNodeIds`：视觉候选附近的 native 节点，用于判断是否能被已有 native/fused 候选吸收。
+- `debug`：调试信息，包括 `nativeTopTexts`、`matchedNativeNodeIds`、`visionOnlySignalIds`。这些字段主要用于日志和问题定位，不应作为长期 prompt 的核心内容。
 
 融合后可以看到三个重要变化：
 
