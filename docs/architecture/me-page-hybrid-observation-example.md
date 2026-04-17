@@ -16,8 +16,14 @@ flowchart TD
     A["nativeViewXml\n原生 View 树"] --> C["HybridObservationComposer.compose"]
     B["screenVisionCompact\n截图语义识别"] --> C
     H["targetHint\n云空间"] --> C
-    C --> D["hybridObservation"]
+    C --> D["hybridObservation\n旧主消费字段"]
+    A --> U["UnifiedViewObservationFacade.build\n合并后统一观测旁路"]
+    B --> U
+    D --> U
+    U --> S["ViewObservationSnapshot\nuiTree / screenElements / pageSummary / quality / raw"]
+    S --> R["android_view_context_tool ToolResult\nraw 默认不返回"]
     D --> E["agent-core parse_observation_snapshot"]
+    R --> E
     E --> F["CanonicalCandidate 归一化"]
     F --> G["fast_execute 本地点击"]
 ```
@@ -379,7 +385,156 @@ screen vision 的关键价值：
 
 因此在 Me 页这种“头像、icon、快捷卡片很多”的页面里，最终行为会从“多候选回退 LLM”变成“本地稳定命中云空间入口”。
 
-## 7. 请求体中的实际消费形态
+## 7. 合并后的 unified observation 数据处理流程
+
+合并 `view-observation-unification` 之后，Me 页观测不再只有 `nativeViewXml / screenVisionCompact / hybridObservation` 三个旧字段。`ViewContextSnapshotProvider.buildObservationToolResult(...)` 会在旧字段之外，额外构造一份 `UnifiedViewObservation`，再通过 `ViewObservationSnapshotRegistry.createSnapshot(...)` 存成统一快照。
+
+这条链路的关键点是：**unified observation 是合并后的统一观测旁路，当前仍不能把它理解成替代 hybridObservation 的主执行输入**。在当前 Agent 执行链路里，本地导航和 fast execute 主要仍消费 `hybridObservation.actionableNodes`，而 `uiTree/screenElements` 更多用于后续统一观测演进和诊断。
+
+### 7.1 代码调用顺序
+
+Me 页面一次 `android_view_context_tool` 调用，大致会经过下面几步：
+
+1. `ViewContextToolChannel.execute(...)` 解析工具参数，例如 `targetHint=云空间`、`__detailMode=follow_up`。
+2. `NativeXmlViewContextSourceHandler.execute(...)` 选择 native view tree 观测来源。
+3. `ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(...)` 获取当前前台 Activity 和 native dump。
+4. `InProcessViewHierarchyDumper.dumpHierarchy(...)` 生成 `nativeViewXml`。
+5. `ScreenSnapshotAnalyzer.analyze(...)` 生成 `screenVisionCompact`。
+6. `HybridObservationComposer.compose(...)` 生成完整 `fullHybridObservationJson`。
+7. `reduceNativeViewXml(...)`、`reduceCompactObservation(...)`、`reduceHybridObservation(...)` 按 `ObservationDetailMode` 裁剪旧字段。
+8. `tryBuildUnifiedObservation(...)` 调用 `UnifiedViewObservationFacade.build(...)` 生成统一观测。
+9. `ViewObservationSnapshotRegistry.createSnapshot(...)` 同时保存旧字段和新字段。
+10. `ToolResult.success()` 返回旧字段和新字段，其中 `raw` 只有在 `includeRawFallback=true` 时才返回。
+
+对应的核心返回字段是：
+
+```json
+{
+  "nativeViewXml": "<hierarchy .../>",
+  "screenVisionCompact": { "summary": "primary: 00612186 / 云空间 ..." },
+  "hybridObservation": { "actionableNodes": [] },
+  "uiTree": { "source": "native_xml", "className": "..." },
+  "screenElements": [],
+  "pageSummary": "primary: 00612186 / 云空间 ...",
+  "quality": { "adapterName": "HybridObservationAdapter" },
+  "raw": null,
+  "rawFallbackIncluded": false
+}
+```
+
+### 7.2 adapter 选择规则
+
+合并后统一观测由 `UnifiedViewObservationFacade` 调度，adapter 顺序是：
+
+1. `HybridObservationAdapter`
+2. `NativeXmlObservationAdapter`
+3. `WebDomObservationAdapter`
+4. `VisualObservationAdapter`
+
+Me 页面 `source=native_xml`，同时已经有 `hybridObservationJson`，因此优先由 `HybridObservationAdapter` 处理。这样做的收益是：
+
+- `screenElements` 可以直接从已经融合过的 `hybridObservation.actionableNodes` 映射出来。
+- `quality` 能保留 `fusedMatchCount`、`availableSignals` 等融合质量信息。
+- `pageSummary` 直接复用 hybrid summary，避免 native-only 摘要丢失视觉语义。
+
+如果没有 hybrid 结果，才会退到 `NativeXmlObservationAdapter`，只基于 native XML 生成 `uiTree` 和 `screenElements`。如果来源是纯截图，则会走 `VisualObservationAdapter`。如果来源是 WebView DOM，则走 `WebDomObservationAdapter`。
+
+### 7.3 Me 页“云空间”的 screenElements 示例
+
+合并后的 `screenElements` 是 canonical/unified 结构，不再是 raw OCR 文本列表。以“云空间”为例，融合后的元素会接近下面这种形态：
+
+```json
+[
+  {
+    "id": "n8",
+    "source": "fused",
+    "text": "云空间",
+    "role": "grid_item",
+    "bounds": { "left": 143, "top": 606, "right": 241, "bottom": 642 },
+    "clickable": false,
+    "containerClickable": true,
+    "score": 1.0
+  },
+  {
+    "id": "n6",
+    "source": "fused",
+    "text": "云空间",
+    "role": "grid_item",
+    "bounds": { "left": 72, "top": 482, "right": 312, "bottom": 698 },
+    "clickable": true,
+    "containerClickable": false,
+    "score": 0.97
+  }
+]
+```
+
+这里仍然要注意两点：
+
+- `n8` 是文本锚点，本身不可点击，但 `containerClickable=true`，说明可以向父容器找点击目标。
+- `n6` 是父容器卡片，可点击，通常更适合作为最终 tap bounds。
+
+因此 `screenElements` 的正确消费方式不是“看到 text=云空间 就直接点该文本 bounds”，而是继续结合 `clickable/containerClickable/source/role/bounds` 做归一化。
+
+### 7.4 raw 的处理边界
+
+合并后的 unified snapshot 内部会保存 `rawJson`，它通常包含：
+
+- 完整 `nativeViewXml`
+- 完整 `visualObservationJson`
+- 完整 `hybridObservationJson`
+- `screenSnapshot` 引用
+
+这部分对调试有价值，但默认不应该进入 LLM 请求体。本次合并后修复已经把返回策略改为：
+
+```java
+.withJson("raw", includeRawFallback ? snapshot.rawJson : null)
+```
+
+因此运行日志中应该看到：
+
+```text
+raw_length=0
+raw_snapshot_length=53900
+raw_returned_without_raw_fallback=false
+```
+
+含义是：内部 snapshot 仍保留 raw，但 tool result 默认不返回 raw，LLM 也不会因为 raw 被额外撑大。
+
+### 7.5 合并后的日志判断方式
+
+合并后的 Me 页观测可以通过以下日志判断处理是否正常：
+
+```text
+[ViewContextSnapshotProvider][canonical_observation_summary]
+```
+
+关键字段解释：
+
+- `ui_tree_length`：统一 native/ui tree 的大小。
+- `screen_elements_length`：统一候选元素数组大小。
+- `page_summary_length`：统一页面摘要大小。
+- `quality_length`：统一质量信息大小。
+- `raw_length`：实际返回到 tool result 的 raw 大小。
+- `raw_snapshot_length`：内部 snapshot 保存的 raw 大小。
+- `screen_element_count`：统一元素数量。
+- `actionable_count`：可点击/可输入/容器可点击元素数量。
+- `text_only_count`：只有文本语义、不能直接点击的元素数量。
+
+如果出现下面这条日志：
+
+```text
+[ViewContextSnapshotProvider][canonical_screen_elements_text_only_dominant]
+```
+
+说明 `screenElements` 中文本型节点多于可执行节点。Me 页真实运行中已经观察到类似情况：
+
+```text
+screen_element_count=18 actionable_count=3 text_only_count=15
+```
+
+这不是立即失败，但说明后续如果让 AgentCore 直接优先消费 `screenElements`，必须先做过滤和归一化：文本节点只能作为语义锚点，不能直接当作点击候选。
+
+## 8. 请求体中的实际消费形态
 
 在当前优化后的流程里，Me 页导航阶段不需要把上面的所有原始字段都发给 LLM。典型 happy path 是：
 
