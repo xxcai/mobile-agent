@@ -218,6 +218,7 @@ Thumbs.db
 Desktop.ini
 
 # Temporary files
+.worktrees/
 *.tmp
 *.temp
 *.bak
