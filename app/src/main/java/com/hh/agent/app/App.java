@@ -237,7 +237,7 @@ public class App extends Application implements MiniWoBRunOrchestrator.Provider,
                                                           long timeoutMs,
                                                           long pollIntervalMs) throws InterruptedException {
         long deadline = System.currentTimeMillis() + Math.max(0L, timeoutMs);
-        do {
+        while (true) {
             Activity currentForeground = foregroundActivitySupplier.get();
             if (currentForeground instanceof BusinessWebActivity
                     && currentForeground != previousForeground
@@ -245,11 +245,13 @@ public class App extends Application implements MiniWoBRunOrchestrator.Provider,
                     && !currentForeground.isDestroyed()) {
                 return currentForeground;
             }
-            if (pollIntervalMs > 0L && System.currentTimeMillis() <= deadline) {
+            if (System.currentTimeMillis() > deadline) {
+                return null;
+            }
+            if (pollIntervalMs > 0L) {
                 Thread.sleep(pollIntervalMs);
             }
-        } while (System.currentTimeMillis() <= deadline);
-        return null;
+        }
     }
 
     interface ForegroundActivitySupplier {

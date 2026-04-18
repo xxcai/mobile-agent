@@ -66,4 +66,35 @@ public class AppForegroundWaitTest {
 
         assertNull(result);
     }
+
+    @Test
+    public void acceptsOnlyANewBusinessWebActivityEvenWhenItAppearsAtDeadlineBoundary() throws Exception {
+        BusinessWebActivity previous = Robolectric.buildActivity(
+                        BusinessWebActivity.class,
+                        new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
+                                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
+                                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH,
+                                        "web/h5bench/miniwob/click-test-2.html"))
+                .setup()
+                .get();
+        BusinessWebActivity next = Robolectric.buildActivity(
+                        BusinessWebActivity.class,
+                        new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
+                                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
+                                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH,
+                                        "web/h5bench/miniwob/click-test-2.html"))
+                .setup()
+                .get();
+        AtomicInteger calls = new AtomicInteger();
+
+        Activity result = App.awaitNewForegroundBusinessWebActivity(
+                () -> calls.getAndIncrement() == 0 ? previous : next,
+                previous,
+                50L,
+                100L
+        );
+
+        assertSame(next, result);
+        assertTrue(calls.get() >= 2);
+    }
 }
