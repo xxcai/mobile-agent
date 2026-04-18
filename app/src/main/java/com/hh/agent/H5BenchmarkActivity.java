@@ -50,7 +50,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         categoryComparisonView = findViewById(R.id.categoryComparisonView);
         taskDiffView = findViewById(R.id.taskDiffView);
 
-        currentSuiteView.setText("当前 Suite: " + manifest.getSuiteId());
+        currentSuiteView.setText("当前 Suite: " + getSuiteDisplayName());
         runSelectorView.setText("Run 选择: 还没有历史 run，开始后会在这里展示。");
         renderSummary(null);
         renderComparisonRows(null);
@@ -225,7 +225,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
             }
             MiniWoBTaskDefinition firstTask = tasks.get(0);
             Intent intent = new Intent(this, BusinessWebActivity.class);
-            intent.putExtra(BusinessWebActivity.EXTRA_TITLE, "H5基准测试 · " + firstTask.getTaskId());
+            intent.putExtra(BusinessWebActivity.EXTRA_TITLE, getSuiteDisplayName() + " · " + firstTask.getTaskId());
             intent.putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true);
             intent.putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH, firstTask.getAssetPath());
             startActivity(intent);
@@ -237,5 +237,12 @@ public class H5BenchmarkActivity extends AppCompatActivity {
 
     private String safe(String value) {
         return value == null ? "" : value.replace("\"", "\\\"");
+    }
+
+    private String getSuiteDisplayName() {
+        String displayName = manifest.getDisplayName();
+        return displayName == null || displayName.trim().isEmpty()
+                ? manifest.getSuiteId()
+                : displayName;
     }
 }

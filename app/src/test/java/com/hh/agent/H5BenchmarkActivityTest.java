@@ -18,10 +18,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import com.hh.agent.h5bench.H5BenchmarkManifest;
 import com.hh.agent.h5bench.MiniWoBComparisonSummary;
 import com.hh.agent.h5bench.MiniWoBRunOrchestrator;
 import com.hh.agent.h5bench.MiniWoBRunRecord;
 import com.hh.agent.h5bench.MiniWoBScoreAggregator;
+import com.hh.agent.h5bench.MiniWoBTaskDefinition;
 import com.hh.agent.h5bench.MiniWoBTaskResult;
 
 import static org.junit.Assert.assertEquals;
@@ -69,6 +71,14 @@ public class H5BenchmarkActivityTest {
         assertEquals("idle", activity.getBenchmarkHost().getState().name().toLowerCase());
         activity.getBenchmarkHost().start();
         assertEquals("starting", activity.getBenchmarkHost().getState().name().toLowerCase());
+    }
+
+    @Test
+    public void currentSuiteUsesManifestDisplayName() {
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+
+        assertEquals("当前 Suite: H5基准测试",
+                ((TextView) activity.findViewById(R.id.currentSuiteView)).getText().toString());
     }
 
     @Test
@@ -153,6 +163,45 @@ public class H5BenchmarkActivityTest {
 
         assertTrue(executed[0]);
         assertTrue(((TextView) activity.findViewById(R.id.summaryJsonView)).getText().toString().contains("\"runId\": \"run-a\""));
+    }
+
+    @Test
+    @Config(sdk = 34, application = Application.class)
+    public void startButtonPreviewUsesManifestDisplayNameInTitle() {
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+        replaceManifest(activity, "自定义基准测试", Collections.singletonList(
+                new MiniWoBTaskDefinition(
+                        "click-test-2",
+                        "workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html",
+                        "Click the highlighted area.",
+                        "click",
+                        1,
+                        1,
+                        10000)));
+
+        activity.getBenchmarkHost().start();
+
+        Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertEquals("自定义基准测试 · click-test-2",
+                intent.getStringExtra(BusinessWebActivity.EXTRA_TITLE));
+    }
+
+    private void replaceManifest(H5BenchmarkActivity activity, String displayName, List<MiniWoBTaskDefinition> tasks) {
+        H5BenchmarkManifest manifest = new H5BenchmarkManifest();
+        setField(manifest, "suiteId", SUITE_ID);
+        setField(manifest, "displayName", displayName);
+        setField(manifest, "tasks", tasks);
+        setField(activity, "manifest", manifest);
+    }
+
+    private void setField(Object target, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(target, value);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError(exception);
+        }
     }
 
     private MiniWoBRunRecord buildRunRecord(String runId, String model, MiniWoBTaskResult... results) {
