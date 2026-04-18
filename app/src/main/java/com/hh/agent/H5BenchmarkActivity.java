@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.hh.agent.h5bench.H5BenchmarkHost;
 import com.hh.agent.h5bench.H5BenchmarkManifest;
 import com.hh.agent.h5bench.H5BenchmarkManifestRepository;
+import com.hh.agent.h5bench.H5BenchmarkRunState;
 import com.hh.agent.h5bench.MiniWoBComparisonSummary;
 import com.hh.agent.h5bench.MiniWoBRunOrchestrator;
 import com.hh.agent.h5bench.MiniWoBRunRecord;
@@ -33,6 +34,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
 
     private H5BenchmarkManifest manifest;
     private H5BenchmarkHost benchmarkHost;
+    private String publishedBenchmarkStatusJson;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,7 +52,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         categoryComparisonView = findViewById(R.id.categoryComparisonView);
         taskDiffView = findViewById(R.id.taskDiffView);
 
-        currentSuiteView.setText("当前 Suite: " + getSuiteDisplayName());
+        currentSuiteView.setText("当前 Suite: " + getSuiteDisplayName() + " (" + manifest.getSuiteId() + ")");
         runSelectorView.setText("Run 选择: 还没有历史 run，开始后会在这里展示。");
         renderSummary(null);
         renderComparisonRows(null);
@@ -73,10 +75,12 @@ public class H5BenchmarkActivity extends AppCompatActivity {
     }
 
     private void startBenchmarkRun(H5BenchmarkHost host) {
+        publishBenchmarkStatus(host.getState(), null, null);
         MiniWoBRunOrchestrator orchestrator = resolveRunOrchestrator();
         if (orchestrator == null) {
             if (launchFirstTaskPreview()) {
                 host.markCompleted();
+                publishBenchmarkStatus(host.getState(), null, null);
             } else {
                 host.markFailed();
             }
@@ -84,17 +88,17 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         }
         resolveRunExecutor().execute(() -> {
             host.markRunning();
+            runOnUiThread(() -> publishBenchmarkStatus(host.getState(), null, null));
             try {
                 List<MiniWoBRunRecord> runRecords = orchestrator.runBenchmarks();
                 runOnUiThread(() -> {
-                    renderRunRecords(runRecords);
                     host.markCompleted();
+                    renderRunRecords(runRecords);
                 });
             } catch (Exception exception) {
                 runOnUiThread(() -> {
-                    summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"error\",\n  \"message\": \""
-                            + safe(exception.getMessage()) + "\"\n}");
                     host.markFailed();
+                    publishBenchmarkStatus(host.getState(), null, exception.getMessage());
                 });
             }
         });
@@ -115,21 +119,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
     }
 
     void renderSummary(MiniWoBSuiteSummary summary) {
-        if (summary == null) {
-            summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"idle\"\n}");
-            return;
-        }
-        summaryJsonView.setText("{\n"
-                + "  \"runId\": \"" + safe(summary.getRunId()) + "\",\n"
-                + "  \"model\": \"" + safe(summary.getModel()) + "\",\n"
-                + "  \"provider\": \"" + safe(summary.getProvider()) + "\",\n"
-                + "  \"promptVersion\": \"" + safe(summary.getPromptVersion()) + "\",\n"
-                + "  \"suiteId\": \"" + summary.getSuiteId() + "\",\n"
-                + "  \"successRate\": " + summary.getSuccessRate() + ",\n"
-                + "  \"avgSuccessSteps\": " + summary.getAvgSuccessSteps() + ",\n"
-                + "  \"avgSuccessLatencyMs\": " + summary.getAvgSuccessLatencyMs() + ",\n"
-                + "  \"timeoutRate\": " + summary.getTimeoutRate() + "\n"
-                + "}");
+        publishBenchmarkStatus(benchmarkHost.getState(), summary, null);
     }
 
     void renderComparisonRows(List<MiniWoBComparisonSummary.ModelSummary> modelSummaries) {
@@ -223,7 +213,7 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         try {
             List<MiniWoBTaskDefinition> tasks = manifest.getTasks();
             if (tasks.isEmpty()) {
-                summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"empty\"\n}");
+                publishBenchmarkStatus(H5BenchmarkRunState.FAILED, null, "empty", null);
                 return false;
             }
             MiniWoBTaskDefinition firstTask = tasks.get(0);
@@ -234,14 +224,57 @@ public class H5BenchmarkActivity extends AppCompatActivity {
             startActivity(intent);
             return true;
         } catch (Exception exception) {
-            summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"error\",\n  \"message\": \""
-                    + safe(exception.getMessage()) + "\"\n}");
+            publishBenchmarkStatus(H5BenchmarkRunState.FAILED, null, "error", exception.getMessage());
             return false;
         }
     }
 
+    public String getPublishedBenchmarkStatusJson() {
+        return publishedBenchmarkStatusJson;
+    }
+
     private String safe(String value) {
         return value == null ? "" : value.replace("\"", "\\\"");
+    }
+
+    private void publishBenchmarkStatus(
+            H5BenchmarkRunState state,
+            MiniWoBSuiteSummary summary,
+            String message) {
+        publishBenchmarkStatus(state, summary, null, message);
+    }
+
+    private void publishBenchmarkStatus(
+            H5BenchmarkRunState state,
+            MiniWoBSuiteSummary summary,
+            String status,
+            String message) {
+        String resolvedStatus = status == null || status.trim().isEmpty()
+                ? state.name().toLowerCase()
+                : status;
+        StringBuilder builder = new StringBuilder("{\n")
+                .append("  \"suiteId\": \"").append(safe(manifest.getSuiteId())).append("\",\n")
+                .append("  \"suiteAssetPath\": \"").append(safe(resolveSuiteAssetPath())).append("\",\n")
+                .append("  \"state\": \"").append(state.name()).append("\",\n")
+                .append("  \"status\": \"").append(safe(resolvedStatus)).append("\"");
+        if (summary != null) {
+            builder.append(",\n")
+                    .append("  \"runId\": \"").append(safe(summary.getRunId())).append("\",\n")
+                    .append("  \"model\": \"").append(safe(summary.getModel())).append("\",\n")
+                    .append("  \"provider\": \"").append(safe(summary.getProvider())).append("\",\n")
+                    .append("  \"promptVersion\": \"").append(safe(summary.getPromptVersion())).append("\",\n")
+                    .append("  \"successRate\": ").append(summary.getSuccessRate()).append(",\n")
+                    .append("  \"avgSuccessSteps\": ").append(summary.getAvgSuccessSteps()).append(",\n")
+                    .append("  \"avgSuccessLatencyMs\": ").append(summary.getAvgSuccessLatencyMs()).append(",\n")
+                    .append("  \"timeoutRate\": ").append(summary.getTimeoutRate());
+        }
+        if (message != null && !message.trim().isEmpty()) {
+            builder.append(",\n")
+                    .append("  \"message\": \"").append(safe(message)).append("\"");
+        }
+        builder.append("\n}");
+        publishedBenchmarkStatusJson = builder.toString();
+        summaryJsonView.setText(publishedBenchmarkStatusJson);
     }
 
     private String getSuiteDisplayName() {
@@ -249,5 +282,12 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         return displayName == null || displayName.trim().isEmpty()
                 ? manifest.getSuiteId()
                 : displayName;
+    }
+
+    private String resolveSuiteAssetPath() {
+        String taskListAssetPath = manifest.getTaskListAssetPath();
+        return taskListAssetPath == null || taskListAssetPath.trim().isEmpty()
+                ? H5BenchmarkManifestRepository.BASELINE_20_ASSET_PATH
+                : taskListAssetPath;
     }
 }

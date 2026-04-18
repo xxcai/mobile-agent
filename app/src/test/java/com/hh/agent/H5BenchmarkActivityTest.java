@@ -18,6 +18,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import com.hh.agent.h5bench.H5BenchmarkManifestRepository;
+import com.hh.agent.h5bench.H5BenchmarkRunState;
 import com.hh.agent.h5bench.H5BenchmarkManifest;
 import com.hh.agent.h5bench.MiniWoBComparisonSummary;
 import com.hh.agent.h5bench.MiniWoBRunOrchestrator;
@@ -77,8 +79,28 @@ public class H5BenchmarkActivityTest {
     public void currentSuiteUsesManifestDisplayName() {
         H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
 
-        assertEquals("当前 Suite: H5基准测试",
-                ((TextView) activity.findViewById(R.id.currentSuiteView)).getText().toString());
+        String text = ((TextView) activity.findViewById(R.id.currentSuiteView)).getText().toString();
+        assertTrue(text.contains("H5基准测试"));
+        assertTrue(text.contains(SUITE_ID));
+    }
+
+    @Test
+    public void publishedBenchmarkStatusStartsWithManifestDrivenSuiteMetadata() {
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+
+        String statusJson = activity.getPublishedBenchmarkStatusJson();
+
+        assertTrue(statusJson.contains("\"suiteId\": \"" + SUITE_ID + "\""));
+        assertTrue(statusJson.contains("\"suiteAssetPath\": \"" + H5BenchmarkManifestRepository.BASELINE_20_ASSET_PATH + "\""));
+        assertTrue(statusJson.contains("\"state\": \"" + H5BenchmarkRunState.IDLE.name() + "\""));
+    }
+
+    @Test
+    public void benchmarkHost_rejectsDuplicateStartWhileRunning() {
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+        activity.getBenchmarkHost().markRunning();
+
+        assertEquals(false, activity.getBenchmarkHost().start());
     }
 
     @Test
