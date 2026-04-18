@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Focus Text Task</title>
+
+<!-- stylesheets -->
+<link rel="stylesheet" type="text/css" href="../core/core.css">
+<style>
+input { display: block; width: 100px; }
+</style>
+
+<!-- JS -->
+<script src="../core/core.js"></script>
+<script src="../core/d3.v3.min.js"></script>
+<script>
+var TEXTBOXES = 3;
+
+var POS = ['1st', '2nd', '3rd'];
+var textIds = ['tt1', 'tt2', 'tt3'];
+
+var randomizeInputs = function(){
+  // move the text fields around
+  for(var i=0;i<TEXTBOXES;i++){
+    var marginLeft = 'margin-left:'+core.randi(5,20)+'px;';
+    var marginTop = 'margin-top:'+core.randi(5,30)+'px;';
+    var textbox = document.getElementById(textIds[i]);
+    textbox.setAttribute('style', marginLeft + marginTop);
+  }
+}
+
+var genProblem = function() {
+  randomizeInputs();
+  var correctTextbox = core.randi(0,TEXTBOXES);
+  d3.select('#query').html('Focus into the ' + POS[correctTextbox] + ' input textbox.');
+
+  // reward awarder
+  d3.selectAll('#area input').on('focus', function(){
+    this.blur();
+    var textid = this.getAttribute('id');
+    var r = textid === textIds[correctTextbox] ? 1.0 : -1.0;
+    core.endEpisode(r, r > 0);
+  });
+}
+
+window.onload = function() {
+  core.startEpisode();
+}
+</script>
+</head>
+<body>
+<div id="wrap">
+  <div id="query"></div>
+  <div id="area">
+    <input type="text" id="tt1">
+    <input type="text" id="tt2">
+    <input type="text" id="tt3">
+  </div>
+</div>
+
+<script>
+(function() {
+  function extractAndLog() {
+    var bid = 0;
+    var lines = [];
+    function traverse(node, indent) {
+      if (!node) return;
+      var name = node.nodeName;
+      if (name === 'SCRIPT' || name === 'STYLE') return;
+      bid++;
+      var myBid = bid;
+      node.setAttribute('data-bid', String(myBid));
+      var tag = node.tagName ? node.tagName.toLowerCase() : '#text';
+      var directText = '';
+      for (var i = 0; i < node.childNodes.length; i++) {
+        var ch = node.childNodes[i];
+        if (ch.nodeType === 3) {
+          var t = ch.textContent.trim();
+          if (t) directText += t + ' ';
+        }
+      }
+      directText = directText.trim().slice(0, 100);
+      var prefix = '';
+      for (var k = 0; k < indent; k++) prefix += '  ';
+      var line = prefix + '[' + myBid + '] ' + tag;
+      if (directText) line += " '" + directText + "'";
+      if (node.id) line += ' id="' + node.id + '"';
+      if (node.className) line += ' class="' + node.className + '"';
+      lines.push(line);
+      for (var j = 0; j < node.children.length; j++) {
+        traverse(node.children[j], indent + 1);
+      }
+    }
+    traverse(document.body, 0);
+    console.log('[AXTree] === Android-format AXTree (500ms after load) ===');
+    for (var i = 0; i < lines.length; i++) {
+      console.log('[AXTree] ' + lines[i]);
+    }
+    console.log('[AXTree] === end ===');
+  }
+  window.addEventListener('load', function() {
+    setTimeout(extractAndLog, 500);
+  });
+})();
+</script>
+</body>
