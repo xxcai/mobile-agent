@@ -31,6 +31,8 @@ import static org.junit.Assert.assertTrue;
 @Config(sdk = 34, application = H5BenchmarkActivityTest.TestApplication.class)
 @ConscryptMode(ConscryptMode.Mode.OFF)
 public class H5BenchmarkActivityTest {
+    private static final String SUITE_ID = "miniwob-v0-baseline-20";
+
     public static final class TestApplication extends Application implements MiniWoBRunOrchestrator.Provider, MiniWoBRunOrchestrator.ExecutorProvider {
         static List<MiniWoBRunRecord> nextRunRecords;
         static Executor executor = Runnable::run;
@@ -55,6 +57,18 @@ public class H5BenchmarkActivityTest {
         
         // Resource ID should not exist since button was removed from layout
         assertEquals(0, buttonId);
+    }
+
+    @Test
+    public void benchmarkHost_startsRunAndMovesStateToRunning() {
+        TestApplication.executor = command -> { };
+        TestApplication.nextRunRecords = Collections.emptyList();
+
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+
+        assertEquals("idle", activity.getBenchmarkHost().getState().name().toLowerCase());
+        activity.getBenchmarkHost().start();
+        assertEquals("starting", activity.getBenchmarkHost().getState().name().toLowerCase());
     }
 
     @Test
@@ -148,12 +162,12 @@ public class H5BenchmarkActivityTest {
                 model,
                 "openai",
                 "prompt-v1",
-                H5BenchmarkActivity.SUITE_ID,
+                SUITE_ID,
                 "seed-set-v1",
                 15,
                 30000,
                 "1.0.0",
                 Arrays.asList(results),
-                aggregator.summarize(H5BenchmarkActivity.SUITE_ID, runId, model, "openai", "prompt-v1", Arrays.asList(results)));
+                aggregator.summarize(SUITE_ID, runId, model, "openai", "prompt-v1", Arrays.asList(results)));
     }
 }
