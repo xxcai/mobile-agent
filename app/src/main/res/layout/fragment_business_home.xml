@@ -50,6 +50,34 @@
             android:textSize="13sp"
             android:visibility="gone" />
 
+        <LinearLayout
+            android:id="@+id/businessH5BenchmarkEntry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_business_card"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:text="H5"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:background="@drawable/bg_business_punch_button" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="H5基准测试"
+                android:textColor="@color/business_title"
+                android:textSize="14sp" />
+        </LinearLayout>
+
         <HorizontalScrollView
             android:id="@+id/quickActionScrollView"
             android:layout_width="match_parent"
