@@ -28,6 +28,8 @@ public class BusinessWebActivity extends AppCompatActivity {
     public static final String EXTRA_PROBE_TARGET_HINT = "probe_target_hint";
     public static final String EXTRA_ENABLE_DEBUG_CONTROLS = "enable_debug_controls";
     public static final String EXTRA_PAGE_TEMPLATE_ASSET = "page_template_asset";
+    public static final String EXTRA_BENCHMARK_MODE_ENABLED = "benchmark_mode_enabled";
+    public static final String EXTRA_BENCHMARK_ASSET_PATH = "benchmark_asset_path";
     private static final String TEMPLATE_DEFAULT = "business_page.html";
     private static final String TEMPLATE_DELAYED = "business_page_delayed.html";
     private static final String TEMPLATE_FORM = "business_page_form.html";
@@ -38,6 +40,8 @@ public class BusinessWebActivity extends AppCompatActivity {
     private LinearLayout debugPanel;
     private String targetHint;
     private boolean debugControlsEnabled;
+    private boolean benchmarkModeEnabled;
+    private String benchmarkAssetPath;
     private String currentTemplateAsset = TEMPLATE_DEFAULT;
     private String latestSnapshotId;
 
@@ -49,8 +53,13 @@ public class BusinessWebActivity extends AppCompatActivity {
         String title = getIntent().getStringExtra(EXTRA_TITLE);
         String htmlContent = getIntent().getStringExtra(EXTRA_HTML_CONTENT);
         currentTemplateAsset = normalizeTemplateAsset(getIntent().getStringExtra(EXTRA_PAGE_TEMPLATE_ASSET));
+        benchmarkModeEnabled = getIntent().getBooleanExtra(EXTRA_BENCHMARK_MODE_ENABLED, false);
+        benchmarkAssetPath = normalizeBenchmarkAssetPath(getIntent().getStringExtra(EXTRA_BENCHMARK_ASSET_PATH));
+        if (benchmarkModeEnabled && TextUtils.isEmpty(benchmarkAssetPath)) {
+            throw new IllegalArgumentException("benchmark_asset_path is required when benchmark mode is enabled");
+        }
         if (title == null) {
-            title = "业务页面";
+            title = benchmarkModeEnabled ? "H5基准测试" : "业务页面";
         }
         if (htmlContent == null) {
             htmlContent = "<p>页面内容为空。</p>";
@@ -84,12 +93,17 @@ public class BusinessWebActivity extends AppCompatActivity {
 
     @SuppressLint("SetJavaScriptEnabled")
     private void configureWebView(WebView webView, String title, String htmlContent) {
-        boolean enableJavascript = debugControlsEnabled;
+        boolean enableJavascript = debugControlsEnabled || benchmarkModeEnabled;
         webView.getSettings().setJavaScriptEnabled(enableJavascript);
         webView.getSettings().setDomStorageEnabled(enableJavascript);
-        webView.loadDataWithBaseURL("file:///android_asset/",
-                buildHtmlForTemplate(title, htmlContent, currentTemplateAsset),
-                "text/html", "UTF-8", null);
+        if (benchmarkModeEnabled) {
+            currentTemplateAsset = benchmarkAssetPath;
+            webView.loadUrl("file:///android_asset/" + benchmarkAssetPath);
+        } else {
+            webView.loadDataWithBaseURL("file:///android_asset/",
+                    buildHtmlForTemplate(title, htmlContent, currentTemplateAsset),
+                    "text/html", "UTF-8", null);
+        }
         updateDebugState("page_loaded");
     }
 
@@ -279,6 +293,9 @@ public class BusinessWebActivity extends AppCompatActivity {
     }
 
     private void reloadTemplate(String title, String htmlContent, String templateAsset) {
+        if (benchmarkModeEnabled) {
+            return;
+        }
         currentTemplateAsset = templateAsset;
         latestSnapshotId = null;
         configureWebView(webView, title, htmlContent);
@@ -303,6 +320,14 @@ public class BusinessWebActivity extends AppCompatActivity {
             return templateAsset;
         }
         return TEMPLATE_DEFAULT;
+    }
+
+    private String normalizeBenchmarkAssetPath(String assetPath) {
+        if (assetPath == null) {
+            return null;
+        }
+        String normalized = assetPath.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private String safeText(String value) {
