@@ -184,6 +184,46 @@ public class H5BenchmarkActivityTest {
         Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
         assertEquals("自定义基准测试 · click-test-2",
                 intent.getStringExtra(BusinessWebActivity.EXTRA_TITLE));
+        assertEquals("completed", activity.getBenchmarkHost().getState().name().toLowerCase());
+    }
+
+    @Test
+    @Config(sdk = 34, application = Application.class)
+    public void startButtonPreviewDoesNotCompleteWhenManifestHasNoTasks() {
+        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+        replaceManifest(activity, "自定义基准测试", Collections.emptyList());
+
+        activity.getBenchmarkHost().start();
+
+        assertEquals("failed", activity.getBenchmarkHost().getState().name().toLowerCase());
+        assertTrue(((TextView) activity.findViewById(R.id.summaryJsonView)).getText().toString().contains("\"status\": \"empty\""));
+    }
+
+    @Test
+    @Config(sdk = 34, application = Application.class)
+    public void startButtonPreviewDoesNotCompleteWhenPreviewLaunchFails() {
+        FailingPreviewActivity activity = Robolectric.buildActivity(FailingPreviewActivity.class).setup().get();
+        replaceManifest(activity, "自定义基准测试", Collections.singletonList(
+                new MiniWoBTaskDefinition(
+                        "click-test-2",
+                        "workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html",
+                        "Click the highlighted area.",
+                        "click",
+                        1,
+                        1,
+                        10000)));
+
+        activity.getBenchmarkHost().start();
+
+        assertEquals("failed", activity.getBenchmarkHost().getState().name().toLowerCase());
+        assertTrue(((TextView) activity.findViewById(R.id.summaryJsonView)).getText().toString().contains("\"status\": \"error\""));
+    }
+
+    public static class FailingPreviewActivity extends H5BenchmarkActivity {
+        @Override
+        public void startActivity(Intent intent) {
+            throw new IllegalStateException("preview launch failed");
+        }
     }
 
     private void replaceManifest(H5BenchmarkActivity activity, String displayName, List<MiniWoBTaskDefinition> tasks) {
@@ -196,12 +236,24 @@ public class H5BenchmarkActivityTest {
 
     private void setField(Object target, String fieldName, Object value) {
         try {
-            java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+            java.lang.reflect.Field field = findField(target.getClass(), fieldName);
             field.setAccessible(true);
             field.set(target, value);
         } catch (ReflectiveOperationException exception) {
             throw new AssertionError(exception);
         }
+    }
+
+    private java.lang.reflect.Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
     }
 
     private MiniWoBRunRecord buildRunRecord(String runId, String model, MiniWoBTaskResult... results) {

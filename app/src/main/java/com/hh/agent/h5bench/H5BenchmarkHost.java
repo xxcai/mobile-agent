@@ -16,20 +16,24 @@ public class H5BenchmarkHost {
         return state;
     }
 
-    public void start() {
+    public synchronized boolean start() {
+        if (state == H5BenchmarkRunState.STARTING || state == H5BenchmarkRunState.RUNNING) {
+            return false;
+        }
         state = H5BenchmarkRunState.STARTING;
         starter.start(this);
+        return true;
     }
 
-    public void markRunning() {
+    public synchronized void markRunning() {
         state = H5BenchmarkRunState.RUNNING;
     }
 
-    public void markCompleted() {
+    public synchronized void markCompleted() {
         state = H5BenchmarkRunState.COMPLETED;
     }
 
-    public void markFailed() {
+    public synchronized void markFailed() {
         state = H5BenchmarkRunState.FAILED;
     }
 }

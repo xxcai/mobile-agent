@@ -75,8 +75,11 @@ public class H5BenchmarkActivity extends AppCompatActivity {
     private void startBenchmarkRun(H5BenchmarkHost host) {
         MiniWoBRunOrchestrator orchestrator = resolveRunOrchestrator();
         if (orchestrator == null) {
-            launchFirstTaskPreview();
-            host.markCompleted();
+            if (launchFirstTaskPreview()) {
+                host.markCompleted();
+            } else {
+                host.markFailed();
+            }
             return;
         }
         resolveRunExecutor().execute(() -> {
@@ -216,12 +219,12 @@ public class H5BenchmarkActivity extends AppCompatActivity {
         categoryComparisonView.setText(builder.toString().trim());
     }
 
-    private void launchFirstTaskPreview() {
+    private boolean launchFirstTaskPreview() {
         try {
             List<MiniWoBTaskDefinition> tasks = manifest.getTasks();
             if (tasks.isEmpty()) {
                 summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"empty\"\n}");
-                return;
+                return false;
             }
             MiniWoBTaskDefinition firstTask = tasks.get(0);
             Intent intent = new Intent(this, BusinessWebActivity.class);
@@ -229,9 +232,11 @@ public class H5BenchmarkActivity extends AppCompatActivity {
             intent.putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true);
             intent.putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH, firstTask.getAssetPath());
             startActivity(intent);
+            return true;
         } catch (Exception exception) {
             summaryJsonView.setText("{\n  \"suiteId\": \"" + manifest.getSuiteId() + "\",\n  \"status\": \"error\",\n  \"message\": \""
                     + safe(exception.getMessage()) + "\"\n}");
+            return false;
         }
     }
 
