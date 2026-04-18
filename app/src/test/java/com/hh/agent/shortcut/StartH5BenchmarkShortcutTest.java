@@ -2,6 +2,8 @@ package com.hh.agent.shortcut;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import android.os.Bundle;
+
 import com.hh.agent.H5BenchmarkActivity;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.h5bench.H5BenchmarkHost;
@@ -31,11 +33,30 @@ public class StartH5BenchmarkShortcutTest {
     public static final class TestApplication extends android.app.Application {
     }
 
+    public static final class TestH5BenchmarkActivity extends H5BenchmarkActivity {
+        private H5BenchmarkHost benchmarkHost;
+
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            if (benchmarkHost == null) {
+                benchmarkHost = super.getBenchmarkHost();
+            }
+        }
+
+        void setBenchmarkHost(H5BenchmarkHost benchmarkHost) {
+            this.benchmarkHost = benchmarkHost;
+        }
+
+        @Override
+        public H5BenchmarkHost getBenchmarkHost() {
+            return benchmarkHost;
+        }
+    }
+
     @Test
     public void returnsWrongPageWhenForegroundIsNotH5BenchmarkActivity() throws Exception {
-        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(
-                () -> null,
-                () -> null);
+        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(() -> null);
 
         JSONObject result = execute(shortcut, new JSONObject());
 
@@ -48,11 +69,10 @@ public class StartH5BenchmarkShortcutTest {
     public void returnsAlreadyRunningWhenBenchmarkHostIsBusy() throws Exception {
         H5BenchmarkHost host = new H5BenchmarkHost(ignored -> { });
         host.start();
-        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+        TestH5BenchmarkActivity activity = Robolectric.buildActivity(TestH5BenchmarkActivity.class).setup().get();
+        activity.setBenchmarkHost(host);
 
-        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(
-                () -> activity,
-                () -> host);
+        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(() -> activity);
 
         JSONObject result = execute(shortcut, new JSONObject());
 
@@ -66,11 +86,10 @@ public class StartH5BenchmarkShortcutTest {
     public void returnsStartedWhenHostAcceptsRun() throws Exception {
         AtomicInteger starts = new AtomicInteger();
         H5BenchmarkHost host = new H5BenchmarkHost(ignored -> starts.incrementAndGet());
-        H5BenchmarkActivity activity = Robolectric.buildActivity(H5BenchmarkActivity.class).setup().get();
+        TestH5BenchmarkActivity activity = Robolectric.buildActivity(TestH5BenchmarkActivity.class).setup().get();
+        activity.setBenchmarkHost(host);
 
-        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(
-                () -> activity,
-                () -> host);
+        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(() -> activity);
 
         JSONObject result = execute(shortcut, new JSONObject());
 
@@ -78,6 +97,7 @@ public class StartH5BenchmarkShortcutTest {
         assertEquals("started", result.getString("code"));
         assertEquals(H5BenchmarkRunState.STARTING.name(), result.getString("state"));
         assertEquals(1, starts.get());
+        assertEquals(H5BenchmarkRunState.STARTING, activity.getBenchmarkHost().getState());
     }
 
     @Test
@@ -94,6 +114,29 @@ public class StartH5BenchmarkShortcutTest {
         }
 
         assertNotNull(match);
+    }
+
+    @Test
+    public void derivesBenchmarkHostFromValidatedForegroundActivity() throws Exception {
+        AtomicInteger foregroundLookups = new AtomicInteger();
+        AtomicInteger starts = new AtomicInteger();
+        H5BenchmarkHost host = new H5BenchmarkHost(ignored -> starts.incrementAndGet());
+        TestH5BenchmarkActivity activity = Robolectric.buildActivity(TestH5BenchmarkActivity.class).setup().get();
+        activity.setBenchmarkHost(host);
+
+        StartH5BenchmarkShortcut shortcut = new StartH5BenchmarkShortcut(() -> {
+            foregroundLookups.incrementAndGet();
+            return activity;
+        });
+
+        JSONObject result = execute(shortcut, new JSONObject());
+
+        assertTrue(result.getBoolean("success"));
+        assertEquals("started", result.getString("code"));
+        assertEquals(H5BenchmarkRunState.STARTING.name(), result.getString("state"));
+        assertEquals(1, foregroundLookups.get());
+        assertEquals(1, starts.get());
+        assertEquals(H5BenchmarkRunState.STARTING, activity.getBenchmarkHost().getState());
     }
 
     private JSONObject execute(StartH5BenchmarkShortcut shortcut, JSONObject args) throws Exception {

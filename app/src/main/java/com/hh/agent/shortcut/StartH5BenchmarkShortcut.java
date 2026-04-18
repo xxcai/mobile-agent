@@ -15,18 +15,12 @@ import java.util.function.Supplier;
 
 public final class StartH5BenchmarkShortcut implements ShortcutExecutor {
     private final Supplier<Activity> foregroundActivityProvider;
-    private final Supplier<H5BenchmarkHost> benchmarkHostProvider;
 
-    public StartH5BenchmarkShortcut(Supplier<Activity> foregroundActivityProvider,
-                                    Supplier<H5BenchmarkHost> benchmarkHostProvider) {
+    public StartH5BenchmarkShortcut(Supplier<Activity> foregroundActivityProvider) {
         if (foregroundActivityProvider == null) {
             throw new IllegalArgumentException("foregroundActivityProvider cannot be null");
         }
-        if (benchmarkHostProvider == null) {
-            throw new IllegalArgumentException("benchmarkHostProvider cannot be null");
-        }
         this.foregroundActivityProvider = foregroundActivityProvider;
-        this.benchmarkHostProvider = benchmarkHostProvider;
     }
 
     @Override
@@ -51,7 +45,7 @@ public final class StartH5BenchmarkShortcut implements ShortcutExecutor {
                     .with("currentPage", activity == null ? null : activity.getClass().getSimpleName());
         }
 
-        H5BenchmarkHost host = benchmarkHostProvider.get();
+        H5BenchmarkHost host = ((H5BenchmarkActivity) activity).getBenchmarkHost();
         if (host == null) {
             return ToolResult.error("execution_failed", "Benchmark host is unavailable")
                     .with("code", "execution_failed");
