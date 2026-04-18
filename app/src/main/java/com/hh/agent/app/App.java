@@ -86,6 +86,7 @@ public class App extends Application implements MiniWoBRunOrchestrator.Provider,
             @Override
             public void openTaskPage(String assetPath) throws Exception {
                 closeForegroundBenchmarkHost();
+                Activity previousForeground = FloatingBallLifecycleCallbacks.getCurrentForegroundActivity();
                 runOnMainThread(() -> {
                     Intent intent = new Intent(App.this, BusinessWebActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -94,9 +95,11 @@ public class App extends Application implements MiniWoBRunOrchestrator.Provider,
                     intent.putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH, assetPath);
                     startActivity(intent);
                 });
-                Activity stable = FloatingBallLifecycleCallbacks.awaitNextStableForegroundActivity(
-                        false,
-                        UI_ACTION_TIMEOUT_MS
+                Activity stable = awaitNewForegroundBusinessWebActivity(
+                        FloatingBallLifecycleCallbacks::getCurrentForegroundActivity,
+                        previousForeground,
+                        UI_ACTION_TIMEOUT_MS,
+                        PAGE_READY_POLL_INTERVAL_MS
                 );
                 if (!(stable instanceof BusinessWebActivity)) {
                     throw new IllegalStateException("benchmark_activity_not_ready");
@@ -227,6 +230,30 @@ public class App extends Application implements MiniWoBRunOrchestrator.Provider,
         if (error[0] != null) {
             throw error[0];
         }
+    }
+
+    static Activity awaitNewForegroundBusinessWebActivity(ForegroundActivitySupplier foregroundActivitySupplier,
+                                                          Activity previousForeground,
+                                                          long timeoutMs,
+                                                          long pollIntervalMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + Math.max(0L, timeoutMs);
+        do {
+            Activity currentForeground = foregroundActivitySupplier.get();
+            if (currentForeground instanceof BusinessWebActivity
+                    && currentForeground != previousForeground
+                    && !currentForeground.isFinishing()
+                    && !currentForeground.isDestroyed()) {
+                return currentForeground;
+            }
+            if (pollIntervalMs > 0L && System.currentTimeMillis() <= deadline) {
+                Thread.sleep(pollIntervalMs);
+            }
+        } while (System.currentTimeMillis() <= deadline);
+        return null;
+    }
+
+    interface ForegroundActivitySupplier {
+        Activity get();
     }
 
     private String resolveAppVersion() {
