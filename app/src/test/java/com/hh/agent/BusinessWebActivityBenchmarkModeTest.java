@@ -26,26 +26,6 @@ public class BusinessWebActivityBenchmarkModeTest {
     }
 
     @Test
-    public void benchmarkModeLoadsFullAssetUrlFromH5BenchFolder() {
-        Intent intent = new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
-                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
-                .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH, "web/h5bench/miniwob/click-test-2.html");
-
-        BusinessWebActivity activity = Robolectric.buildActivity(BusinessWebActivity.class, intent)
-                .setup()
-                .get();
-
-        WebView webView = activity.findViewById(R.id.businessWebView);
-        assertEquals(
-                "file:///android_asset/web/h5bench/miniwob/click-test-2.html",
-                shadowOf(webView).getLastLoadedUrl());
-
-        WebSettings settings = webView.getSettings();
-        assertTrue(settings.getJavaScriptEnabled());
-        assertTrue(settings.getDomStorageEnabled());
-    }
-
-    @Test
     public void benchmarkModeLoadsFullAssetUrlFromSkillFolder() {
         Intent intent = new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
@@ -60,5 +40,9 @@ public class BusinessWebActivityBenchmarkModeTest {
         assertEquals(
                 "file:///android_asset/workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html",
                 shadowOf(webView).getLastLoadedUrl());
+
+        WebSettings settings = webView.getSettings();
+        assertTrue(settings.getJavaScriptEnabled());
+        assertTrue(settings.getDomStorageEnabled());
     }
 }

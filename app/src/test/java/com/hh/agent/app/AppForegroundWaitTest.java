@@ -37,7 +37,7 @@ public class AppForegroundWaitTest {
                         new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH,
-                                        "web/h5bench/miniwob/click-test-2.html"))
+                                        "workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html"))
                 .setup()
                 .get();
         AtomicInteger calls = new AtomicInteger();
@@ -74,7 +74,7 @@ public class AppForegroundWaitTest {
                         new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH,
-                                        "web/h5bench/miniwob/click-test-2.html"))
+                                        "workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html"))
                 .setup()
                 .get();
         BusinessWebActivity next = Robolectric.buildActivity(
@@ -82,7 +82,7 @@ public class AppForegroundWaitTest {
                         new Intent(ApplicationProvider.getApplicationContext(), BusinessWebActivity.class)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_MODE_ENABLED, true)
                                 .putExtra(BusinessWebActivity.EXTRA_BENCHMARK_ASSET_PATH,
-                                        "web/h5bench/miniwob/click-test-2.html"))
+                                        "workspace/skills/h5_benchmark_runner/miniwob/click-test-2.html"))
                 .setup()
                 .get();
         AtomicInteger calls = new AtomicInteger();
