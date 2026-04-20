@@ -1,6 +1,7 @@
 package com.hh.agent.shortcut;
 
 import android.content.Context;
+import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
 import com.hh.agent.app.RouteShortcutProvider;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 
@@ -16,6 +17,7 @@ public final class AppShortcutProvider {
         List<ShortcutExecutor> shortcuts = new ArrayList<>();
         shortcuts.add(new SearchContactsShortcut());
         shortcuts.add(new SendImMessageShortcut());
+        shortcuts.add(new StartH5BenchmarkShortcut(FloatingBallLifecycleCallbacks::getCurrentForegroundActivity));
         shortcuts.addAll(RouteShortcutProvider.createShortcuts(context));
         return shortcuts;
     }

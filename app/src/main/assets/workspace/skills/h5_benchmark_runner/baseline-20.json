@@ -1,0 +1,187 @@
+{
+  "suiteId": "miniwob-v0-baseline-20",
+  "suiteName": "MiniWoB Baseline 20",
+  "assetBasePath": "workspace/skills/h5_benchmark_runner/miniwob",
+  "tasks": [
+    {
+      "taskId": "click-test-2",
+      "assetPath": "click-test-2.html",
+      "instruction": "Click the highlighted area.",
+      "category": "click",
+      "seed": 1,
+      "maxSteps": 1,
+      "timeoutMs": 10000
+    },
+    {
+      "taskId": "click-button",
+      "assetPath": "click-button.html",
+      "instruction": "Click the button.",
+      "category": "click",
+      "seed": 2,
+      "maxSteps": 1,
+      "timeoutMs": 10000
+    },
+    {
+      "taskId": "click-button-sequence",
+      "assetPath": "click-button-sequence.html",
+      "instruction": "Click the buttons in order.",
+      "category": "click",
+      "seed": 3,
+      "maxSteps": 3,
+      "timeoutMs": 15000
+    },
+    {
+      "taskId": "click-dialog",
+      "assetPath": "click-dialog.html",
+      "instruction": "Click the dialog button.",
+      "category": "click",
+      "seed": 4,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "click-dialog-2",
+      "assetPath": "click-dialog-2.html",
+      "instruction": "Click the dialog in the second variant.",
+      "category": "click",
+      "seed": 5,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "click-option",
+      "assetPath": "click-option.html",
+      "instruction": "Click the correct option.",
+      "category": "click",
+      "seed": 6,
+      "maxSteps": 1,
+      "timeoutMs": 10000
+    },
+    {
+      "taskId": "enter-text",
+      "assetPath": "enter-text.html",
+      "instruction": "Enter the given text.",
+      "category": "input",
+      "seed": 7,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "enter-text-2",
+      "assetPath": "enter-text-2.html",
+      "instruction": "Enter the text in the second variant.",
+      "category": "input",
+      "seed": 8,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "enter-password",
+      "assetPath": "enter-password.html",
+      "instruction": "Enter the password.",
+      "category": "input",
+      "seed": 9,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "focus-text",
+      "assetPath": "focus-text.html",
+      "instruction": "Focus the text field.",
+      "category": "input",
+      "seed": 10,
+      "maxSteps": 1,
+      "timeoutMs": 10000
+    },
+    {
+      "taskId": "focus-text-2",
+      "assetPath": "focus-text-2.html",
+      "instruction": "Focus the text field (variant 2).",
+      "category": "input",
+      "seed": 11,
+      "maxSteps": 1,
+      "timeoutMs": 10000
+    },
+    {
+      "taskId": "form-sequence",
+      "assetPath": "form-sequence.html",
+      "instruction": "Fill out the form in sequence.",
+      "category": "input",
+      "seed": 12,
+      "maxSteps": 3,
+      "timeoutMs": 15000
+    },
+    {
+      "taskId": "choose-list",
+      "assetPath": "choose-list.html",
+      "instruction": "Choose the correct item from the list.",
+      "category": "select",
+      "seed": 13,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "search-engine",
+      "assetPath": "search-engine.html",
+      "instruction": "Search for the given term.",
+      "category": "select",
+      "seed": 14,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "use-autocomplete",
+      "assetPath": "use-autocomplete.html",
+      "instruction": "Use autocomplete to select.",
+      "category": "select",
+      "seed": 15,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "use-autocomplete-nodelay",
+      "assetPath": "use-autocomplete-nodelay.html",
+      "instruction": "Use autocomplete (no delay).",
+      "category": "select",
+      "seed": 16,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "click-scroll-list",
+      "assetPath": "click-scroll-list.html",
+      "instruction": "Click an item in a scrollable list.",
+      "category": "scroll",
+      "seed": 17,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "scroll-text",
+      "assetPath": "scroll-text.html",
+      "instruction": "Scroll to the target text.",
+      "category": "scroll",
+      "seed": 18,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "scroll-text-2",
+      "assetPath": "scroll-text-2.html",
+      "instruction": "Scroll to the text (variant 2).",
+      "category": "scroll",
+      "seed": 19,
+      "maxSteps": 2,
+      "timeoutMs": 12000
+    },
+    {
+      "taskId": "sign-agreement",
+      "assetPath": "sign-agreement.html",
+      "instruction": "Sign the agreement.",
+      "category": "scroll",
+      "seed": 20,
+      "maxSteps": 3,
+      "timeoutMs": 15000
+    }
+  ]
+}
