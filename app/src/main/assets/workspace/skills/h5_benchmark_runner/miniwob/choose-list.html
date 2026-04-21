@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Choose List Task</title>
+<!-- stylesheets -->
+<link rel="stylesheet" type="text/css" href="../core/core.css">
+<!-- JS -->
+<script src="../core/core.js"></script>
+<script src="../core/d3.v3.min.js"></script>
+<script src="../common/ui_utils.js"></script>
+
+<style>
+select { margin-top: 5px; }
+button { margin-top: 5px; }
+</style>
+
+<script>
+var genProblem = function() {
+  var div = d3.select('#area');
+  div.html('');
+
+  var ITEMS = core.randf(0,1) < 0.5 ? ui_utils.PEOPLE_NAMES : ui_utils.COUNTRIES;
+  ITEMS = ITEMS.slice(); // create a copy
+  core.shuffle(ITEMS);
+
+  var sel = div.append('select').attr('id', 'options').attr('style', 'width:150px;');
+  var n = core.randi(3, 10);
+  for(var i=0;i<n;i++) {
+    sel.append('option').html(ITEMS[i]);
+  }
+
+  var ix = core.randi(0, n); // ground truth index
+  var gt_txt = ITEMS[ix];
+  d3.select('#query').html('Select ' + gt_txt + ' from the list and click Submit.');
+
+  var btn = div.append('button').html('Submit');
+  btn.attr('class', 'secondary-action');
+  btn.on('click', function(){
+    var sel = document.getElementById('options');
+    var sel_txt = sel.options[sel.selectedIndex].innerHTML;
+    var r = gt_txt === sel_txt ? 1.0 : -1.0;
+    core.endEpisode(r, r>0);
+  });
+}
+
+var countries = [];
+
+window.onload = function() {
+  d3.selectAll('option').each(function(d){
+    countries.push(this.innerHTML);
+  });
+
+  core.startEpisode();
+}
+</script>
+</head>
+<body>
+<div id="wrap">
+  <div id="query"></div>
+  <div id="area">
+  </div>
+</div>
+
+<script>
+(function() {
+  function extractAndLog() {
+    var bid = 0;
+    var lines = [];
+    function traverse(node, indent) {
+      if (!node) return;
+      var name = node.nodeName;
+      if (name === 'SCRIPT' || name === 'STYLE') return;
+      bid++;
+      var myBid = bid;
+      node.setAttribute('data-bid', String(myBid));
+      var tag = node.tagName ? node.tagName.toLowerCase() : '#text';
+      var directText = '';
+      for (var i = 0; i < node.childNodes.length; i++) {
+        var ch = node.childNodes[i];
+        if (ch.nodeType === 3) {
+          var t = ch.textContent.trim();
+          if (t) directText += t + ' ';
+        }
+      }
+      directText = directText.trim().slice(0, 100);
+      var prefix = '';
+      for (var k = 0; k < indent; k++) prefix += '  ';
+      var line = prefix + '[' + myBid + '] ' + tag;
+      if (directText) line += " '" + directText + "'";
+      if (node.id) line += ' id="' + node.id + '"';
+      if (node.className) line += ' class="' + node.className + '"';
+      lines.push(line);
+      for (var j = 0; j < node.children.length; j++) {
+        traverse(node.children[j], indent + 1);
+      }
+    }
+    traverse(document.body, 0);
+    console.log('[AXTree] === Android-format AXTree (500ms after load) ===');
+    for (var i = 0; i < lines.length; i++) {
+      console.log('[AXTree] ' + lines[i]);
+    }
+    console.log('[AXTree] === end ===');
+  }
+  window.addEventListener('load', function() {
+    setTimeout(extractAndLog, 500);
+  });
+})();
+</script>
+</body>

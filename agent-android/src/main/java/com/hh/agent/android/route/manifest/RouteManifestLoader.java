@@ -67,7 +67,7 @@ public final class RouteManifestLoader {
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 outputStream.write(buffer, 0, bytesRead);
             }
-            return outputStream.toString(StandardCharsets.UTF_8);
+            return new String(outputStream.toByteArray(), StandardCharsets.UTF_8);
         }
     }
 }
