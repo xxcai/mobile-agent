@@ -101,6 +101,38 @@ public class MainPresenter implements MainContract.Presenter {
         return sessionKey;
     }
 
+    public AgentEventListener createExternalStreamMirror(String prompt) {
+        return new ExternalStreamMirror(prompt, new ExternalStreamMirror.Listener() {
+            @Override
+            public void onUserMessage(Message message) {
+                if (messageListView != null) {
+                    mainHandler.post(() -> messageListView.onUserMessageSent(message));
+                }
+            }
+
+            @Override
+            public void onStreamUpdate(Message message) {
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamMessageUpdate(message));
+                }
+            }
+
+            @Override
+            public void onStreamEnd(Message message, String finishReason) {
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamMessageEnd(message, finishReason));
+                }
+            }
+
+            @Override
+            public void onStreamError(String errorCode, String errorMessage) {
+                if (streamingView != null) {
+                    mainHandler.post(() -> streamingView.onStreamError(errorCode, errorMessage));
+                }
+            }
+        });
+    }
+
     private static final String TAG = "MainPresenter";
 
     @Override

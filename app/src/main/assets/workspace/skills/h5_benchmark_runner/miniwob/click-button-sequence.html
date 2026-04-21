@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Click Button Sqeuence Task</title>
+<!-- stylesheets -->
+<link rel="stylesheet" type="text/css" href="../core/core.css">
+<!-- JS -->
+<script src="../core/core.js"></script>
+<script src="../core/d3.v3.min.js"></script>
+
+<style>
+#subbtn { width: 40px; height: 40px; }
+#subbtn2 { width: 40px; height: 40px; }
+</style>
+
+<script>
+var EXPECTED_SEQUENCE = ['subbtn', 'subbtn2'];
+var buttonsPushed = [];
+
+var buttonClicked = function(){
+  var id = this.getAttribute('id');
+  buttonsPushed.push(id);
+  if(buttonsPushed.length == 2){
+    var correctPushed = buttonsPushed.every(function(v,i){return v==EXPECTED_SEQUENCE[i];});
+    var r = correctPushed ? 1.0 : -1.0;
+    core.endEpisode(r, r>0);
+  }
+}
+
+var genProblem = function() {
+  buttonsPushed = [];
+  var L = core.randi(0, 118); var U = core.randi(0, 118) + 50;
+  var btn = d3.select('#subbtn');
+  btn.attr('style', 'position:absolute; left:'+L+'px; top:'+U+'px');
+  btn.on('click', buttonClicked);
+
+  var L = core.randi(0, 118); var U = core.randi(0, 118) + 50;
+  var btn = d3.select('#subbtn2');
+  btn.attr('style', 'position:absolute; left:'+L+'px; top:'+U+'px');
+  btn.on('click', buttonClicked);
+}
+
+window.onload = function() {
+  core.startEpisode();
+}
+</script>
+</head>
+<body>
+<div id="wrap">
+  <div id="query">Click button ONE, then click button TWO.</div>
+  <div id="area">
+    <button id="subbtn">ONE</button>
+    <button id="subbtn2">TWO</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  function extractAndLog() {
+    var bid = 0;
+    var lines = [];
+    function traverse(node, indent) {
+      if (!node) return;
+      var name = node.nodeName;
+      if (name === 'SCRIPT' || name === 'STYLE') return;
+      bid++;
+      var myBid = bid;
+      node.setAttribute('data-bid', String(myBid));
+      var tag = node.tagName ? node.tagName.toLowerCase() : '#text';
+      var directText = '';
+      for (var i = 0; i < node.childNodes.length; i++) {
+        var ch = node.childNodes[i];
+        if (ch.nodeType === 3) {
+          var t = ch.textContent.trim();
+          if (t) directText += t + ' ';
+        }
+      }
+      directText = directText.trim().slice(0, 100);
+      var prefix = '';
+      for (var k = 0; k < indent; k++) prefix += '  ';
+      var line = prefix + '[' + myBid + '] ' + tag;
+      if (directText) line += " '" + directText + "'";
+      if (node.id) line += ' id="' + node.id + '"';
+      if (node.className) line += ' class="' + node.className + '"';
+      lines.push(line);
+      for (var j = 0; j < node.children.length; j++) {
+        traverse(node.children[j], indent + 1);
+      }
+    }
+    traverse(document.body, 0);
+    console.log('[AXTree] === Android-format AXTree (500ms after load) ===');
+    for (var i = 0; i < lines.length; i++) {
+      console.log('[AXTree] ' + lines[i]);
+    }
+    console.log('[AXTree] === end ===');
+  }
+  window.addEventListener('load', function() {
+    setTimeout(extractAndLog, 500);
+  });
+})();
+</script>
+</body>

@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.hh.agent.BusinessWebActivity;
+import com.hh.agent.H5BenchmarkActivity;
 import com.hh.agent.R;
 import com.hh.agent.mockbusiness.model.BannerItem;
 import com.hh.agent.mockbusiness.model.BusinessQuickAction;
@@ -41,6 +42,7 @@ public class BusinessHomeFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        bindRecentUseBenchmarkEntry(view);
         List<BusinessQuickAction> quickActions = MockBusinessRepository.getQuickActions();
         bindQuickActions(view, quickActions);
         bindBanners(view, MockBusinessRepository.getBannerItems());
@@ -50,6 +52,11 @@ public class BusinessHomeFragment extends Fragment {
         bindTopMore(view);
         bindDebugEntry(view);
         adjustQuickActionPages(view);
+    }
+
+    private void bindRecentUseBenchmarkEntry(View root) {
+        root.findViewById(R.id.businessH5BenchmarkEntry)
+                .setOnClickListener(v -> startActivity(new Intent(requireContext(), H5BenchmarkActivity.class)));
     }
 
     private void bindQuickActions(View root, List<BusinessQuickAction> quickActions) {
