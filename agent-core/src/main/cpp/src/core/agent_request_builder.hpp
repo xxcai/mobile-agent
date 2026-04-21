@@ -491,6 +491,99 @@ std::set<std::string> collect_allowed_tool_names(const ChatCompletionRequest& re
     return names;
 }
 
+std::optional<int> first_int_value(const nlohmann::json& object,
+                                   const std::vector<std::string>& keys) {
+    if (!object.is_object()) {
+        return std::nullopt;
+    }
+    for (const auto& key : keys) {
+        if (!object.contains(key)) {
+            continue;
+        }
+        const auto& value = object[key];
+        if (value.is_number_integer()) {
+            return value.get<int>();
+        }
+        if (value.is_number_float()) {
+            return static_cast<int>(value.get<double>());
+        }
+        if (value.is_string()) {
+            try {
+                return std::stoi(trim_whitespace(value.get<std::string>()));
+            } catch (...) {
+                continue;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+bool point_in_safe_corner_entry_tap_band(int x,
+                                         int y,
+                                         const ObservationSnapshot& snapshot) {
+    if (snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
+        return true;
+    }
+
+    const double width = static_cast<double>(snapshot.screen_width);
+    const double height = static_cast<double>(snapshot.screen_height);
+    return x >= 0
+            && y >= 0
+            && x <= static_cast<int>(width * 0.28)
+            && y >= static_cast<int>(height * 0.045)
+            && y <= static_cast<int>(height * 0.12);
+}
+
+bool corner_entry_gesture_in_safe_region(const ToolCall& tool_call,
+                                         const ObservationSnapshot& snapshot,
+                                         std::string& reason) {
+    if (snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
+        return true;
+    }
+    if (!tool_call.arguments.is_object()) {
+        reason = "missing_arguments";
+        return false;
+    }
+
+    const std::string action = normalize_for_runtime_match(
+            first_string_value(tool_call.arguments, {"action", "gesture", "type"}));
+    if (!action.empty() && action != "tap" && action != "open") {
+        return true;
+    }
+
+    if (tool_call.arguments.contains("observation")
+            && tool_call.arguments["observation"].is_object()) {
+        const auto& observation = tool_call.arguments["observation"];
+        const std::string bounds = first_string_value(observation, {"referencedBounds", "bounds"});
+        if (!bounds.empty()) {
+            int center_x = 0;
+            int center_y = 0;
+            if (!parse_bounds_center(bounds, center_x, center_y)) {
+                reason = "invalid_referenced_bounds";
+                return false;
+            }
+            if (!point_in_safe_corner_entry_tap_band(center_x, center_y, snapshot)) {
+                reason = "referenced_bounds_out_of_header_region";
+                return false;
+            }
+            return true;
+        }
+    }
+
+    const auto x = first_int_value(tool_call.arguments, {"x"});
+    const auto y = first_int_value(tool_call.arguments, {"y"});
+    if (x.has_value() && y.has_value()) {
+        if (!point_in_safe_corner_entry_tap_band(*x, *y, snapshot)) {
+            reason = "coordinate_out_of_header_region";
+            return false;
+        }
+        return true;
+    }
+
+    reason = "missing_referenced_bounds";
+    return false;
+}
+
 std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>& tool_calls,
                                                     const ChatCompletionRequest& request,
                                                     const ExecutionState& state) {
@@ -529,6 +622,60 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                         step_action_attempt_count(state, state.pending_step_index),
                         pending_step.max_attempts);
                 continue;
+            }
+            if (step_prefers_corner_entry(pending_step)) {
+                const auto latest_observation = find_latest_tool_result_content(
+                        request.messages, "android_view_context_tool");
+                if (latest_observation.has_value()) {
+                    const ObservationSnapshot snapshot =
+                            parse_observation_snapshot(*latest_observation);
+                    const std::string gesture_action = tool_call.arguments.is_object()
+                            ? normalize_for_runtime_match(first_string_value(
+                                      tool_call.arguments, {"action", "gesture", "type"}))
+                            : "";
+                    const bool explicit_back_recovery =
+                            gesture_action == "back" || gesture_action == "navigate_back";
+                    if (!matches_step_page(snapshot, pending_step)) {
+                        if (explicit_back_recovery) {
+                            filtered.push_back(tool_call);
+                            continue;
+                        }
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][tool_call_rejected] reason=pending_step_page_mismatch tool_name={} step_index={} target={} activity={} expected_activity={} expected_page={}",
+                                tool_call.name,
+                                state.pending_step_index,
+                                truncate_runtime_text(pending_step.target, 80),
+                                truncate_runtime_text(snapshot.activity, 80),
+                                truncate_runtime_text(pending_step.activity, 80),
+                                truncate_runtime_text(pending_step.page, 80));
+                        continue;
+                    }
+
+                    std::string corner_region_reason;
+                    if (!corner_entry_gesture_in_safe_region(
+                                tool_call, snapshot, corner_region_reason)) {
+                        auto recovery_call = build_corner_region_recovery_tool_call(
+                                pending_step, snapshot);
+                        if (!recovery_call.has_value()) {
+                            ICRAW_LOG_INFO(
+                                    "[AgentLoop][tool_call_rejected] reason={} tool_name={} step_index={} target={} activity={}",
+                                    corner_region_reason,
+                                    tool_call.name,
+                                    state.pending_step_index,
+                                    truncate_runtime_text(pending_step.target, 80),
+                                    truncate_runtime_text(snapshot.activity, 80));
+                            continue;
+                        }
+                        ICRAW_LOG_INFO(
+                                "[AgentLoop][tool_call_rewritten] reason={} tool_name={} step_index={} target={} activity={}",
+                                corner_region_reason,
+                                tool_call.name,
+                                state.pending_step_index,
+                                truncate_runtime_text(pending_step.target, 80),
+                                truncate_runtime_text(snapshot.activity, 80));
+                        tool_call = *recovery_call;
+                    }
+                }
             }
             if (is_pull_refresh_swipe_tool_call(tool_call)
                     && should_guard_pull_refresh_for_pending_step(pending_step)) {

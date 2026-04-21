@@ -1018,7 +1018,7 @@ bool candidate_in_tight_corner_entry_region(const ObservationCandidate& candidat
     const double width = static_cast<double>(snapshot.screen_width);
     const double height = static_cast<double>(snapshot.screen_height);
     return center_x <= static_cast<int>(width * 0.26)
-            && center_y <= static_cast<int>(height * 0.16);
+            && center_y <= static_cast<int>(height * 0.12);
 }
 
 bool candidate_is_midpage_list_or_card_candidate(const ObservationCandidate& candidate,
@@ -1123,13 +1123,14 @@ std::optional<ToolCall> build_corner_region_recovery_tool_call(const SkillStepHi
 
     // Corner entries such as avatars are often plain ImageViews and may not appear in
     // hybrid actionableNodes. Use a conservative header coordinate, then verify progress
-    // through the normal observation/confirmation path.
+    // through the normal observation/confirmation path. Keep the point inside the app
+    // toolbar/header band rather than the system status bar.
     const int tap_x = std::max(1, static_cast<int>(snapshot.screen_width * 0.076));
-    const int tap_y = std::max(1, static_cast<int>(snapshot.screen_height * 0.072));
+    const int tap_y = std::max(1, static_cast<int>(snapshot.screen_height * 0.075));
     const int bound_left = std::max(0, tap_x - static_cast<int>(snapshot.screen_width * 0.055));
-    const int bound_top = std::max(0, tap_y - static_cast<int>(snapshot.screen_height * 0.040));
+    const int bound_top = std::max(0, tap_y - static_cast<int>(snapshot.screen_height * 0.035));
     const int bound_right = std::min(snapshot.screen_width, tap_x + static_cast<int>(snapshot.screen_width * 0.055));
-    const int bound_bottom = std::min(snapshot.screen_height, tap_y + static_cast<int>(snapshot.screen_height * 0.040));
+    const int bound_bottom = std::min(snapshot.screen_height, tap_y + static_cast<int>(snapshot.screen_height * 0.035));
     std::ostringstream bounds;
     bounds << "[" << bound_left << "," << bound_top << "]["
            << bound_right << "," << bound_bottom << "]";
@@ -1351,20 +1352,6 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
             snapshot.warning_conflict_count);
 
     if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
-        ICRAW_LOG_INFO(
-                "[AgentLoop][fast_execute_region_coordinate_recovery_attempt] target={} snapshot_id={} screen_width={} screen_height={} high_confidence_count={}",
-                step.target,
-                snapshot.snapshot_id,
-                snapshot.screen_width,
-                snapshot.screen_height,
-                high_confidence_candidates.size());
-        auto recovery_call = build_corner_region_recovery_tool_call(step, snapshot);
-        if (recovery_call.has_value()) {
-            return recovery_call;
-        }
-    }
-
-    if (matched_candidates.empty() && step_prefers_corner_entry(step)) {
         std::vector<ObservationCandidate> preferred_region_high_confidence_candidates;
         for (const auto& candidate : high_confidence_candidates) {
             if (candidate_in_preferred_entry_region(candidate, step, snapshot)
@@ -1517,6 +1504,10 @@ std::optional<ToolCall> maybe_build_fast_execute_tool_call(const ExecutionState&
                     "[AgentLoop][fast_execute_fallback] reason=corner_candidate_out_of_region count={} target={}",
                     matched_candidates.size(),
                     step.target);
+            auto recovery_call = build_corner_region_recovery_tool_call(step, snapshot);
+            if (recovery_call.has_value()) {
+                return recovery_call;
+            }
             return std::nullopt;
         }
         if (strict_corner_candidates.size() < matched_candidates.size()) {
