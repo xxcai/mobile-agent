@@ -13,6 +13,9 @@ android {
         targetSdk 31
         versionCode 1
         versionName "1.0"
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
     }
 
     buildTypes {
@@ -27,6 +30,12 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
 
+    packagingOptions {
+        jniLibs {
+            pickFirsts += ['**/libicraw.so', '**/libc++_shared.so']
+        }
+    }
+
     testOptions {
         unitTests {
             includeAndroidResources = true
@@ -37,6 +46,7 @@ android {
 dependencies {
     implementation project(':agent-core')
     implementation project(':agent-android')
+    implementation project(':agent-screen-vision')
     implementation project(':benchmark-android')
 
     implementation 'androidx.core:core:1.12.0'
@@ -45,11 +55,15 @@ dependencies {
     implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
+    implementation 'io.noties.markwon:core:4.6.2'
+    implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
+    implementation 'io.noties.markwon:ext-tables:4.6.2'
+    implementation 'io.noties.markwon:ext-tasklist:4.6.2'
+
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'androidx.test:core:1.5.0'
     testImplementation 'org.robolectric:robolectric:4.11.1'
     testImplementation 'org.json:json:20240303'
 }
 
-// Apply config-template.gradle for copying config.json.template to assets
 apply from: rootProject.file('config-template.gradle')

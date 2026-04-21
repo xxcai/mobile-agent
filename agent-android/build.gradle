@@ -1,10 +1,12 @@
 plugins {
     id 'com.android.library'
+    id 'maven-publish'
 }
 
 android {
     namespace 'com.hh.agent.android'
     compileSdk 34
+    buildToolsVersion '34.0.0'
 
     defaultConfig {
         minSdk 24
@@ -26,19 +28,24 @@ android {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
+
+    publishing {
+        singleVariant("debug") {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
     implementation project(':agent-core')
 
-    // androidx 使用宿主版本
+    // AndroidX and Material dependencies are provided by host apps.
     compileOnly 'androidx.core:core:1.12.0'
     compileOnly 'androidx.appcompat:appcompat:1.6.1'
     compileOnly 'androidx.lifecycle:lifecycle-process:2.2.0'
-    compileOnly 'com.google.android.material:material:1.6.1'
+    compileOnly 'com.google.android.material:material:1.13.0'
     compileOnly 'androidx.recyclerview:recyclerview:1.3.2'
 
-    // Markwon Markdown 渲染库
     implementation 'io.noties.markwon:core:4.6.2'
     implementation 'io.noties.markwon:ext-strikethrough:4.6.2'
     implementation 'io.noties.markwon:ext-tables:4.6.2'
@@ -46,4 +53,23 @@ dependencies {
 
     testImplementation 'org.json:json:20240303'
     testImplementation 'junit:junit:4.13.2'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create("debug", MavenPublication) {
+                from components.debug
+                groupId = rootProject.ext.mobileAgentMavenGroup
+                artifactId = "agent-android"
+                version = rootProject.ext.mobileAgentMavenVersion
+            }
+        }
+        repositories {
+            maven {
+                name = "offlineBundle"
+                url = rootProject.ext.mobileAgentLocalRepoDir.get().asFile.toURI()
+            }
+        }
+    }
 }

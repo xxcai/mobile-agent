@@ -16,20 +16,20 @@ final class SwipeGestureToolActionHandler extends AbstractGestureToolActionHandl
 
     @Override
     public String getActionDescription() {
-        return "swipe 表示按高层滚动意图驱动当前页面滚动";
+        return "swipe: scroll the current page";
     }
 
     @Override
     public void contributeProperties(ToolSchemaBuilder.FunctionToolBuilder builder) {
         builder.property("direction", ToolSchemaBuilder.string()
-                        .description("滚动方向。down 表示继续查看更早的内容，up 表示回看更新的内容。仅在 action=swipe 时必填。")
+                        .description("Swipe direction")
                         .enumValues("down", "up"), false)
                 .property("amount", ToolSchemaBuilder.string()
-                        .description("滚动幅度。small/medium/large/one_screen 分别对应容器高度的不同百分比。仅在 action=swipe 时可选。")
+                        .description("Swipe distance")
                         .enumValues("small", "medium", "large", "one_screen")
                         .defaultValue("medium"), false)
                 .property("duration", ToolSchemaBuilder.integer()
-                        .description("滚动后的稳定等待时间，单位毫秒。仅在 action=swipe 时可选。"), false);
+                        .description("Post-swipe settle time in ms"), false);
     }
 
     @Override

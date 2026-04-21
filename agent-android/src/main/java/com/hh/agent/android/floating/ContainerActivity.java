@@ -23,8 +23,8 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
 /**
- * 容器Activity - 悬浮球点击后展开的半透明Activity
- * 使用SingleTop模式管理Task栈
+ * 瀹瑰櫒Activity - 鎮诞鐞冪偣鍑诲悗灞曞紑鐨勫崐閫忔槑Activity
+ * 浣跨敤SingleTop妯″紡绠＄悊Task鏍?
  */
 public class ContainerActivity extends AppCompatActivity {
 
@@ -42,17 +42,17 @@ public class ContainerActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 初始化悬浮球管理器并隐藏悬浮球
+        // 鍒濆鍖栨偓娴悆绠＄悊鍣ㄥ苟闅愯棌鎮诞鐞?
         mFloatingBallManager = FloatingBallManager.getInstance(this);
         mFloatingBallManager.hide();
 
-        // 设置Window为半透明
+        // 璁剧疆Window涓哄崐閫忔槑
         setupWindow();
 
-        // 创建布局
+        // 鍒涘缓甯冨眬
         setupLayout();
 
-        // 处理返回键
+        // 澶勭悊杩斿洖閿?
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -62,7 +62,7 @@ public class ContainerActivity extends AppCompatActivity {
     }
 
     /**
-     * 设置Window为半透明
+     * 璁剧疆Window涓哄崐閫忔槑
      */
     private void setupWindow() {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -72,9 +72,9 @@ public class ContainerActivity extends AppCompatActivity {
         params.height = WindowManager.LayoutParams.MATCH_PARENT;
         params.gravity = Gravity.FILL;
 
-        // 设置标志位监听窗口外部触摸事件
-        // FLAG_NOT_TOUCH_MODAL: 让触摸事件传递给下层窗口
-        // FLAG_WATCH_OUTSIDE_TOUCH: 监听窗口外部的触摸事件
+        // 璁剧疆鏍囧織浣嶇洃鍚獥鍙ｅ閮ㄨЕ鎽镐簨浠?
+        // FLAG_NOT_TOUCH_MODAL: 璁╄Е鎽镐簨浠朵紶閫掔粰涓嬪眰绐楀彛
+        // FLAG_WATCH_OUTSIDE_TOUCH: 鐩戝惉绐楀彛澶栭儴鐨勮Е鎽镐簨浠?
         params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
 
@@ -82,7 +82,7 @@ public class ContainerActivity extends AppCompatActivity {
     }
 
     /**
-     * 创建布局
+     * 鍒涘缓甯冨眬
      */
     private void setupLayout() {
         mRootLayout = new FrameLayout(this);
@@ -116,7 +116,7 @@ public class ContainerActivity extends AppCompatActivity {
         cardParams.setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
         mCardLayout.setLayoutParams(cardParams);
 
-        // 设置圆角 outline（使窗口呈现圆角）
+        // 璁剧疆鍦嗚 outline锛堜娇绐楀彛鍛堢幇鍦嗚锛?
         mCardLayout.setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, Outline outline) {
@@ -125,9 +125,9 @@ public class ContainerActivity extends AppCompatActivity {
         });
         mCardLayout.setClipToOutline(true);
 
-        // 创建内容区域容器 (填充剩余空间)
+        // 鍒涘缓鍐呭鍖哄煙瀹瑰櫒 (濉厖鍓╀綑绌洪棿)
         FrameLayout contentContainer = new FrameLayout(this);
-        contentContainer.setId(View.generateViewId()); // 生成唯一ID供Fragment使用
+        contentContainer.setId(View.generateViewId()); // 鐢熸垚鍞竴ID渚汧ragment浣跨敤
         LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
@@ -135,13 +135,13 @@ public class ContainerActivity extends AppCompatActivity {
         mCardLayout.addView(contentContainer, contentParams);
         mRootLayout.addView(mCardLayout);
 
-        // 设置容器内部点击不关闭（移除原来的OnClickListener）
-        // 外部点击通过 FLAG_WATCH_OUTSIDE_TOUCH 机制处理
+        // 璁剧疆瀹瑰櫒鍐呴儴鐐瑰嚮涓嶅叧闂紙绉婚櫎鍘熸潵鐨凮nClickListener锛?
+        // 澶栭儴鐐瑰嚮閫氳繃 FLAG_WATCH_OUTSIDE_TOUCH 鏈哄埗澶勭悊
 
         setContentView(mRootLayout);
         setupInsetsHandling();
 
-        // 加载 AgentFragment 到内容区域
+        // 鍔犺浇 AgentFragment 鍒板唴瀹瑰尯鍩?
         loadAgentFragment(contentContainer.getId());
 
         startEnterAnimation();
@@ -200,16 +200,31 @@ public class ContainerActivity extends AppCompatActivity {
     }
 
     /**
-     * 加载 AgentFragment
+     * 鍔犺浇 AgentFragment
      */
     private void loadAgentFragment(int containerId) {
         FragmentManager fragmentManager = getSupportFragmentManager();
         FragmentTransaction transaction = fragmentManager.beginTransaction();
 
-        // 创建并加载 AgentFragment
+        // 鍒涘缓骞跺姞杞?AgentFragment
         AgentFragment agentFragment = AgentFragment.newInstance(SESSION_KEY);
         transaction.replace(containerId, agentFragment);
         transaction.commit();
+    }
+
+    public void finishImmediately() {
+        if (mIsClosing) {
+            return;
+        }
+        mIsClosing = true;
+        if (mScrimView != null) {
+            mScrimView.animate().cancel();
+        }
+        if (mCardLayout != null) {
+            mCardLayout.animate().cancel();
+        }
+        super.finish();
+        overridePendingTransition(0, 0);
     }
 
     @Override
@@ -251,12 +266,15 @@ public class ContainerActivity extends AppCompatActivity {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        // 处理窗口外部触摸事件
+        // 澶勭悊绐楀彛澶栭儴瑙︽懜浜嬩欢
         if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
-            // 点击窗口外部（Activity Window 60% 区域之外的屏幕部分）关闭Activity
+            // 鐐瑰嚮绐楀彛澶栭儴锛圓ctivity Window 60% 鍖哄煙涔嬪鐨勫睆骞曢儴鍒嗭級鍏抽棴Activity
             finish();
             return true;
         }
         return super.onTouchEvent(event);
     }
 }
+
+
+

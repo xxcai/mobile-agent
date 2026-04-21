@@ -1,6 +1,7 @@
 package com.hh.agent.android.channel;
 
 import com.hh.agent.android.toolschema.ToolSchemaBuilder;
+import com.hh.agent.android.viewcontext.ObservationDetailMode;
 import com.hh.agent.android.viewcontext.ViewContextSnapshotProvider;
 import com.hh.agent.core.tool.ToolResult;
 
@@ -15,16 +16,16 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
 
     @Override
     public String getSourceDescription() {
-        return "all 是聚合模式，会先返回 native_xml，并按需附带 mock web_dom / screen_snapshot";
+        return "all returns the native observation and can optionally attach mock web_dom or screen_snapshot data";
     }
 
     @Override
     public void contributeProperties(ToolSchemaBuilder.FunctionToolBuilder builder) {
         builder.property("includeMockWebDom", ToolSchemaBuilder.bool()
-                        .description("当 source=all 时，是否附带 mock web DOM。")
+                        .description("When source=all, attach mock web DOM output as an extra field.")
                         .defaultValue(false), false)
                 .property("includeMockScreenshot", ToolSchemaBuilder.bool()
-                        .description("当 source=all 时，是否附带 mock screenshot 引用。")
+                        .description("When source=all, attach a mock screenshot reference if no real screenshot is present.")
                         .defaultValue(false), false);
     }
 
@@ -32,17 +33,28 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
     public ToolResult execute(JSONObject params, String targetHint) throws Exception {
         boolean includeMockWebDom = params.optBoolean("includeMockWebDom", false);
         boolean includeMockScreenshot = params.optBoolean("includeMockScreenshot", false);
+        ObservationDetailMode detailMode = ObservationDetailMode.fromRaw(params.optString("__detailMode", null));
 
         ToolResult result = buildBaseResult(getSourceName(), targetHint);
-        ToolResult nativeSnapshot = ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint);
+        ToolResult nativeSnapshot = ViewContextSnapshotProvider.getCurrentNativeViewSnapshot(targetHint, true, detailMode);
         JSONObject nativeSnapshotJson = new JSONObject(nativeSnapshot.toJsonString());
         boolean nativeSuccess = nativeSnapshotJson.optBoolean("success", false);
+
+        String realScreenSnapshot = nativeSuccess ? nativeSnapshotJson.optString("screenSnapshot", null) : null;
+        if (realScreenSnapshot != null && realScreenSnapshot.trim().isEmpty()) {
+            realScreenSnapshot = null;
+        }
+
         return result
                 .with("mock", !nativeSuccess)
                 .with("activityClassName",
                         nativeSuccess ? nativeSnapshotJson.optString("activityClassName", null) : null)
                 .with("observationMode",
                         nativeSuccess ? nativeSnapshotJson.optString("observationMode", null) : null)
+                .with("observationDetailMode",
+                        nativeSuccess ? nativeSnapshotJson.optString("observationDetailMode", null) : null)
+                .with("visualObservationMode",
+                        nativeSuccess ? nativeSnapshotJson.optString("visualObservationMode", null) : null)
                 .with("snapshotId",
                         nativeSuccess ? nativeSnapshotJson.optString("snapshotId", null) : null)
                 .with("snapshotCreatedAtEpochMs",
@@ -51,11 +63,52 @@ final class AllViewContextSourceHandler extends AbstractViewContextSourceHandler
                         nativeSuccess ? nativeSnapshotJson.optString("snapshotScope", null) : null)
                 .with("snapshotCurrentTurnOnly",
                         nativeSuccess ? nativeSnapshotJson.optBoolean("snapshotCurrentTurnOnly", false) : null)
+                .withJson("uiTree",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "uiTree") : null)
+                .withJson("screenElements",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "screenElements") : null)
+                .with("pageSummary",
+                        nativeSuccess ? nativeSnapshotJson.optString("pageSummary", null) : null)
+                .withJson("quality",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "quality") : null)
+                .withJson("raw",
+                        nativeSuccess ? jsonValueToString(nativeSnapshotJson, "raw") : null)
                 .with("nativeViewXml",
                         nativeSuccess ? nativeSnapshotJson.optString("nativeViewXml", null) : null)
+                .withJson("screenVisionCompact",
+                        nativeSuccess && nativeSnapshotJson.optJSONObject("screenVisionCompact") != null
+                                ? nativeSnapshotJson.optJSONObject("screenVisionCompact").toString()
+                                : null)
+                .withJson("screenVisionRaw",
+                        nativeSuccess && nativeSnapshotJson.optJSONObject("screenVisionRaw") != null
+                                ? nativeSnapshotJson.optJSONObject("screenVisionRaw").toString()
+                                : null)
+                .withJson("hybridObservation",
+                        nativeSuccess && nativeSnapshotJson.optJSONObject("hybridObservation") != null
+                                ? nativeSnapshotJson.optJSONObject("hybridObservation").toString()
+                                : null)
+                .with("screenSnapshot",
+                        realScreenSnapshot != null
+                                ? realScreenSnapshot
+                                : (includeMockScreenshot ? ViewContextToolChannel.MOCK_SCREEN_SNAPSHOT : null))
+                .with("screenSnapshotWidth",
+                        nativeSuccess && !nativeSnapshotJson.isNull("screenSnapshotWidth")
+                                ? nativeSnapshotJson.optInt("screenSnapshotWidth")
+                                : null)
+                .with("screenSnapshotHeight",
+                        nativeSuccess && !nativeSnapshotJson.isNull("screenSnapshotHeight")
+                                ? nativeSnapshotJson.optInt("screenSnapshotHeight")
+                                : null)
                 .with("nativeViewUnavailableReason",
                         nativeSuccess ? null : nativeSnapshotJson.optString("message", "unknown"))
-                .with("webDom", includeMockWebDom ? ViewContextToolChannel.MOCK_WEB_DOM : null)
-                .with("screenSnapshot", includeMockScreenshot ? ViewContextToolChannel.MOCK_SCREEN_SNAPSHOT : null);
+                .with("webDom", includeMockWebDom ? ViewContextToolChannel.MOCK_WEB_DOM : null);
+    }
+
+    private String jsonValueToString(JSONObject jsonObject, String key) {
+        if (jsonObject == null || !jsonObject.has(key) || jsonObject.isNull(key)) {
+            return null;
+        }
+        Object value = jsonObject.opt(key);
+        return value != null ? value.toString() : null;
     }
 }

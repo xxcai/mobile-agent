@@ -23,17 +23,17 @@ final class TapGestureToolActionHandler extends AbstractGestureToolActionHandler
 
     @Override
     public String getActionDescription() {
-        return "tap 表示点击页面元素";
+        return "tap: press a visible target";
     }
 
     @Override
     public void contributeProperties(ToolSchemaBuilder.FunctionToolBuilder builder) {
         builder.property("x", ToolSchemaBuilder.integer()
-                        .description("点击目标的 X 坐标。仅在 action=tap 时必填。"), false)
+                        .description("Tap X coordinate"), false)
                 .property("y", ToolSchemaBuilder.integer()
-                        .description("点击目标的 Y 坐标。仅在 action=tap 时必填。"), false)
+                        .description("Tap Y coordinate"), false)
                 .property("allowCoordinateFallback", ToolSchemaBuilder.bool()
-                        .description("仅用于兼容旧测试或受控回退场景。为 true 时，即使缺少 observation，也允许继续使用裸坐标。默认 false。")
+                        .description("Allow coordinate-only fallback")
                         .defaultValue(false), false);
     }
 

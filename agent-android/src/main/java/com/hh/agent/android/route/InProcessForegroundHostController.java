@@ -9,8 +9,8 @@ import com.hh.agent.android.floating.FloatingBallLifecycleCallbacks;
  * In-process foreground host controller that reuses the existing floating-ball lifecycle tracking.
  */
 public final class InProcessForegroundHostController implements ForegroundHostController {
-    private static final long CONTAINER_DISMISS_TIMEOUT_MS = 1500L;
-    private static final long FOREGROUND_STABLE_TIMEOUT_MS = 1500L;
+    private static final long CONTAINER_DISMISS_TIMEOUT_MS = 900L;
+    private static final long FOREGROUND_STABLE_TIMEOUT_MS = 900L;
 
     @Override
     public HostForegroundPreparationResult prepareHostForegroundForRoute() {
@@ -58,10 +58,17 @@ public final class InProcessForegroundHostController implements ForegroundHostCo
 
     private boolean dismissContainerActivity(Activity activity) {
         try {
-            activity.runOnUiThread(activity::finish);
+            activity.runOnUiThread(() -> {
+                if (activity instanceof ContainerActivity) {
+                    ((ContainerActivity) activity).finishImmediately();
+                } else {
+                    activity.finish();
+                }
+            });
             return true;
         } catch (Exception ignored) {
             return false;
         }
     }
 }
+

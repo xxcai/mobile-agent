@@ -10,6 +10,12 @@
 #include "icraw/core/http_client.hpp"
 #include "icraw/log/logger.hpp"
 #include "icraw/log/log_utils.hpp"
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <functional>
+#include <sstream>
+#include <unordered_set>
 
 namespace icraw {
 
@@ -22,6 +28,206 @@ static std::string trim_whitespace(const std::string& text) {
     return text.substr(start, end - start + 1);
 }
 
+namespace {
+
+constexpr size_t PRELOADED_SKILL_MAX_COUNT = 2;
+constexpr size_t PRELOADED_SKILL_MAX_TOTAL_CHARS = 20000;
+constexpr int PRELOADED_SKILL_MIN_SCORE = 16;
+
+void replace_all(std::string& text, const std::string& needle, const std::string& replacement) {
+    if (needle.empty()) {
+        return;
+    }
+    size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string::npos) {
+        text.replace(pos, needle.size(), replacement);
+        pos += replacement.size();
+    }
+}
+
+std::string normalize_for_match(std::string text) {
+    static const std::array<std::string, 15> unicode_punctuation = {
+        "\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99",
+        "\xE3\x80\x82", "\xEF\xBC\x8C", "\xEF\xBC\x9A", "\xEF\xBC\x9B",
+        "\xEF\xBC\x81", "\xEF\xBC\x9F", "\xEF\xBC\x88", "\xEF\xBC\x89",
+        "\xE3\x80\x81", "\xE3\x80\x8A", "\xE3\x80\x8B"
+    };
+    for (const auto& mark : unicode_punctuation) {
+        replace_all(text, mark, " ");
+    }
+
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (unsigned char ch : text) {
+        if (std::isspace(ch) || std::ispunct(ch)) {
+            continue;
+        }
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+    }
+    return normalized;
+}
+
+bool is_generic_skill_phrase(const std::string& normalized_phrase) {
+    static const std::array<std::string, 23> generic_phrases = {
+        normalize_for_match("\xE7\x94\xA8\xE6\x88\xB7"),
+        normalize_for_match("\xE5\xBD\x93\xE5\x89\x8D"),
+        normalize_for_match("\xE9\xA1\xB5\xE9\x9D\xA2"),
+        normalize_for_match("\xE5\x86\x85\xE5\xAE\xB9"),
+        normalize_for_match("\xE8\xAF\xB4\xE6\x98\x8E"),
+        normalize_for_match("\xE8\xA7\xA6\xE5\x8F\x91\xE6\x9D\xA1\xE4\xBB\xB6"),
+        normalize_for_match("\xE5\xB7\xA5\xE4\xBD\x9C\xE6\xB5\x81\xE7\xA8\x8B"),
+        normalize_for_match("\xE5\x86\xB3\xE7\xAD\x96\xE8\xA7\x84\xE5\x88\x99"),
+        normalize_for_match("\xE8\xBE\x93\xE5\x87\xBA\xE8\xA6\x81\xE6\xB1\x82"),
+        normalize_for_match("\xE9\x94\x99\xE8\xAF\xAF\xE5\xA4\x84\xE7\x90\x86"),
+        normalize_for_match("\xE6\xB3\xA8\xE6\x84\x8F"),
+        normalize_for_match("\xE8\xBF\x9B\xE5\x85\xA5"),
+        normalize_for_match("\xE6\x9F\xA5\xE7\x9C\x8B"),
+        normalize_for_match("\xE7\xBB\xA7\xE7\xBB\xAD"),
+        normalize_for_match("\xE6\x80\xBB\xE7\xBB\x93"),
+        normalize_for_match("\xE4\xBB\x8A\xE5\xA4\xA9"),
+        normalize_for_match("\xE4\xBB\x8A\xE6\x97\xA5"),
+        normalize_for_match("\xE4\xB8\x9A\xE5\x8A\xA1"),
+        normalize_for_match("\xE9\xA6\x96\xE9\xA1\xB5"),
+        normalize_for_match("\xE5\xBA\x94\xE7\x94\xA8"),
+        normalize_for_match("\xE6\x9C\x8D\xE5\x8A\xA1"),
+        normalize_for_match("skill"),
+        normalize_for_match("agent")
+    };
+    return std::find(generic_phrases.begin(), generic_phrases.end(), normalized_phrase) != generic_phrases.end();
+}
+
+std::vector<std::string> extract_quoted_phrases(const std::string& text) {
+    static const std::array<std::pair<std::string, std::string>, 3> quote_pairs = {{
+        {"\"", "\""},
+        {"\xE2\x80\x9C", "\xE2\x80\x9D"},
+        {"\xE2\x80\x98", "\xE2\x80\x99"}
+    }};
+
+    std::vector<std::string> phrases;
+    for (const auto& [open_quote, close_quote] : quote_pairs) {
+        size_t start = 0;
+        while (start < text.size()) {
+            const size_t open_pos = text.find(open_quote, start);
+            if (open_pos == std::string::npos) {
+                break;
+            }
+            const size_t content_start = open_pos + open_quote.size();
+            const size_t close_pos = text.find(close_quote, content_start);
+            if (close_pos == std::string::npos) {
+                break;
+            }
+            const std::string phrase = trim_whitespace(text.substr(content_start, close_pos - content_start));
+            if (!phrase.empty()) {
+                phrases.push_back(phrase);
+            }
+            start = close_pos + close_quote.size();
+        }
+    }
+    return phrases;
+}
+
+std::vector<std::string> split_fragments_for_matching(std::string text) {
+    static const std::array<std::string, 15> delimiters = {
+        "\n", "\xE3\x80\x82", "\xEF\xBC\x8C", "\xEF\xBC\x9A", "\xEF\xBC\x9B",
+        "\xEF\xBC\x81", "\xEF\xBC\x9F", "\xEF\xBC\x88", "\xEF\xBC\x89",
+        "\xE3\x80\x81", ",", ".", ":", ";", "!"
+    };
+    for (const auto& delimiter : delimiters) {
+        replace_all(text, delimiter, "\n");
+    }
+
+    std::vector<std::string> fragments;
+    std::istringstream stream(text);
+    std::string line;
+    while (std::getline(stream, line)) {
+        std::string candidate = trim_whitespace(line);
+        if (candidate.rfind("##", 0) == 0) {
+            candidate = trim_whitespace(candidate.substr(2));
+        } else if (!candidate.empty() && (candidate[0] == '-' || candidate[0] == '*')) {
+            candidate = trim_whitespace(candidate.substr(1));
+        }
+
+        if (candidate.size() < 6 || candidate.size() > 96) {
+            continue;
+        }
+        fragments.push_back(candidate);
+    }
+    return fragments;
+}
+
+std::vector<std::string> collect_skill_match_phrases(const SkillMetadata& skill) {
+    std::vector<std::string> phrases;
+    std::unordered_set<std::string> seen;
+
+    auto append_phrase = [&](const std::string& raw_phrase) {
+        const std::string phrase = trim_whitespace(raw_phrase);
+        if (phrase.empty()) {
+            return;
+        }
+        const std::string normalized = normalize_for_match(phrase);
+        if (normalized.size() < 4 || is_generic_skill_phrase(normalized)) {
+            return;
+        }
+        if (seen.insert(normalized).second) {
+            phrases.push_back(phrase);
+        }
+    };
+
+    append_phrase(skill.name);
+    append_phrase(skill.description);
+
+    for (const auto& phrase : extract_quoted_phrases(skill.description)) {
+        append_phrase(phrase);
+    }
+    for (const auto& phrase : extract_quoted_phrases(skill.content)) {
+        append_phrase(phrase);
+    }
+    for (const auto& fragment : split_fragments_for_matching(skill.description)) {
+        append_phrase(fragment);
+    }
+    for (const auto& fragment : split_fragments_for_matching(skill.content)) {
+        append_phrase(fragment);
+    }
+    if (skill.execution_hints.is_object()) {
+        std::function<void(const nlohmann::json&)> append_json_strings =
+                [&](const nlohmann::json& value) {
+                    if (value.is_string()) {
+                        append_phrase(value.get<std::string>());
+                    } else if (value.is_array()) {
+                        for (const auto& item : value) {
+                            append_json_strings(item);
+                        }
+                    } else if (value.is_object()) {
+                        for (const auto& item : value.items()) {
+                            append_json_strings(item.value());
+                        }
+                    }
+                };
+        append_json_strings(skill.execution_hints);
+    }
+
+    return phrases;
+}
+
+int skill_phrase_match_score(const std::string& normalized_phrase) {
+    return std::max(
+            PRELOADED_SKILL_MIN_SCORE,
+            std::min<int>(static_cast<int>(normalized_phrase.size()), 48));
+}
+
+std::string join_skill_names(const std::vector<SkillMetadata>& skills) {
+    std::ostringstream stream;
+    for (size_t i = 0; i < skills.size(); ++i) {
+        if (i > 0) {
+            stream << ",";
+        }
+        stream << skills[i].name;
+    }
+    return stream.str();
+}
+
+}  // namespace
+
 static bool should_persist_message(const std::vector<Message>& messages, size_t index) {
     const Message& current = messages[index];
     if (current.role != "assistant") {
@@ -33,12 +239,10 @@ static bool should_persist_message(const std::vector<Message>& messages, size_t 
     }
 
     const Message& next = messages[index + 1];
-    // 只展示最终结果：
-    // 如果 assistant 后面紧跟 tool，说明它只是“准备调用工具”的过渡话术，
-    // 应该只在流式过程中临时展示，不应该进入历史消息，否则会拆成两张卡片。
+    // Only persist final user-visible assistant messages. If the next message is a
+    // tool result, this assistant turn was just transitional tool-call prose.
     return next.role != "tool";
 }
-
 // MobileAgent implementation
 MobileAgent::MobileAgent(const IcrawConfig& config)
     : config_(config) {
@@ -64,6 +268,8 @@ MobileAgent::MobileAgent(const IcrawConfig& config)
 
     ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=skill_loader");
     skill_loader_ = std::make_shared<SkillLoader>();
+    available_skills_ = skill_loader_->load_skills(config_.skills, config_.workspace_path);
+    ICRAW_LOG_INFO("[MobileAgent][skills_loaded] count={}", available_skills_.size());
 
     ICRAW_LOG_DEBUG("[MobileAgent][initialize_debug] component=tool_registry");
     tool_registry_ = std::make_shared<ToolRegistry>();
@@ -130,6 +336,30 @@ void MobileAgent::load_history_from_memory() {
 
 MobileAgent::~MobileAgent() = default;
 
+std::string MobileAgent::chat(const std::string& message) {
+    icraw::g_android_tools.set_current_session_id("default");
+    const auto selected_skills = select_relevant_skills_for_message(message);
+    log_selected_skills(selected_skills);
+    const std::string runtime_prompt = build_system_prompt_for_message("default");
+    auto new_messages = agent_loop_->process_message(
+        message, history_, runtime_prompt, selected_skills);
+    icraw::g_android_tools.clear_current_session_id();
+    
+    // Add new messages to history
+    for (const auto& msg : new_messages) {
+        history_.push_back(msg);
+    }
+    
+    // Return the last assistant message text
+    for (auto it = new_messages.rbegin(); it != new_messages.rend(); ++it) {
+        if (it->role == "assistant") {
+            return it->text();
+        }
+    }
+    
+    return "";
+}
+
 void MobileAgent::chat_stream(const std::string& message, AgentEventCallback callback) {
     chat_stream("default", message, std::move(callback));
 }
@@ -155,6 +385,10 @@ void MobileAgent::chat_stream(const std::string& session_id,
         session_history.push_back(std::move(msg));
     }
 
+    const auto selected_skills = select_relevant_skills_for_message(message);
+    log_selected_skills(selected_skills);
+    const std::string runtime_prompt = build_system_prompt_for_message(effective_session_id);
+
     // Save user message to SQLite first
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_start] session_id={} input_length={}",
             effective_session_id, message.size());
@@ -166,12 +400,9 @@ void MobileAgent::chat_stream(const std::string& session_id,
                 effective_session_id, result);
     }
 
-    const std::string session_system_prompt =
-        prompt_builder_->build_full(config_.skills, effective_session_id);
-
     ICRAW_LOG_DEBUG("[MobileAgent][chat_stream_debug] state=process_message_stream_start");
     auto new_messages = agent_loop_->process_message_stream(
-        message, session_history, session_system_prompt, callback);
+        message, session_history, runtime_prompt, callback, selected_skills);
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_loop_complete] session_id={} new_message_count={}",
             effective_session_id, new_messages.size());
     
@@ -190,7 +421,7 @@ void MobileAgent::chat_stream(const std::string& session_id,
         if (!msg.content.empty()) {
             std::string content;
             for (const auto& block : msg.content) {
-                // Skip thinking content - it's internal reasoning, not actual response
+                // Skip thinking content; it is internal reasoning, not user-visible text.
                 if (block.type == "thinking") {
                     continue;
                 }
@@ -198,10 +429,8 @@ void MobileAgent::chat_stream(const std::string& session_id,
                     content += block.text + " ";
                 }
             }
-            // 这里必须先 trim 再决定是否落库：
-            // 某些 assistant 回合只有 think + 工具调用，中间夹带的 text block 可能只剩换行/空格。
-            // 如果直接用 !content.empty() 判断，会把“看起来空白”的伪消息写进 messages 表，
-            // 历史加载后就会出现一条空白消息卡片。
+            // Trim before persisting so whitespace-only assistant/tool-call turns
+            // do not become empty chat bubbles after history reload.
             content = trim_whitespace(content);
             if (!content.empty()) {
                 nlohmann::json metadata;
@@ -215,7 +444,6 @@ void MobileAgent::chat_stream(const std::string& session_id,
             }
         }
     }
-
     if (effective_session_id == "default") {
         history_ = session_history;
     }
@@ -228,6 +456,92 @@ void MobileAgent::chat_stream(const std::string& session_id,
     ICRAW_LOG_INFO("[MobileAgent][chat_stream_complete] session_id={} history_count={}",
             effective_session_id, session_history.size());
     icraw::g_android_tools.clear_current_session_id();
+}
+
+std::string MobileAgent::build_system_prompt_for_message(const std::string& session_id) const {
+    const std::string effective_session_id = session_id.empty() ? "default" : session_id;
+    return prompt_builder_->build_full(config_.skills, effective_session_id);
+}
+
+void MobileAgent::log_selected_skills(const std::vector<SkillMetadata>& selected_skills) const {
+    if (selected_skills.empty()) {
+        return;
+    }
+
+    size_t total_chars = 0;
+    size_t injected_count = 0;
+    for (const auto& skill : selected_skills) {
+        const size_t skill_chars = skill.content.size() + skill.description.size();
+        if (injected_count >= PRELOADED_SKILL_MAX_COUNT) {
+            break;
+        }
+        if (injected_count > 0 && total_chars + skill_chars > PRELOADED_SKILL_MAX_TOTAL_CHARS) {
+            break;
+        }
+        total_chars += skill_chars;
+        injected_count++;
+    }
+
+    if (injected_count == 0) {
+        return;
+    }
+
+    std::vector<SkillMetadata> injected_skills(
+            selected_skills.begin(),
+            selected_skills.begin() + static_cast<long long>(injected_count));
+    ICRAW_LOG_INFO(
+            "[MobileAgent][skill_preload] selected_count={} total_chars={} skills={}",
+            injected_count,
+            total_chars,
+            join_skill_names(injected_skills));
+}
+
+std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const std::string& message) const {
+    const std::string normalized_message = normalize_for_match(message);
+    if (normalized_message.empty() || available_skills_.empty()) {
+        return {};
+    }
+
+    struct ScoredSkill {
+        const SkillMetadata* skill = nullptr;
+        int score = 0;
+    };
+
+    std::vector<ScoredSkill> scored_skills;
+    scored_skills.reserve(available_skills_.size());
+
+    for (const auto& skill : available_skills_) {
+        const auto phrases = collect_skill_match_phrases(skill);
+        int score = 0;
+        for (const auto& phrase : phrases) {
+            const std::string normalized_phrase = normalize_for_match(phrase);
+            if (normalized_phrase.empty()) {
+                continue;
+            }
+            if (normalized_message.find(normalized_phrase) == std::string::npos) {
+                continue;
+            }
+            score += skill_phrase_match_score(normalized_phrase);
+        }
+
+        if (score >= PRELOADED_SKILL_MIN_SCORE) {
+            scored_skills.push_back(ScoredSkill{&skill, score});
+        }
+    }
+
+    std::sort(scored_skills.begin(), scored_skills.end(), [](const ScoredSkill& lhs, const ScoredSkill& rhs) {
+        if (lhs.score != rhs.score) {
+            return lhs.score > rhs.score;
+        }
+        return lhs.skill->name < rhs.skill->name;
+    });
+
+    std::vector<SkillMetadata> selected;
+    selected.reserve(std::min(scored_skills.size(), PRELOADED_SKILL_MAX_COUNT));
+    for (size_t i = 0; i < scored_skills.size() && i < PRELOADED_SKILL_MAX_COUNT; ++i) {
+        selected.push_back(*scored_skills[i].skill);
+    }
+    return selected;
 }
 
 void MobileAgent::clear_history() {

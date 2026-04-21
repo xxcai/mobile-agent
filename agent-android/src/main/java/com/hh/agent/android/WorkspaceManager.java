@@ -218,38 +218,43 @@ public class WorkspaceManager {
         return assetFileExists(defaultPath) ? defaultPath : null;
     }
 
-    private String resolveBuiltinSkillRoot() {
+    private String resolveBuiltinSkillRoot() throws IOException {
         return resolveSkillRoot(BUILTIN_ASSETS_WORKSPACE);
     }
 
-    private String resolveWorkspaceSkillRoot() {
+    private String resolveWorkspaceSkillRoot() throws IOException {
         return resolveSkillRoot(ASSETS_WORKSPACE);
     }
 
-    private String resolveSkillRoot(String assetBasePath) {
-        String profileRoot = assetBasePath + "/" + promptProfile + "/skills";
-        if (assetDirectoryExists(profileRoot)) {
-            return assetBasePath + "/" + promptProfile;
+    private String resolveSkillRoot(String assetBasePath) throws IOException {
+        String profileRoot = assetBasePath + "/" + promptProfile;
+        if (!listSkillNames(profileRoot).isEmpty()) {
+            AgentLogs.debug(TAG, "skill_root_resolved",
+                    "asset_base=" + assetBasePath + " root=" + profileRoot + " reason=profile_has_skills");
+            return profileRoot;
         }
-        String fullRoot = assetBasePath + "/" + AgentRuntimeProfiles.FULL + "/skills";
-        if (assetDirectoryExists(fullRoot)) {
-            return assetBasePath + "/" + AgentRuntimeProfiles.FULL;
+
+        String fullRoot = assetBasePath + "/" + AgentRuntimeProfiles.FULL;
+        if (!AgentRuntimeProfiles.FULL.equals(promptProfile) && !listSkillNames(fullRoot).isEmpty()) {
+            AgentLogs.debug(TAG, "skill_root_resolved",
+                    "asset_base=" + assetBasePath + " root=" + fullRoot + " reason=full_has_skills");
+            return fullRoot;
         }
+
+        if (!listSkillNames(assetBasePath).isEmpty()) {
+            AgentLogs.debug(TAG, "skill_root_resolved",
+                    "asset_base=" + assetBasePath + " root=" + assetBasePath + " reason=default_has_skills");
+            return assetBasePath;
+        }
+
+        AgentLogs.debug(TAG, "skill_root_resolved",
+                "asset_base=" + assetBasePath + " root=" + assetBasePath + " reason=no_skill_assets");
         return assetBasePath;
     }
 
     private boolean assetFileExists(String assetPath) {
         try (InputStream ignored = context.getAssets().open(assetPath)) {
             return true;
-        } catch (IOException ignored) {
-            return false;
-        }
-    }
-
-    private boolean assetDirectoryExists(String assetPath) {
-        try {
-            String[] files = context.getAssets().list(assetPath);
-            return files != null;
         } catch (IOException ignored) {
             return false;
         }

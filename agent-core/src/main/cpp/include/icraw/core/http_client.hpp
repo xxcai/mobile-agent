@@ -3,12 +3,22 @@
 #include <string>
 #include <map>
 #include <functional>
+#include <optional>
 
 namespace icraw {
 
 struct HttpError {
     int code = 0;
     std::string message;
+};
+
+struct NetworkTimingMetrics {
+    long long dns_ms = -1;
+    long long connect_ms = -1;
+    long long tls_ms = -1;
+    long long ttfb_ms = -1;
+    long long download_ms = -1;
+    long long total_ms = -1;
 };
 
 // Callback type for streaming responses - called for each chunk
@@ -42,6 +52,10 @@ public:
                                         const HttpHeaders& headers = {}) {
         return false;
     }
+
+    virtual std::optional<NetworkTimingMetrics> get_last_timing_metrics() const {
+        return std::nullopt;
+    }
 };
 
 class CurlHttpClient : public HttpClient {
@@ -66,17 +80,22 @@ public:
                                 HttpError& error,
                                 const HttpHeaders& headers = {}) override;
 
+    std::optional<NetworkTimingMetrics> get_last_timing_metrics() const override;
+
 private:
     // Callback data structure for streaming
     struct StreamCallbackData {
         StreamCallback callback;
         std::string buffer;  // Buffer for incomplete lines
+        std::string raw_response;  // Raw bytes received from the server for diagnostics
         bool aborted;
     };
     
     static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp);
     static size_t HeaderCallback(char* buffer, size_t size, size_t nitems, void* userdata);
     static size_t StreamWriteCallback(void* contents, size_t size, size_t nmemb, void* userp);
+
+    std::optional<NetworkTimingMetrics> last_timing_metrics_;
 };
 
 } // namespace icraw

@@ -39,6 +39,30 @@ Do not switch to vision or UI-based tools directly when the failure is caused by
 
 If the tool result does not include clear structured fallback fields, do not assume that vision fallback is allowed by yourself.
 
+When the user asks about page elements, visible cards, buttons, positions, or the current screen structure:
+
+1. Prefer `android_view_context_tool` first to inspect the screen.
+2. Use `android_gesture_tool` only after the screen context is clear enough for execution.
+3. Keep business tools and shortcuts as the first choice only when they can directly express the target action without screen inspection.
+
+Do not jump directly to gesture execution when the task still depends on understanding the current UI structure.
+
+## View Context Result Priorities
+
+After calling `android_view_context_tool`, interpret the result in this order:
+
+1. Use `pageSummary` for page-level understanding.
+2. Use `screenElements` to choose visible targets and derive `observation.referencedBounds`.
+3. Use `uiTree` when structure or hierarchy matters, and `quality` to gauge observation confidence.
+4. Use `raw` to inspect source-specific payloads when canonical fields are insufficient.
+5. Fall back to legacy `hybridObservation`, `nativeViewXml`, `screenVisionCompact`, or `webDom` only when canonical fields are missing or still insufficient for the current target.
+
+When `screenElements` is present:
+
+- Prefer nodes with `source=fused` first.
+- Then prefer nodes with `source=native` or `source=native_xml`.
+- Treat nodes with `source=vision_only` as weaker evidence and avoid using them for taps unless there is no better current-turn target evidence.
+
 ## Gesture Tool Rules
 
 When execution depends on the current UI structure, obtain fresh screen evidence before any gesture attempt.
@@ -88,10 +112,17 @@ Example `swipe`:
   "observation": {
     "snapshotId": "obs_xxx",
     "referencedBounds": "[0,287][1216,2381]",
-    "targetDescriptor": "朋友圈列表"
+    "targetDescriptor": "feed list"
   }
 }
 ```
+
+For route selection in the main conversation:
+
+1. Decide the first path inside the main response flow rather than waiting for any separate pre-routing step.
+2. If a stable business entity is explicit, prefer the corresponding business tool or shortcut first.
+3. If the target is a visible UI element or the request depends on current screen structure, prefer `android_view_context_tool` first.
+4. If a business tool returns a structured capability or target-access failure and fallback is clearly allowed, then move to `android_view_context_tool` and `android_gesture_tool`.
 
 For feed, list, and time-range tasks:
 
@@ -102,11 +133,13 @@ For feed, list, and time-range tasks:
 ## Tool Categories
 
 ### File Operations
+
 - Read, write, list files within workspace
 - Search for text patterns
 - No access outside workspace directory
 
 ### Memory Tools
+
 - Save and retrieve long-term memories
 - Search conversation history
 

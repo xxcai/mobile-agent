@@ -7,6 +7,7 @@ import android.view.MotionEvent;
 import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.AbsListView;
 import android.widget.TextView;
 import android.widget.ScrollView;
@@ -21,7 +22,9 @@ import com.hh.agent.android.viewcontext.ViewObservationSnapshotRegistry;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -79,12 +82,23 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
             payload.put("resolvedViewClass", result.viewClassName);
             payload.put("resolvedViewId", result.viewId);
             payload.put("resolvedViewText", result.viewText);
+            payload.put("resolvedViewSemanticContext", result.viewSemanticContext);
             payload.put("dispatchPath", result.dispatchPath);
             payload.put("dispatchEventCount", result.dispatchEventCount);
             payload.put("dispatchHandledCount", result.dispatchHandledCount);
             payload.put("dispatchAnyHandled", result.dispatchAnyHandled);
             payload.put("dispatchAllHandled", result.dispatchAllHandled);
             payload.put("dispatchTrace", result.dispatchTrace);
+
+            JSONObject observation = payload.optJSONObject("observation");
+            String targetDescriptor = observation != null
+                    ? observation.optString("targetDescriptor", "").trim()
+                    : "";
+            if (shouldRejectFallbackTap(targetPoint.source, targetDescriptor, result.viewSemanticContext)) {
+                return GestureExecutionResult.error("tap",
+                        "tap_target_mismatch",
+                        "Tap landed on a view that does not match the intended target descriptor");
+            }
             return GestureExecutionResult.success("tap", false, payload);
         } catch (Exception e) {
             return GestureExecutionResult.error("tap", "execution_failed", e.getMessage());
@@ -211,6 +225,90 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         }
 
         return ExecutionResult.successTap("activity_dispatch_touch_event", target, dispatch, injectedPoint);
+    }
+
+    private boolean shouldRejectFallbackTap(String tapPointSource,
+                                            String targetDescriptor,
+                                            String resolvedViewSemanticContext) {
+        if (!"fallback_coordinates".equals(tapPointSource)) {
+            return false;
+        }
+        if (targetDescriptor == null || targetDescriptor.trim().isEmpty()) {
+            return false;
+        }
+        return !semanticTargetMatches(targetDescriptor, resolvedViewSemanticContext);
+    }
+
+    private boolean semanticTargetMatches(String targetDescriptor, String resolvedViewSemanticContext) {
+        List<String> targetTokens = extractSemanticTokens(targetDescriptor);
+        if (targetTokens.isEmpty()) {
+            return true;
+        }
+        String normalizedContext = normalizeSemanticText(resolvedViewSemanticContext);
+        if (normalizedContext.isEmpty()) {
+            return false;
+        }
+
+        int matched = 0;
+        int strongMatched = 0;
+        for (String token : targetTokens) {
+            if (!normalizedContext.contains(token)) {
+                continue;
+            }
+            matched++;
+            if (token.length() >= 3 || containsNonAscii(token)) {
+                strongMatched++;
+            }
+        }
+        if (strongMatched > 0) {
+            return true;
+        }
+        return matched >= Math.min(2, targetTokens.size());
+    }
+
+    private List<String> extractSemanticTokens(String text) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        String normalized = normalizeSemanticText(text);
+        if (normalized.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String[] parts = normalized.split("\\s+");
+        for (String part : parts) {
+            if (part.length() < 2 && !containsNonAscii(part)) {
+                continue;
+            }
+            tokens.add(part);
+        }
+        return new ArrayList<>(tokens);
+    }
+
+    private String normalizeSemanticText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return "";
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        StringBuilder normalized = new StringBuilder(lower.length());
+        for (int i = 0; i < lower.length(); i++) {
+            char ch = lower.charAt(i);
+            if (Character.isLetterOrDigit(ch) || ch > 127) {
+                normalized.append(ch);
+            } else {
+                normalized.append(' ');
+            }
+        }
+        return normalized.toString().replaceAll("\\s+", " ").trim();
+    }
+
+    private boolean containsNonAscii(String text) {
+        if (text == null) {
+            return false;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            if (text.charAt(i) > 127) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ExecutionResult performScroll(Activity activity,
@@ -603,6 +701,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         private final String viewClassName;
         private final String viewId;
         private final String viewText;
+        private final String viewSemanticContext;
         private final int resolvedStartX;
         private final int resolvedStartY;
         private final int resolvedEndX;
@@ -630,6 +729,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
                                 String viewClassName,
                                 String viewId,
                                 String viewText,
+                                String viewSemanticContext,
                                 int resolvedStartX,
                                 int resolvedStartY,
                                 int resolvedEndX,
@@ -656,6 +756,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
             this.viewClassName = viewClassName;
             this.viewId = viewId;
             this.viewText = viewText;
+            this.viewSemanticContext = viewSemanticContext;
             this.resolvedStartX = resolvedStartX;
             this.resolvedStartY = resolvedStartY;
             this.resolvedEndX = resolvedEndX;
@@ -689,6 +790,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
                     view.getClass().getName(),
                     resolveViewId(view),
                     resolveViewText(view),
+                    resolveViewSemanticContext(view),
                     0,
                     0,
                     0,
@@ -729,6 +831,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
                     view.getClass().getName(),
                     resolveViewId(view),
                     resolveViewText(view),
+                    resolveViewSemanticContext(view),
                     plan.startX,
                     plan.startY,
                     plan.endX,
@@ -752,7 +855,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         }
 
         private static ExecutionResult error(String error, String message) {
-            return new ExecutionResult(false, error, message, null, null, null, null,
+            return new ExecutionResult(false, error, message, null, null, null, null, null,
                     0, 0, 0, 0,
                     0, 0, 0, 0, 0,
                     0, 0, 0, 0,
@@ -779,6 +882,27 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
             CharSequence contentDescription = view.getContentDescription();
             return contentDescription != null ? contentDescription.toString() : "";
         }
+
+        private static String resolveViewSemanticContext(View view) {
+            List<String> parts = new ArrayList<>();
+            View current = view;
+            int depth = 0;
+            while (current != null && depth < 4) {
+                parts.add(current.getClass().getName());
+                String viewId = resolveViewId(current);
+                if (!viewId.isEmpty()) {
+                    parts.add(viewId);
+                }
+                String viewText = resolveViewText(current);
+                if (!viewText.isEmpty()) {
+                    parts.add(viewText);
+                }
+                ViewParent parent = current.getParent();
+                current = parent instanceof View ? (View) parent : null;
+                depth++;
+            }
+            return String.join(" ", parts);
+        }
     }
 
     private static final class ScrollPlan {
@@ -797,3 +921,7 @@ public class InProcessGestureExecutor implements AndroidGestureExecutor {
         }
     }
 }
+
+
+
+

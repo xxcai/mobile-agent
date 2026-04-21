@@ -1,8 +1,144 @@
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
     id 'com.android.application' version '8.3.2' apply false
     id 'com.android.library' version '8.3.2' apply false
 }
 
+ext {
+    mobileAgentMavenGroup = 'com.hh.agent'
+    mobileAgentMavenVersion = '1.0.0-debug'
+    mobileAgentLocalRepoDir = layout.buildDirectory.dir('local-maven-repo')
+}
+
+def exportedOfflineConfigurations = [
+        [path: ':agent-core', name: 'debugRuntimeClasspath'],
+        [path: ':agent-android', name: 'debugRuntimeClasspath'],
+        [path: ':agent-screen-vision', name: 'debugRuntimeClasspath'],
+]
+
+def findCachedModuleMetadata = { String group, String name, String version, String extension ->
+    def moduleCacheDir = new File(
+            gradle.gradleUserHomeDir,
+            "caches/modules-2/files-2.1/${group}/${name}/${version}"
+    )
+    if (!moduleCacheDir.exists()) {
+        return null
+    }
+    def expectedName = "${name}-${version}.${extension}"
+    def matches = fileTree(moduleCacheDir) {
+        include "**/${expectedName}"
+    }.files
+    if (matches.empty) {
+        return null
+    }
+    return matches.first()
+}
+
 // Apply config-template.gradle to all subprojects
 apply from: 'config-template.gradle'
+
+tasks.register('exportThirdPartyArtifactsToLocalMavenRepo') {
+    group = 'publishing'
+    description = 'Copies third-party Maven artifacts required by the SDK into the offline local Maven repository.'
+    outputs.dir(mobileAgentLocalRepoDir)
+
+    doLast {
+        def repoDir = mobileAgentLocalRepoDir.get().asFile
+        repoDir.mkdirs()
+
+        def externalModules = new LinkedHashMap<String, Map<String, Object>>()
+
+        exportedOfflineConfigurations.each { spec ->
+            def configuration = project(spec.path).configurations.getByName(spec.name)
+            def artifactResults = configuration.incoming.artifactView { lenient(true) }.artifacts.artifacts
+            artifactResults.each { ResolvedArtifactResult artifact ->
+                def componentId = artifact.id.componentIdentifier
+                if (!(componentId instanceof ModuleComponentIdentifier)) {
+                    return
+                }
+                def key = "${componentId.group}:${componentId.module}:${componentId.version}"
+                externalModules.putIfAbsent(key, [
+                        group       : componentId.group,
+                        name        : componentId.module,
+                        version     : componentId.version,
+                        artifactFile: artifact.file,
+                ])
+            }
+        }
+
+        externalModules.values().each { module ->
+            def groupPath = module.group.toString().replace('.', '/')
+            def moduleDir = new File(repoDir, "${groupPath}/${module.name}/${module.version}")
+            moduleDir.mkdirs()
+
+            copy {
+                from module.artifactFile
+                into moduleDir
+            }
+
+            def pomFile = findCachedModuleMetadata(module.group, module.name, module.version, 'pom')
+            if (pomFile == null) {
+                throw new GradleException("鏈湪 Gradle 缂撳瓨涓壘鍒?${module.group}:${module.name}:${module.version} 鐨?pom 鏂囦欢")
+            }
+
+            copy {
+                from pomFile
+                into moduleDir
+                rename { "${module.name}-${module.version}.pom" }
+            }
+
+            def moduleMetadataFile = findCachedModuleMetadata(module.group, module.name, module.version, 'module')
+            if (moduleMetadataFile != null) {
+                copy {
+                    from moduleMetadataFile
+                    into moduleDir
+                    rename { "${module.name}-${module.version}.module" }
+                }
+            }
+        }
+    }
+}
+
+tasks.register('exportLocalMavenRepo') {
+    group = 'publishing'
+    description = 'Publishes all mobile-agent modules and their third-party dependencies into build/local-maven-repo.'
+    dependsOn(
+            ':agent-core:publishDebugPublicationToOfflineBundleRepository',
+            ':agent-android:publishDebugPublicationToOfflineBundleRepository',
+            ':agent-screen-vision:publishDebugPublicationToOfflineBundleRepository',
+            'exportThirdPartyArtifactsToLocalMavenRepo'
+    )
+}
+
+tasks.register('zipLocalMavenRepo', Zip) {
+    group = 'publishing'
+    description = 'Creates a zip bundle of the offline local Maven repository for transfer to another machine.'
+    dependsOn('exportLocalMavenRepo')
+    from(mobileAgentLocalRepoDir)
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    archiveBaseName = 'mobile-agent-local-maven-repo'
+    archiveVersion = mobileAgentMavenVersion
+}
+
+tasks.register('syncDemoSdkAars', Copy) {
+    group = 'build setup'
+    description = 'Copies the latest debug SDK AARs into app/libs for the demo app.'
+    dependsOn(
+            ':agent-core:assembleDebug',
+            ':agent-android:assembleDebug',
+            ':agent-screen-vision:assembleDebug'
+    )
+    from(project(':agent-core').layout.buildDirectory.dir('outputs/aar')) {
+        include 'agent-core-debug.aar'
+    }
+    from(project(':agent-android').layout.buildDirectory.dir('outputs/aar')) {
+        include 'agent-android-debug.aar'
+    }
+    from(project(':agent-screen-vision').layout.buildDirectory.dir('outputs/aar')) {
+        include 'agent-screen-vision-debug.aar'
+    }
+    into(layout.projectDirectory.dir('app/libs'))
+}

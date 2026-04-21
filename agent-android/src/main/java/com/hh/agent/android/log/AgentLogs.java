@@ -1,9 +1,11 @@
 package com.hh.agent.android.log;
 
+import android.util.Log;
+
 /**
- * Agent 日志统一入口。
- * agent-android 继续负责结构化日志格式和默认 tag；
- * 底层 logger 状态与默认实现已复用 agent-core。
+ * Agent 鏃ュ織缁熶竴鍏ュ彛銆?
+ * agent-android 缁х画璐熻矗缁撴瀯鍖栨棩蹇楁牸寮忓拰榛樿 tag锛?
+ * 搴曞眰 logger 鐘舵€佷笌榛樿瀹炵幇宸插鐢?agent-core銆?
  */
 public final class AgentLogs {
 
@@ -33,7 +35,9 @@ public final class AgentLogs {
     }
 
     public static void debug(String scope, String event, String detail) {
-        com.hh.agent.core.log.AgentLogs.getLogger().d(DEFAULT_TAG, buildMessage(scope, event, detail));
+        String message = buildMessage(scope, event, detail);
+        safeCoreDebug(message);
+        safeDebug(DEFAULT_TAG, message);
     }
 
     public static void info(String scope, String event) {
@@ -41,7 +45,9 @@ public final class AgentLogs {
     }
 
     public static void info(String scope, String event, String detail) {
-        com.hh.agent.core.log.AgentLogs.getLogger().i(DEFAULT_TAG, buildMessage(scope, event, detail));
+        String message = buildMessage(scope, event, detail);
+        safeCoreInfo(message);
+        safeInfo(DEFAULT_TAG, message);
     }
 
     public static void warn(String scope, String event) {
@@ -49,16 +55,21 @@ public final class AgentLogs {
     }
 
     public static void warn(String scope, String event, String detail) {
-        com.hh.agent.core.log.AgentLogs.getLogger().w(DEFAULT_TAG, buildMessage(scope, event, detail));
+        String message = buildMessage(scope, event, detail);
+        safeCoreWarn(message);
+        safeWarn(DEFAULT_TAG, message);
     }
 
     public static void error(String scope, String event, String detail) {
-        com.hh.agent.core.log.AgentLogs.getLogger().e(DEFAULT_TAG, buildMessage(scope, event, detail));
+        String message = buildMessage(scope, event, detail);
+        safeCoreError(message);
+        safeError(DEFAULT_TAG, message);
     }
 
     public static void error(String scope, String event, String detail, Throwable throwable) {
-        com.hh.agent.core.log.AgentLogs.getLogger()
-                .e(DEFAULT_TAG, buildMessage(scope, event, detail), throwable);
+        String message = buildMessage(scope, event, detail);
+        safeCoreError(message, throwable);
+        safeError(DEFAULT_TAG, message, throwable);
     }
 
     private static String buildMessage(String scope, String event, String detail) {
@@ -73,6 +84,76 @@ public final class AgentLogs {
             builder.append(" ").append(detail);
         }
         return builder.toString();
+    }
+
+    private static void safeCoreDebug(String message) {
+        try {
+            com.hh.agent.core.log.AgentLogs.getLogger().d(DEFAULT_TAG, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeCoreInfo(String message) {
+        try {
+            com.hh.agent.core.log.AgentLogs.getLogger().i(DEFAULT_TAG, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeCoreWarn(String message) {
+        try {
+            com.hh.agent.core.log.AgentLogs.getLogger().w(DEFAULT_TAG, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeCoreError(String message) {
+        try {
+            com.hh.agent.core.log.AgentLogs.getLogger().e(DEFAULT_TAG, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeCoreError(String message, Throwable throwable) {
+        try {
+            com.hh.agent.core.log.AgentLogs.getLogger().e(DEFAULT_TAG, message, throwable);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeDebug(String tag, String message) {
+        try {
+            Log.d(tag, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeInfo(String tag, String message) {
+        try {
+            Log.i(tag, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeWarn(String tag, String message) {
+        try {
+            Log.w(tag, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeError(String tag, String message) {
+        try {
+            Log.e(tag, message);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void safeError(String tag, String message, Throwable throwable) {
+        try {
+            Log.e(tag, message, throwable);
+        } catch (Throwable ignored) {
+        }
     }
 
     private static final class CoreLoggerAdapter implements AgentLogger {

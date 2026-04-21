@@ -12,6 +12,10 @@
 
 namespace icraw {
 
+enum class PayloadLogMode {
+    Summary,
+    Verbose
+};
 struct ChatCompletionRequest {
     std::vector<Message> messages;
     std::string model;
@@ -21,6 +25,8 @@ struct ChatCompletionRequest {
     std::vector<nlohmann::json> tools;
     bool tool_choice_auto = true;
     bool stream = false;
+    std::string request_profile = "default";
+    PayloadLogMode payload_log_mode = PayloadLogMode::Summary;
 };
 
 struct ChatCompletionResponse {
@@ -29,6 +35,7 @@ struct ChatCompletionResponse {
     std::vector<ToolCall> tool_calls;
     std::string finish_reason;
     bool is_stream_end = false;
+    bool has_tool_call_delta = false;
 };
 
 // ============================================================================

@@ -1,6 +1,9 @@
 package com.hh.agent.app;
 
+import android.os.Build;
+
 import com.hh.agent.BusinessWebActivity;
+import com.hh.agent.ScreenSnapshotProbeActivity;
 import com.hh.agent.android.viewcontext.ActivityViewContextSourcePolicy;
 
 import java.util.Collections;
@@ -18,6 +21,9 @@ public final class DefaultActivityViewContextSourcePolicy implements ActivityVie
     public static ActivityViewContextSourcePolicy create() {
         LinkedHashMap<String, String> map = new LinkedHashMap<>();
         map.put(BusinessWebActivity.class.getName(), "web_dom");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            map.put(ScreenSnapshotProbeActivity.class.getName(), "screen_snapshot");
+        }
         return new DefaultActivityViewContextSourcePolicy(Collections.unmodifiableMap(map));
     }
 
