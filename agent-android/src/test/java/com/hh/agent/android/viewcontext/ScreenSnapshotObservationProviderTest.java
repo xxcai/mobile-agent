@@ -8,6 +8,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class ScreenSnapshotObservationProviderTest {
@@ -104,7 +105,7 @@ public class ScreenSnapshotObservationProviderTest {
         assertEquals("screen_snapshot", new JSONObject(latest.uiTreeJson).getString("source"));
         assertEquals("Inbox", latest.pageSummary);
         assertEquals("VisualObservationAdapter", new JSONObject(latest.qualityJson).getString("adapterName"));
-        assertTrue(new JSONObject(latest.rawJson).has("visualObservationJson"));
+        assertNull(latest.rawJson);
     }
 
     public static class TestActivity extends Activity {
