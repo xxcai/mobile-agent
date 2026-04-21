@@ -22,7 +22,6 @@ public final class SessionDebugTranscriptStore {
 
     private static final String TAG = "SessionDebugTranscript";
     private static final String TASKS_DIR = ".icraw/tasks";
-    private static final int INPUT_LABEL_MAX = 40;
     private static final String EVENT_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
     private static final String META_TIME_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
     private static final SessionTranscript NO_OP_TRANSCRIPT = new NoOpSessionTranscript();
@@ -57,10 +56,9 @@ public final class SessionDebugTranscriptStore {
             return NO_OP_TRANSCRIPT;
         }
 
-        String timestamp = new SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(new Date());
         String dirName = taskContext != null && !taskContext.getRunId().isEmpty()
-                ? sanitizeRunId(taskContext.getRunId())
-                : timestamp + "__" + sanitizeInputLabel(userInput);
+                ? TaskRunIds.sanitizeRunId(taskContext.getRunId())
+                : TaskRunIds.createSafeRunId(userInput);
         File turnDir = new File(rootDir, dirName);
         if (!turnDir.exists() && !turnDir.mkdirs()) {
             AgentLogs.warn(TAG, "turn_dir_create_failed", "path=" + turnDir.getAbsolutePath());
@@ -93,21 +91,6 @@ public final class SessionDebugTranscriptStore {
             return null;
         }
         return new File(filesDir, TASKS_DIR);
-    }
-
-    private static String sanitizeInputLabel(String userInput) {
-        if (userInput == null || userInput.trim().isEmpty()) {
-            return "empty-input";
-        }
-        String normalized = userInput.trim().replaceAll("\\s+", "_");
-        normalized = normalized.replaceAll("[^\\p{L}\\p{N}_-]", "_");
-        if (normalized.length() > INPUT_LABEL_MAX) {
-            normalized = normalized.substring(0, INPUT_LABEL_MAX);
-        }
-        while (normalized.contains("__")) {
-            normalized = normalized.replace("__", "_");
-        }
-        return normalized.isEmpty() ? "input" : normalized;
     }
 
     private static void writeWholeFile(File file, String content) throws IOException {
@@ -143,6 +126,7 @@ public final class SessionDebugTranscriptStore {
         if (!meta.has("taskId")) {
             meta.put("taskId", taskContext != null ? taskContext.getTaskId() : "");
         }
+        meta.put("displayName", TaskRunIds.buildDisplayName(userInput));
         meta.put("sessionKey", sessionKey == null ? "" : sessionKey);
         meta.put("userInput", userInput == null ? "" : userInput);
         if (meta.optString("createdAt", "").isEmpty()) {
@@ -158,15 +142,6 @@ public final class SessionDebugTranscriptStore {
             meta.put("errorMessage", "");
         }
         return meta;
-    }
-
-    private static String sanitizeRunId(String runId) {
-        String normalized = runId == null ? "" : runId.trim();
-        normalized = normalized.replaceAll("[^\\p{L}\\p{N}_-]", "_");
-        while (normalized.contains("__")) {
-            normalized = normalized.replace("__", "_");
-        }
-        return normalized.isEmpty() ? "task" : normalized;
     }
 
     private static String nowIso() {
