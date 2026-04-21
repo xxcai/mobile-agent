@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -8,21 +9,26 @@ from pathlib import Path
 def derive_run(raw_dir: str | Path, derived_dir: str | Path) -> dict:
     raw_path = Path(raw_dir)
     derived_path = Path(derived_dir)
+    run_root = derived_path.parent
+    output_root = run_root.parent
+    view_root = output_root.parent / f"{output_root.name}-view"
     derived_path.mkdir(parents=True, exist_ok=True)
 
     meta = _read_json(raw_path / "meta.json")
     events = _read_events(raw_path / "events.jsonl")
-    response_path = raw_path / "response.txt"
-    response_text = response_path.read_text(encoding="utf-8") if response_path.exists() else ""
 
     tool_events = [event for event in events if event.get("type") in {"tool_use", "tool_result"}]
     tool_call_count = sum(1 for event in events if event.get("type") == "tool_use")
     duration_sec = _duration_seconds(meta.get("createdAt", ""), meta.get("endedAt", ""))
     finish_reason = _last_finish_reason(events)
+    run_id = str(meta.get("runId", "")).strip() or run_root.name
+    raw_display_name = str(meta.get("displayName", "")).strip() or str(meta.get("userInput", "")).strip()
+    display_name = _build_display_name(raw_display_name)
 
     summary = {
-        "runId": meta.get("runId", ""),
+        "runId": run_id,
         "taskId": meta.get("taskId", ""),
+        "displayName": display_name,
         "status": meta.get("status", ""),
         "errorMessage": meta.get("errorMessage", ""),
         "finishReason": finish_reason,
@@ -30,15 +36,16 @@ def derive_run(raw_dir: str | Path, derived_dir: str | Path) -> dict:
         "toolCallCount": tool_call_count,
     }
 
+    timeline_text = _build_timeline(events)
+    (derived_path / "timeline.txt").write_text(timeline_text, encoding="utf-8")
+    _write_tool_events(tool_events, derived_path / "tool-events")
+    summary["viewDir"] = str(_write_display_view(summary, derived_path, view_root))
     (derived_path / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    (derived_path / "timeline.txt").write_text(
-        _build_timeline(events),
-        encoding="utf-8",
-    )
-    _write_tool_events(tool_events, derived_path / "tool-events")
+    shutil.copy2(derived_path / "summary.json", Path(summary["viewDir"]) / "summary.json")
+    shutil.copy2(derived_path / "timeline.txt", Path(summary["viewDir"]) / "timeline.txt")
     return summary
 
 
@@ -137,6 +144,39 @@ def _write_tool_events(events: list[dict], output_dir: Path) -> None:
             json.dumps(event, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+
+
+def _write_display_view(summary: dict, derived_dir: Path, view_root: Path) -> Path:
+    display_dir = view_root / _display_dir_name(summary.get("runId", ""), summary.get("displayName", ""))
+    if display_dir.exists():
+        shutil.rmtree(display_dir)
+    shutil.copytree(derived_dir, display_dir)
+    return display_dir
+
+
+def _display_dir_name(run_id: str, display_name: str) -> str:
+    if not display_name:
+        return run_id or "unknown"
+    return f"{run_id}-{_sanitize_path_segment(display_name)}"
+
+
+def _build_display_name(value: str) -> str:
+    return value[:10].strip()
+
+
+def _sanitize_path_segment(value: str) -> str:
+    sanitized = []
+    for char in value.strip():
+        if char in '<>:"/\\|?*':
+            sanitized.append("_")
+        elif ord(char) < 32:
+            sanitized.append("_")
+        else:
+            sanitized.append(char)
+    text = "".join(sanitized).strip(" .")
+    while "__" in text:
+        text = text.replace("__", "_")
+    return text or "unknown"
 
 
 def _slugify(value: str) -> str:

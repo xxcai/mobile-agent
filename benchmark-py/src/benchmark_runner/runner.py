@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import time
@@ -120,4 +121,5 @@ def run_suite(cases: list[dict], package_name: str, output_root: str | Path, sui
 
 def build_run_id(case_id: str) -> str:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    return f"{timestamp}-{case_id}"
+    stable_suffix = hashlib.sha1(case_id.encode("utf-8")).hexdigest()[:8]
+    return f"{timestamp}-{stable_suffix}"
