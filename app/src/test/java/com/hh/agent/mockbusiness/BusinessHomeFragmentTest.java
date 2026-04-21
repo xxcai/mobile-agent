@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import androidx.fragment.app.FragmentActivity;
 
 import com.hh.agent.BusinessWebActivity;
+import com.hh.agent.H5BenchmarkActivity;
 import com.hh.agent.R;
 
 import org.junit.Test;
@@ -102,6 +103,28 @@ public class BusinessHomeFragmentTest {
         assertFalse(intent.hasExtra(BusinessWebActivity.EXTRA_AUTO_RUN_VIEW_CONTEXT_PROBE));
         assertFalse(intent.hasExtra(BusinessWebActivity.EXTRA_PROBE_TARGET_HINT));
         assertFalse(intent.hasExtra(BusinessWebActivity.EXTRA_PAGE_TEMPLATE_ASSET));
+    }
+
+    @Test
+    public void recentUseH5BenchmarkEntry_opensH5BenchmarkActivity() {
+        FragmentActivity activity = Robolectric.buildActivity(FragmentActivity.class)
+                .setup()
+                .get();
+        BusinessHomeFragment fragment = new BusinessHomeFragment();
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(android.R.id.content, fragment)
+                .commitNow();
+
+        View benchmarkEntry = fragment.requireView().findViewById(R.id.businessH5BenchmarkEntry);
+
+        assertNotNull(benchmarkEntry);
+
+        benchmarkEntry.performClick();
+
+        Intent intent = Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(intent);
+        assertEquals(H5BenchmarkActivity.class.getName(), intent.getComponent().getClassName());
     }
 
     @Test

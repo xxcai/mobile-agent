@@ -60,6 +60,10 @@
         <activity
             android:name=".ScreenSnapshotProbeActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".H5BenchmarkActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

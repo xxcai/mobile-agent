@@ -218,6 +218,7 @@ Thumbs.db
 Desktop.ini
 
 # Temporary files
+.worktrees/
 *.tmp
 *.temp
 *.bak
@@ -273,3 +274,9 @@ agent-core/.conan2/
 
 # Local git worktrees
 .worktrees/
+
+# Local demo AAR artifacts
+app/libs/*.aar
+
+# Local superpowers planning docs
+docs/superpowers/**
