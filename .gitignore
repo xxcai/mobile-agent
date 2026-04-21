@@ -269,3 +269,6 @@ agent-core/.conan2/
 
 # Local git worktrees
 .worktrees/
+
+# Local demo AAR artifacts
+app/libs/*.aar
