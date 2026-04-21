@@ -272,3 +272,6 @@ agent-core/.conan2/
 
 # Local demo AAR artifacts
 app/libs/*.aar
+
+# Local superpowers planning docs
+docs/superpowers/**
