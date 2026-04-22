@@ -210,10 +210,12 @@ public final class ViewContextSnapshotProvider {
                         + " native_xml_length=" + lengthOf(reducedNativeViewXml)
                         + " compact_length=" + lengthOf(compactObservationJson)
                         + " hybrid_length=" + lengthOf(hybridObservationJson)
+                        + " ui_tree_returned=" + includeRawFallback
+                        + " screen_elements_returned=" + includeRawFallback
                         + " raw_included=" + includeRawFallback
                         + " snapshot_id=" + snapshot.snapshotId);
 
-        return ToolResult.success()
+        ToolResult result = ToolResult.success()
                 .with("source", source)
                 .with("interactionDomain", INTERACTION_DOMAIN_NATIVE)
                 .with("mock", false)
@@ -227,8 +229,6 @@ public final class ViewContextSnapshotProvider {
                 .with("snapshotScope", OBSERVATION_SCOPE_CURRENT_TURN)
                 .with("snapshotCurrentTurnOnly", snapshot.currentTurnOnly)
                 .with("rawFallbackIncluded", includeRawFallback)
-                .withJson("uiTree", snapshot.uiTreeJson)
-                .withJson("screenElements", snapshot.screenElementsJson)
                 .with("pageSummary", snapshot.pageSummary)
                 .withJson("quality", snapshot.qualityJson)
                 .withJson("raw", snapshot.rawJson)
@@ -240,6 +240,11 @@ public final class ViewContextSnapshotProvider {
                 .withJson("screenVisionCompact", compactObservationJson)
                 .withJson("screenVisionRaw", includeRawFallback && analysis != null ? analysis.rawObservationJson : null)
                 .withJson("hybridObservation", hybridObservationJson);
+        if (includeRawFallback) {
+            result.withJson("uiTree", snapshot.uiTreeJson)
+                    .withJson("screenElements", snapshot.screenElementsJson);
+        }
+        return result;
     }
 
     @Nullable

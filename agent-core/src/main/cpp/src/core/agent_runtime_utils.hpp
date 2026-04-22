@@ -120,7 +120,8 @@ constexpr size_t OBSERVATION_VISIBLE_TEXT_MAX_CHARS = 16000;
 constexpr bool COMPACT_NAVIGATION_ESCALATION_ENABLED = false;
 
 constexpr int kMaxPendingConfirmationRetries = 1;
-constexpr auto kPendingConfirmationRetryDelay = std::chrono::milliseconds(350);
+constexpr auto kPendingConfirmationInitialSettleDelay = std::chrono::milliseconds(850);
+constexpr auto kPendingConfirmationRetryDelay = std::chrono::milliseconds(450);
 
 std::string truncate_runtime_text(const std::string& text, size_t max_chars);
 

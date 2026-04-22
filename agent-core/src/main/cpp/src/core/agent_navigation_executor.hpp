@@ -227,16 +227,21 @@ bool should_retry_pending_step_confirmation(const ExecutionState& state,
 }
 
 void maybe_wait_before_confirmation_retry(const ExecutionState& state) {
-    if (state.awaiting_step_confirmation_index < 0 || state.awaiting_confirmation_retry_count <= 0) {
+    if (state.awaiting_step_confirmation_index < 0) {
         return;
     }
 
+    const bool initial_settle = state.awaiting_confirmation_retry_count <= 0;
+    const auto delay = initial_settle
+            ? kPendingConfirmationInitialSettleDelay
+            : kPendingConfirmationRetryDelay;
     ICRAW_LOG_INFO(
-            "[AgentLoop][execution_state_confirmation_retry_wait] step_index={} retry_count={} delay_ms={}",
+            "[AgentLoop][execution_state_confirmation_wait] step_index={} retry_count={} reason={} delay_ms={}",
             state.awaiting_step_confirmation_index,
             state.awaiting_confirmation_retry_count,
-            static_cast<int>(kPendingConfirmationRetryDelay.count()));
-    std::this_thread::sleep_for(kPendingConfirmationRetryDelay);
+            initial_settle ? "initial_settle" : "retry",
+            static_cast<int>(delay.count()));
+    std::this_thread::sleep_for(delay);
 }
 
 void record_completed_step(ExecutionState& state, const SkillStepHint& step) {
@@ -678,9 +683,6 @@ std::vector<std::string> pending_step_observation_terms(const ExecutionState& st
 
 bool observation_target_matches_pending_step(const ExecutionState& state) {
     const std::string last_hint = trim_whitespace(state.last_observation_target_hint);
-    if (last_hint.empty()) {
-        return false;
-    }
     const auto terms = pending_step_observation_terms(state);
     if (terms.empty()) {
         return true;
@@ -692,6 +694,21 @@ bool observation_target_matches_pending_step(const ExecutionState& state) {
         if (contains_runtime_match(last_hint, term)
                 || contains_runtime_match(term, last_hint)) {
             return true;
+        }
+    }
+
+    const std::string latest_observation_context =
+            state.latest_canonical_candidate_summary + " "
+            + state.latest_navigation_observation_summary + " "
+            + state.latest_observation_summary;
+    if (!latest_observation_context.empty()) {
+        for (const auto& term : terms) {
+            if (term.empty()) {
+                continue;
+            }
+            if (contains_runtime_match(latest_observation_context, term)) {
+                return true;
+            }
         }
     }
     return false;
