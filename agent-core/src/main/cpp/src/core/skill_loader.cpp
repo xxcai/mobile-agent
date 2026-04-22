@@ -279,6 +279,9 @@ SkillMetadata SkillLoader::parse_skill_file(const std::filesystem::path& skill_f
         if (yaml_json.contains("execution_hints")) {
             skill.execution_hints = yaml_json["execution_hints"];
         }
+        if (yaml_json.contains("routing_hints")) {
+            skill.routing_hints = yaml_json["routing_hints"];
+        }
     } else {
         // No frontmatter, entire content is the skill
         skill.content = content;

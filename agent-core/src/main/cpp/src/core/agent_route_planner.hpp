@@ -101,55 +101,58 @@ std::string describe_step(const SkillStepHint& step) {
 }
 
 std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<SkillMetadata>& selected_skills) {
-    for (const auto& skill : selected_skills) {
-        if (!skill.execution_hints.is_object()) {
+    if (selected_skills.empty()) {
+        return std::nullopt;
+    }
+    const auto& skill = selected_skills.front();
+    if (!skill.execution_hints.is_object()) {
+        return std::nullopt;
+    }
+
+    ParsedExecutionHints parsed;
+    parsed.kind = first_string_value(skill.execution_hints, {"kind"});
+    const auto& steps = skill.execution_hints["steps"];
+    if (!steps.is_array()) {
+        return std::nullopt;
+    }
+    for (const auto& step_json : steps) {
+        if (!step_json.is_object()) {
             continue;
         }
-        ParsedExecutionHints parsed;
-        parsed.kind = first_string_value(skill.execution_hints, {"kind"});
-        const auto& steps = skill.execution_hints["steps"];
-        if (!steps.is_array()) {
+        SkillStepHint step;
+        step.page = first_string_value(step_json,
+                {"page", "pageContains", "summaryContains", "pageSummaryContains"});
+        step.activity = first_string_value(step_json,
+                {"activity", "activityContains", "activityClassNameContains"});
+        step.target = first_string_value(step_json,
+                {"target", "targetHint", "targetContains", "label"});
+        step.aliases = string_array_values(step_json,
+                {"aliases", "alias", "targets", "targetAliases"});
+        step.region = first_string_value(step_json,
+                {"region", "preferredRegion", "anchorRegion"});
+        step.anchor_type = first_string_value(step_json,
+                {"anchor_type", "anchorType", "entryType"});
+        step.container_role = first_string_value(step_json,
+                {"container_role", "containerRole"});
+        step.action = first_string_value(step_json,
+                {"action", "gesture", "type"});
+        step.max_attempts = step_json.value("maxAttempts",
+                step_json.value("max_attempts", 0));
+        const std::string phase = first_string_value(step_json, {"phase"});
+        step.readout = step_json.value("goalReached", false)
+                || phase == "readout"
+                || step.action == "read"
+                || step.action == "readout";
+        if (step.page.empty() && step.activity.empty() && step.target.empty()
+                && step.aliases.empty() && step.region.empty()
+                && step.anchor_type.empty() && step.container_role.empty()
+                && step.action.empty() && !step.readout) {
             continue;
         }
-        for (const auto& step_json : steps) {
-            if (!step_json.is_object()) {
-                continue;
-            }
-            SkillStepHint step;
-            step.page = first_string_value(step_json,
-                    {"page", "pageContains", "summaryContains", "pageSummaryContains"});
-            step.activity = first_string_value(step_json,
-                    {"activity", "activityContains", "activityClassNameContains"});
-            step.target = first_string_value(step_json,
-                    {"target", "targetHint", "targetContains", "label"});
-            step.aliases = string_array_values(step_json,
-                    {"aliases", "alias", "targets", "targetAliases"});
-            step.region = first_string_value(step_json,
-                    {"region", "preferredRegion", "anchorRegion"});
-            step.anchor_type = first_string_value(step_json,
-                    {"anchor_type", "anchorType", "entryType"});
-            step.container_role = first_string_value(step_json,
-                    {"container_role", "containerRole"});
-            step.action = first_string_value(step_json,
-                    {"action", "gesture", "type"});
-            step.max_attempts = step_json.value("maxAttempts",
-                    step_json.value("max_attempts", 0));
-            const std::string phase = first_string_value(step_json, {"phase"});
-            step.readout = step_json.value("goalReached", false)
-                    || phase == "readout"
-                    || step.action == "read"
-                    || step.action == "readout";
-            if (step.page.empty() && step.activity.empty() && step.target.empty()
-                    && step.aliases.empty() && step.region.empty()
-                    && step.anchor_type.empty() && step.container_role.empty()
-                    && step.action.empty() && !step.readout) {
-                continue;
-            }
-            parsed.steps.push_back(std::move(step));
-        }
-        if (!parsed.steps.empty()) {
-            return parsed;
-        }
+        parsed.steps.push_back(std::move(step));
+    }
+    if (!parsed.steps.empty()) {
+        return parsed;
     }
     return std::nullopt;
 }
@@ -188,11 +191,6 @@ NavigationPlan build_navigation_plan(const std::optional<ParsedExecutionHints>& 
 const SkillMetadata* pick_route_skill(const std::vector<SkillMetadata>& selected_skills) {
     if (selected_skills.empty()) {
         return nullptr;
-    }
-    for (const auto& skill : selected_skills) {
-        if (skill.execution_hints.is_object()) {
-            return &skill;
-        }
     }
     return &selected_skills.front();
 }
