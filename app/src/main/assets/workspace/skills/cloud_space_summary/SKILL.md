@@ -2,6 +2,7 @@
 name: cloud_space_summary
 description: 宿主 App 云空间导航与阅读助手。只要用户提到“云空间”，就优先使用此技能。此技能的第一职责是让 Agent 知道如何进入云空间：主界面左上角头像 -> 个人中心 -> 云空间。进入云空间后，再根据用户的具体提示词和当前页面视图继续规划动作，例如查看有哪些文档、总结标题、继续往下读取更多条目，或定位特定资料。不要把任务预先限制成固定场景。
 always: false
+routing_hints: {"task_type":"cloud_space_read","strong_markers":["\u4e91\u7a7a\u95f4","\u4e91\u76d8","\u4e91\u6587\u6863","cloud space"],"weak_markers":["\u6587\u6863","\u6587\u4ef6","\u603b\u7ed3","\u5185\u5bb9"],"negative_markers":["\u53d1\u6d88\u606f","\u6253\u5361","\u65e5\u7a0b"],"requires_primary_marker":true}
 execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","target":"左上角个人中心入口","aliases":["左上角头像","左上角个人中心","左上角我的","头像","个人头像","我的头像","个人中心","我的","me","profile","avatar"],"region":"top_left","action":"tap"},{"activity":"MeMainActivity","target":"云空间","aliases":["云空间","云盘","云文档","cloud space","cloud"],"action":"tap"},{"activity":"HWBoxRecentlyUsedActivity","action":"readout","goalReached":true}]}
 ---
 

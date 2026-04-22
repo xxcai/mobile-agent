@@ -2,6 +2,7 @@
 name: im_sender
 description: 发送即时消息助手。帮助 Agent 搜索联系人并发送 IM 消息。当用户要求发消息、通知某人、提醒某人、联系某人，或隐含意图是向某人传递信息时使用。
 always: false
+routing_hints: {"task_type":"message_send","strong_markers":["\u53d1\u6d88\u606f","\u53d1\u9001\u6d88\u606f","\u901a\u77e5","\u544a\u8bc9","\u8054\u7cfb","\u63d0\u9192"],"strong_ordered_pairs":[["\u53d1","\u6d88\u606f"],["\u7ed9","\u8bf4"],["\u8ddf","\u8bf4"]],"weak_markers":["\u660e\u5929","\u4e0b\u5348","\u8ba8\u8bba","\u8fdb\u5c55"],"negative_markers":["\u67e5\u770b\u65e5\u7a0b","\u65e5\u5386","\u7a7a\u95f2\u65f6\u95f4"],"companion_skills":["contact_resolver"],"requires_primary_marker":true}
 ---
 
 # IM 消息发送助手
