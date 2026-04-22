@@ -1,4 +1,4 @@
-﻿# Docs Index
+# Docs Index
 
 `docs/` 按主题分成 4 类，方便第一次接触项目的人快速定位：
 
@@ -11,6 +11,7 @@
 - [HybridObservation 字段详解](./architecture/hybrid-observation-reference.md)
 - [Me 页面 nativeViewXml / screenVision / hybridObservation 融合示例](./architecture/me-page-hybrid-observation-example.md)
 - [Agent 执行链路优化说明](./architecture/agent-execution-optimizations.md)
+- [请求体字段裁剪清单](./architecture/request-payload-field-trimming.md)
 
 ## Guides
 
