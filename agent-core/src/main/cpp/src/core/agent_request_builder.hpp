@@ -623,7 +623,8 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                         pending_step.max_attempts);
                 continue;
             }
-            if (step_prefers_corner_entry(pending_step)) {
+            if (step_prefers_corner_entry(pending_step)
+                    || step_allows_coordinate_fallback(pending_step)) {
                 const auto latest_observation = find_latest_tool_result_content(
                         request.messages, "android_view_context_tool");
                 if (latest_observation.has_value()) {
@@ -654,8 +655,11 @@ std::vector<ToolCall> filter_tool_calls_for_request(const std::vector<ToolCall>&
                     std::string corner_region_reason;
                     if (!corner_entry_gesture_in_safe_region(
                                 tool_call, snapshot, corner_region_reason)) {
-                        auto recovery_call = build_corner_region_recovery_tool_call(
-                                pending_step, snapshot);
+                        std::optional<ToolCall> recovery_call;
+                        if (step_allows_coordinate_fallback(pending_step)) {
+                            recovery_call = build_corner_region_recovery_tool_call(
+                                    pending_step, snapshot);
+                        }
                         if (!recovery_call.has_value()) {
                             ICRAW_LOG_INFO(
                                     "[AgentLoop][tool_call_rejected] reason={} tool_name={} step_index={} target={} activity={}",

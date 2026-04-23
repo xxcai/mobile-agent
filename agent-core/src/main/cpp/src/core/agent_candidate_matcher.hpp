@@ -250,26 +250,14 @@ int candidate_match_strength(const ObservationCandidate& candidate,
     return best;
 }
 
+std::string normalize_region_label(const std::string& region);
+
 bool step_prefers_corner_entry(const SkillStepHint& step) {
     if (contains_runtime_match(step.region, "top_left")
             || contains_runtime_match(step.region, "header_left")
-            || contains_runtime_match(step.anchor_type, "profile_entry")) {
+            || normalize_region_label(step.anchor_type) == "profile_entry"
+            || normalize_region_label(step.container_role) == "header") {
         return true;
-    }
-
-    static const std::vector<std::string> keywords = {
-        u8"\u5de6\u4e0a\u89d2", u8"\u5934\u50cf", u8"\u4e2a\u4eba\u5934\u50cf", u8"\u6211\u7684\u5934\u50cf",
-        u8"\u4e2a\u4eba\u4e2d\u5fc3", u8"\u6211\u7684", u8"\u6211", "avatar", "profile", "me", "mine"
-    };
-    for (const auto& keyword : keywords) {
-        if ((!step.target.empty() && contains_runtime_match(step.target, keyword))) {
-            return true;
-        }
-        for (const auto& alias : step.aliases) {
-            if (contains_runtime_match(alias, keyword)) {
-                return true;
-            }
-        }
     }
     return false;
 }
@@ -277,13 +265,21 @@ bool step_prefers_corner_entry(const SkillStepHint& step) {
 std::string normalize_region_label(const std::string& region) {
     std::string normalized;
     normalized.reserve(region.size());
+    unsigned char previous_ascii = 0;
     for (unsigned char ch : region) {
         if (std::isalnum(ch)) {
+            if (std::isupper(ch) && !normalized.empty() && normalized.back() != '_'
+                    && (std::islower(previous_ascii) || std::isdigit(previous_ascii))) {
+                normalized.push_back('_');
+            }
             normalized.push_back(static_cast<char>(std::tolower(ch)));
-        } else if (ch == '-' || ch == ' ' || ch == '.') {
+            previous_ascii = ch;
+        } else if (ch == '_' || ch == '-' || ch == ' ' || ch == '.') {
             normalized.push_back('_');
+            previous_ascii = 0;
         } else if (ch >= 0x80) {
             normalized.push_back(static_cast<char>(ch));
+            previous_ascii = 0;
         }
     }
 
@@ -486,26 +482,17 @@ bool candidate_is_card_title_noise(const ObservationCandidate& candidate) {
             || candidate.repeat_group
             || candidate_anchor_type_is(candidate, "primary_action")
             || candidate_anchor_type_is(candidate, "list_item")
-            || candidate_anchor_type_is(candidate, "schedule_item")
+            || candidate_anchor_type_is(candidate, "content_item")
+            || candidate_anchor_type_is(candidate, "detail_item")
             || candidate_container_role_is(candidate, "list")
-            || candidate_container_role_is(candidate, "schedule_list");
+            || candidate_container_role_is(candidate, "feed");
 }
 
 bool candidate_has_corner_entry_semantics(const ObservationCandidate& candidate) {
     if (candidate_anchor_type_is(candidate, "profile_entry")) {
         return true;
     }
-    static const std::vector<std::string> keywords = {
-        u8"\u5de6\u4e0a\u89d2", u8"\u5934\u50cf", u8"\u4e2a\u4eba\u5934\u50cf", u8"\u6211\u7684\u5934\u50cf",
-        u8"\u4e2a\u4eba\u4e2d\u5fc3", u8"\u6211\u7684", u8"\u6211", "avatar", "profile", "me", "mine"
-    };
-    for (const auto& keyword : keywords) {
-        if (contains_runtime_match(candidate.label, keyword)
-                || contains_runtime_match(candidate.match_text, keyword)) {
-            return true;
-        }
-    }
-    return false;
+    return candidate_container_role_is(candidate, "header");
 }
 
 bool candidate_is_corner_entry_noise(const ObservationCandidate& candidate) {
@@ -940,8 +927,9 @@ double candidate_card_title_semantic_bonus(const ObservationCandidate& candidate
             || candidate_anchor_type_is(candidate, "tile_title")) {
         bonus += 36.0;
     }
-    if (candidate_container_role_is(candidate, "business_grid")
-            || candidate_container_role_is(candidate, "grid")
+    if (candidate_container_role_is(candidate, "grid")
+            || candidate_container_role_is(candidate, "card_grid")
+            || candidate_container_role_is(candidate, "launcher_grid")
             || candidate_container_role_is(candidate, "card")) {
         bonus += 8.0;
     }
@@ -1098,14 +1086,24 @@ bool region_allows_top_left_coordinate_recovery(const std::string& region) {
     return true;
 }
 
+bool step_allows_coordinate_fallback(const SkillStepHint& step) {
+    const std::string normalized_strategy = normalize_region_label(step.fallback_strategy);
+    if (normalized_strategy != "top_left_header_entry") {
+        return false;
+    }
+    const std::string normalized_region = normalize_region_label(step.region);
+    return normalized_region == "top_left" || normalized_region == "header_left";
+}
+
 std::optional<ToolCall> build_corner_region_recovery_tool_call(const SkillStepHint& step,
                                                                const ObservationSnapshot& snapshot) {
-    if (!step_prefers_corner_entry(step) || snapshot.snapshot_id.empty()
+    if (!step_allows_coordinate_fallback(step) || snapshot.snapshot_id.empty()
             || snapshot.screen_width <= 0 || snapshot.screen_height <= 0) {
         ICRAW_LOG_INFO(
-                "[AgentLoop][fast_execute_region_coordinate_recovery_skipped] target={} prefers_corner={} has_snapshot={} screen_width={} screen_height={}",
+                "[AgentLoop][fast_execute_region_coordinate_recovery_skipped] target={} allows_coordinate_fallback={} fallback_strategy={} has_snapshot={} screen_width={} screen_height={}",
                 step.target,
-                step_prefers_corner_entry(step),
+                step_allows_coordinate_fallback(step),
+                step.fallback_strategy,
                 !snapshot.snapshot_id.empty(),
                 snapshot.screen_width,
                 snapshot.screen_height);
@@ -1121,10 +1119,9 @@ std::optional<ToolCall> build_corner_region_recovery_tool_call(const SkillStepHi
         return std::nullopt;
     }
 
-    // Corner entries such as avatars are often plain ImageViews and may not appear in
-    // hybrid actionableNodes. Use a conservative header coordinate, then verify progress
-    // through the normal observation/confirmation path. Keep the point inside the app
-    // toolbar/header band rather than the system status bar.
+    // Some header entries may not appear in hybrid actionableNodes. Only skills that
+    // explicitly opt in can use this conservative coordinate, and progress is still
+    // verified through the normal observation/confirmation path.
     const int tap_x = std::max(1, static_cast<int>(snapshot.screen_width * 0.076));
     const int tap_y = std::max(1, static_cast<int>(snapshot.screen_height * 0.075));
     const int bound_left = std::max(0, tap_x - static_cast<int>(snapshot.screen_width * 0.055));

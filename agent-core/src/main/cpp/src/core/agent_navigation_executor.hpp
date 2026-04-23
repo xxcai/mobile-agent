@@ -111,7 +111,7 @@ bool step_supports_forward_scroll_search(const SkillStepHint& pending_step) {
 
 bool looks_like_readout_target_hint(const std::string& target_hint) {
     static const std::vector<std::string> keywords = {
-        u8"\u4e91\u7a7a\u95f4", u8"\u6587\u6863", u8"\u6587\u4ef6", u8"\u5185\u5bb9",
+        u8"\u6587\u6863", u8"\u6587\u4ef6", u8"\u5185\u5bb9",
         u8"\u8be6\u60c5", u8"\u5217\u8868", u8"\u9875\u9762", u8"\u603b\u7ed3",
         u8"\u6982\u8981", u8"\u9605\u8bfb", u8"\u67e5\u770b",
         "content", "detail", "details", "summary", "summarize", "read",

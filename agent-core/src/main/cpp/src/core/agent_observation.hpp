@@ -369,8 +369,6 @@ bool is_weak_completion_signal(const std::string& predicate) {
         u8"\u6210\u529f",      // 成功
         u8"\u4eca\u5929",      // 今天
         u8"\u4eca\u65e5",      // 今日
-        u8"\u65e5\u7a0b",      // 日程
-        u8"\u65e5\u5386",      // 日历
         u8"\u9875\u9762",      // 页面
         u8"\u5185\u5bb9",      // 内容
         u8"\u5217\u8868",      // 列表

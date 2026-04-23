@@ -25,6 +25,9 @@ nlohmann::json build_step_json(const SkillStepHint& step) {
     if (!step.container_role.empty()) {
         json["container_role"] = step.container_role;
     }
+    if (!step.fallback_strategy.empty()) {
+        json["fallback_strategy"] = step.fallback_strategy;
+    }
     if (!step.action.empty()) {
         json["action"] = step.action;
     }
@@ -78,6 +81,12 @@ std::string describe_step(const SkillStepHint& step) {
             stream << " ";
         }
         stream << "[container_role=" << step.container_role << "]";
+    }
+    if (!step.fallback_strategy.empty()) {
+        if (stream.tellp() > 0) {
+            stream << " ";
+        }
+        stream << "[fallback_strategy=" << step.fallback_strategy << "]";
     }
     if (step.max_attempts > 0) {
         if (stream.tellp() > 0) {
@@ -134,6 +143,8 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
                 {"anchor_type", "anchorType", "entryType"});
         step.container_role = first_string_value(step_json,
                 {"container_role", "containerRole"});
+        step.fallback_strategy = first_string_value(step_json,
+                {"fallback_strategy", "fallbackStrategy", "coordinate_fallback", "coordinateFallback"});
         step.action = first_string_value(step_json,
                 {"action", "gesture", "type"});
         step.max_attempts = step_json.value("maxAttempts",
@@ -146,6 +157,7 @@ std::optional<ParsedExecutionHints> parse_execution_hints(const std::vector<Skil
         if (step.page.empty() && step.activity.empty() && step.target.empty()
                 && step.aliases.empty() && step.region.empty()
                 && step.anchor_type.empty() && step.container_role.empty()
+                && step.fallback_strategy.empty()
                 && step.action.empty() && !step.readout) {
             continue;
         }

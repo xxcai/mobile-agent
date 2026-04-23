@@ -106,6 +106,7 @@ struct SkillStepHint {
     std::string region;
     std::string anchor_type;
     std::string container_role;
+    std::string fallback_strategy;
     std::string action;
     int max_attempts = 0;
     bool readout = false;
