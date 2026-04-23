@@ -8,6 +8,7 @@ import android.os.Looper;
 
 import com.hh.agent.android.debug.BenchmarkTaskContext;
 import com.hh.agent.android.debug.BenchmarkTaskContextHolder;
+import com.hh.agent.android.debug.TaskRunIds;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.presenter.MainPresenter;
 
@@ -41,7 +42,7 @@ final class BenchmarkTaskManager {
     }
 
     Bundle runTask(Bundle extras) {
-        String runId = trimToEmpty(extras != null ? extras.getString("run_id") : null);
+        String runId = TaskRunIds.sanitizeRunId(extras != null ? extras.getString("run_id") : null);
         String taskId = trimToEmpty(extras != null ? extras.getString("task_id") : null);
         String prompt = decodePrompt(extras != null ? extras.getString("prompt_base64") : null);
 
@@ -138,9 +139,11 @@ final class BenchmarkTaskManager {
 
     private void createInitialMeta(String runId, String taskId, String prompt) throws Exception {
         File taskDir = requireTaskDir(runId);
+        String displayName = TaskRunIds.buildDisplayName(prompt);
         JSONObject meta = new JSONObject()
                 .put("runId", runId)
                 .put("taskId", taskId)
+                .put("displayName", displayName)
                 .put("sessionKey", ContainerActivity.SESSION_KEY)
                 .put("userInput", prompt)
                 .put("createdAt", nowIso())

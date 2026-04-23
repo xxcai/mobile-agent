@@ -97,7 +97,7 @@ uv run --project benchmark-py benchmark-runner sync-task \
 
 ```bash
 uv run --project benchmark-py benchmark-runner sync-task \
-  --run-id 20260414-113740-settings_change_font_size \
+  --run-id 20260414-113740-f4d2c7a1 \
   --package com.hh.agent
 ```
 
@@ -105,8 +105,8 @@ uv run --project benchmark-py benchmark-runner sync-task \
 
 ```bash
 uv run --project benchmark-py benchmark-runner derive \
-  --raw-dir build/benchmark-results/20260414-113740-settings_change_font_size/raw \
-  --derived-dir build/benchmark-results/20260414-113740-settings_change_font_size/derived
+  --raw-dir build/benchmark-results/20260414-113740-f4d2c7a1/raw \
+  --derived-dir build/benchmark-results/20260414-113740-f4d2c7a1/derived
 ```
 
 ### 6. 查看设备上有哪些 task
@@ -150,6 +150,15 @@ build/benchmark-results/<runId>/
     tool-events/
 ```
 
+解析后的展示目录：
+
+```text
+build/benchmark-results-view/<runId>-<displayName>/
+  summary.json
+  timeline.txt
+  tool-events/
+```
+
 手动分析默认输出到：
 
 ```text
@@ -168,11 +177,14 @@ build/benchmark-results/manual/<runId>/
   轻量摘要，当前包含：
   - `runId`
   - `taskId`
+  - `displayName`
   - `status`
   - `errorMessage`
   - `finishReason`
   - `durationSec`
   - `toolCallCount`
+- `build/benchmark-results-view/<runId>-<displayName>/`
+  面向人工查看的派生结果目录，`displayName` 来自 `raw/meta.json.displayName`
 - `derived/timeline.txt`
   面向人工排查的时间线，包含：
   - `reasoning`

@@ -6,6 +6,13 @@ import subprocess
 from pathlib import Path
 
 
+ADB_TEXT_KWARGS = {
+    "text": True,
+    "encoding": "utf-8",
+    "errors": "replace",
+}
+
+
 class AdbDeviceClient:
     def __init__(self, package_name: str) -> None:
         self.package_name = package_name
@@ -14,8 +21,8 @@ class AdbDeviceClient:
         subprocess.run(
             ["adb", "shell", "am", "start", "-n", f"{self.package_name}/.MainActivity"],
             capture_output=True,
-            text=True,
             check=True,
+            **ADB_TEXT_KWARGS,
         )
 
     def run_task(self, run_id: str, task_id: str, prompt: str) -> dict:
@@ -36,7 +43,7 @@ class AdbDeviceClient:
             "--extra",
             f"prompt_base64:s:{prompt_base64}",
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = subprocess.run(command, capture_output=True, check=True, **ADB_TEXT_KWARGS)
         return _parse_content_call_output(result.stdout)
 
     def read_task_meta(self, run_id: str) -> dict | None:
@@ -44,8 +51,8 @@ class AdbDeviceClient:
         result = subprocess.run(
             ["adb", "shell", "cat", device_meta],
             capture_output=True,
-            text=True,
             check=False,
+            **ADB_TEXT_KWARGS,
         )
         if result.returncode != 0:
             return None
@@ -60,8 +67,8 @@ class AdbDeviceClient:
         subprocess.run(
             ["adb", "pull", self._device_task_path(run_id), str(dest_path)],
             capture_output=True,
-            text=True,
             check=True,
+            **ADB_TEXT_KWARGS,
         )
         return dest_path
 
@@ -69,8 +76,8 @@ class AdbDeviceClient:
         result = subprocess.run(
             ["adb", "shell", "ls", "-1t", self._device_task_root()],
             capture_output=True,
-            text=True,
             check=False,
+            **ADB_TEXT_KWARGS,
         )
         if result.returncode != 0:
             return []
