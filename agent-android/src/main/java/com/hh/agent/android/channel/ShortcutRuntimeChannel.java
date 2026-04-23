@@ -7,8 +7,12 @@ import com.hh.agent.core.shortcut.ShortcutDefinition;
 import com.hh.agent.core.shortcut.ShortcutExecutor;
 import com.hh.agent.core.shortcut.ShortcutRuntime;
 import com.hh.agent.core.tool.ToolResult;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Top-level channel that routes stable shortcut names through the shortcut runtime.
@@ -43,9 +47,12 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
                         "运行已注册的 shortcut 原子动作。"
+                                + "shortcut 字段必须是工具 schema enum 中的精确值；"
+                                + "不要发明、翻译、改写单复数、缩写或根据自然语言推断 shortcut 名称。"
                                 + "协议固定为 {\"shortcut\":\"名称\",\"args\":{...}}。")
                 .property("shortcut", ToolSchemaBuilder.string()
-                        .description(buildShortcutChoicesDescription()), true)
+                        .description(buildShortcutChoicesDescription())
+                        .enumValues(getShortcutNames()), true)
                 .property("args", ToolSchemaBuilder.object()
                         .description(buildArgsDescription()), true)
                 .build();
@@ -79,13 +86,14 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",
-                            "Shortcut '" + shortcutName + "' is not supported. "
-                                    + "If this is a skill name, read skills/" + shortcutName
-                                    + "/SKILL.md with read_file before calling run_shortcut.")
+                            "Shortcut '" + shortcutName + "' 未注册。不要发明 shortcut 名称；"
+                                    + "请使用匹配 SKILL.md 中明确列出的 shortcut，或 validShortcuts 中的精确值。")
                     .with("channel", CHANNEL_NAME)
                     .with("shortcut", shortcutName)
                     .with("requestedShortcut", shortcutName)
-                    .with("suggestedSkillPath", "skills/" + shortcutName + "/SKILL.md");
+                    .with("failureType", "capability_boundary")
+                    .with("suggestedNextAction", "choose_registered_shortcut_from_skill")
+                    .withJson("validShortcuts", buildValidShortcutsJson().toString());
         }
 
         ToolResult result = shortcutRuntime.execute(shortcutName, effectiveArgs);
@@ -147,11 +155,25 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
     }
 
     private String buildShortcutChoicesDescription() {
-        return "要运行的 shortcut 名称。";
+        return "要运行的 shortcut 名称。只能使用 enum 中的精确值；"
+                + "不要使用 skill 名、自然语言能力名或近义名称。"
+                + "如果上一次结果返回 validShortcuts，必须从其中选择一个完全一致的值。";
     }
 
     private String buildArgsDescription() {
-        return "传给 shortcut 的 JSON 参数对象，字段结构由目标 shortcut 定义决定。";
+        return "传给 shortcut 的 JSON 参数对象。字段名必须严格使用匹配 SKILL.md、"
+                + "明确引用的 reference 文件或 describe_shortcut 返回定义中的字段；"
+                + "不要把 query/name/keyword 等近义字段互相替换。";
+    }
+
+    private String[] getShortcutNames() {
+        List<String> names = new ArrayList<>();
+        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
+            if (definition != null && definition.getName() != null && !definition.getName().trim().isEmpty()) {
+                names.add(definition.getName());
+            }
+        }
+        return names.toArray(new String[0]);
     }
 
     private String extractShortcutName(String argumentsJson) {
@@ -210,5 +232,15 @@ public class ShortcutRuntimeChannel implements AndroidToolChannelExecutor {
         } catch (JSONException exception) {
             throw new IllegalStateException("Failed to copy shortcut args", exception);
         }
+    }
+
+    private JSONArray buildValidShortcutsJson() {
+        JSONArray shortcuts = new JSONArray();
+        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
+            if (definition != null && definition.getName() != null) {
+                shortcuts.put(definition.getName());
+            }
+        }
+        return shortcuts;
     }
 }
