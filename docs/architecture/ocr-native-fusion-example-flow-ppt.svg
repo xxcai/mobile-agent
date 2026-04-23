@@ -1,0 +1,149 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 660" width="1500" height="660">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f9fbff"/>
+      <stop offset="100%" stop-color="#eff8f4"/>
+    </linearGradient>
+    <linearGradient id="fusion" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e9f3ff"/>
+      <stop offset="100%" stop-color="#e2f8ef"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#17324d" flood-opacity="0.13"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#3c8192"/>
+    </marker>
+    <style>
+      text { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif; }
+      .card { fill:#fff; stroke:#d7e4ee; stroke-width:2; filter:url(#shadow); }
+      .native { fill:#f3f8ff; stroke:#b9d6f0; stroke-width:2; }
+      .vision { fill:#f2fbf6; stroke:#b8dfc7; stroke-width:2; }
+      .fusion { fill:url(#fusion); stroke:#5aa6a7; stroke-width:3; filter:url(#shadow); }
+      .result { fill:#fff9ec; stroke:#efc46a; stroke-width:2; }
+      .done { fill:#e8f7f3; stroke:#66b7a8; stroke-width:2; }
+      .line { fill:none; stroke:#3c8192; stroke-width:3; marker-end:url(#arrow); }
+      .h { font-size:22px; font-weight:800; fill:#17324d; }
+      .sub { font-size:17px; fill:#4b6175; }
+      .body { font-size:16px; fill:#4f6474; }
+      .small { font-size:14px; fill:#5e7180; }
+      .tag { fill:#fff; stroke:#cbdce8; stroke-width:1.5; }
+      .tagText { font-size:14px; font-weight:700; fill:#27445d; }
+      .screen { fill:#1b3348; stroke:#6f8ea5; stroke-width:3; filter:url(#shadow); }
+      .screenInner { fill:#f7fbff; }
+      .phoneText { font-size:13px; fill:#33495a; font-weight:700; }
+      .phoneTiny { font-size:10.5px; fill:#627384; }
+      .phoneMicro { font-size:9px; fill:#667786; font-weight:600; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1500" height="660" fill="url(#bg)"/>
+
+  <rect class="screen" x="70" y="38" width="245" height="595" rx="34"/>
+  <rect class="screenInner" x="88" y="68" width="209" height="535" rx="20"/>
+
+  <!-- Real device page: personal center, not bottom-tab Me home -->
+  <path d="M112 98 L102 108 L112 118" fill="none" stroke="#2f3c48" stroke-width="2.5"/>
+  <circle cx="144" cy="108" r="10" fill="none" stroke="#2f3c48" stroke-width="2.5"/>
+  <text class="phoneText" x="192" y="112" text-anchor="middle">个人中心</text>
+
+  <text class="phoneTiny" x="108" y="148">HUAWEI ID CARD</text>
+  <text class="phoneText" x="108" y="196">高兴</text>
+  <text class="phoneTiny" x="108" y="217">00612186</text>
+  <rect x="108" y="228" width="92" height="28" fill="#111111" opacity="0.10"/>
+  <g stroke="#111111" stroke-width="2">
+    <line x1="112" y1="230" x2="112" y2="254"/><line x1="118" y1="230" x2="118" y2="254"/>
+    <line x1="127" y1="230" x2="127" y2="254"/><line x1="134" y1="230" x2="134" y2="254"/>
+    <line x1="143" y1="230" x2="143" y2="254"/><line x1="151" y1="230" x2="151" y2="254"/>
+    <line x1="160" y1="230" x2="160" y2="254"/><line x1="168" y1="230" x2="168" y2="254"/>
+    <line x1="178" y1="230" x2="178" y2="254"/><line x1="190" y1="230" x2="190" y2="254"/>
+  </g>
+  <path d="M238 188 C222 189 210 204 210 222 L268 222 C268 204 256 189 238 188 Z" fill="#d9d9d9"/>
+  <circle cx="238" cy="166" r="21" fill="#d9d9d9"/>
+
+  <!-- Section: 常用, four-column grid on current device -->
+  <rect x="88" y="274" width="209" height="32" fill="#f3f5f7"/>
+  <text class="phoneTiny" x="103" y="296">常用</text><text class="phoneTiny" x="258" y="296">更多 ›</text>
+  <rect x="104" y="322" width="35" height="40" rx="11" fill="#eaf3ff" stroke="#d4e7fb"/>
+  <rect x="104" y="366" width="35" height="40" rx="11" fill="#eaf3ff" stroke="#d4e7fb"/>
+  <rect x="154" y="322" width="35" height="40" rx="11" fill="#ecfbff" stroke="#d4edf6"/>
+  <rect x="154" y="366" width="35" height="40" rx="11" fill="#fff0f2" stroke="#f4d9df"/>
+  <rect x="204" y="322" width="35" height="40" rx="11" fill="#fff8df" stroke="#f3e6b8"/>
+  <rect x="204" y="366" width="35" height="40" rx="11" fill="#eafaff" stroke="#d8edf4"/>
+  <rect x="254" y="322" width="35" height="40" rx="11" fill="#f0ebff" stroke="#dfd8f7"/>
+  <rect x="254" y="366" width="35" height="40" rx="11" fill="#eaf3ff" stroke="#d4e7fb"/>
+  <text class="phoneMicro" x="121.5" y="379" text-anchor="middle">云空间</text>
+  <text class="phoneMicro" x="171.5" y="379" text-anchor="middle">云笔记</text>
+  <text class="phoneMicro" x="221.5" y="379" text-anchor="middle">充值</text>
+  <text class="phoneMicro" x="271.5" y="379" text-anchor="middle">卡包</text>
+  <text class="phoneMicro" x="121.5" y="423" text-anchor="middle">云名片</text>
+  <text class="phoneMicro" x="171.5" y="423" text-anchor="middle">收藏</text>
+  <text class="phoneMicro" x="221.5" y="423" text-anchor="middle">求助</text>
+  <text class="phoneMicro" x="271.5" y="423" text-anchor="middle">设置</text>
+
+  <!-- Section: HR服务 and 行政服务, visible lower groups -->
+  <rect x="88" y="442" width="209" height="28" fill="#f3f5f7"/>
+  <text class="phoneTiny" x="103" y="462">HR服务</text><text class="phoneTiny" x="258" y="462">更多 ›</text>
+  <rect x="106" y="482" width="34" height="34" rx="10" fill="#e9fbf0" stroke="#d5f1dd"/>
+  <rect x="156" y="482" width="34" height="34" rx="10" fill="#e9f8fb" stroke="#d3edf4"/>
+  <rect x="206" y="482" width="34" height="34" rx="10" fill="#edf4ff" stroke="#d7e5fb"/>
+  <rect x="256" y="482" width="34" height="34" rx="10" fill="#fff7df" stroke="#f4e7bd"/>
+  <text class="phoneMicro" x="123" y="535" text-anchor="middle">我的信息</text>
+  <text class="phoneMicro" x="173" y="535" text-anchor="middle">我的档案</text>
+  <text class="phoneMicro" x="223" y="535" text-anchor="middle">考勤</text>
+  <text class="phoneMicro" x="273" y="535" text-anchor="middle">薪酬</text>
+
+  <rect x="88" y="552" width="209" height="34" fill="#f3f5f7"/>
+  <text class="phoneTiny" x="103" y="574">行政服务</text><text class="phoneTiny" x="258" y="574">更多 ›</text>
+  <text class="small" x="94" y="638">示例页面：当前设备个人中心页简化</text>
+
+  <rect class="native" x="375" y="80" width="360" height="205" rx="26"/>
+  <text class="h" x="410" y="122">Native 观测</text>
+  <text class="sub" x="410" y="154">系统 View 树给出稳定结构</text>
+  <text class="body" x="410" y="194">• 父容器：可点击卡片</text>
+  <text class="body" x="410" y="224">• 子文本：云空间语义锚点</text>
+  <text class="body" x="410" y="254">• bounds：卡片完整点击区域</text>
+
+  <rect class="vision" x="375" y="340" width="360" height="205" rx="26"/>
+  <text class="h" x="410" y="382">OCR / 视觉观测</text>
+  <text class="sub" x="410" y="414">截图识别补强可见语义</text>
+  <text class="body" x="410" y="454">• OCR 文本：识别“云空间”</text>
+  <text class="body" x="410" y="484">• 视觉控件：确认卡片区域</text>
+  <text class="body" x="410" y="514">• importance：入口视觉权重高</text>
+
+  <rect class="fusion" x="815" y="135" width="330" height="360" rx="30"/>
+  <text class="h" x="855" y="180">融合匹配</text>
+  <text class="sub" x="855" y="211">把两类信号变成同一个入口</text>
+
+  <rect class="tag" x="855" y="246" width="250" height="40" rx="20"/>
+  <text class="tagText" x="883" y="271">文本相似：云空间 = 云空间</text>
+  <rect class="tag" x="855" y="303" width="250" height="40" rx="20"/>
+  <text class="tagText" x="883" y="328">区域重叠：OCR 落在卡片内</text>
+  <rect class="tag" x="855" y="360" width="250" height="40" rx="20"/>
+  <text class="tagText" x="883" y="385">角色兼容：卡片 / grid item</text>
+  <rect class="tag" x="855" y="417" width="250" height="40" rx="20"/>
+  <text class="tagText" x="883" y="442">互为最佳：避免一对多误配</text>
+
+  <rect class="result" x="1215" y="90" width="230" height="205" rx="26"/>
+  <text class="h" x="1248" y="132">融合候选</text>
+  <text class="body" x="1248" y="176">source = fused</text>
+  <text class="body" x="1248" y="207">label = 云空间</text>
+  <text class="body" x="1248" y="238">tap bounds = 父卡片</text>
+  <text class="small" x="1248" y="267">文本负责识别，容器负责点击</text>
+
+  <rect class="done" x="1215" y="350" width="230" height="205" rx="26"/>
+  <text class="h" x="1248" y="392">执行决策</text>
+  <text class="body" x="1248" y="436">唯一高置信候选</text>
+  <text class="body" x="1248" y="467">本地直接点击</text>
+  <text class="body" x="1248" y="498">无需再问一轮 LLM</text>
+  <text class="small" x="1248" y="527">冲突时才回退模型</text>
+
+  <path class="line" d="M315 183 L375 183"/>
+  <path class="line" d="M315 442 L375 442"/>
+  <path class="line" d="M735 183 L815 270"/>
+  <path class="line" d="M735 442 L815 360"/>
+  <path class="line" d="M1145 192 L1215 192"/>
+  <path class="line" d="M1145 452 L1215 452"/>
+
+</svg>
+
