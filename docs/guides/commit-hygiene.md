@@ -89,6 +89,30 @@
 - 不和无关文档大改混提
 - 如果同时改 runtime 和 Skill，优先拆成两笔：先 runtime，再 Skill，或反之，但要保证每笔提交都自洽
 
+### `agent_loop.cpp` 额外约束
+
+`agent_loop.cpp` 是当前执行链路最敏感的核心编排文件，默认按“非必要不修改”处理。
+
+只有在以下条件至少满足一项时，才允许修改：
+
+- 问题确实位于主循环编排层，无法通过 `agent_context_manager`、`agent_route_planner`、`agent_request_builder`、`agent_candidate_matcher`、`agent_observation`、Skill 或日志配置修复
+- 外部接口或执行阶段边界已经变化，必须同步调整主循环调度
+- 现有实现存在明确的 correctness 缺陷，且缺陷位置就在 `agent_loop.cpp`
+
+如果需要修改 `agent_loop.cpp`，提交说明或评审说明中必须同时包含：
+
+1. 修改原因分析
+   - 为什么问题必须在 `agent_loop.cpp` 解决
+   - 为什么不能下沉到其他 runtime 模块或 Skill
+2. 影响范围分析
+   - 会影响哪些阶段：`Route`、`Navigate`、`Readout`、tool filtering、memory/context compaction、stream/non-stream
+   - 是否会影响 LLM 轮数、请求体大小、工具调用过滤、确认重试、readout reset
+3. 回归风险分析
+   - 可能影响的已知场景
+   - 需要重点验证的日志和任务
+
+如果以上分析给不完整，则不应直接修改 `agent_loop.cpp`。
+
 ## 建议提交流程
 
 推荐统一使用以下顺序：
