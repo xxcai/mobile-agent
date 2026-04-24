@@ -307,16 +307,49 @@ bool candidate_label_matches_step_target_exactly(const ObservationCandidate& can
 std::string activity_simple_name(const std::string& activity);
 bool matches_activity_name(const std::string& actual_activity,
                            const std::string& expected_activity);
+bool snapshot_has_step_target_visible(const ObservationSnapshot& snapshot,
+                                      const SkillStepHint& step);
+
+int step_page_match_score(const ObservationSnapshot& snapshot, const SkillStepHint& step) {
+    // Keep generic step matching conservative. Full visible_text often contains
+    // bottom-tab labels or nearby card titles that should not be treated as
+    // proof that we already reached a later page.
+    const std::string page_context = snapshot.activity + " " + snapshot.summary;
+    const bool activity_hit =
+            !step.activity.empty() && matches_activity_name(snapshot.activity, step.activity);
+    const bool page_hit = !step.page.empty() && contains_runtime_match(page_context, step.page);
+    const bool target_visible = snapshot_has_step_target_visible(snapshot, step);
+    if (step.readout) {
+        if (page_hit && target_visible) {
+            return 5;
+        }
+        if (target_visible) {
+            return 4;
+        }
+        if (page_hit) {
+            return 2;
+        }
+    }
+    if (page_hit && target_visible) {
+        return 4;
+    }
+    if (page_hit) {
+        return 3;
+    }
+    if (activity_hit && target_visible) {
+        return 2;
+    }
+    if (activity_hit) {
+        return 1;
+    }
+    if (step.activity.empty() && step.page.empty()) {
+        return target_visible ? 2 : 1;
+    }
+    return 0;
+}
 
 bool matches_step_page(const ObservationSnapshot& snapshot, const SkillStepHint& step) {
-    const std::string page_context = snapshot.activity + " " + snapshot.summary;
-    if (!step.activity.empty() && matches_activity_name(snapshot.activity, step.activity)) {
-        return true;
-    }
-    if (!step.page.empty() && contains_runtime_match(page_context, step.page)) {
-        return true;
-    }
-    return step.activity.empty() && step.page.empty();
+    return step_page_match_score(snapshot, step) > 0;
 }
 
 bool snapshot_has_step_target_visible(const ObservationSnapshot& snapshot,
