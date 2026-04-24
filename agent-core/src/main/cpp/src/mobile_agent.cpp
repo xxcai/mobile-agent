@@ -365,6 +365,15 @@ std::vector<std::string> collect_skill_match_phrases(const SkillMetadata& skill)
     };
 
     append_phrase(skill.name);
+
+    // Once a skill declares structured routing_hints, route selection should come
+    // from that contract instead of arbitrary phrases extracted from the skill
+    // body or execution hints. Keep the skill name as an explicit fallback so a
+    // user can still reference the skill directly by name.
+    if (skill.routing_hints.is_object()) {
+        return phrases;
+    }
+
     append_phrase(skill.description);
 
     for (const auto& phrase : extract_quoted_phrases(skill.description)) {
