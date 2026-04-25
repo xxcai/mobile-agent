@@ -225,6 +225,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
+tmp/
 
 # Log files
 *.log

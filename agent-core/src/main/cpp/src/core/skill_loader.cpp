@@ -106,7 +106,12 @@ std::string SkillLoader::build_skills_summary(const std::vector<SkillMetadata>& 
     ss << "<skills>\n";
     ss << "When a request matches a skill, read its SKILL.md first.\n";
     ss << "Skill names are not shortcut names. Never pass them to run_shortcut or describe_shortcut.\n";
-    ss << "If a shortcut's parameters are unclear, call describe_shortcut before run_shortcut.\n\n";
+    ss << "Do not invent shortcut names from natural-language actions.\n";
+    ss << "Shortcut names are exact identifiers; do not translate, singularize, pluralize, or abbreviate them.\n";
+    ss << "The shortcut field must be explicitly listed in the matched SKILL.md or validShortcuts.\n";
+    ss << "If shortcut_not_supported returns validShortcuts, use one exact value from validShortcuts or stop; do not retry the rejected name.\n";
+    ss << "If a listed shortcut's parameters are unclear, call describe_shortcut before run_shortcut.\n";
+    ss << "Reference file paths are exact. Read only paths explicitly written in SKILL.md or returned by list_files; do not invent filenames from shortcut names.\n\n";
     for (const auto& skill : skills) {
 #if !defined(__ANDROID__) && !defined(ICRAW_ANDROID)
         bool available = true;
@@ -278,6 +283,9 @@ SkillMetadata SkillLoader::parse_skill_file(const std::filesystem::path& skill_f
         }
         if (yaml_json.contains("execution_hints")) {
             skill.execution_hints = yaml_json["execution_hints"];
+        }
+        if (yaml_json.contains("routing_hints")) {
+            skill.routing_hints = yaml_json["routing_hints"];
         }
     } else {
         // No frontmatter, entire content is the skill

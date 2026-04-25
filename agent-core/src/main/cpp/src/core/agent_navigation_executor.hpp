@@ -111,7 +111,7 @@ bool step_supports_forward_scroll_search(const SkillStepHint& pending_step) {
 
 bool looks_like_readout_target_hint(const std::string& target_hint) {
     static const std::vector<std::string> keywords = {
-        u8"\u4e91\u7a7a\u95f4", u8"\u6587\u6863", u8"\u6587\u4ef6", u8"\u5185\u5bb9",
+        u8"\u6587\u6863", u8"\u6587\u4ef6", u8"\u5185\u5bb9",
         u8"\u8be6\u60c5", u8"\u5217\u8868", u8"\u9875\u9762", u8"\u603b\u7ed3",
         u8"\u6982\u8981", u8"\u9605\u8bfb", u8"\u67e5\u770b",
         "content", "detail", "details", "summary", "summarize", "read",
@@ -169,9 +169,24 @@ bool snapshot_matches_confirmation_previous_page(const ExecutionState& state,
 bool matches_confirmed_arrival_after_action(const ExecutionState& state,
                                             const ObservationSnapshot& snapshot,
                                             const SkillStepHint& next_step) {
-    const std::string page_context = snapshot.activity + " " + snapshot.summary;
-    if (!next_step.page.empty() && contains_runtime_match(page_context, next_step.page)) {
+    // Confirmation after a tap/open must tolerate same-Activity page changes.
+    // In those cases the compact summary may omit the new page title while the
+    // visible text still contains it.
+    const std::string base_page_context = snapshot.activity + " " + snapshot.summary;
+    const std::string page_context = base_page_context + " " + snapshot.visible_text;
+    const bool base_page_hit =
+            !next_step.page.empty() && contains_runtime_match(base_page_context, next_step.page);
+    const bool page_hit =
+            !next_step.page.empty() && contains_runtime_match(page_context, next_step.page);
+    const bool target_visible = snapshot_has_step_target_visible(snapshot, next_step);
+    if (base_page_hit && !next_step.readout) {
         return true;
+    }
+    if (page_hit && !next_step.readout) {
+        const bool page_context_changed = !snapshot_matches_confirmation_previous_page(state, snapshot);
+        if (page_context_changed || target_visible) {
+            return true;
+        }
     }
 
     if (!next_step.activity.empty() && matches_activity_name(snapshot.activity, next_step.activity)) {
@@ -179,7 +194,7 @@ bool matches_confirmed_arrival_after_action(const ExecutionState& state,
                 || !step_requires_visible_target_for_arrival(next_step)) {
             return true;
         }
-        if (snapshot_has_step_target_visible(snapshot, next_step)) {
+        if (target_visible) {
             ICRAW_LOG_INFO(
                     "[AgentLoop][execution_state_arrival_confirmed_by_visible_target] page={} target={} activity={}",
                     next_step.page,
@@ -189,7 +204,11 @@ bool matches_confirmed_arrival_after_action(const ExecutionState& state,
         }
     }
 
-    if (snapshot_has_step_target_visible(snapshot, next_step)) {
+    if (next_step.readout && page_hit && target_visible) {
+        return true;
+    }
+
+    if (target_visible) {
         const bool observation_changed = state.navigation_checkpoint.stagnant_rounds == 0;
         const bool page_context_changed = !snapshot_matches_confirmation_previous_page(state, snapshot);
         if (observation_changed || page_context_changed) {
@@ -227,16 +246,21 @@ bool should_retry_pending_step_confirmation(const ExecutionState& state,
 }
 
 void maybe_wait_before_confirmation_retry(const ExecutionState& state) {
-    if (state.awaiting_step_confirmation_index < 0 || state.awaiting_confirmation_retry_count <= 0) {
+    if (state.awaiting_step_confirmation_index < 0) {
         return;
     }
 
+    const bool initial_settle = state.awaiting_confirmation_retry_count <= 0;
+    const auto delay = initial_settle
+            ? kPendingConfirmationInitialSettleDelay
+            : kPendingConfirmationRetryDelay;
     ICRAW_LOG_INFO(
-            "[AgentLoop][execution_state_confirmation_retry_wait] step_index={} retry_count={} delay_ms={}",
+            "[AgentLoop][execution_state_confirmation_wait] step_index={} retry_count={} reason={} delay_ms={}",
             state.awaiting_step_confirmation_index,
             state.awaiting_confirmation_retry_count,
-            static_cast<int>(kPendingConfirmationRetryDelay.count()));
-    std::this_thread::sleep_for(kPendingConfirmationRetryDelay);
+            initial_settle ? "initial_settle" : "retry",
+            static_cast<int>(delay.count()));
+    std::this_thread::sleep_for(delay);
 }
 
 void record_completed_step(ExecutionState& state, const SkillStepHint& step) {
@@ -349,22 +373,35 @@ void refresh_pending_step_from_observation(ExecutionState& state,
     const size_t start_index = state.pending_step_index > 0
             ? static_cast<size_t>(state.pending_step_index)
             : 0;
+    int best_index = -1;
+    int best_score = 0;
     for (size_t i = start_index; i < steps.size(); ++i) {
-        if (!matches_step_page(snapshot, steps[i])) {
+        const int score = step_page_match_score(snapshot, steps[i]);
+        if (score <= 0) {
             continue;
         }
-        state.pending_step_index = static_cast<int>(i);
-        state.pending_step = build_step_json(steps[i]);
-        state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
-        state.latest_observation_summary = snapshot.summary;
-        state.phase = steps[i].readout ? "readout" : (i == 0 ? "discovery" : "advance");
-        state.goal_reached = steps[i].readout
-                || ((i + 1) == steps.size()
-                    && (steps[i].action.empty() || steps[i].action == "read" || steps[i].action == "readout"));
-        if (state.goal_reached) {
-            state.mode = "free_llm";
+        if (best_index < 0 || score > best_score
+                || (score == best_score && static_cast<int>(i) > best_index)) {
+            best_index = static_cast<int>(i);
+            best_score = score;
         }
+    }
+    if (best_index < 0) {
         return;
+    }
+    const auto& best_step = steps[static_cast<size_t>(best_index)];
+    state.pending_step_index = best_index;
+    state.pending_step = build_step_json(best_step);
+    state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+    state.latest_observation_summary = snapshot.summary;
+    state.phase = best_step.readout ? "readout" : (best_index == 0 ? "discovery" : "advance");
+    state.goal_reached = best_step.readout
+            || ((static_cast<size_t>(best_index) + 1) == steps.size()
+                && (best_step.action.empty()
+                    || best_step.action == "read"
+                    || best_step.action == "readout"));
+    if (state.goal_reached) {
+        state.mode = "free_llm";
     }
 }
 
@@ -678,9 +715,6 @@ std::vector<std::string> pending_step_observation_terms(const ExecutionState& st
 
 bool observation_target_matches_pending_step(const ExecutionState& state) {
     const std::string last_hint = trim_whitespace(state.last_observation_target_hint);
-    if (last_hint.empty()) {
-        return false;
-    }
     const auto terms = pending_step_observation_terms(state);
     if (terms.empty()) {
         return true;
@@ -692,6 +726,21 @@ bool observation_target_matches_pending_step(const ExecutionState& state) {
         if (contains_runtime_match(last_hint, term)
                 || contains_runtime_match(term, last_hint)) {
             return true;
+        }
+    }
+
+    const std::string latest_observation_context =
+            state.latest_canonical_candidate_summary + " "
+            + state.latest_navigation_observation_summary + " "
+            + state.latest_observation_summary;
+    if (!latest_observation_context.empty()) {
+        for (const auto& term : terms) {
+            if (term.empty()) {
+                continue;
+            }
+            if (contains_runtime_match(latest_observation_context, term)) {
+                return true;
+            }
         }
     }
     return false;

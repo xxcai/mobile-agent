@@ -1,4 +1,4 @@
-﻿# Me 页面 nativeViewXml / screenVision / hybridObservation 融合示例
+# Me 页面 nativeViewXml / screenVision / hybridObservation 融合示例
 
 本文以 `com.huawei.works.me.fragment.MeMainActivity` 上的“云空间”入口为例，说明 `agent-screen-vision` 的视觉结果如何和原生 `nativeViewXml` 融合，并最终被 `agent-core` 消费为可执行候选。
 
@@ -176,6 +176,118 @@ flowchart TD
 
 - `hybridObservation` 是当前 Agent 本地导航和 fast execute 的主要输入，尤其是 `actionableNodes`。
 - `UnifiedViewObservation` 是 merge 后新增的统一观测旁路，用于把 native、screen vision、web dom 等来源收敛到 `uiTree/screenElements/pageSummary/quality/raw` 结构。
+
+#### OCR 和 Native 融合方案图
+
+下面这张图专门展开 OCR 文本信号与 Native 节点的融合方式。它强调两件事：OCR 负责证明“屏幕上看到了什么”，Native 负责证明“这个元素能不能点、点哪里、属于哪个父容器”。两路信号只有在文本/语义和空间位置都足够一致时，才会形成 `source=fused` 的高置信候选。
+
+```mermaid
+flowchart TB
+    subgraph Input["1. 输入信号"]
+        direction LR
+
+        subgraph OCR["OCR / Screen Vision"]
+            direction TB
+            O1["可见文字\ntexts[].text = 云空间"]
+            O2["文字位置\ntexts[].bbox"]
+            O3["视觉控件\ncontrols[].label = 云空间\ncontrols[].role = shortcut/card"]
+            O4["控件区域\ncontrols[].bbox"]
+        end
+
+        subgraph Native["Native View"]
+            direction TB
+            N1["原生语义\ntext / content-desc = 云空间"]
+            N2["稳定身份\nresource-id / className"]
+            N3["执行能力\nclickable / containerClickable"]
+            N4["真实区域\nbounds"]
+            N5["父容器语义\nparentSemanticContext"]
+        end
+    end
+
+    subgraph Fusion["2. 融合匹配"]
+        direction LR
+        P1["统一成中间信号\nSignal + NativeNode"]
+        P2["计算匹配分\n文本相似 + 资源语义 + 空间重叠"]
+        P3["可执行性校验\n是否可点击 / 是否父容器可点"]
+        P4["互为最佳匹配\nbestSignal + bestNode\nscore >= 0.40"]
+    end
+
+    subgraph Output["3. 输出与执行"]
+        direction LR
+        R1["fused 文本锚点\n语义准确\n但不一定可点击"]
+        R2["fused 点击候选\n语义明确\nbounds 完整"]
+        R3["CandidateMatcher\n合并父子候选\n过滤低置信 vision_only"]
+        R4["最终动作\n点击 Native 可点击父容器"]
+    end
+
+    OCR --> P1
+    Native --> P1
+    P1 --> P2 --> P3 --> P4
+    P4 --> R1
+    P4 --> R2
+    R1 --> R3
+    R2 --> R3
+    R3 --> R4
+```
+
+融合后的候选不是简单取 OCR 坐标，也不是简单点击 native 文本节点，而是按下面的优先级组合信息：
+
+| 信息来源 | 主要贡献 | 融合后的用途 |
+| --- | --- | --- |
+| OCR `texts[].text` | 证明屏幕上确实可见“云空间”等文字 | 补强目标语义和 readout 可见文本 |
+| OCR `texts[].bbox` | 提供视觉文字位置 | 与 native 文本节点做空间重叠匹配 |
+| Vision `controls[].label/role` | 识别卡片、图标、按钮等视觉角色 | 帮助判断入口是 card、shortcut、tab 还是 icon |
+| Vision `controls[].bbox` | 提供视觉控件区域 | 与 native 可点击父容器做匹配 |
+| Native `text/content-desc/resource-id` | 提供稳定结构语义 | 作为跨设备、跨分辨率更稳定的匹配依据 |
+| Native `bounds` | 提供真实 View 区域 | 生成最终可执行 `referencedBounds` |
+| Native `clickable/containerClickable` | 判断自身或父容器是否能点 | 决定点击文本节点还是点击可点击父容器 |
+| Native `parentSemanticContext` | 提供父容器上下文 | 解决文本子节点与可点击卡片的归属关系 |
+
+#### PPT 展示例子：为什么最终点击父容器
+
+这一页可以直接放到 PPT 中，用来说明“视觉看见目标”和“原生负责执行”是如何协作的。例子仍以 Me 页“云空间”入口为例。
+
+```mermaid
+flowchart TB
+    Goal["示例目标\n点击 Me 页的云空间入口"]
+
+    subgraph VisionExample["Screen Vision 看到的内容"]
+        direction TB
+        VT["OCR 文本\n云空间\nbbox=[142,604][242,644]"]
+        VC["视觉卡片\nlabel=云空间\nrole=shortcut/card\nbbox=[72,482][312,698]"]
+    end
+
+    subgraph NativeExample["Native View 提供的结构"]
+        direction TB
+        NT["TextView\ntext=云空间\nclickable=false"]
+        NC["父容器 LinearLayout\ncontent-desc=云空间\nclickable=true\nbounds=[72,482][312,698]"]
+    end
+
+    Goal --> VT
+    Goal --> NT
+    VT --> F1["文本语义匹配\nOCR 文本 ~= Native TextView"]
+    NT --> F1
+    VC --> F2["空间与角色匹配\n视觉卡片 ~= Native 父容器"]
+    NC --> F2
+    F1 --> C["候选归一\n文本节点提供语义"]
+    F2 --> C
+    C --> Tap["最终点击\n可点击父容器 bounds\n而不是小文本 bbox"]
+```
+
+| 步骤 | 输入 | 本地判断 | 输出 |
+| --- | --- | --- | --- |
+| 1. OCR 识别文字 | `texts[].text=云空间`，`bbox=[142,604][242,644]` | 证明页面上确实可见“云空间” | 形成视觉文本信号 `txt_cloud_space` |
+| 2. 视觉识别卡片 | `controls[].label=云空间`，`role=shortcut`，`bbox=[72,482][312,698]` | 证明“云空间”是一个快捷入口卡片，而不是普通文字 | 形成视觉控件信号 `ctl_cloud_space_card` |
+| 3. Native 找到文本节点 | `TextView text=云空间`，`clickable=false` | 文本语义稳定，但不能直接点击 | 作为语义锚点参与匹配 |
+| 4. Native 找到父容器 | `LinearLayout content-desc=云空间`，`clickable=true`，`bounds=[72,482][312,698]` | 父容器可点击，bounds 覆盖完整卡片 | 作为最终点击候选 |
+| 5. 融合匹配 | OCR 文本匹配 TextView；视觉卡片匹配父容器 | 两组匹配都满足 `score >= 0.40` 且互为最佳匹配 | 输出两个 `source=fused` 候选 |
+| 6. 候选归一 | 文本节点和父容器语义相同且空间包含 | 文本节点提供“点什么”，父容器提供“点哪里” | 最终点击父容器，而不是点击小文本 bbox |
+
+PPT 中可以用一句话总结这个例子：
+
+> OCR 负责确认“云空间”在屏幕上可见，Native 负责确认“云空间”的父容器可点击；融合后 Agent 不猜坐标，而是点击 Native 给出的完整可点击父容器。
+
+这个例子也解释了为什么不能只用截图坐标：OCR 文本框 `[142,604][242,644]` 只覆盖文字本身，点击它可能命中较小区域；Native 父容器 `[72,482][312,698]` 才是业务真正注册点击事件的卡片区域。
 
 ### 4.1.1 代码级融合流程
 

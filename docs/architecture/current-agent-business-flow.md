@@ -201,6 +201,8 @@ sequenceDiagram
 
 也就是说，系统当前已经是 hybrid-first，而不是 raw-data-first。
 
+请求体裁剪时也遵循这个边界：原生/视觉页面优先保留 `hybridObservation` 的摘要、候选、bounds 和冲突信息，`uiTree`、`screenElements`、`raw`、`screenVisionRaw` 这类大字段默认不进入常规 LLM 请求；WebView / H5 页面则暂时保留 `screenElements.ref/selector` 和必要 `webDom` 信息，因为 `android_web_action_tool` 的 click/input 仍依赖这些 DOM 引用。字段级裁剪矩阵见 [请求体字段裁剪清单](./request-payload-field-trimming.md)。
+
 ### 2. source 选择
 
 在真正执行前，`ViewContextToolChannel` 会先根据运行时策略决定当前应使用哪种 source。

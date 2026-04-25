@@ -277,6 +277,7 @@ struct SkillMetadata {
     std::string emoji;
     std::string content;
     nlohmann::json execution_hints = nullptr;
+    nlohmann::json routing_hints = nullptr;
 };
 
 // --- Tool Schema ---

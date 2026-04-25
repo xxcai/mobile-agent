@@ -2,6 +2,7 @@
 name: contact_resolver
 description: 联系人解析助手。帮助 Agent 根据姓名、关键词或上一轮候选选择结果，解析出稳定的联系人目标和 contact_id。当用户要给某人发消息、提醒某人、联系某人，且联系人尚未明确时使用。
 always: false
+routing_hints: {"task_type":"contact_resolution","strong_markers":["查找联系人","搜索联系人","找联系人","联系人候选","选择联系人","联系人选择"],"strong_ordered_pairs":[["搜索","联系人"],["查找","联系人"],["选择","联系人"]],"weak_markers":["第一个","第二个","第三个","候选","上面那个","下面那个","这个联系人"],"negative_markers":["查看日程","日历","云空间","打卡"],"requires_primary_marker":false}
 ---
 
 # 联系人解析助手
@@ -18,6 +19,9 @@ always: false
 - 当前 skill 推荐的 shortcut：
   - `search_contacts`
   - `resolve_candidate_selection`
+- “解析联系人 / 查找联系人 / 搜索联系人”这类语义动作必须使用已注册 shortcut `search_contacts`
+- 不要根据自然语言动作发明 shortcut 名，例如不要调用未注册的 `resolve_contact`
+- 调用 `search_contacts` 时参数必须使用 `query`，不要使用 `name`、`keyword` 等未声明字段
 - 当联系人尚未明确时，不要直接调用 `send_im_message`
 - 当上一轮已经给出候选联系人，而用户这一轮只回复序号或候选描述时，应优先承接上一轮候选结果
 - 详细候选选择规则在 `skills/contact_resolver/references/contact-selection.md`

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // Internal AgentLoop implementation chunk. Included only by agent_loop.cpp.
 
@@ -73,8 +73,13 @@ void inject_selected_skills_into_request(ChatCompletionRequest& request,
     }
 
     std::ostringstream body;
-    body << "Matched skill summaries. Full SKILL.md content is intentionally omitted; ";
-    body << "use the structured execution hints and request escalation only if more detail is required.\n\n";
+    body << "Matched skill summaries are only for route selection and local navigation hints. ";
+    body << "Before invoking any shortcut or business-side action, read the matched SKILL.md ";
+    body << "unless its full content is already present in this turn. ";
+    body << "Do not infer shortcut names from summaries; use only shortcuts explicitly listed ";
+    body << "in the SKILL.md or returned by describe_shortcut. ";
+    body << "Reference paths in SKILL.md are exact; do not replace hyphens/underscores ";
+    body << "or invent reference filenames from shortcut names.\n\n";
 
     size_t injected_count = 0;
     for (const auto& skill : selected_skills) {

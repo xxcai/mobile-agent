@@ -426,6 +426,21 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
         std::string accumulated_reasoning;
         std::vector<ToolCall> final_tool_calls;
         bool stream_complete = false;
+        bool message_end_emitted = false;
+        auto emit_message_end_once = [&](const std::string& finish_reason) {
+            if (message_end_emitted) {
+                ICRAW_LOG_DEBUG(
+                        "[AgentLoop][message_end_deduped] iteration={} finish_reason={}",
+                        iteration,
+                        finish_reason);
+                return;
+            }
+            AgentEvent event;
+            event.type = "message_end";
+            event.data["finish_reason"] = finish_reason;
+            callback(event);
+            message_end_emitted = true;
+        };
 
         ICRAW_LOG_INFO("[AgentLoop][stream_start] iteration={}", iteration);
 
@@ -463,10 +478,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                         last_finish_reason_ = chunk.finish_reason;
 
                         ICRAW_LOG_DEBUG("[AgentLoop][stream_complete_debug] action=emit_message_end");
-                        AgentEvent event;
-                        event.type = "message_end";
-                        event.data["finish_reason"] = chunk.finish_reason;
-                        callback(event);
+                        emit_message_end_once(chunk.finish_reason);
                     }
                 });
         } catch (const std::exception& error) {
@@ -483,10 +495,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             ICRAW_LOG_INFO("[AgentLoop][stream_cancelled] iteration={} text_length={} reasoning_length={}",
                     iteration, accumulated_text.length(), accumulated_reasoning.length());
 
-            AgentEvent event;
-            event.type = "message_end";
-            event.data["finish_reason"] = "cancel";
-            callback(event);
+            emit_message_end_once("cancel");
             break;
         }
 
@@ -624,10 +633,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
                     text_event.data["delta"] = accumulated_text;
                     callback(text_event);
 
-                    AgentEvent end_event;
-                    end_event.type = "message_end";
-                    end_event.data["finish_reason"] = "stop";
-                    callback(end_event);
+                    emit_message_end_once("stop");
 
                     ICRAW_LOG_INFO(
                             "[AgentLoop][readout_local_fallback] mode=stream chars={} current_page={}",
@@ -642,10 +648,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             if (last_finish_reason_ == "stop" || last_finish_reason_ == "end_turn") {
                 ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=finish_reason finish_reason={}", last_finish_reason_);
                 loop_exit_reason = last_finish_reason_;
-                AgentEvent event;
-                event.type = "message_end";
-                event.data["finish_reason"] = "stop";
-                callback(event);
+                emit_message_end_once("stop");
                 break;  // Exit loop - LLM is done
             }
 
@@ -653,10 +656,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             // The LLM has finished its response
             ICRAW_LOG_DEBUG("[AgentLoop][loop_exit_debug] reason=text_only_response");
             loop_exit_reason = "text_only_response";
-            AgentEvent event;
-            event.type = "message_end";
-            event.data["finish_reason"] = "stop";
-            callback(event);
+            emit_message_end_once("stop");
             break;
         }
         // If we have valid tool calls, execute them and loop continues
@@ -676,10 +676,7 @@ std::vector<Message> AgentLoop::process_message_stream(const std::string& messag
             ICRAW_LOG_INFO("[AgentLoop][tool_phase_cancelled] iteration={} tool_result_count={}",
                     iteration, tool_result_count);
 
-            AgentEvent event;
-            event.type = "message_end";
-            event.data["finish_reason"] = "cancel";
-            callback(event);
+            emit_message_end_once("cancel");
             break;
         }
     }

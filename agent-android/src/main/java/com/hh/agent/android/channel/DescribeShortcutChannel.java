@@ -9,6 +9,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Discovery channel for querying a registered shortcut definition on demand.
  */
@@ -34,9 +37,12 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
     public JSONObject buildToolDefinition() throws Exception {
         return ToolSchemaBuilder.function(
                         CHANNEL_NAME,
-                        "查询某个已注册 shortcut 的详细定义（参数结构、示例和约束）。")
+                        "按需查询某个已注册 shortcut 的详细定义。"
+                                + "shortcut 字段必须是工具 schema enum 中的精确值；"
+                                + "不要发明、翻译、改写单复数、缩写或根据自然语言推断 shortcut 名称。")
                 .property("shortcut", ToolSchemaBuilder.string()
-                        .description("要查询定义的 shortcut 名称。"), true)
+                        .description("要查询定义的 shortcut 名称。只能使用 enum 中的精确值。")
+                        .enumValues(getShortcutNames()), true)
                 .build();
     }
 
@@ -50,11 +56,14 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
         ShortcutExecutor executor = shortcutRuntime.find(shortcutName);
         if (executor == null) {
             return ToolResult.error("shortcut_not_supported",
-                            "Shortcut '" + shortcutName + "' is not supported. "
-                                    + "If this is a skill name, read skills/<skill_name>/SKILL.md with read_file "
-                                    + "instead of calling describe_shortcut.")
+                            "Shortcut '" + shortcutName + "' 未注册。不要发明 shortcut 名称；"
+                                    + "请使用匹配 SKILL.md 中明确列出的 shortcut，或 validShortcuts 中的精确值。")
                     .with("channel", CHANNEL_NAME)
-                    .with("shortcut", shortcutName);
+                    .with("shortcut", shortcutName)
+                    .with("requestedShortcut", shortcutName)
+                    .with("failureType", "capability_boundary")
+                    .with("suggestedNextAction", "choose_registered_shortcut_from_skill")
+                    .withJson("validShortcuts", buildValidShortcutsJson().toString());
         }
 
         ShortcutDefinition definition = executor.getDefinition();
@@ -88,5 +97,25 @@ public class DescribeShortcutChannel implements AndroidToolChannelExecutor {
         } catch (JSONException e) {
             throw new IllegalStateException("Failed to serialize shortcut definition: " + definition.getName(), e);
         }
+    }
+
+    private String[] getShortcutNames() {
+        List<String> names = new ArrayList<>();
+        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
+            if (definition != null && definition.getName() != null && !definition.getName().trim().isEmpty()) {
+                names.add(definition.getName());
+            }
+        }
+        return names.toArray(new String[0]);
+    }
+
+    private JSONArray buildValidShortcutsJson() {
+        JSONArray shortcuts = new JSONArray();
+        for (ShortcutDefinition definition : shortcutRuntime.listDefinitions()) {
+            if (definition != null && definition.getName() != null) {
+                shortcuts.put(definition.getName());
+            }
+        }
+        return shortcuts;
     }
 }

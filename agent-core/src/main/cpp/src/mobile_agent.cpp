@@ -14,8 +14,10 @@
 #include <array>
 #include <cctype>
 #include <functional>
+#include <initializer_list>
 #include <sstream>
 #include <unordered_set>
+#include <utility>
 
 namespace icraw {
 
@@ -33,6 +35,10 @@ namespace {
 constexpr size_t PRELOADED_SKILL_MAX_COUNT = 2;
 constexpr size_t PRELOADED_SKILL_MAX_TOTAL_CHARS = 20000;
 constexpr int PRELOADED_SKILL_MIN_SCORE = 16;
+constexpr int ROUTING_STRONG_MARKER_BONUS = 160;
+constexpr int ROUTING_WEAK_MARKER_BONUS = 12;
+constexpr int ROUTING_NEGATIVE_MARKER_PENALTY = 220;
+constexpr int ROUTING_COMPANION_SCORE = 80;
 
 void replace_all(std::string& text, const std::string& needle, const std::string& replacement) {
     if (needle.empty()) {
@@ -68,7 +74,7 @@ std::string normalize_for_match(std::string text) {
 }
 
 bool is_generic_skill_phrase(const std::string& normalized_phrase) {
-    static const std::array<std::string, 23> generic_phrases = {
+    static const std::array<std::string, 13> generic_phrases = {
         normalize_for_match("\xE7\x94\xA8\xE6\x88\xB7"),
         normalize_for_match("\xE5\xBD\x93\xE5\x89\x8D"),
         normalize_for_match("\xE9\xA1\xB5\xE9\x9D\xA2"),
@@ -80,20 +86,205 @@ bool is_generic_skill_phrase(const std::string& normalized_phrase) {
         normalize_for_match("\xE8\xBE\x93\xE5\x87\xBA\xE8\xA6\x81\xE6\xB1\x82"),
         normalize_for_match("\xE9\x94\x99\xE8\xAF\xAF\xE5\xA4\x84\xE7\x90\x86"),
         normalize_for_match("\xE6\xB3\xA8\xE6\x84\x8F"),
-        normalize_for_match("\xE8\xBF\x9B\xE5\x85\xA5"),
-        normalize_for_match("\xE6\x9F\xA5\xE7\x9C\x8B"),
-        normalize_for_match("\xE7\xBB\xA7\xE7\xBB\xAD"),
-        normalize_for_match("\xE6\x80\xBB\xE7\xBB\x93"),
-        normalize_for_match("\xE4\xBB\x8A\xE5\xA4\xA9"),
-        normalize_for_match("\xE4\xBB\x8A\xE6\x97\xA5"),
-        normalize_for_match("\xE4\xB8\x9A\xE5\x8A\xA1"),
-        normalize_for_match("\xE9\xA6\x96\xE9\xA1\xB5"),
-        normalize_for_match("\xE5\xBA\x94\xE7\x94\xA8"),
-        normalize_for_match("\xE6\x9C\x8D\xE5\x8A\xA1"),
         normalize_for_match("skill"),
         normalize_for_match("agent")
     };
     return std::find(generic_phrases.begin(), generic_phrases.end(), normalized_phrase) != generic_phrases.end();
+}
+
+bool contains_normalized(const std::string& normalized_text, const std::string& normalized_term) {
+    return !normalized_term.empty()
+            && normalized_text.find(normalized_term) != std::string::npos;
+}
+
+bool contains_ordered_pair(const std::string& normalized_text,
+                           const std::string& first,
+                           const std::string& second,
+                           size_t max_gap_bytes = 72) {
+    const size_t first_pos = normalized_text.find(first);
+    if (first_pos == std::string::npos) {
+        return false;
+    }
+    const size_t second_pos = normalized_text.find(second, first_pos + first.size());
+    if (second_pos == std::string::npos) {
+        return false;
+    }
+    return second_pos >= first_pos && second_pos - first_pos <= max_gap_bytes;
+}
+
+int skill_phrase_match_score(const std::string& normalized_phrase);
+
+const nlohmann::json* find_json_value(const nlohmann::json& object,
+                                      std::initializer_list<const char*> keys) {
+    if (!object.is_object()) {
+        return nullptr;
+    }
+    for (const char* key : keys) {
+        auto it = object.find(key);
+        if (it != object.end()) {
+            return &(*it);
+        }
+    }
+    return nullptr;
+}
+
+std::vector<std::string> json_string_list(const nlohmann::json& object,
+                                          std::initializer_list<const char*> keys) {
+    std::vector<std::string> values;
+    const nlohmann::json* value = find_json_value(object, keys);
+    if (value == nullptr) {
+        return values;
+    }
+    if (value->is_string()) {
+        values.push_back(value->get<std::string>());
+        return values;
+    }
+    if (!value->is_array()) {
+        return values;
+    }
+    for (const auto& item : *value) {
+        if (item.is_string()) {
+            values.push_back(item.get<std::string>());
+        }
+    }
+    return values;
+}
+
+std::vector<std::pair<std::string, std::string>> json_ordered_pairs(
+        const nlohmann::json& object,
+        std::initializer_list<const char*> keys) {
+    std::vector<std::pair<std::string, std::string>> pairs;
+    const nlohmann::json* value = find_json_value(object, keys);
+    if (value == nullptr || !value->is_array()) {
+        return pairs;
+    }
+    for (const auto& item : *value) {
+        if (item.is_array() && item.size() >= 2 && item[0].is_string() && item[1].is_string()) {
+            pairs.emplace_back(item[0].get<std::string>(), item[1].get<std::string>());
+            continue;
+        }
+        if (item.is_object()) {
+            const nlohmann::json* first = find_json_value(item, {"first", "before", "from"});
+            const nlohmann::json* second = find_json_value(item, {"second", "after", "to"});
+            if (first != nullptr && second != nullptr && first->is_string() && second->is_string()) {
+                pairs.emplace_back(first->get<std::string>(), second->get<std::string>());
+            }
+        }
+    }
+    return pairs;
+}
+
+bool json_bool_value(const nlohmann::json& object,
+                     std::initializer_list<const char*> keys,
+                     bool default_value) {
+    const nlohmann::json* value = find_json_value(object, keys);
+    if (value == nullptr || !value->is_boolean()) {
+        return default_value;
+    }
+    return value->get<bool>();
+}
+
+struct RoutingScore {
+    bool has_hints = false;
+    bool requires_primary_marker = false;
+    bool primary_matched = false;
+    int score = 0;
+    int strong_score = 0;
+    int weak_score = 0;
+    int negative_score = 0;
+    std::vector<std::string> companion_skills;
+};
+
+int score_routing_markers(const std::string& normalized_message,
+                          const std::vector<std::string>& markers,
+                          int base_score,
+                          bool phrase_weighted,
+                          bool* matched = nullptr) {
+    int score = 0;
+    for (const auto& marker : markers) {
+        const std::string normalized_marker = normalize_for_match(marker);
+        if (!contains_normalized(normalized_message, normalized_marker)) {
+            continue;
+        }
+        if (matched != nullptr) {
+            *matched = true;
+        }
+        score += base_score;
+        if (phrase_weighted) {
+            score += skill_phrase_match_score(normalized_marker);
+        }
+    }
+    return score;
+}
+
+RoutingScore score_skill_routing(const SkillMetadata& skill,
+                                 const std::string& normalized_message) {
+    RoutingScore routing;
+    if (!skill.routing_hints.is_object()) {
+        return routing;
+    }
+
+    routing.has_hints = true;
+    routing.requires_primary_marker = json_bool_value(
+            skill.routing_hints, {"requires_primary_marker", "requiresPrimaryMarker"}, false);
+    routing.companion_skills = json_string_list(
+            skill.routing_hints, {"companion_skills", "companionSkills"});
+
+    bool primary_matched = false;
+    const auto strong_markers = json_string_list(
+            skill.routing_hints, {"strong_markers", "strongMarkers", "primary_markers", "primaryMarkers"});
+    routing.strong_score += score_routing_markers(
+            normalized_message,
+            strong_markers,
+            ROUTING_STRONG_MARKER_BONUS,
+            true,
+            &primary_matched);
+
+    const auto strong_pairs = json_ordered_pairs(
+            skill.routing_hints, {"strong_ordered_pairs", "strongOrderedPairs", "ordered_pairs", "orderedPairs"});
+    for (const auto& [first, second] : strong_pairs) {
+        const std::string normalized_first = normalize_for_match(first);
+        const std::string normalized_second = normalize_for_match(second);
+        if (!contains_ordered_pair(normalized_message, normalized_first, normalized_second, 96)) {
+            continue;
+        }
+        primary_matched = true;
+        routing.strong_score += ROUTING_STRONG_MARKER_BONUS
+                + skill_phrase_match_score(normalized_first + normalized_second);
+    }
+
+    const auto weak_markers = json_string_list(
+            skill.routing_hints, {"weak_markers", "weakMarkers", "secondary_markers", "secondaryMarkers"});
+    routing.weak_score += score_routing_markers(
+            normalized_message,
+            weak_markers,
+            ROUTING_WEAK_MARKER_BONUS,
+            false);
+
+    const auto negative_markers = json_string_list(
+            skill.routing_hints, {"negative_markers", "negativeMarkers"});
+    routing.negative_score += score_routing_markers(
+            normalized_message,
+            negative_markers,
+            ROUTING_NEGATIVE_MARKER_PENALTY,
+            false);
+
+    routing.primary_matched = primary_matched;
+    routing.score = routing.strong_score + routing.weak_score - routing.negative_score;
+    return routing;
+}
+
+bool has_selected_skill(const std::vector<SkillMetadata>& selected, const std::string& name) {
+    return std::any_of(selected.begin(), selected.end(), [&](const SkillMetadata& skill) {
+        return skill.name == name;
+    });
+}
+
+const SkillMetadata* find_available_skill(const std::vector<SkillMetadata>& skills, const std::string& name) {
+    auto it = std::find_if(skills.begin(), skills.end(), [&](const SkillMetadata& skill) {
+        return skill.name == name;
+    });
+    return it == skills.end() ? nullptr : &(*it);
 }
 
 std::vector<std::string> extract_quoted_phrases(const std::string& text) {
@@ -174,6 +365,15 @@ std::vector<std::string> collect_skill_match_phrases(const SkillMetadata& skill)
     };
 
     append_phrase(skill.name);
+
+    // Once a skill declares structured routing_hints, route selection should come
+    // from that contract instead of arbitrary phrases extracted from the skill
+    // body or execution hints. Keep the skill name as an explicit fallback so a
+    // user can still reference the skill directly by name.
+    if (skill.routing_hints.is_object()) {
+        return phrases;
+    }
+
     append_phrase(skill.description);
 
     for (const auto& phrase : extract_quoted_phrases(skill.description)) {
@@ -505,6 +705,8 @@ std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const
     struct ScoredSkill {
         const SkillMetadata* skill = nullptr;
         int score = 0;
+        int phrase_score = 0;
+        RoutingScore routing;
     };
 
     std::vector<ScoredSkill> scored_skills;
@@ -512,7 +714,7 @@ std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const
 
     for (const auto& skill : available_skills_) {
         const auto phrases = collect_skill_match_phrases(skill);
-        int score = 0;
+        int phrase_score = 0;
         for (const auto& phrase : phrases) {
             const std::string normalized_phrase = normalize_for_match(phrase);
             if (normalized_phrase.empty()) {
@@ -521,11 +723,27 @@ std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const
             if (normalized_message.find(normalized_phrase) == std::string::npos) {
                 continue;
             }
-            score += skill_phrase_match_score(normalized_phrase);
+            phrase_score += skill_phrase_match_score(normalized_phrase);
         }
 
+        RoutingScore routing = score_skill_routing(skill, normalized_message);
+        if (routing.has_hints && routing.requires_primary_marker && !routing.primary_matched) {
+            if (phrase_score > 0 || routing.weak_score > 0) {
+                ICRAW_LOG_INFO(
+                        "[MobileAgent][skill_routing_filtered] skill={} reason=requires_primary_marker "
+                        "phrase_score={} weak_score={} negative_score={}",
+                        skill.name,
+                        phrase_score,
+                        routing.weak_score,
+                        routing.negative_score);
+            }
+            continue;
+        }
+
+        const int score = phrase_score + routing.score;
+
         if (score >= PRELOADED_SKILL_MIN_SCORE) {
-            scored_skills.push_back(ScoredSkill{&skill, score});
+            scored_skills.push_back(ScoredSkill{&skill, score, phrase_score, std::move(routing)});
         }
     }
 
@@ -538,8 +756,45 @@ std::vector<SkillMetadata> MobileAgent::select_relevant_skills_for_message(const
 
     std::vector<SkillMetadata> selected;
     selected.reserve(std::min(scored_skills.size(), PRELOADED_SKILL_MAX_COUNT));
-    for (size_t i = 0; i < scored_skills.size() && i < PRELOADED_SKILL_MAX_COUNT; ++i) {
+    for (size_t i = 0; i < scored_skills.size() && selected.size() < PRELOADED_SKILL_MAX_COUNT; ++i) {
         selected.push_back(*scored_skills[i].skill);
+    }
+
+    // Companion skills are declared by the primary skill itself, so code stays generic while
+    // workflows like "send message + resolve contact" can still preload both skills.
+    const size_t selected_before_companions = selected.size();
+    for (size_t i = 0; i < selected_before_companions && selected.size() < PRELOADED_SKILL_MAX_COUNT; ++i) {
+        const auto companion_skills = json_string_list(
+                selected[i].routing_hints, {"companion_skills", "companionSkills"});
+        for (const auto& companion_name : companion_skills) {
+            if (selected.size() >= PRELOADED_SKILL_MAX_COUNT) {
+                break;
+            }
+            if (has_selected_skill(selected, companion_name)) {
+                continue;
+            }
+            const SkillMetadata* companion = find_available_skill(available_skills_, companion_name);
+            if (companion == nullptr) {
+                ICRAW_LOG_INFO(
+                        "[MobileAgent][skill_routing_companion_missing] source_skill={} companion_skill={}",
+                        selected[i].name,
+                        companion_name);
+                continue;
+            }
+            selected.push_back(*companion);
+            ICRAW_LOG_INFO(
+                    "[MobileAgent][skill_routing_companion_added] source_skill={} companion_skill={} score={}",
+                    selected[i].name,
+                    companion_name,
+                    ROUTING_COMPANION_SCORE);
+        }
+    }
+
+    if (!selected.empty()) {
+        ICRAW_LOG_INFO(
+                "[MobileAgent][skill_routing_selected] selected_count={} selected_skills={}",
+                selected.size(),
+                join_skill_names(selected));
     }
     return selected;
 }
