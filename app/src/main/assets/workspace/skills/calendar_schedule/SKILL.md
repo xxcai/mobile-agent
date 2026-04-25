@@ -3,7 +3,7 @@ name: calendar_schedule
 description: 查看日程助手。帮助 Agent 从宿主 App 首页点击底部 Tab「业务」，在业务页面找到「日历」卡片，点击卡片左上角「日历」两个字进入「我的日程」页面，并总结当天日程。当用户询问后续日程安排、今天日程、空闲时间，或要求根据日程安排会议/研讨会时使用此技能；需要根据当前日程中的空闲区间和用户指定的会议时长给出建议。
 always: false
 routing_hints: {"task_type":"schedule_read","strong_markers":["\u67e5\u770b\u65e5\u7a0b","\u4eca\u5929\u65e5\u7a0b","\u65e5\u7a0b\u5b89\u6392","\u65e5\u5386","\u7a7a\u95f2\u65f6\u95f4","\u4ec0\u4e48\u65f6\u5019\u6709\u7a7a","\u5b89\u6392\u4f1a\u8bae","\u7814\u8ba8\u4f1a\u5b89\u6392"],"strong_ordered_pairs":[["\u67e5\u770b","\u65e5\u7a0b"],["\u770b","\u65e5\u7a0b"],["\u4eca\u5929","\u65e5\u7a0b"],["\u5b89\u6392","\u4f1a\u8bae"],["\u7ec4\u7ec7","\u7814\u8ba8\u4f1a"]],"weak_markers":["\u4eca\u5929","\u660e\u5929","\u4e0b\u5348","\u8ba8\u8bba","\u4f1a\u8bae","\u7814\u8ba8\u4f1a"],"negative_markers":["\u53d1\u6d88\u606f","\u53d1\u9001\u6d88\u606f","\u901a\u77e5","\u544a\u8bc9","\u8054\u7cfb"],"requires_primary_marker":true}
-execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","target":"业务","aliases":["业务","业务Tab","工作台","应用","服务","business","workbench"],"region":"bottom","anchor_type":"bottom_tab","container_role":"tab_bar","action":"tap"},{"page":"业务","target":"日历","aliases":["日历","日历卡片","日历标题","calendar"],"anchor_type":"card_title","container_role":"card_grid","action":"tap"},{"page":"我的日程","target":"今日日程","aliases":["我的日程","今日日程","今天","日程","日历"],"action":"readout","goalReached":true}],"stop_condition":{"page_predicates":["我的日程","日程","日历"],"content_predicates":["今天","今日日程","日程"],"success_signals":["我的日程","今日日程","今天"],"failure_signals":["无权限","加载失败","网络异常","未登录"],"requires_readout":true},"readout_contract":{"kind":"visible_schedule_list","fields":["start_time","end_time","title"],"pairing_rules":["只使用当前页面可见的日程文本","将同一行或同一卡片中最近的时间段与标题配对","时间段必须包含开始时间和结束时间，统一输出为 HH:MM-HH:MM","不要把日期、页签、按钮或非日程说明当作日程条目"],"sort":"按 start_time 从早到晚升序排列","output_format":"每条日程使用：HH:MM-HH:MM 标题","uncertainty_policy":"如果时间与标题无法可靠配对，必须说明不确定，不要猜测或编造"}}
+execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","target":"业务","aliases":["业务","业务Tab","工作台","应用","服务","business","workbench"],"region":"bottom","anchor_type":"bottom_tab","container_role":"tab_bar","action":"tap"},{"page":"业务","target":"日历","aliases":["日历","日历卡片","日历标题","calendar"],"anchor_type":"card_title","container_role":"card_grid","action":"tap"},{"page":"我的日程","target":"今日日程","aliases":["我的日程","今日日程","我的日程页面","今日日程列表"],"action":"readout","goalReached":true}],"stop_condition":{"page_predicates":["我的日程","今日日程"],"content_predicates":["我的日程","今日日程"],"success_signals":["我的日程","今日日程"],"failure_signals":["无权限","加载失败","网络异常","未登录"],"requires_readout":true},"readout_contract":{"kind":"visible_schedule_list","fields":["start_time","end_time","title"],"pairing_rules":["只使用当前页面可见的日程文本","将同一行或同一卡片中最近的时间段与标题配对","时间段必须包含开始时间和结束时间，统一输出为 HH:MM-HH:MM","不要把日期、页签、按钮或非日程说明当作日程条目"],"sort":"按 start_time 从早到晚升序排列","output_format":"每条日程使用：HH:MM-HH:MM 标题","uncertainty_policy":"如果时间与标题无法可靠配对，必须说明不确定，不要猜测或编造"}}
 ---
 
 # 查看日程助手
@@ -44,6 +44,7 @@ execution_hints: {"kind":"ui_navigation","steps":[{"activity":"MainActivity","ta
 5. 进入「我的日程」页面后读取当天日程
 
 注意：业务页面中可能有多个卡片或日程相关入口。进入日程时应优先点击卡片左上角标题「日历」，不要点击日期小组件、更多按钮、统计区域或其他相邻卡片。
+只有当页面中明确出现「我的日程」或「今日日程」这类目标页标识时，才算真正进入目标页；业务页中可见的「日历」卡片标题不算到达终态页。
 
 ## 工作流程
 

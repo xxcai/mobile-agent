@@ -169,9 +169,24 @@ bool snapshot_matches_confirmation_previous_page(const ExecutionState& state,
 bool matches_confirmed_arrival_after_action(const ExecutionState& state,
                                             const ObservationSnapshot& snapshot,
                                             const SkillStepHint& next_step) {
-    const std::string page_context = snapshot.activity + " " + snapshot.summary;
-    if (!next_step.page.empty() && contains_runtime_match(page_context, next_step.page)) {
+    // Confirmation after a tap/open must tolerate same-Activity page changes.
+    // In those cases the compact summary may omit the new page title while the
+    // visible text still contains it.
+    const std::string base_page_context = snapshot.activity + " " + snapshot.summary;
+    const std::string page_context = base_page_context + " " + snapshot.visible_text;
+    const bool base_page_hit =
+            !next_step.page.empty() && contains_runtime_match(base_page_context, next_step.page);
+    const bool page_hit =
+            !next_step.page.empty() && contains_runtime_match(page_context, next_step.page);
+    const bool target_visible = snapshot_has_step_target_visible(snapshot, next_step);
+    if (base_page_hit && !next_step.readout) {
         return true;
+    }
+    if (page_hit && !next_step.readout) {
+        const bool page_context_changed = !snapshot_matches_confirmation_previous_page(state, snapshot);
+        if (page_context_changed || target_visible) {
+            return true;
+        }
     }
 
     if (!next_step.activity.empty() && matches_activity_name(snapshot.activity, next_step.activity)) {
@@ -179,7 +194,7 @@ bool matches_confirmed_arrival_after_action(const ExecutionState& state,
                 || !step_requires_visible_target_for_arrival(next_step)) {
             return true;
         }
-        if (snapshot_has_step_target_visible(snapshot, next_step)) {
+        if (target_visible) {
             ICRAW_LOG_INFO(
                     "[AgentLoop][execution_state_arrival_confirmed_by_visible_target] page={} target={} activity={}",
                     next_step.page,
@@ -189,7 +204,11 @@ bool matches_confirmed_arrival_after_action(const ExecutionState& state,
         }
     }
 
-    if (snapshot_has_step_target_visible(snapshot, next_step)) {
+    if (next_step.readout && page_hit && target_visible) {
+        return true;
+    }
+
+    if (target_visible) {
         const bool observation_changed = state.navigation_checkpoint.stagnant_rounds == 0;
         const bool page_context_changed = !snapshot_matches_confirmation_previous_page(state, snapshot);
         if (observation_changed || page_context_changed) {
@@ -354,22 +373,35 @@ void refresh_pending_step_from_observation(ExecutionState& state,
     const size_t start_index = state.pending_step_index > 0
             ? static_cast<size_t>(state.pending_step_index)
             : 0;
+    int best_index = -1;
+    int best_score = 0;
     for (size_t i = start_index; i < steps.size(); ++i) {
-        if (!matches_step_page(snapshot, steps[i])) {
+        const int score = step_page_match_score(snapshot, steps[i]);
+        if (score <= 0) {
             continue;
         }
-        state.pending_step_index = static_cast<int>(i);
-        state.pending_step = build_step_json(steps[i]);
-        state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
-        state.latest_observation_summary = snapshot.summary;
-        state.phase = steps[i].readout ? "readout" : (i == 0 ? "discovery" : "advance");
-        state.goal_reached = steps[i].readout
-                || ((i + 1) == steps.size()
-                    && (steps[i].action.empty() || steps[i].action == "read" || steps[i].action == "readout"));
-        if (state.goal_reached) {
-            state.mode = "free_llm";
+        if (best_index < 0 || score > best_score
+                || (score == best_score && static_cast<int>(i) > best_index)) {
+            best_index = static_cast<int>(i);
+            best_score = score;
         }
+    }
+    if (best_index < 0) {
         return;
+    }
+    const auto& best_step = steps[static_cast<size_t>(best_index)];
+    state.pending_step_index = best_index;
+    state.pending_step = build_step_json(best_step);
+    state.current_page = snapshot.activity.empty() ? snapshot.summary : snapshot.activity;
+    state.latest_observation_summary = snapshot.summary;
+    state.phase = best_step.readout ? "readout" : (best_index == 0 ? "discovery" : "advance");
+    state.goal_reached = best_step.readout
+            || ((static_cast<size_t>(best_index) + 1) == steps.size()
+                && (best_step.action.empty()
+                    || best_step.action == "read"
+                    || best_step.action == "readout"));
+    if (state.goal_reached) {
+        state.mode = "free_llm";
     }
 }
 

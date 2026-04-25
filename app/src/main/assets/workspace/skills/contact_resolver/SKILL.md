@@ -2,6 +2,7 @@
 name: contact_resolver
 description: 联系人解析助手。帮助 Agent 根据姓名、关键词或上一轮候选选择结果，解析出稳定的联系人目标和 contact_id。当用户要给某人发消息、提醒某人、联系某人，且联系人尚未明确时使用。
 always: false
+routing_hints: {"task_type":"contact_resolution","strong_markers":["查找联系人","搜索联系人","找联系人","联系人候选","选择联系人","联系人选择"],"strong_ordered_pairs":[["搜索","联系人"],["查找","联系人"],["选择","联系人"]],"weak_markers":["第一个","第二个","第三个","候选","上面那个","下面那个","这个联系人"],"negative_markers":["查看日程","日历","云空间","打卡"],"requires_primary_marker":false}
 ---
 
 # 联系人解析助手
