@@ -22,6 +22,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import java.lang.ref.WeakReference;
+
 /**
  * 容器Activity - 悬浮球点击后展开的半透明Activity
  * 使用SingleTop模式管理Task栈
@@ -31,6 +33,7 @@ public class ContainerActivity extends AppCompatActivity {
     public static final String SESSION_KEY = "native:container";
     private static final long ENTER_ANIMATION_DURATION_MS = 220L;
     private static final long EXIT_ANIMATION_DURATION_MS = 180L;
+    private static WeakReference<ContainerActivity> sActiveInstanceRef = new WeakReference<>(null);
 
     private FrameLayout mRootLayout;
     private View mScrimView;
@@ -41,6 +44,7 @@ public class ContainerActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sActiveInstanceRef = new WeakReference<>(this);
 
         // 初始化悬浮球管理器并隐藏悬浮球
         mFloatingBallManager = FloatingBallManager.getInstance(this);
@@ -242,6 +246,19 @@ public class ContainerActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        ContainerActivity activeInstance = sActiveInstanceRef.get();
+        if (activeInstance == this) {
+            sActiveInstanceRef = new WeakReference<>(null);
+        }
+    }
+
+    public static boolean finishActiveInstanceForDebug() {
+        ContainerActivity activeInstance = sActiveInstanceRef.get();
+        if (activeInstance == null || activeInstance.isFinishing() || activeInstance.isDestroyed()) {
+            return false;
+        }
+        activeInstance.runOnUiThread(activeInstance::finish);
+        return true;
     }
 
     private int dpToPx(int dp) {
