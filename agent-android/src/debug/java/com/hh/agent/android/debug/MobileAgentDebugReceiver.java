@@ -25,6 +25,8 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
     public static final String EXTRA_TEXT = "text";
     public static final String EXTRA_TEXT_BASE64 = "text_base64";
     private static final String TAG = "MobileAgentDebugReceiver";
+    private static final long SEND_AFTER_INPUT_DELAY_MS = 2000L;
+    private static final long COLLAPSE_AFTER_SEND_DELAY_MS = 2000L;
     private static final long SHOW_AFTER_CONTAINER_FINISH_DELAY_MS = 240L;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -51,10 +53,24 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
 
     private void startSpinnerDryRun(Context context, Intent intent) {
         String dryRunMessage = readTextExtra(intent);
-        boolean messageSent = false;
+        boolean inputFilled = false;
         if (dryRunMessage != null && !dryRunMessage.trim().isEmpty()) {
-            messageSent = AgentFragment.simulateUserMessageSentForDebug(dryRunMessage);
+            inputFilled = AgentFragment.simulateUserMessageSentForDebug(dryRunMessage);
         }
+        if (inputFilled) {
+            mainHandler.postDelayed(() -> {
+                boolean sendClicked = AgentFragment.simulateSendButtonClickForDebug();
+                mainHandler.postDelayed(() -> collapseAndStartWorking(context, sendClicked),
+                        COLLAPSE_AFTER_SEND_DELAY_MS);
+            }, SEND_AFTER_INPUT_DELAY_MS);
+        } else {
+            collapseAndStartWorking(context, false);
+        }
+        AgentLogs.info(TAG, "spinner_start_dryrun",
+                "input_filled=" + inputFilled);
+    }
+
+    private void collapseAndStartWorking(Context context, boolean sendClicked) {
         boolean containerFinishRequested = ContainerActivity.finishActiveInstanceForDebug();
         FloatingBallManager manager = FloatingBallManager.getInstance(context);
         manager.initialize();
@@ -65,9 +81,9 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
         } else {
             manager.show();
         }
-        AgentLogs.info(TAG, "spinner_start_dryrun",
+        AgentLogs.info(TAG, "spinner_working_dryrun",
                 "container_finish_requested=" + containerFinishRequested
-                        + " message_sent=" + messageSent);
+                        + " send_clicked=" + sendClicked);
     }
 
     private void stopSpinnerDryRun(Context context) {

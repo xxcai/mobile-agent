@@ -520,16 +520,47 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
         if (activeInstance == null || !activeInstance.isAdded()) {
             return false;
         }
-        activeInstance.requireActivity().runOnUiThread(() -> activeInstance.appendDryRunMessage(content));
+        activeInstance.requireActivity().runOnUiThread(() -> activeInstance.fillInputForDebug(content));
         return true;
     }
 
-    private void appendDryRunMessage(String content) {
-        if (adapter == null || rvMessages == null) {
+    public static boolean simulateSendButtonClickForDebug() {
+        AgentFragment activeInstance = sActiveInstanceRef.get();
+        if (activeInstance == null || !activeInstance.isAdded()) {
+            return false;
+        }
+        activeInstance.requireActivity().runOnUiThread(activeInstance::appendDryRunMessageFromInput);
+        return true;
+    }
+
+    private void fillInputForDebug(String content) {
+        if (etMessage == null) {
+            return;
+        }
+        etMessage.requestFocus();
+        etMessage.setText(content);
+        etMessage.setSelection(etMessage.getText().length());
+        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(etMessage, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private void appendDryRunMessageFromInput() {
+        if (adapter == null || rvMessages == null || etMessage == null) {
+            return;
+        }
+        String content = etMessage.getText().toString().trim();
+        if (content.isEmpty()) {
             return;
         }
         adapter.removeThinkingMessage();
         adapter.removeAiMessages();
+        etMessage.setText("");
+        InputMethodManager imm = (InputMethodManager) requireContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(etMessage.getWindowToken(), 0);
+        }
 
         Message userMessage = new Message();
         userMessage.setRole("user");

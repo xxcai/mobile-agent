@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fill these coordinates before running.
-TAP_X=""
-TAP_Y=""
-
-# Optional:
+# Template flow:
+#   1. Start MobileAgent dryrun. If --message is provided, it will fill the
+#      input, wait 2s, simulate the send UI, wait 2s, collapse the container,
+#      then start spinner/glow.
+#   2. Run your custom adb input actions in run_middle_actions().
+#   3. Stop spinner/glow.
+#
+# Supported passthrough args:
 #   --serial <device_id>
 #   --package <package_name>
+#   --message <text>
+#   --message-base64 <base64_text>
 ARGS=("$@")
-
-if [[ -z "$TAP_X" || -z "$TAP_Y" ]]; then
-  echo "Please fill TAP_X and TAP_Y in this script before running." >&2
-  exit 2
-fi
 
 sleep_between_steps() {
   sleep "$((2 + RANDOM % 3))"
@@ -51,6 +51,9 @@ extract_serial_args() {
       --package)
         shift 2
         ;;
+      --message|--message-base64)
+        shift 2
+        ;;
       *)
         echo "Unknown argument: $1" >&2
         exit 2
@@ -66,14 +69,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADB_BIN="$(resolve_adb)"
 SERIAL_ARGS="$(extract_serial_args "${ARGS[@]}")"
 
+run_middle_actions() {
+  # Fill your adb actions here. Keep sleep_between_steps between actions.
+  #
+  # Examples:
+  # shellcheck disable=SC2086
+  # "$ADB_BIN" $SERIAL_ARGS shell input tap 540 1600
+  # sleep_between_steps
+  # "$SCRIPT_DIR/mobile-agent-clipboard-paste-dryrun.sh" "${ARGS[@]}" --text "明天休假"
+  # sleep_between_steps
+  :
+}
+
 "$SCRIPT_DIR/mobile-agent-spinner-start-dryrun.sh" "${ARGS[@]}"
 sleep_between_steps
 
-# Fill TAP_X/TAP_Y above. Example:
-#   TAP_X="540"
-#   TAP_Y="1600"
-# shellcheck disable=SC2086
-"$ADB_BIN" $SERIAL_ARGS shell input tap "$TAP_X" "$TAP_Y"
+run_middle_actions
 sleep_between_steps
 
 "$SCRIPT_DIR/mobile-agent-spinner-stop-dryrun.sh" "${ARGS[@]}"
