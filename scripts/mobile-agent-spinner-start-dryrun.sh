@@ -4,6 +4,8 @@ set -euo pipefail
 PACKAGE="com.hh.agent"
 SERIAL=""
 ACTION="com.hh.agent.DEBUG_AGENT_SPINNER_START"
+MESSAGE=""
+MESSAGE_BASE64=""
 
 resolve_adb() {
   if [[ -n "${ADB:-}" ]]; then
@@ -36,6 +38,14 @@ while [[ $# -gt 0 ]]; do
       SERIAL="$2"
       shift 2
       ;;
+    --message)
+      MESSAGE="$2"
+      shift 2
+      ;;
+    --message-base64)
+      MESSAGE_BASE64="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 2
@@ -43,10 +53,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "$MESSAGE" && -n "$MESSAGE_BASE64" ]]; then
+  echo "Use only one of --message or --message-base64." >&2
+  exit 2
+fi
+
 ADB_BIN="$(resolve_adb)"
 ADB_CMD=("$ADB_BIN")
 if [[ -n "$SERIAL" ]]; then
   ADB_CMD+=( -s "$SERIAL" )
 fi
 
-"${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE"
+if [[ -n "$MESSAGE_BASE64" ]]; then
+  "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE" --es text_base64 "$MESSAGE_BASE64"
+elif [[ -n "$MESSAGE" ]]; then
+  "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE" --es text "$MESSAGE"
+else
+  "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE"
+fi

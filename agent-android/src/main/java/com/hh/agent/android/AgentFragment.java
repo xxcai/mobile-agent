@@ -29,6 +29,7 @@ import com.hh.agent.android.voice.VoiceRecognizerHolder;
 import com.hh.agent.core.model.Message;
 import com.hh.agent.core.model.ToolCall;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 /**
@@ -40,6 +41,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
     private static final String ARG_SESSION_KEY = "session_key";
     private static boolean sPermissionGranted = false;
+    private static WeakReference<AgentFragment> sActiveInstanceRef = new WeakReference<>(null);
 
     private RecyclerView rvMessages;
     private EditText etMessage;
@@ -71,6 +73,7 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        sActiveInstanceRef = new WeakReference<>(this);
 
         initViews(view);
 
@@ -494,6 +497,10 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        AgentFragment activeInstance = sActiveInstanceRef.get();
+        if (activeInstance == this) {
+            sActiveInstanceRef = new WeakReference<>(null);
+        }
         if (presenter != null) {
             presenter.detachView();
             // presenter.destroy();   // 移除：不应销毁单例，应保留状态
@@ -506,5 +513,36 @@ public class AgentFragment extends Fragment implements MainContract.MessageListV
             return null;
         }
         return args.getString(ARG_SESSION_KEY);
+    }
+
+    public static boolean simulateUserMessageSentForDebug(String content) {
+        AgentFragment activeInstance = sActiveInstanceRef.get();
+        if (activeInstance == null || !activeInstance.isAdded()) {
+            return false;
+        }
+        activeInstance.requireActivity().runOnUiThread(() -> activeInstance.appendDryRunMessage(content));
+        return true;
+    }
+
+    private void appendDryRunMessage(String content) {
+        if (adapter == null || rvMessages == null) {
+            return;
+        }
+        adapter.removeThinkingMessage();
+        adapter.removeAiMessages();
+
+        Message userMessage = new Message();
+        userMessage.setRole("user");
+        userMessage.setContent(content);
+        userMessage.setTimestamp(System.currentTimeMillis());
+        adapter.addMessage(userMessage);
+
+        Message thinkingMsg = new Message();
+        thinkingMsg.setRole("thinking");
+        thinkingMsg.setContent("MobileAgent 正在思考...");
+        thinkingMsg.setTimestamp(System.currentTimeMillis());
+        adapter.addMessage(thinkingMsg);
+
+        rvMessages.scrollToPosition(adapter.getItemCount() - 1);
     }
 }

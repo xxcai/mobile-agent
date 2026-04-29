@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
 
+import com.hh.agent.android.AgentFragment;
 import com.hh.agent.android.floating.ContainerActivity;
 import com.hh.agent.android.floating.FloatingBallManager;
 import com.hh.agent.android.log.AgentLogs;
@@ -36,7 +37,7 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         AgentLogs.info(TAG, "broadcast_received", "action=" + action);
         if (ACTION_SPINNER_START.equals(action)) {
-            mainHandler.post(() -> startSpinnerDryRun(context.getApplicationContext()));
+            mainHandler.post(() -> startSpinnerDryRun(context.getApplicationContext(), intent));
             return;
         }
         if (ACTION_SPINNER_STOP.equals(action)) {
@@ -48,7 +49,12 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
         }
     }
 
-    private void startSpinnerDryRun(Context context) {
+    private void startSpinnerDryRun(Context context, Intent intent) {
+        String dryRunMessage = readTextExtra(intent);
+        boolean messageSent = false;
+        if (dryRunMessage != null && !dryRunMessage.trim().isEmpty()) {
+            messageSent = AgentFragment.simulateUserMessageSentForDebug(dryRunMessage);
+        }
         boolean containerFinishRequested = ContainerActivity.finishActiveInstanceForDebug();
         FloatingBallManager manager = FloatingBallManager.getInstance(context);
         manager.initialize();
@@ -60,7 +66,8 @@ public class MobileAgentDebugReceiver extends BroadcastReceiver {
             manager.show();
         }
         AgentLogs.info(TAG, "spinner_start_dryrun",
-                "container_finish_requested=" + containerFinishRequested);
+                "container_finish_requested=" + containerFinishRequested
+                        + " message_sent=" + messageSent);
     }
 
     private void stopSpinnerDryRun(Context context) {
