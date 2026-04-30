@@ -36,6 +36,9 @@ while [[ $# -gt 0 ]]; do
       SERIAL="$2"
       shift 2
       ;;
+    --message|--message-base64)
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 2

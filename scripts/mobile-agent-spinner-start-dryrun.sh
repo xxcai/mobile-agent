@@ -28,6 +28,10 @@ resolve_adb() {
   exit 127
 }
 
+encode_base64() {
+  printf '%s' "$1" | base64 | tr -d '\n'
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --package)
@@ -67,7 +71,7 @@ fi
 if [[ -n "$MESSAGE_BASE64" ]]; then
   "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE" --es text_base64 "$MESSAGE_BASE64"
 elif [[ -n "$MESSAGE" ]]; then
-  "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE" --es text "$MESSAGE"
+  "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE" --es text_base64 "$(encode_base64 "$MESSAGE")"
 else
   "${ADB_CMD[@]}" shell am broadcast -a "$ACTION" -p "$PACKAGE"
 fi

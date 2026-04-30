@@ -14,9 +14,35 @@ set -euo pipefail
 #   --message <text>
 #   --message-base64 <base64_text>
 ARGS=("$@")
+COMMON_SCRIPT_ARGS=()
+SERIAL_ARGS=""
 
 sleep_between_steps() {
-  sleep "$((2 + RANDOM % 3))"
+  local seconds="${1:-}"
+  if [[ -z "$seconds" ]]; then
+    seconds="$((4 + RANDOM % 3))"
+  fi
+  sleep "$seconds"
+}
+
+log_step() {
+  printf '[mobile-agent-dryrun] %s\n' "$*"
+}
+
+adb_tap() {
+  local x="$1"
+  local y="$2"
+  log_step "tap x=$x y=$y"
+  # shellcheck disable=SC2086
+  "$ADB_BIN" $SERIAL_ARGS shell input tap "$x" "$y"
+}
+
+adb_text() {
+  local text="$1"
+  local adb_text="${text// /%s}"
+  log_step "input text=$text"
+  # shellcheck disable=SC2086
+  "$ADB_BIN" $SERIAL_ARGS shell input text "$adb_text"
 }
 
 resolve_adb() {
@@ -40,15 +66,17 @@ resolve_adb() {
   exit 127
 }
 
-extract_serial_args() {
+parse_common_args() {
   local serial=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --serial)
         serial="$2"
+        COMMON_SCRIPT_ARGS+=(--serial "$2")
         shift 2
         ;;
       --package)
+        COMMON_SCRIPT_ARGS+=(--package "$2")
         shift 2
         ;;
       --message|--message-base64)
@@ -61,13 +89,13 @@ extract_serial_args() {
     esac
   done
   if [[ -n "$serial" ]]; then
-    echo "-s $serial"
+    SERIAL_ARGS="-s $serial"
   fi
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADB_BIN="$(resolve_adb)"
-SERIAL_ARGS="$(extract_serial_args "${ARGS[@]}")"
+parse_common_args "${ARGS[@]}"
 
 run_middle_actions() {
   # Fill your adb actions here. Keep sleep_between_steps between actions.
@@ -76,15 +104,34 @@ run_middle_actions() {
   # shellcheck disable=SC2086
   # "$ADB_BIN" $SERIAL_ARGS shell input tap 540 1600
   # sleep_between_steps
-  # "$SCRIPT_DIR/mobile-agent-clipboard-paste-dryrun.sh" "${ARGS[@]}" --text "明天休假"
+  # adb_text "take notes"
   # sleep_between_steps
-  :
+  sleep_between_steps
+  adb_tap 75 200
+  sleep_between_steps
+  adb_tap 400 1000
+  sleep_between_steps
+  adb_tap 425 2250
+  sleep_between_steps
+  adb_tap 180 1950
+  sleep_between_steps
+  adb_tap 500 1200
+  sleep_between_steps
+  adb_text "Hello World"
 }
 
+log_step "start dryrun"
 "$SCRIPT_DIR/mobile-agent-spinner-start-dryrun.sh" "${ARGS[@]}"
-sleep_between_steps
 
+# App-side start flow is asynchronous:
+# fill input -> wait 2s -> simulate send -> wait 2s -> collapse -> show spinner/glow.
+# Wait long enough before running the external adb actions.
+log_step "wait for start flow to collapse container"
+sleep 6
+
+log_step "run middle adb actions"
 run_middle_actions
 sleep_between_steps
 
+log_step "stop dryrun"
 "$SCRIPT_DIR/mobile-agent-spinner-stop-dryrun.sh" "${ARGS[@]}"
